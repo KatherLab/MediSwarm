@@ -1,4 +1,4 @@
-from models import ResNet, VisionTransformer, EfficientNet, EfficientNet3D, EfficientNet3Db7, DenseNet121, UNet3D
+from models import ResNet, VisionTransformer, EfficientNet, DenseNet121, UNet3D
 
 
 def select_model(model_name: str):
@@ -62,7 +62,7 @@ def select_model(model_name: str):
                     "r3_k3_s11_e6_i384_o640_se0.25"
                 ],
             }[model_name[-2:]]  # Extract b0, b4, b7 from model_name
-            model = EfficientNet3D(in_ch=1, out_ch=1, spatial_dims=3, blocks_args_str=blocks_args_str)
+            model = EfficientNet(in_ch=1, out_ch=1, spatial_dims=3)
         elif model_name == 'DenseNet121':
             model = DenseNet121(in_ch=1, out_ch=1, spatial_dims=3)
         elif model_name == 'UNet3D':
