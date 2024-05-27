@@ -1,0 +1,26 @@
+# Use a simple base image
+FROM python:3.10-slim
+
+# Specify the NVFlare version
+ARG NVF_VERSION=2.4.0
+ENV NVF_BRANCH=${NVF_VERSION}
+
+# Set the Python version
+ENV PYTHON_VERSION=3.10.14
+
+# Install specific versions of pip and setuptools
+RUN python -m pip install -U pip==23.3.1 \
+    && python -m pip install -U setuptools==69.5.1
+
+# Install NVFlare
+RUN python -m pip install nvflare==2.4.1
+
+# Set the working directory
+WORKDIR /workspace/
+
+# Set the Docker image name
+LABEL name="nvflare-pt-dev:nfcore"
+
+# Optional: expose a port or set any other necessary environment variables
+# EXPOSE 8080
+# ENV SOME_ENV_VARIABLE=some_value
