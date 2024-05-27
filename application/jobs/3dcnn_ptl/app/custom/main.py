@@ -1,5 +1,3 @@
-from pathlib import Path
-from datetime import datetime
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 from collections import Counter
@@ -8,18 +6,28 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 import nvflare.client.lightning as flare
-import nvflare.client as flare_util
-
-from data.datasets import DUKE_Dataset3D
 from data.datamodules import DataModule
 from model_selector import select_model
 from env_config import load_environment_variables, load_prediction_modules, prepare_dataset, generate_run_directory
+import nvflare.client as flare_util
 
 import os
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+flare_util.init()
+
+SITE_NAME=flare.get_site_name()
+
+#TODO: Set max_epochs based on the data set size
+if SITE_NAME == "manual_dl3":
+    MAX_EPOCHS = 2
+elif SITE_NAME == "manual_dl2":
+    MAX_EPOCHS = 4
+elif SITE_NAME == "manual_dl0":
+    MAX_EPOCHS = 8
 
 def main():
     """
@@ -30,7 +38,7 @@ def main():
         logger.info(f'Model name: {env_vars["model_name"]}')
 
         predict, prediction_flag = load_prediction_modules(env_vars['prediction_flag'])
-        ds, task_data_name = prepare_dataset(env_vars['task_data_name'], env_vars['data_dir'])
+        ds, task_data_name = prepare_dataset(env_vars['task_data_name'], env_vars['data_dir'], site_name=SITE_NAME)
         path_run_dir = generate_run_directory(env_vars['scratch_dir'], env_vars['task_data_name'], env_vars['model_name'], env_vars['local_compare_flag'])
 
         accelerator = 'gpu' if torch.cuda.is_available() else 'cpu'
@@ -69,8 +77,8 @@ def main():
         logger.info(f'Val size: {val_size}')
 
         max_epochs = env_vars['max_epochs']
-        cal_max_epochs = cal_max_epochs(max_epochs, cal_weightage(train_size))
-        logger.info(f"Max epochs set to: {cal_max_epochs}")
+        #cal_max_epochs = cal_max_epochs(max_epochs, cal_weightage(train_size))
+        #logger.info(f"Max epochs set to: {cal_max_epochs}")
 
         dm = DataModule(
             ds_train=ds_train,
@@ -105,7 +113,7 @@ def main():
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
-            max_epochs=cal_max_epochs,
+            max_epochs=5,
             num_sanity_val_steps=2,
             logger=TensorBoardLogger(save_dir=path_run_dir)
         )

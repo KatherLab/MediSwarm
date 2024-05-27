@@ -12,7 +12,7 @@ import pandas as pd
 from data.datasets import DUKE_Dataset3D, DUKE_Dataset3D_external, DUKE_Dataset3D_collab
 from data.datamodules import DataModule
 from utils.roc_curve import plot_roc_curve, cm2acc, cm2x
-from models import ResNet, VisionTransformer, EfficientNet, EfficientNet3D, EfficientNet3Db7, DenseNet121, UNet3D
+from models import ResNet, VisionTransformer, EfficientNet, DenseNet121, UNet3D
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
