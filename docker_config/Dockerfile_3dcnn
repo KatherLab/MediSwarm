@@ -3,7 +3,7 @@ ARG PYTORCH_IMAGE=pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
 FROM ${PYTORCH_IMAGE}
 
 # Specify the NVFlare version
-ARG NVF_VERSION=2.4.0
+ARG NVF_VERSION=2.4.1
 ENV NVF_BRANCH=${NVF_VERSION}
 
 # Set the Python version
@@ -13,8 +13,7 @@ ENV PYTHON_VERSION=3.10.14
 RUN python3 -m pip install -U pip==23.3.1
 RUN python3 -m pip install -U setuptools==69.5.1
 
-# Install NVFlare
-RUN python3 -m pip install nvflare==2.4.1
+
 
 # Install additional Python packages
 RUN python3 -m pip install \
@@ -36,6 +35,13 @@ RUN python3 -m pip install \
 
 # Set the working directory
 WORKDIR /workspace/
+
+# Copy the modified NVFlare source code into the image
+# (Assuming you have your modified nvflare source code in a local directory named 'nvflare')
+COPY ./nvflare /workspace/nvflare
+
+# Install NVFlare from the local source
+RUN python -m pip install /workspace/nvflare
 
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:3dcnn"

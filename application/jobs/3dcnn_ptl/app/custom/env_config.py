@@ -6,8 +6,8 @@ def load_environment_variables():
     """Load environment variables and return them as a dictionary."""
     return {
         'task_data_name': os.getenv('DATA_FOLDER', 'DUKE'),
-        'scratch_dir': os.getenv('SCRATCH_DIR', '/tmp/scratch'),
-        'data_dir': os.getenv('DATA_DIR', '/mnt/swarm_alpha/odelia_dataset_divided'),
+        'scratch_dir': os.getenv('SCRATCH_DIR', '/scratch/'),
+        'data_dir': os.getenv('DATA_DIR', '/data/'),
         'max_epochs': int(os.getenv('MAX_EPOCHS', 100)),
         'min_peers': int(os.getenv('MIN_PEERS', 2)),
         'max_peers': int(os.getenv('MAX_PEERS', 7)),
