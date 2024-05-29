@@ -1,0 +1,94 @@
+api_version: 3
+name: 3dcnn_ptl_HA
+description: >
+  NVIDIA FLARE project YAML file for configuring a federated learning environment with High Availability (HA).
+  focused on 3D convolutional neural networks (3D CNNs) using PyTorch Lightning (PTL).
+  This configuration includes the a primary server and a secondary server, one overseer, one admin, and three client settings, certificate handling,
+  and Docker image specifications for seamless deployment and management of the
+  federated learning system. 
+
+participants:
+  - name: dl2.tud.de
+    type: overseer
+    org: tud
+    protocol: https
+    api_root: /api/v1
+    port: 8443
+  # change example.com to the FQDN of the server
+  - name: dl3.tud.de
+    type: server
+    org: tud
+    fed_learn_port: 8002
+    admin_port: 8003
+  - name: dl0.tud.de
+    type: server
+    org: tud
+    fed_learn_port: 8102
+    admin_port: 8103
+  - name: tud_dl3
+    type: client
+    org: tud
+    # listening_host will enable creating one pair of cert/private key for this client
+    # so it can behave like a server for client api.  The value must be a hostname that
+    # client api can reach via network.
+    # listening_host: site-1-lh
+  - name: tud_dl2
+    type: client
+    org: tud
+  - name: tud_dl0
+    type: client
+    org: tud
+  - name: jiefu.zhu@tu-dresden.de
+    type: admin
+    org: tud
+    role: project_admin
+
+# The same methods in all builders are called in their order defined in builders section
+builders:
+  - path: nvflare.lighter.impl.workspace.WorkspaceBuilder
+    args:
+      template_file: master_template.yml
+  - path: nvflare.lighter.impl.template.TemplateBuilder
+ # - path: nvflare.lighter.impl.docker.DockerBuilder
+    #args:
+      # base_image: jefftud/nvflare-pt-dev:base
+      #requirements_file: docker_compose_requirements.txt
+  - path: nvflare.lighter.impl.helm_chart.HelmChartBuilder
+    args:
+      docker_image: localhost:32000/nvfl-min:0.0.1
+  - path: nvflare.lighter.impl.static_file.StaticFileBuilder
+    args:
+      # config_folder can be set to inform NVIDIA FLARE where to get configuration
+      config_folder: config
+
+      # scheme for communication driver (currently supporting the default, grpc, only).
+      # scheme: grpc
+
+      # app_validator is used to verify if uploaded app has proper structures
+      # if not set, no app_validator is included in fed_server.json
+      # app_validator: PATH_TO_YOUR_OWN_APP_VALIDATOR
+
+      # when docker_image is set to a docker image name, docker.sh will be generated on server/client/admin
+      docker_image: jefftud/nvflare-pt-dev:3dcnn
+
+      # download_job_url is set to http://download.server.com/ as default in fed_server.json.  You can override this
+      # to different url.
+      # download_job_url: http://download.server.com/
+
+      overseer_agent:
+        path: nvflare.ha.overseer_agent.HttpOverseerAgent
+        # if overseer_exists is true, args here are ignored.  Provisioning
+        #   tool will fill role, name and other local parameters automatically.
+        # if overseer_exists is false, args in this section will be used.
+        overseer_exists: true
+        # args:
+        #   sp_end_point: example1.com.8002:8003
+
+  - path: nvflare.lighter.impl.cert.CertBuilder
+  # - path: nvflare.lighter.impl.he.HEBuilder
+  #   args:
+  #     poly_modulus_degree: 8192
+  #     coeff_mod_bit_sizes: [60, 40, 40]
+  #     scale_bits: 40
+  #     scheme: CKKS
+  - path: nvflare.lighter.impl.signature.SignatureBuilder
