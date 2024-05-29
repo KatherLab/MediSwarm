@@ -46,9 +46,6 @@ ENV PYTHONPATH=/workspace/controller
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:nfcore"
 
-# Set a default command to run when the container starts
-CMD ["/bin/bash"]
-
 # Optional: expose a port or set any other necessary environment variables
 EXPOSE 443
 # ENV SOME_ENV_VARIABLE=some_value
