@@ -38,10 +38,23 @@ WORKDIR /workspace/
 
 # Copy the modified NVFlare source code into the image
 # (Assuming you have your modified nvflare source code in a local directory named 'nvflare')
-COPY ./nvflare /workspace/nvflare
+COPY ./NVFlare /workspace/nvflare
 
 # Install NVFlare from the local source
 RUN python -m pip install /workspace/nvflare
+
+COPY ./NVFlare/dashboard /workspace/nvflare/dashboard
+
+COPY ../controller /workspace/controller
+# Install the controller package
+RUN python -m pip install /workspace/controller
+
+# Set python path
+ENV PYTHONPATH=/workspace/controller
+
+# Set a default command to run when the container starts
+CMD ["/bin/bash"]
+
 
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:3dcnn"
