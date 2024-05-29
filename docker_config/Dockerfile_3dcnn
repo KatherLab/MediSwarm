@@ -52,9 +52,5 @@ RUN python -m pip install /workspace/controller
 # Set python path
 ENV PYTHONPATH=/workspace/controller
 
-# Set a default command to run when the container starts
-CMD ["/bin/bash"]
-
-
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:3dcnn"
