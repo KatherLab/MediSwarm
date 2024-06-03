@@ -34,7 +34,7 @@ cd MediSwarm
 1. Run with docker env:
 ```bash
 # Set the DATADIR variable
-export DATADIR=/mnt/swarm_alpha/odelia_dataset_divided/
+export DATADIR=<your_data_directory>
 # Run the Docker container
 docker run -it --rm \
     --shm-size=16g \
