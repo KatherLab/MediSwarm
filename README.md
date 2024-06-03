@@ -60,7 +60,7 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
     nvflare simulator -w /tmp/3dcnn_ptl -n 2 -t 2 application/jobs/3dcnn_ptl -c manual_dl0,manual_dl3
     ```
 
-    For more details on using the simulator, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/main/quick_start.html#quick-start-with-simulator).
+    For more details on using the simulator, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/2.4.1/getting_started.html#quick-start-with-simulator).
 
 3. **Run POC Mode:**
 
@@ -78,11 +78,13 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
     nvflare poc start
     ```
 
-    For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/main/poc_commands.html).
+    For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
 
 4. **Run Production Mode:**
 
-    Production mode is secure and suitable for real-world deployments, supporting local or remote, on-premise or cloud setups.
+    Production mode is secure and suitable for real-world deployments, supporting local or remote, on-premise or cloud setups. For more information, refer to the [NVFLARE Production Mode](https://nvflare.readthedocs.io/en/2.4.1/real_world_fl.html).
+
+    ```bash
 
     **Set hosts correctly in `/etc/hosts`:**
 
@@ -107,6 +109,8 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
     ```
 
     Access the dashboard at `https://localhost:443`. After project admin configuration, clients download the startup kits and run the following commands to join the server:
+    
+    For more information on the NVFLARE dashboard, see the [NVFLARE Dashboard](https://nvflare.readthedocs.io/en/2.4.1/user_guide/dashboard_ui.html).
 
     ```bash
     ./docker.sh
