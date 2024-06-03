@@ -23,74 +23,98 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
 #### Operating System
 * Ubuntu 20.04 LTS
 
-## Usage for developers
+## Usage for Developers
+
 ### Setup
-0.  Clone the repository:
-```bash
-git clone https://github.com/KatherLab/MediSwarm.git
-cd MediSwarm
-```
 
-1. Run with docker env:
-```bash
-# Set the DATADIR variable
-export DATADIR=<your_data_directory>
-# Run the Docker container
-docker run -it --rm \
-    --shm-size=16g \
-    --ipc=host \
-    --ulimit memlock=-1 \
-     --ulimit stack=67108864 \
-    -v ./docker_config/NVFlare:/workspace/nvflare \
-    --gpus=all \
-    -v ./:/workspace \
-    -v $DATADIR:/data \
-    jefftud/nvflare-pt-dev:3dcnn
-```
+0. **Clone the repository:**
 
-2. Run simulator
-```bash
-nvflare simulator -w /tmp/3dcnn_ptl -n 2 -t 2 application/jobs/3dcnn_ptl -c manual_dl0,manual_dl3
-```
+    ```bash
+    git clone https://github.com/KatherLab/MediSwarm.git
+    cd MediSwarm
+    ```
 
-3. Run the POC mode
-```bash
+1. **Run with Docker Environment:**
 
-# with docker(need to enable docker in docker)
-nvflare poc prepare -c manual_dl0 manual_dl3 -d jefftud/nvflare-pt-dev:3dcnn
-# without docker
-nvflare poc prepare -c manual_dl0 manual_dl3
+    ```bash
+    # Set the DATADIR variable
+    export DATADIR=<your_data_directory>
+    # Run the Docker container
+    docker run -it --rm \
+        --shm-size=16g \
+        --ipc=host \
+        --ulimit memlock=-1 \
+        --ulimit stack=67108864 \
+        -v ./docker_config/NVFlare:/workspace/nvflare \
+        --gpus=all \
+        -v ./:/workspace \
+        -v $DATADIR:/data \
+        jefftud/nvflare-pt-dev:3dcnn
+    ```
 
-nvflare poc prepare-jobs-dir -j application/jobs/
+2. **Run Simulator:**
 
-# start poc
-nvflare poc start
-```
+    The FL Simulator is a lightweight tool that uses threads to simulate different clients. This is useful for quick research runs and debugging applications locally.
 
-4. Run production mode
-Set hosts correctly:
-<IP>	dl3.tud.de dl3
+    ```bash
+    nvflare simulator -w /tmp/3dcnn_ptl -n 2 -t 2 application/jobs/3dcnn_ptl -c manual_dl0,manual_dl3
+    ```
 
-```bash
-docker run -it --rm \
-    --ipc=host \
-    -v ./docker_config/NVFlare:/workspace/nvflare \
-    -v ./:/workspace \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    jefftud/nvflare-pt-dev:nfcore \
-    /bin/bash
+    For more details on using the simulator, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/main/quick_start.html#quick-start-with-simulator).
 
-nvflare dashboard --port 443 --start -i jefftud/nvflare-pt-dev:nfcore --cred jiefu.zhu@tu-dresden.de:914454
-```
-Access the dashboard at https://localhost:443
-After project admin configuration, clients download the startup kits and run the following command to join the server:
-```bash
-./docker.sh
-cd startup
-./start.sh
-```
-Admin submit the job and initiate the training by:
-login with admin user email, submit job folder.
+3. **Run POC Mode:**
+
+    Proof of Concept (POC) mode allows for quick local setups on a single machine, where the FL server and clients run in different processes or Docker containers.
+
+    ```bash
+    # With Docker (requires Docker in Docker)
+    nvflare poc prepare -c manual_dl0 manual_dl3 -d jefftud/nvflare-pt-dev:3dcnn
+    # Without Docker
+    nvflare poc prepare -c manual_dl0 manual_dl3
+
+    nvflare poc prepare-jobs-dir -j application/jobs/
+
+    # Start POC
+    nvflare poc start
+    ```
+
+    For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/main/poc_commands.html).
+
+4. **Run Production Mode:**
+
+    Production mode is secure and suitable for real-world deployments, supporting local or remote, on-premise or cloud setups.
+
+    **Set hosts correctly in `/etc/hosts`:**
+
+    Edit your `/etc/hosts` file to include the following line, replacing `<IP>` with the actual IP address of the server:
+
+    ```plaintext
+    <IP>    dl3.tud.de dl3
+    ```
+
+    This line maps the hostname `dl3.tud.de` to the IP address of the server, ensuring proper network communication.
+
+    ```bash
+    docker run -it --rm \
+        --ipc=host \
+        -v ./docker_config/NVFlare:/workspace/nvflare \
+        -v ./:/workspace \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        jefftud/nvflare-pt-dev:nfcore \
+        /bin/bash
+
+    nvflare dashboard --port 443 --start -i jefftud/nvflare-pt-dev:nfcore
+    ```
+
+    Access the dashboard at `https://localhost:443`. After project admin configuration, clients download the startup kits and run the following commands to join the server:
+
+    ```bash
+    ./docker.sh
+    cd startup
+    ./start.sh
+    ```
+
+    Admin submits the job and initiates the training by logging in with the admin user email and submitting the job folder.
 
 
 
