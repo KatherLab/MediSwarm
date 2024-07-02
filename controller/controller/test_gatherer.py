@@ -1,0 +1,78 @@
+import unittest
+from unittest.mock import MagicMock
+
+from swarm_client_ctl import Gatherer
+
+from nvflare.apis.shareable import Shareable
+from nvflare.apis.fl_context import FLContext
+from nvflare.app_common.ccwf.client_ctl import ClientSideController
+from nvflare.app_common.abstract.aggregator import Aggregator
+from nvflare.app_common.abstract.metric_comparator import MetricComparator
+
+class TestGatherer(unittest.TestCase):
+    CLIENT_THAT_TRAINS = 'client_a'
+    CLIENT_THAT_DOES_NOT_TRAIN = 'client_b'
+    def setUp(self):
+        # TODO think about if this makes sense as a generic setup or if different tests require different setup
+        self.fl_context = FLContext()
+        self.gatherer = Gatherer(task_data = MagicMock(Shareable),
+                                 fl_ctx = self.fl_context,
+                                 for_round = 0,
+                                 executor = MagicMock(ClientSideController),
+                                 aggregator = MagicMock(Aggregator),
+                                 metric_comparator = MagicMock(MetricComparator),
+                                 all_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_DOES_NOT_TRAIN],
+                                 trainers =  [self.CLIENT_THAT_TRAINS],
+                                 min_responses_required = 1,
+                                 wait_time_after_min_resps_received = 1,
+                                 timeout = 1)
+
+    def test_default_gatherer_is_not_done(self):
+        print("This test does not work yet.")
+        return
+        # TODO use one of the following lines, depending on whether a return value of None is OK, if it needs to be False, etc.
+        #      self.assertFalse(self.gatherer.is_done())
+        #      assert(self.gatherer.is_done() == False)  # self.assertFalse(arg) only checks for "not arg"
+        #      or something else if a dummy Gatherer is expected to be done
+
+    def test_gatherer_is_done(self):
+        print("This test is not implemented yet.")
+        # TODO Think about which different scenarios to test when Gatherer is done and when it is not.
+        #      We probably at least have the cases
+        #        ‣ all finished → is done
+        #        ‣ timeout
+        #        ‣ minimum number not received after grace period, exactly minimum number received, more than minimum number received [not sure I understood the logic correctly]
+
+    def test_gathering_todo_expected_behavior(self):
+        print("This test is not implemented yet.")
+        # TODO Think about which different scenarios to test, what the expected behavior is, and how to implement these tests (probably as multiple methods, probably by setting up real objects rather than mocking (too much to mock)?)
+        #      We probably at least have the cases
+        #        ‣ valid result from correct round from trainer
+        #        ‣ received result from non-trainer
+        #        ‣ received early result from trainer
+        #        ‣ received late  result from trainer
+        #        ‣ received bad result
+        #        ‣ exception thrown
+        #      and may want to check in each case
+        #        ‣ that correct information was logged
+        #        ‣ return values
+        #        ‣ exceptions (in case an exception is expected, the test for non-occurring exceptions is implicit)
+        #        ‣ state of the gatherer
+        #        ‣ event fired?
+
+    def test_aggregating_todo_expected_behavior(self):
+        print("This test is not implemented yet.")
+        # TODO Think about which different scenarios to test, what the expected behavior is, and how to implement these tests (probably as multiple methods, probably by setting up real objects rather than mocking (too much to mock)?)
+        #      We probably at least have the cases
+        #        ‣ best result from this client
+        #        ‣ best result from other client
+        #        ‣ tie (equally good results) from other clients
+        #        ‣ tie between this and other client
+        #        ‣ Do we need to consider cases of NaN, Inf, zero, negative results?
+        #        ‣ exception thrown
+        #      and may want to check in each case
+        #        ‣ that correct information was logged
+        #        ‣ return values
+        #        ‣ exceptions (in case an exception is expected, the test for non-occurring exceptions is implicit)
+        #        ‣ state of the gatherer
+        #        ‣ event fired?
