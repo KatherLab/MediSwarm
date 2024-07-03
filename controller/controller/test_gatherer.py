@@ -32,7 +32,7 @@ class TestGatherer(unittest.TestCase):
         return
         # TODO use one of the following lines, depending on whether a return value of None is OK, if it needs to be False, etc.
         #      self.assertFalse(self.gatherer.is_done())
-        #      assert(self.gatherer.is_done() == False)  # self.assertFalse(arg) only checks for "not arg"
+        #      self.assertEqual(self.gatherer.is_done(), False)  # self.assertFalse(arg) only checks for "not arg"
         #      or something else if a dummy Gatherer is expected to be done
 
     def test_gatherer_is_done(self):
