@@ -83,13 +83,13 @@ WORKDIR /workspace/
 COPY ./NVFlare /workspace/nvflare
 
 # Install NVFlare from the local source
-RUN python -m pip install /workspace/nvflare
+RUN python3 -m pip install /workspace/nvflare
 
 COPY ./NVFlare/dashboard /workspace/nvflare/dashboard
 
 COPY ../controller /workspace/controller
 # Install the controller package
-RUN python -m pip install /workspace/controller
+RUN python3 -m pip install /workspace/controller
 
 # Set python path
 ENV PYTHONPATH=/workspace/controller
