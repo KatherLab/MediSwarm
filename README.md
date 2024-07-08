@@ -19,7 +19,7 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
 * an NVIDIA GPU with 48 GB of RAM (24 is the  minimum)
 * 8 TB of Storage (4 TB is the absolute minimum)
 * We deliberately want to show that we can work with lightweight hardware like this. Here are three quotes for systems like this for less than 10k EUR (Lambda, Dell Precision, and Dell Alienware)
-  
+
 #### Operating System
 * Ubuntu 20.04 LTS
 
@@ -109,7 +109,7 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
     ```
 
     Access the dashboard at `https://localhost:443`. After project admin configuration, clients download the startup kits and run the following commands to join the server:
-    
+
     For more information on the NVFLARE dashboard, see the [NVFLARE Dashboard](https://nvflare.readthedocs.io/en/2.4.1/user_guide/dashboard_ui.html).
 
     ```bash
@@ -120,7 +120,22 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
 
     Admin submits the job and initiates the training by logging in with the admin user email and submitting the job folder.
 
+## Unit Tests
 
+### Create Docker Image
+
+Build docker image nvflare-pt-dev:testing from docker_config/Dockerfile_testing:
+
+```bash
+cd docker_setup
+docker build . -t nvflare-pt-dev:testing -f Dockerfile_testing
+```
+
+### Run Tests
+
+```bash
+./runTestsInDocker.sh
+```
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
