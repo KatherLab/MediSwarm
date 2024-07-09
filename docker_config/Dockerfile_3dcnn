@@ -82,9 +82,10 @@ WORKDIR /workspace/
 # (Assuming you have your modified nvflare source code in a local directory named 'nvflare')
 COPY ./NVFlare /workspace/nvflare
 
-# Install NVFlare from the local source and dependencies at defined versions
+# Install NVFlare from the local source and dependencies at defined versions (except nvflare-nightly)
 RUN python3 -m pip install \
     /workspace/nvflare \
+    nvflare-nightly \
     Flask==3.0.2 \
     Flask-JWT-Extended==4.6.0 \
     Flask-SQLAlchemy==3.1.1 \
@@ -98,7 +99,6 @@ RUN python3 -m pip install \
     gunicorn==22.0.0 \
     itsdangerous==2.2.0 \
     msgpack==1.0.8 \
-    nvflare-nightly==2.3.0.dev240708 \
     protobuf==4.24.4 \
     psutil==6.0.0 \
     pyhocon==0.3.61 \
