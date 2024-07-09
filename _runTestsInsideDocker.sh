@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# run NVFlare's tests (takes about 2 minutes)
+# run NVFlare's unit tests (takes about 2 minutes), does not include NVFlare's integration tests yet
 # cd nvflare
 # ./runtest.sh
 # cd ..
