@@ -3,7 +3,8 @@ from unittest.mock import MagicMock
 
 from swarm_client_ctl import Gatherer
 
-from nvflare.apis.shareable import Shareable
+from nvflare.apis.shareable import Shareable, make_reply
+from nvflare.apis.fl_constant import ReturnCode
 from nvflare.apis.fl_context import FLContext
 from nvflare.app_common.ccwf.client_ctl import ClientSideController
 from nvflare.app_common.abstract.aggregator import Aggregator
@@ -15,11 +16,12 @@ class TestGatherer(unittest.TestCase):
     def setUp(self):
         # TODO think about if this makes sense as a generic setup or if different tests require different setup
         self.fl_context = FLContext()
+        self.aggregator = MagicMock(Aggregator)
         self.gatherer = Gatherer(task_data = MagicMock(Shareable),
                                  fl_ctx = self.fl_context,
                                  for_round = 0,
                                  executor = MagicMock(ClientSideController),
-                                 aggregator = MagicMock(Aggregator),
+                                 aggregator = self.aggregator,
                                  metric_comparator = MagicMock(MetricComparator),
                                  all_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_DOES_NOT_TRAIN],
                                  trainers =  [self.CLIENT_THAT_TRAINS],
@@ -59,6 +61,11 @@ class TestGatherer(unittest.TestCase):
         #        ‣ exceptions (in case an exception is expected, the test for non-occurring exceptions is implicit)
         #        ‣ state of the gatherer
         #        ‣ event fired?
+
+    def test_aggregating_returns_error_on_exception_during_aggregation(self):
+        self.aggregator.aggregate.side_effect=Exception("foo")
+        self.assertEqual(make_reply(ReturnCode.EXECUTION_EXCEPTION), self.gatherer.aggregate())
+        # TODO is this the correct behavior: exception is caught, error code is returned and we could continue?
 
     def test_aggregating_todo_expected_behavior(self):
         print("This test is not implemented yet.")
