@@ -43,35 +43,30 @@ class TestSwarmServerController(unittest.TestCase):
         self._set_up(clients=[])
 
 
-    def test_initialization_initializes_correctly(self):
+    def _get_minimum_valid_controller(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
         controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
                                            participating_clients=participating_clients,
-                                           starting_client=self.CLIENT_THAT_TRAINS)
+                                           starting_client=self.CLIENT_THAT_TRAINS,
+                                           train_clients=[self.CLIENT_THAT_TRAINS],
+                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES])
+        self._set_up(clients=participating_clients)
+        return controller
+
+    def test_initialization_initializes_correctly(self):
+        controller = self._get_minimum_valid_controller()
         self.assertIsInstance(controller, SwarmServerController)
         self.assertEqual(self.DEFAULT_NUM_ROUNDS, controller.num_rounds)
         self.assertEqual(self.CLIENT_THAT_TRAINS, controller.starting_client)
 
     def test_prepare_config_initializes_correctly(self):
-        participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
-        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                           participating_clients=participating_clients,
-                                           starting_client=self.CLIENT_THAT_TRAINS,
-                                           train_clients=[self.CLIENT_THAT_TRAINS],
-                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES])
-        self._set_up(clients=participating_clients)
+        controller = self._get_minimum_valid_controller()
         config = controller.prepare_config()
         self.assertIn(Constant.AGGR_CLIENTS, config)
         self.assertIn(Constant.TRAIN_CLIENTS, config)
 
     def test_starting_controller_succeeds(self):
-        participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
-        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                           participating_clients=participating_clients,
-                                           starting_client=self.CLIENT_THAT_TRAINS,
-                                           train_clients=[self.CLIENT_THAT_TRAINS],
-                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES])
-        self._set_up(clients=participating_clients)
+        controller = self._get_minimum_valid_controller()
         controller.initialize_run(self.fl_ctx)
         controller.start_controller(self.fl_ctx)
         self.assertIn(self.CLIENT_THAT_TRAINS, controller.train_clients)
@@ -183,7 +178,7 @@ class TestSwarmServerController(unittest.TestCase):
         self.assertEqual(f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client", str(error.exception))
         controller.finalize_run(self.fl_ctx)
 
-    def test_twice_categorized_client_raises_error(self):
+    def test_doublecategorized_client_raises_error(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_TRAINS_AND_AGGREGATES]
         controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
                                            participating_clients=participating_clients,
@@ -198,8 +193,22 @@ class TestSwarmServerController(unittest.TestCase):
         # self.assertEqual(f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client", str(error.exception))
         controller.finalize_run(self.fl_ctx)
 
-    # TODO The following error cases are not tested yet:
-    #   ‣ exception during initialization
-    #   ‣ exception raised in prepare_config
-    # TODO consider refactoring to remove code duplication once tests are working as intended.
-    #      However, there are subtle pairwise differences between the different test cases, so trying to extract repeated lines may actually make matters worse.
+    def test_one_participating_client_fails_initialization(self):
+        # zero participating clients (i.e., an empty list) should also fail, but the NVFlare code does not cause it to fail
+        with self.assertRaises(ValueError) as error:
+            controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                               participating_clients=[self.CLIENT_THAT_TRAINS],
+                                               starting_client=self.CLIENT_THAT_TRAINS)
+        self.assertEqual(f"Not enough participating_clients: must > 1, but got ['{self.CLIENT_THAT_TRAINS}']", str(error.exception))
+
+    def test_error_in_prepare_config_is_raised(self):
+        controller = self._get_minimum_valid_controller()
+        del controller.train_clients  # do something (that usually would not make any sense) to trigger an exception/error thrown in prepare_config
+        with self.assertRaises(AttributeError) as error:
+            controller.prepare_config()
+        self.assertEqual("'SwarmServerController' object has no attribute 'train_clients'", str(error.exception))
+
+    # TODO
+    #  ‣ Consider refactoring to remove code duplication once tests are working as intended.
+    #    However, there are subtle pairwise differences between the different test cases, so trying to extract repeated lines may actually make matters worse.
+    #  ‣ Check that errors are logged correctly (where appropriate).
