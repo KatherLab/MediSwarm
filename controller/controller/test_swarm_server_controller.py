@@ -1,8 +1,30 @@
 import unittest
+from dataclasses import dataclass
 
 from swarm_server_ctl import SwarmServerController
-from nvflare.apis.fl_context import FLContext
+from nvflare.apis.fl_context import FLContextManager
 from nvflare.app_common.ccwf.common import Constant
+from nvflare.apis.fl_constant import FLContextKey, ReservedKey
+
+
+@dataclass
+class Client:
+    name: str
+
+
+class MockEngineForTesting:
+    def __init__(self, job_id, clients):
+        self.job_id = job_id
+        self.clients = [Client(i) for i in clients]
+        self.fl_ctx_mgr = FLContextManager(engine=self)
+
+    def new_context(self):
+        context = self.fl_ctx_mgr.new_context()
+        context.set_prop(FLContextKey.WORKFLOW, self.job_id)
+        return context
+
+    def get_clients(self):
+        return self.clients
 
 
 class TestSwarmServerController(unittest.TestCase):
@@ -13,65 +35,171 @@ class TestSwarmServerController(unittest.TestCase):
     CLIENT_THAT_IS_NOT_INVOLVED = "clientA"
     DEFAULT_NUM_ROUNDS = 2
 
+    def _set_up(self, clients):
+        self._engine = MockEngineForTesting(job_id="UnitTestJob", clients=clients)
+        self.fl_ctx = self._engine.new_context()
+
     def setUp(self):
-        self.fl_ctx = FLContext()
+        self._set_up(clients=[])
 
 
-    @staticmethod
-    def get_controller_for_clients(participating_clients, starting_client):
-        controller = SwarmServerController(
-            num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-            participating_clients=participating_clients,
-            starting_client=starting_client
-        )
-        return controller
-
-    def test_initialization(self):
+    def test_initialization_initializes_correctly(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
-        controller = self.get_controller_for_clients(participating_clients, self.CLIENT_THAT_TRAINS)
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_TRAINS)
         self.assertIsInstance(controller, SwarmServerController)
         self.assertEqual(self.DEFAULT_NUM_ROUNDS, controller.num_rounds)
         self.assertEqual(self.CLIENT_THAT_TRAINS, controller.starting_client)
 
-    def test_start_controller(self):
-        print("This test does not work yet.")
-        return
-    """
-        self.controller.start_controller(self.fl_ctx)
-        self.assertIn('client1', self.controller.train_clients)
-        self.assertIn('client1', self.controller.aggr_clients)
-    """
-
-    def test_prepare_config(self):
+    def test_prepare_config_initializes_correctly(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
-        controller = self.get_controller_for_clients(participating_clients, self.CLIENT_THAT_TRAINS)
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_TRAINS,
+                                           train_clients=[self.CLIENT_THAT_TRAINS],
+                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES])
+        self._set_up(clients=participating_clients)
         config = controller.prepare_config()
         self.assertIn(Constant.AGGR_CLIENTS, config)
         self.assertIn(Constant.TRAIN_CLIENTS, config)
 
+    def test_starting_controller_succeeds(self):
+        participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_TRAINS,
+                                           train_clients=[self.CLIENT_THAT_TRAINS],
+                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES])
+        self._set_up(clients=participating_clients)
+        controller.initialize_run(self.fl_ctx)
+        controller.start_controller(self.fl_ctx)
+        self.assertIn(self.CLIENT_THAT_TRAINS, controller.train_clients)
+        self.assertIn(self.CLIENT_THAT_AGGREGATES, controller.aggr_clients)
+        controller.finalize_run(self.fl_ctx)
 
-    def test_invalid_starting_client(self):
-        print("This currently fails, left out. TODO fix issue!")
-        return
-    """
-        with self.assertRaises(ValueError):
-            SwarmServerController(
-                num_rounds=10,
-                participating_clients=self.participating_clients,
-                starting_client=None
-            )
+    def test_unspecified_staring_client_raises_error(self):
+        participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           # starting_client not specified
+                                           train_clients=[self.CLIENT_THAT_TRAINS],
+                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES])
+        self._set_up(clients=participating_clients)
+        controller.initialize_run(self.fl_ctx)
+        print("This test does not work yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
         """
-
-    # TODO Think about which scenarios to test
-    #      I.e., which combinations of training, aggregating (and possibly starting) clients are valid and work vs. are invalid and should result in the correct error behavior.
-    #      E.g.,
-    #       ‣ no training client given
-    #       ‣ no aggregating client given
-    #       ‣ one client in both categories
-    #       ‣ one client in neither category
-    #       ‣ invalid (non-participating) client in either category
-    def test_client_not_in_train_or_aggr_raises_runtime_error(self):
-        participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_IS_NOT_INVOLVED]
-        controller = self.get_controller_for_clients(participating_clients, self.CLIENT_THAT_TRAINS)
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(ValueError) as error:
             controller.start_controller(self.fl_ctx)
+        self.assertEqual("starting_client must be specified", error)
+        """
+        controller.finalize_run(self.fl_ctx)
+
+    def test_invalid_starting_client_raises_error(self):
+        participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_IS_NOT_INVOLVED,
+                                           train_clients=[self.CLIENT_THAT_TRAINS],
+                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES])
+        self._set_up(clients=participating_clients)
+        with self.assertRaises(ValueError) as error:
+            controller.initialize_run(self.fl_ctx)
+        self.assertEqual(f"invalid value '{self.CLIENT_THAT_IS_NOT_INVOLVED}' in 'starting_client'", str(error.exception))
+        controller.finalize_run(self.fl_ctx)
+
+    def test_unspecified_training_client_raises_error(self):
+        participating_clients = [self.CLIENT_THAT_AGGREGATES, "client_that_aggregates_too"]
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_AGGREGATES,
+                                           # no train_clients given
+                                           aggr_clients=participating_clients)
+        self._set_up(clients=participating_clients)
+        controller.initialize_run(self.fl_ctx)
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        # with self.assertRaises(RuntimeError) as error:
+        controller.start_controller(self.fl_ctx)
+        # self.assertEqual("", str(error.exception))
+        controller.finalize_run(self.fl_ctx)
+
+
+    def test_no_training_client_raises_error(self):
+        participating_clients = [self.CLIENT_THAT_AGGREGATES, "client_that_aggregates_too"]
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_AGGREGATES,
+                                           train_clients=[],
+                                           aggr_clients=participating_clients)
+        self._set_up(clients=participating_clients)
+        controller.initialize_run(self.fl_ctx)
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        # with self.assertRaises(RuntimeError) as error:
+        controller.start_controller(self.fl_ctx)
+        # self.assertEqual("", str(error.exception))
+        controller.finalize_run(self.fl_ctx)
+
+    def test_unspecified_aggregating_client_raises_error(self):
+        participating_clients = [self.CLIENT_THAT_TRAINS, "client_that_trains_too"]
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_TRAINS,
+                                           train_clients=participating_clients)
+                                           # no aggr_clients given
+        self._set_up(clients=participating_clients)
+        controller.initialize_run(self.fl_ctx)
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        # with self.assertRaises(RuntimeError) as error:
+        controller.start_controller(self.fl_ctx)
+        # self.assertEqual("", str(error.exception))
+        controller.finalize_run(self.fl_ctx)
+
+
+    def test_no_aggregating_client_raises_error(self):
+        participating_clients = [self.CLIENT_THAT_TRAINS, "client_that_trains_too"]
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_TRAINS,
+                                           train_clients=participating_clients,
+                                           aggr_clients=[])
+        self._set_up(clients=participating_clients)
+        controller.initialize_run(self.fl_ctx)
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        # with self.assertRaises(RuntimeError) as error:
+        controller.start_controller(self.fl_ctx)
+        # self.assertEqual("", str(error.exception))
+        controller.finalize_run(self.fl_ctx)
+
+    def test_uncategorized_client_raises_error(self):
+        participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_DOES_NOTHING]
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_TRAINS,
+                                           train_clients=[self.CLIENT_THAT_TRAINS],
+                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES])
+        self._set_up(clients=participating_clients)
+        with self.assertRaises(RuntimeError) as error:
+            controller.initialize_run(self.fl_ctx)
+        self.assertEqual(f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client", str(error.exception))
+        controller.finalize_run(self.fl_ctx)
+
+    def test_twice_categorized_client_raises_error(self):
+        participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_TRAINS_AND_AGGREGATES]
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_TRAINS,
+                                           train_clients=[self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_TRAINS_AND_AGGREGATES],
+                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_TRAINS_AND_AGGREGATES])
+        self._set_up(clients=participating_clients)
+        controller.initialize_run(self.fl_ctx)
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        # with self.assertRaises(RuntimeError) as error:
+        controller.start_controller(self.fl_ctx)
+        # self.assertEqual(f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client", str(error.exception))
+        controller.finalize_run(self.fl_ctx)
+
+    # TODO The following error cases are not tested yet:
+    #   ‣ exception during initialization
+    #   ‣ exception raised in prepare_config
+    # TODO consider refactoring to remove code duplication once tests are working as intended.
+    #      However, there are subtle pairwise differences between the different test cases, so trying to extract repeated lines may actually make matters worse.
