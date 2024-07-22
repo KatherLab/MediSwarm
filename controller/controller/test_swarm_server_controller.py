@@ -1,4 +1,5 @@
 import unittest
+import logging
 from dataclasses import dataclass
 
 from swarm_server_ctl import SwarmServerController
@@ -38,6 +39,7 @@ class TestSwarmServerController(unittest.TestCase):
     def _set_up(self, clients):
         self._engine = MockEngineForTesting(job_id="UnitTestJob", clients=clients)
         self.fl_ctx = self._engine.new_context()
+        self.testee_logger = logging.getLogger("swarm_server_ctl")
 
     def setUp(self):
         self._set_up(clients=[])
@@ -82,7 +84,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=[self.CLIENT_THAT_AGGREGATES])
         self._set_up(clients=participating_clients)
         controller.initialize_run(self.fl_ctx)
-        print("This test does not work yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        print("This test does not work yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, check if exception from constructor is logged
         """
         with self.assertRaises(ValueError) as error:
             controller.start_controller(self.fl_ctx)
@@ -173,9 +175,12 @@ class TestSwarmServerController(unittest.TestCase):
                                            train_clients=[self.CLIENT_THAT_TRAINS],
                                            aggr_clients=[self.CLIENT_THAT_AGGREGATES])
         self._set_up(clients=participating_clients)
-        with self.assertRaises(RuntimeError) as error:
+        expected_message = f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client"
+        with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(RuntimeError) as error:
             controller.initialize_run(self.fl_ctx)
-        self.assertEqual(f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client", str(error.exception))
+        self.assertEqual(expected_message, str(error.exception))
+        self.assertEqual(log.output, [f"ERROR:swarm_server_ctl:Error during start_controller: {expected_message}"])
+
         controller.finalize_run(self.fl_ctx)
 
     def test_doublecategorized_client_raises_error(self):
@@ -204,9 +209,11 @@ class TestSwarmServerController(unittest.TestCase):
     def test_error_in_prepare_config_is_raised(self):
         controller = self._get_minimum_valid_controller()
         del controller.train_clients  # do something (that usually would not make any sense) to trigger an exception/error thrown in prepare_config
-        with self.assertRaises(AttributeError) as error:
+        expected_message = "'SwarmServerController' object has no attribute 'train_clients'"
+        with self.assertLogs(self.testee_logger, logging.DEBUG) as cm, self.assertRaises(AttributeError) as error:
             controller.prepare_config()
-        self.assertEqual("'SwarmServerController' object has no attribute 'train_clients'", str(error.exception))
+        self.assertEqual(expected_message, str(error.exception))
+        self.assertEqual(cm.output, [f"ERROR:swarm_server_ctl:Error during prepare_config: {expected_message}"])
 
     # TODO
     #  ‣ Consider refactoring to remove code duplication once tests are working as intended.
