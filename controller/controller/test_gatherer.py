@@ -1,5 +1,6 @@
 import unittest
 import time
+import logging
 from unittest.mock import MagicMock
 
 from gatherer import _TrainerStatus, Gatherer
@@ -8,8 +9,12 @@ from nvflare.apis.shareable import Shareable, make_reply
 from nvflare.apis.fl_constant import ReturnCode
 from nvflare.apis.fl_context import FLContext
 from nvflare.app_common.ccwf.client_ctl import ClientSideController
+from nvflare.app_common.ccwf.common import Constant
 from nvflare.app_common.abstract.aggregator import Aggregator
 from nvflare.app_common.abstract.metric_comparator import MetricComparator
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 class TestGatherer(unittest.TestCase):
     CLIENT_THAT_TRAINS = 'client_a'
@@ -45,6 +50,35 @@ class TestGatherer(unittest.TestCase):
         #      self.assertFalse(self.gatherer.is_done())
         #      self.assertEqual(self.gatherer.is_done(), False)  # self.assertFalse(arg) only checks for "not arg"
         #      or something else if a dummy Gatherer is expected to be done
+
+    def test_gatherer_initialization_logs_correctly(self):
+        class TestTaskData(Shareable):
+            def __init__(self, current_best_client):
+                self._current_best_client = current_best_client
+                super().__init__()
+
+            def get_header(self, key: str, default=None) -> bool:
+                if key == Constant.CLIENT:
+                    return self._current_best_client
+                else:
+                    return super().get_header(key)
+
+        for current_best_client, expected_message in ((None, "INFO:Gatherer:[identity=, run=?]: gatherer starting from scratch"),
+                                                      (self.CLIENT_THAT_TRAINS,  "INFO:Gatherer:[identity=, run=?]: gatherer starting with previous best result from client client_a with metric None at round None")):  # TODO is this trailing whitespace intended?
+            with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
+                task_data = TestTaskData(current_best_client=current_best_client)
+                self.gatherer = Gatherer(task_data=task_data,
+                                         fl_ctx=self.fl_context,
+                                         for_round=0,
+                                         executor=MagicMock(ClientSideController),
+                                         aggregator=self.aggregator,
+                                         metric_comparator=MagicMock(MetricComparator),
+                                         all_clients=[self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_DOES_NOT_TRAIN],
+                                         trainers=[self.CLIENT_THAT_TRAINS],
+                                         min_responses_required=1,
+                                         wait_time_after_min_resps_received=1,
+                                         timeout=1)
+            self.assertEqual(log.output, [expected_message])
 
     def test_gatherer_is_done(self):
         print("This test is not implemented yet.")
