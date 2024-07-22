@@ -1,7 +1,8 @@
 import unittest
+import time
 from unittest.mock import MagicMock
 
-from gatherer import Gatherer
+from gatherer import _TrainerStatus, Gatherer
 
 from nvflare.apis.shareable import Shareable, make_reply
 from nvflare.apis.fl_constant import ReturnCode
@@ -28,6 +29,14 @@ class TestGatherer(unittest.TestCase):
                                  min_responses_required = 1,
                                  wait_time_after_min_resps_received = 1,
                                  timeout = 1)
+
+    def test_trainer_status_can_be_accessed(self):
+        name = "MyName"
+        now = time.time()
+        trainer_status = _TrainerStatus(name)
+        trainer_status.reply_time = now
+        self.assertEqual(name, trainer_status.name)
+        self.assertEqual(now, trainer_status.reply_time)
 
     def test_default_gatherer_is_not_done(self):
         print("This test does not work yet.")
