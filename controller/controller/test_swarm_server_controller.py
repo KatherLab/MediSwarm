@@ -210,10 +210,10 @@ class TestSwarmServerController(unittest.TestCase):
         controller = self._get_minimum_valid_controller()
         del controller.train_clients  # do something (that usually would not make any sense) to trigger an exception/error thrown in prepare_config
         expected_message = "'SwarmServerController' object has no attribute 'train_clients'"
-        with self.assertLogs(self.testee_logger, logging.DEBUG) as cm, self.assertRaises(AttributeError) as error:
+        with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(AttributeError) as error:
             controller.prepare_config()
         self.assertEqual(expected_message, str(error.exception))
-        self.assertEqual(cm.output, [f"ERROR:swarm_server_ctl:Error during prepare_config: {expected_message}"])
+        self.assertEqual(log.output, [f"ERROR:swarm_server_ctl:Error during prepare_config: {expected_message}"])
 
     # TODO
     #  ‣ Consider refactoring to remove code duplication once tests are working as intended.
