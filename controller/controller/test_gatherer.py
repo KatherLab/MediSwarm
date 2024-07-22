@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-from swarm_client_ctl import Gatherer
+from gatherer import Gatherer
 
 from nvflare.apis.shareable import Shareable, make_reply
 from nvflare.apis.fl_constant import ReturnCode
