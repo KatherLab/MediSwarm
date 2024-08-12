@@ -28,6 +28,9 @@ class SwarmServerController(ServerSideController):
         train_clients=None,
     ):
         try:
+            if not participating_clients:
+                raise ValueError(f"Not enough participating_clients: must > 1, but got '{participating_clients}'")
+
             result_clients = normalize_config_arg(result_clients)
             starting_client = normalize_config_arg(starting_client)
             if starting_client == "":
