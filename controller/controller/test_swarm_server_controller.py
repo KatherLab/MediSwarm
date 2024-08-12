@@ -98,7 +98,7 @@ class TestSwarmServerController(unittest.TestCase):
         self.assertEqual(f"invalid value '{self.CLIENT_THAT_IS_NOT_INVOLVED}' in 'starting_client'", str(error.exception))
         controller.finalize_run(self.fl_ctx)
 
-    def test_unspecified_training_client_raises_error(self):
+    def test_unspecified_training_client_succeeds_initialization(self):
         participating_clients = [self.CLIENT_THAT_AGGREGATES, "client_that_aggregates_too"]
         controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
                                            participating_clients=participating_clients,
@@ -107,14 +107,10 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=participating_clients)
         self._set_up(clients=participating_clients)
         controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
-        # with self.assertRaises(RuntimeError) as error:
         controller.start_controller(self.fl_ctx)
-        # self.assertEqual("", str(error.exception))
         controller.finalize_run(self.fl_ctx)
 
-
-    def test_no_training_client_raises_error(self):
+    def test_no_training_client_succeeds_initialization(self):
         participating_clients = [self.CLIENT_THAT_AGGREGATES, "client_that_aggregates_too"]
         controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
                                            participating_clients=participating_clients,
@@ -123,10 +119,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=participating_clients)
         self._set_up(clients=participating_clients)
         controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
-        # with self.assertRaises(RuntimeError) as error:
         controller.start_controller(self.fl_ctx)
-        # self.assertEqual("", str(error.exception))
         controller.finalize_run(self.fl_ctx)
 
     def test_unspecified_aggregating_client_raises_error(self):
