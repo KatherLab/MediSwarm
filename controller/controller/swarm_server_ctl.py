@@ -54,7 +54,7 @@ class SwarmServerController(ServerSideController):
                 train_clients = []
 
             if not aggr_clients:
-                aggr_clients = []
+                raise ValueError("aggr_client must be specified")
 
             self.aggr_clients = aggr_clients
             self.train_clients = train_clients
