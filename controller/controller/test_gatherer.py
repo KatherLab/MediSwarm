@@ -8,6 +8,7 @@ from gatherer import _TrainerStatus, Gatherer
 from nvflare.apis.shareable import Shareable, make_reply
 from nvflare.apis.fl_constant import ReturnCode
 from nvflare.apis.fl_context import FLContext
+from nvflare.app_common.app_constant import AppConstants
 from nvflare.app_common.ccwf.client_ctl import ClientSideController
 from nvflare.app_common.ccwf.common import Constant
 from nvflare.app_common.abstract.aggregator import Aggregator
@@ -15,6 +16,22 @@ from nvflare.app_common.abstract.metric_comparator import MetricComparator
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+class MockedResultForTesting:
+    def __init__(self, current_round: int):
+        self.current_round: int = current_round
+
+    def get_header(self, key):
+        if key == AppConstants.CURRENT_ROUND:
+            return self.current_round
+
+    def get_return_code(self, _):
+        return ReturnCode.OK
+
+class MockedResultRaisingExceptionForTesting(MockedResultForTesting):
+    def get_header(self, _):
+        raise Exception("Test exception")
+
 
 class TestGatherer(unittest.TestCase):
     CLIENT_THAT_TRAINS = 'client_a'
@@ -36,7 +53,7 @@ class TestGatherer(unittest.TestCase):
                                  timeout = 1)
 
     def test_trainer_status_can_be_accessed(self):
-        name = "MyName"
+        name = "test name"
         now = time.time()
         trainer_status = _TrainerStatus(name)
         trainer_status.reply_time = now
@@ -104,6 +121,52 @@ class TestGatherer(unittest.TestCase):
         #        ‣ exceptions (in case an exception is expected, the test for non-occurring exceptions is implicit)
         #        ‣ state of the gatherer
         #        ‣ event fired?
+
+    def _defaultGathererForRound(self, round: int) -> Gatherer:
+        return Gatherer(task_data=MagicMock(Shareable),
+                        fl_ctx=self.fl_context,
+                        for_round=round,
+                        executor=MagicMock(ClientSideController),
+                        aggregator=self.aggregator,
+                        metric_comparator=MagicMock(MetricComparator),
+                        all_clients=[self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_DOES_NOT_TRAIN],
+                        trainers=[self.CLIENT_THAT_TRAINS],
+                        min_responses_required=1,
+                        wait_time_after_min_resps_received=1,
+                        timeout=1)
+
+    def test_gatherer_receives_from_earlier_round_logs_warning(self):
+        current_round = 2
+        self.gatherer = self._defaultGathererForRound(current_round)
+        result = MockedResultForTesting(current_round-1)
+        with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
+            self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
+        expected_message = f"WARNING:Gatherer:[identity=, run=?]: Received late result from {self.CLIENT_THAT_TRAINS} for round {current_round-1}, which is < gatherer's current round {current_round}"
+        self.assertIn(expected_message, log.output)
+
+    def test_gatherer_receives_from_later_round_logs_warning(self):
+        current_round = 1
+        self.gatherer = self._defaultGathererForRound(current_round)
+        result = MockedResultForTesting(current_round+1)
+        with self.assertLogs(logging.getLogger("Gatherer"), logging.ERROR) as log:
+            response = self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
+        self.assertEqual(make_reply(ReturnCode.EXECUTION_EXCEPTION), response)
+        expected_message = f"ERROR:Gatherer:[identity=, run=?]: Logic error: received result from {self.CLIENT_THAT_TRAINS} for round {current_round+1}, which is > gatherer's current round {current_round}"
+        self.assertIn(expected_message, log.output)
+
+    def test_gatherer_logs_exception_from_gathering(self):
+        result = MockedResultRaisingExceptionForTesting(0)
+        with self.assertLogs(logging.getLogger("Gatherer"), logging.ERROR) as log:  # but does not raise the exception
+            self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
+        self.assertTrue(log.output[0].startswith("ERROR:Gatherer:[identity=, run=?]: Exception gathering"))
+
+    def test_gatherer_returns_error_on_result_from_non_training_client(self):
+        result = MockedResultForTesting(0)
+        with self.assertLogs(logging.getLogger("Gatherer"), logging.ERROR) as log:  # but does not raise the exception FIXME
+            response = self.gatherer.gather(self.CLIENT_THAT_DOES_NOT_TRAIN, result, self.fl_context)
+        self.assertEqual(make_reply(ReturnCode.EXECUTION_EXCEPTION), response)
+        expected_message = f"ERROR:Gatherer:[identity=, run=?]: Received result from {self.CLIENT_THAT_DOES_NOT_TRAIN} for round 0, but it is not a trainer"
+        self.assertIn(expected_message, log.output)
 
     def test_aggregating_returns_error_on_exception_during_aggregation(self):
         self.aggregator.aggregate.side_effect=Exception("foo")
