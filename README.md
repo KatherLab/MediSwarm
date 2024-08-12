@@ -127,7 +127,7 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
 Build docker image nvflare-pt-dev:testing from docker_config/Dockerfile_testing:
 
 ```bash
-cd docker_setup
+cd docker_config
 docker build . -t nvflare-pt-dev:testing -f Dockerfile_testing
 ```
 
