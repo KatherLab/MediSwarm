@@ -180,12 +180,22 @@ class TestSwarmServerController(unittest.TestCase):
         # self.assertEqual(f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client", str(error.exception))
         controller.finalize_run(self.fl_ctx)
 
-    def test_one_participating_client_fails_initialization(self):
-        # zero participating clients (i.e., an empty list) should also fail, but the NVFlare code does not cause it to fail
+    def test_unspecified_participating_clients_fails_initialization(self):
         with self.assertRaises(ValueError) as error:
-            controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                               participating_clients=[self.CLIENT_THAT_TRAINS],
-                                               starting_client=self.CLIENT_THAT_TRAINS)
+            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS)
+        self.assertEqual(f"Not enough participating_clients: must > 1, but got 'None'", str(error.exception))
+
+    def test_no_participating_clients_fails_initialization(self):
+        with self.assertRaises(ValueError) as error:
+            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                      participating_clients=[])
+        self.assertEqual(f"Not enough participating_clients: must > 1, but got '[]'", str(error.exception))
+
+    def test_one_participating_client_fails_initialization(self):
+        with self.assertRaises(ValueError) as error:
+            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                      participating_clients=[self.CLIENT_THAT_TRAINS],
+                                      starting_client=self.CLIENT_THAT_TRAINS)
         self.assertEqual(f"Not enough participating_clients: must > 1, but got ['{self.CLIENT_THAT_TRAINS}']", str(error.exception))
 
     def test_error_in_prepare_config_is_raised(self):
