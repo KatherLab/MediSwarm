@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from swarm_server_ctl import SwarmServerController
 from nvflare.apis.fl_context import FLContextManager
 from nvflare.app_common.ccwf.common import Constant
-from nvflare.apis.fl_constant import FLContextKey, ReservedKey
+from nvflare.apis.fl_constant import FLContextKey
 
 
 @dataclass
@@ -114,7 +114,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=participating_clients)
         self._set_up(clients=participating_clients)
         controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
         # with self.assertRaises(RuntimeError) as error:
         controller.start_controller(self.fl_ctx)
         # self.assertEqual("", str(error.exception))
@@ -130,7 +130,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=participating_clients)
         self._set_up(clients=participating_clients)
         controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
         # with self.assertRaises(RuntimeError) as error:
         controller.start_controller(self.fl_ctx)
         # self.assertEqual("", str(error.exception))
@@ -145,7 +145,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            # no aggr_clients given
         self._set_up(clients=participating_clients)
         controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
         # with self.assertRaises(RuntimeError) as error:
         controller.start_controller(self.fl_ctx)
         # self.assertEqual("", str(error.exception))
@@ -161,7 +161,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=[])
         self._set_up(clients=participating_clients)
         controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
         # with self.assertRaises(RuntimeError) as error:
         controller.start_controller(self.fl_ctx)
         # self.assertEqual("", str(error.exception))
@@ -192,7 +192,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=[self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_TRAINS_AND_AGGREGATES])
         self._set_up(clients=participating_clients)
         controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name
+        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
         # with self.assertRaises(RuntimeError) as error:
         controller.start_controller(self.fl_ctx)
         # self.assertEqual(f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client", str(error.exception))
@@ -217,5 +217,4 @@ class TestSwarmServerController(unittest.TestCase):
 
     # TODO
     #  ‣ Consider refactoring to remove code duplication once tests are working as intended.
-    #    However, there are subtle pairwise differences between the different test cases, so trying to extract repeated lines may actually make matters worse.
-    #  ‣ Check that errors are logged correctly (where appropriate).
+    #    However, there are subtle pairwise differences between the different test cases, so trying to extract repeated lines may actually make code incomprehensible. Find suitable trade-off.
