@@ -158,7 +158,7 @@ class TestSwarmServerController(unittest.TestCase):
 
         controller.finalize_run(self.fl_ctx)
 
-    def test_doublecategorized_client_raises_error(self):
+    def test_client_can_be_both_training_and_aggregating(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_TRAINS_AND_AGGREGATES]
         controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
                                            participating_clients=participating_clients,
@@ -167,10 +167,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=[self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_TRAINS_AND_AGGREGATES])
         self._set_up(clients=participating_clients)
         controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
-        # with self.assertRaises(RuntimeError) as error:
         controller.start_controller(self.fl_ctx)
-        # self.assertEqual(f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client", str(error.exception))
         controller.finalize_run(self.fl_ctx)
 
     def test_unspecified_participating_clients_fails_initialization(self):
@@ -203,3 +200,4 @@ class TestSwarmServerController(unittest.TestCase):
     # TODO
     #  ‣ Consider refactoring to remove code duplication once tests are working as intended.
     #    However, there are subtle pairwise differences between the different test cases, so trying to extract repeated lines may actually make code incomprehensible. Find suitable trade-off.
+    #  ‣ Check where logging needs to be verified
