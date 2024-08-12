@@ -131,34 +131,23 @@ class TestSwarmServerController(unittest.TestCase):
 
     def test_unspecified_aggregating_client_raises_error(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, "client_that_trains_too"]
-        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                           participating_clients=participating_clients,
-                                           starting_client=self.CLIENT_THAT_TRAINS,
-                                           train_clients=participating_clients)
-                                           # no aggr_clients given
-        self._set_up(clients=participating_clients)
-        controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
-        # with self.assertRaises(RuntimeError) as error:
-        controller.start_controller(self.fl_ctx)
-        # self.assertEqual("", str(error.exception))
-        controller.finalize_run(self.fl_ctx)
-
+        with self.assertRaises(ValueError) as error:
+            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                      participating_clients=participating_clients,
+                                      starting_client=self.CLIENT_THAT_TRAINS,
+                                      train_clients=participating_clients)
+                                      # no aggr_clients given
+        self.assertEqual("aggr_client must be specified", str(error.exception))
 
     def test_no_aggregating_client_raises_error(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, "client_that_trains_too"]
-        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                           participating_clients=participating_clients,
-                                           starting_client=self.CLIENT_THAT_TRAINS,
-                                           train_clients=participating_clients,
-                                           aggr_clients=[])
-        self._set_up(clients=participating_clients)
-        controller.initialize_run(self.fl_ctx)
-        print("This does not work as intended yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, logging to be verified?
-        # with self.assertRaises(RuntimeError) as error:
-        controller.start_controller(self.fl_ctx)
-        # self.assertEqual("", str(error.exception))
-        controller.finalize_run(self.fl_ctx)
+        with self.assertRaises(ValueError) as error:
+            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                      participating_clients=participating_clients,
+                                      starting_client=self.CLIENT_THAT_TRAINS,
+                                      train_clients=participating_clients,
+                                      aggr_clients=[])
+        self.assertEqual("aggr_client must be specified", str(error.exception))
 
     def test_uncategorized_client_raises_error(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_DOES_NOTHING]
