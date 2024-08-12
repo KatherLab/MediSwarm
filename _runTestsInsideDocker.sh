@@ -5,6 +5,8 @@
 # ./runtest.sh
 # cd ..
 
+export MPLCONFIGDIR=/tmp
+
 cd controller/controller
 
 python3 -m coverage run --source=. -m unittest discover
