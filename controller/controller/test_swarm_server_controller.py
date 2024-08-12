@@ -13,7 +13,7 @@ class Client:
     name: str
 
 
-class MockEngineForTesting:
+class MockedEngineForTesting:
     def __init__(self, job_id, clients):
         self.job_id = job_id
         self.clients = [Client(i) for i in clients]
@@ -39,7 +39,7 @@ class TestSwarmServerController(unittest.TestCase):
     DEFAULT_NUM_ROUNDS = 2
 
     def _set_up(self, clients):
-        self._engine = MockEngineForTesting(job_id="UnitTestJob", clients=clients)
+        self._engine = MockedEngineForTesting(job_id="UnitTestJob", clients=clients)
         self.fl_ctx = self._engine.new_context()
         self.testee_logger = logging.getLogger("swarm_server_ctl")
 
