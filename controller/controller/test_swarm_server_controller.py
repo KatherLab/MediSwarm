@@ -77,20 +77,13 @@ class TestSwarmServerController(unittest.TestCase):
 
     def test_unspecified_staring_client_raises_error(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
-        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                           participating_clients=participating_clients,
-                                           # starting_client not specified
-                                           train_clients=[self.CLIENT_THAT_TRAINS],
-                                           aggr_clients=[self.CLIENT_THAT_AGGREGATES])
-        self._set_up(clients=participating_clients)
-        controller.initialize_run(self.fl_ctx)
-        print("This test does not work yet.")  # FIXME change behavior or expected behavior, possibly adapt method name, check if exception from constructor is logged
-        """
         with self.assertRaises(ValueError) as error:
-            controller.start_controller(self.fl_ctx)
-        self.assertEqual("starting_client must be specified", error)
-        """
-        controller.finalize_run(self.fl_ctx)
+            controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                               participating_clients=participating_clients,
+                                               # starting_client not specified
+                                               train_clients=[self.CLIENT_THAT_TRAINS],
+                                               aggr_clients=[self.CLIENT_THAT_AGGREGATES])
+        self.assertEqual("starting_client must be specified", str(error.exception))
 
     def test_invalid_starting_client_raises_error(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]

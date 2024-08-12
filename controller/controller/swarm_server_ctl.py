@@ -20,7 +20,7 @@ class SwarmServerController(ServerSideController):
         job_status_check_interval: float = Constant.JOB_STATUS_CHECK_INTERVAL,
         participating_clients=None,
         result_clients=None,
-        starting_client: str = "",
+        starting_client=None,
         max_status_report_interval: float = Constant.PER_CLIENT_STATUS_REPORT_TIMEOUT,
         progress_timeout: float = Constant.WORKFLOW_PROGRESS_TIMEOUT,
         private_p2p: bool = True,
@@ -30,7 +30,7 @@ class SwarmServerController(ServerSideController):
         try:
             result_clients = normalize_config_arg(result_clients)
             starting_client = normalize_config_arg(starting_client)
-            if starting_client is None:
+            if starting_client == "":
                 raise ValueError("starting_client must be specified")
 
             super().__init__(
