@@ -18,12 +18,19 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class _TrainerStatus:
+    """
+    Internal class to keep track of trainer's status including reply time.
+    """
     def __init__(self, name: str):
         self.name = name
         self.reply_time = None
 
 
 class Gatherer(FLComponent):
+    """
+    Gatherer class responsible for gathering and aggregating training results from multiple clients
+    during the swarm learning process.
+    """
     def __init__(
         self,
         task_data: Shareable,
@@ -72,6 +79,9 @@ class Gatherer(FLComponent):
             )
 
     def gather(self, client_name: str, result: Shareable, fl_ctx: FLContext) -> Shareable:
+        """
+        Gather the results from a client and perform aggregation if applicable.
+        """
         with self.lock:
             try:
                 return self._do_gather(client_name, result, fl_ctx)
@@ -133,6 +143,9 @@ class Gatherer(FLComponent):
         return make_reply(ReturnCode.OK)
 
     def aggregate(self):
+        """
+        Perform the aggregation of results gathered from trainers.
+        """
         fl_ctx = self.fl_ctx
         self.log_info(fl_ctx, f"Start aggregation for round {self.for_round}")
         self.fire_event(AppEventType.BEFORE_AGGREGATION, fl_ctx)
@@ -158,6 +171,7 @@ class Gatherer(FLComponent):
         elif self.executor.best_metric is not None:
             mine_is_better = True
 
+        # Determine if the local metric is better than the current global best
         if mine_is_better:
             self.log_info(
                 fl_ctx, f"I got better metric {self.executor.best_metric} at round {self.executor.best_round}"
@@ -179,6 +193,9 @@ class Gatherer(FLComponent):
         return aggr_result
 
     def is_done(self):
+        """
+        Check if the gather process is complete, either by receiving all responses or timing out.
+        """
         unfinished = sum(1 for s in self.trainer_statuses.values() if not s.reply_time)
         if unfinished == 0:
             return True
