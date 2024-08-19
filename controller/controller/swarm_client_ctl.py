@@ -24,25 +24,32 @@ from nvflare.security.logging import secure_format_traceback
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-
 class SwarmClientController(ClientSideController):
+    """
+    The SwarmClientController class manages the client-side execution of the swarm learning workflow.
+    It handles the training, aggregation, and communication with other clients in a decentralized manner.
+    """
     def __init__(
         self,
-        task_name_prefix=Constant.TN_PREFIX_SWARM,
-        learn_task_name=AppConstants.TASK_TRAIN,
-        persistor_id=AppConstants.DEFAULT_PERSISTOR_ID,
-        shareable_generator_id=AppConstants.DEFAULT_SHAREABLE_GENERATOR_ID,
-        aggregator_id=AppConstants.DEFAULT_AGGREGATOR_ID,
-        metric_comparator_id=None,
-        learn_task_check_interval=Constant.LEARN_TASK_CHECK_INTERVAL,
-        learn_task_abort_timeout=Constant.LEARN_TASK_ABORT_TIMEOUT,
-        learn_task_ack_timeout=Constant.LEARN_TASK_ACK_TIMEOUT,
-        learn_task_timeout=None,
-        final_result_ack_timeout=Constant.FINAL_RESULT_ACK_TIMEOUT,
-        min_responses_required: int = 1,
-        wait_time_after_min_resps_received: float = 10.0,
+        task_name_prefix=Constant.TN_PREFIX_SWARM,  # Prefix for tasks associated with the swarm workflow
+        learn_task_name=AppConstants.TASK_TRAIN,  # Name of the task to be executed for learning
+        persistor_id=AppConstants.DEFAULT_PERSISTOR_ID,  # ID of the persistor component
+        shareable_generator_id=AppConstants.DEFAULT_SHAREABLE_GENERATOR_ID,  # ID of the shareable generator component
+        aggregator_id=AppConstants.DEFAULT_AGGREGATOR_ID,  # ID of the aggregator component
+        metric_comparator_id=None,  # Optional ID for a custom metric comparator
+        learn_task_check_interval=Constant.LEARN_TASK_CHECK_INTERVAL,  # Interval for checking learning tasks (in seconds)
+        learn_task_abort_timeout=Constant.LEARN_TASK_ABORT_TIMEOUT,  # Timeout for aborting a learning task (in seconds)
+        learn_task_ack_timeout=Constant.LEARN_TASK_ACK_TIMEOUT,  # Timeout for acknowledging a learning task (in seconds)
+        learn_task_timeout=None,  # Timeout for the overall learning task (in seconds)
+        final_result_ack_timeout=Constant.FINAL_RESULT_ACK_TIMEOUT,  # Timeout for acknowledging the final result (in seconds)
+        min_responses_required: int = 1,  # Minimum number of responses required to proceed
+        wait_time_after_min_resps_received: float = 10.0,  # Time to wait after minimum responses are received (in seconds)
     ):
+        """
+        Initializes the SwarmClientController, validating the input parameters and setting up internal state.
+        """
         try:
+            # Validate required arguments
             check_non_empty_str("learn_task_name", learn_task_name)
             check_non_empty_str("persistor_id", persistor_id)
             check_non_empty_str("shareable_generator_id", shareable_generator_id)
@@ -68,6 +75,7 @@ class SwarmClientController(ClientSideController):
                 final_result_ack_timeout=final_result_ack_timeout,
                 allow_busy_task=True,
             )
+            # Initialize internal variables
             self.metric_comparator_id = metric_comparator_id
             self.metric_comparator = None
             self.report_learn_result_task_name = make_task_name(task_name_prefix, Constant.BASENAME_REPORT_LEARN_RESULT)
@@ -88,6 +96,9 @@ class SwarmClientController(ClientSideController):
             raise
 
     def process_config(self, fl_ctx: FLContext):
+        """
+        Process the configuration for the swarm learning workflow, identifying the roles of the current client.
+        """
         try:
             all_clients = self.get_config_prop(Constant.CLIENTS)
 
@@ -101,6 +112,7 @@ class SwarmClientController(ClientSideController):
                 self.aggrs = all_clients
             self.is_aggr = self.me in self.aggrs
 
+            # Register message handler for sharing results
             self.engine.register_aux_message_handler(
                 topic=self.topic_for_my_workflow(Constant.TOPIC_SHARE_RESULT),
                 message_handle_func=self._process_share_result,
@@ -111,6 +123,9 @@ class SwarmClientController(ClientSideController):
             raise
 
     def execute(self, task_name: str, shareable: Shareable, fl_ctx: FLContext, abort_signal: Signal) -> Shareable:
+        """
+        Execute a specific task based on the task name. Handles both regular and learning result tasks.
+        """
         try:
             if task_name == self.report_learn_result_task_name:
                 return self._process_learn_result(shareable, fl_ctx, abort_signal)
@@ -121,6 +136,9 @@ class SwarmClientController(ClientSideController):
             return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
     def start_run(self, fl_ctx: FLContext):
+        """
+        Start the swarm learning run, setting up the aggregator and metric comparator components.
+        """
         try:
             super().start_run(fl_ctx)
             self.aggregator = self.engine.get_component(self.aggregator_id)
@@ -143,6 +161,7 @@ class SwarmClientController(ClientSideController):
             else:
                 self.metric_comparator = NumberMetricComparator()
 
+            # Start a thread to monitor the gather process
             aggr_thread = threading.Thread(target=self._monitor_gather)
             aggr_thread.daemon = True
             aggr_thread.start()
@@ -153,6 +172,9 @@ class SwarmClientController(ClientSideController):
             raise
 
     def handle_event(self, event_type: str, fl_ctx: FLContext):
+        """
+        Handle specific events, such as when a global best model is available, updating the client's status.
+        """
         try:
             if event_type == AppEventType.GLOBAL_BEST_MODEL_AVAILABLE:
                 client = fl_ctx.get_prop(Constant.CLIENT)
@@ -173,6 +195,9 @@ class SwarmClientController(ClientSideController):
             raise
 
     def start_workflow(self, shareable: Shareable, fl_ctx: FLContext, abort_signal: Signal) -> Shareable:
+        """
+        Start the swarm learning workflow by scattering tasks to the appropriate clients.
+        """
         try:
             clients = self.get_config_prop(Constant.CLIENTS)
             aggr_clients = self.get_config_prop(Constant.AGGR_CLIENTS, [])
@@ -195,6 +220,9 @@ class SwarmClientController(ClientSideController):
             return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
     def _scatter(self, task_data: Shareable, for_round: int, fl_ctx: FLContext) -> bool:
+        """
+        Distribute learning tasks to the training and aggregation clients for a specific round.
+        """
         try:
             clients = self.get_config_prop(Constant.TRAIN_CLIENTS)
             aggr_clients = self.get_config_prop(Constant.AGGR_CLIENTS)
@@ -217,6 +245,9 @@ class SwarmClientController(ClientSideController):
             return False
 
     def _monitor_gather(self):
+        """
+        Monitor the gather process to check if the aggregation for a round is complete.
+        """
         while True:
             if self.asked_to_stop:
                 return
@@ -237,6 +268,9 @@ class SwarmClientController(ClientSideController):
             time.sleep(0.2)
 
     def _end_gather(self, gatherer: Gatherer):
+        """
+        Finalize the aggregation process and determine the next steps in the workflow.
+        """
         fl_ctx = gatherer.fl_ctx
         try:
             aggr_result = gatherer.aggregate()
@@ -246,7 +280,7 @@ class SwarmClientController(ClientSideController):
             self.update_status(action="aggregate", error=ReturnCode.EXECUTION_EXCEPTION)
             return
 
-        self.log_debug(fl_ctx, f"Aggr result: {aggr_result}")
+        self.log_debug(fl_ctx, f"Aggregation result: {aggr_result}")
         global_weights = self.shareable_generator.shareable_to_learnable(aggr_result, fl_ctx)
         self.record_last_result(fl_ctx, gatherer.for_round, global_weights)
 
@@ -272,8 +306,11 @@ class SwarmClientController(ClientSideController):
         self._scatter(next_round_data, gatherer.for_round + 1, gatherer.fl_ctx)
 
     def _ask_to_share_best_result(self, client: str, metric, fl_ctx: FLContext):
+        """
+        Request the client with the best metric to share its result with the other clients.
+        """
         try:
-            self.log_info(fl_ctx, f"Client {client} has the best metric {metric} - ask it to share result")
+            self.log_info(fl_ctx, f"Client {client} has the best metric {metric} - asking it to share result")
             resp = self.engine.send_aux_request(
                 targets=[client],
                 topic=self.topic_for_my_workflow(Constant.TOPIC_SHARE_RESULT),
@@ -301,13 +338,16 @@ class SwarmClientController(ClientSideController):
             logger.error(f"Exception during _ask_to_share_best_result: {e}")
 
     def _distribute_final_results(self, aggr_result: Shareable, fl_ctx: FLContext):
+        """
+        Distribute the final results of the swarm learning process to all clients.
+        """
         try:
             best_client = aggr_result.get_header(Constant.CLIENT)
             best_metric = aggr_result.get_header(Constant.METRIC)
 
             if best_client:
                 if best_client == self.me:
-                    self.log_info(fl_ctx, f"I have global best metric {best_metric}")
+                    self.log_info(fl_ctx, f"I have the global best metric {best_metric}")
                     self.broadcast_final_result(
                         fl_ctx, ResultType.BEST, self.best_result, self.best_metric, self.best_round
                     )
@@ -323,6 +363,9 @@ class SwarmClientController(ClientSideController):
             logger.error(f"Exception during _distribute_final_results: {e}")
 
     def _process_learn_result(self, request: Shareable, fl_ctx: FLContext, abort_signal: Signal) -> Shareable:
+        """
+        Process the learning result received from a peer client.
+        """
         try:
             peer_ctx = fl_ctx.get_peer_context()
             assert isinstance(peer_ctx, FLContext)
@@ -366,6 +409,10 @@ class SwarmClientController(ClientSideController):
             return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
     def do_learn_task(self, name: str, task_data: Shareable, fl_ctx: FLContext, abort_signal: Signal):
+        """
+        Perform the learning task as part of the swarm learning workflow, handling the training and communication
+        with the aggregator.
+        """
         try:
             current_round = task_data.get_header(AppConstants.CURRENT_ROUND)
             self.update_status(last_round=current_round, action="start_learn_task")
@@ -469,13 +516,16 @@ class SwarmClientController(ClientSideController):
             self.update_status(action="do_learn_task", error=ReturnCode.EXECUTION_EXCEPTION)
 
     def _process_share_result(self, topic: str, request: Shareable, fl_ctx: FLContext) -> Shareable:
+        """
+        Process a request from another client to share the current best result.
+        """
         try:
             peer_ctx = fl_ctx.get_peer_context()
             assert isinstance(peer_ctx, FLContext)
             client_name = peer_ctx.get_identity_name()
             if not self.best_result:
                 self.log_error(
-                    fl_ctx, f"Got request from {client_name} to share my best result, but I don't have best result"
+                    fl_ctx, f"Got request from {client_name} to share my best result, but I don't have a best result"
                 )
                 return make_reply(ReturnCode.BAD_REQUEST_DATA)
 
