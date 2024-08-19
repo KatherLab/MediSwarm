@@ -41,9 +41,6 @@ class MockedResultFailing(MockedResult):
 
 
 class MockedAggregator(Aggregator):
-    def reset(self, fl_ctx: FLContext):
-        pass
-
     def accept(self, _a: Shareable, _b: FLContext) -> bool:
         return True
 
@@ -86,8 +83,8 @@ class TestGatherer(unittest.TestCase):
                         all_clients = all_clients,
                         trainers =  trainers,
                         min_responses_required = min_responses_required,
-                        wait_time_after_min_resps_received = 1,
-                        timeout = 1)
+                        wait_time_after_min_resps_received = 0.1,
+                        timeout = 0.1)
 
     def setUp(self):
         self.fl_context = FLContext()
@@ -187,12 +184,14 @@ class TestGatherer(unittest.TestCase):
         # TODO is this the correct behavior: exception is caught, error code is returned and we could continue?
 
     def test_aggregating_determines_best_metric_correctly(self):
-        # TODO clarify how NaN should be treated, adapt test accordingly, drop "fixme" in the loop
-        for executor_best, current_best, best, first_is_better, fixme in ((0.4,  0.6,  0.6, False, False),
-                                                                          (0.6,  0.4,  0.6, True,  False),
-                                                                          (None, 0.5,  0.5, False, False),
+        # TODO clarify how NaN an tie should be treated, adapt test accordingly, drop "fixme" in the loop
+        # TODO need to consider other edge cases (Inf, negative, zero?
+        for executor_best, current_best, best, first_is_better, fixme in ((0.4,  0.6,  0.6, False, False), # other is better (note: for metrics, larger is better)
+                                                                          (0.6,  0.4,  0.6, True,  False), # own is better
+                                                                          (0.5,  0.5,  0.5, True,  True),  # TODO what should happen in case of tie?
+                                                                          (None, 0.5,  0.5, False, False), # 0.5 is better than None
                                                                           (0.5,  None, 0.5, True,  False),
-                                                                          (0.5,  NaN,  0.5, True,  True),
+                                                                          (0.5,  NaN,  0.5, True,  True),  # TODO NaN should not be better than value
                                                                           (NaN,  0.5,  0.5, False, False)):
             current_round = 0
             result = MockedResult(current_round)
@@ -210,39 +209,44 @@ class TestGatherer(unittest.TestCase):
                     self.assertTrue("INFO:Gatherer:[identity=, run=?]: Finished aggregation for round 0" == log.output[-2])
                 self.assertAlmostEqual(best, result.get_header(Constant.METRIC))
 
-    def test_aggregating_todo_expected_behavior(self):
-        print("This test is not implemented yet.")
-        # TODO Think about which different scenarios to test, what the expected behavior is, and how to implement these tests (probably as multiple methods, probably by setting up real objects rather than mocking (too much to mock)?)
-        #      We probably at least have the cases
-        #        ‣ best result from this client
-        #        ‣ best result from other client
-        #        ‣ tie (equally good results) from other clients
-        #        ‣ tie between this and other client
-        #        ‣ Do we need to consider cases of NaN, Inf, zero, negative results?
-        #        ‣ exception thrown
-        #      and may want to check in each case
-        #        ‣ that correct information was logged
-        #        ‣ return values
-        #        ‣ exceptions (in case an exception is expected, the test for non-occurring exceptions is implicit)
-        #        ‣ state of the gatherer
-        #        ‣ event fired?
 
-    def test_default_gatherer_is_not_done(self):
-        print("This test does not work yet.")
-        return
-        # TODO use one of the following lines, depending on whether a return value of None is OK, if it needs to be False, etc.
-        #      self.assertFalse(self.gatherer.is_done())
-        #      self.assertEqual(self.gatherer.is_done(), False)  # self.assertFalse(arg) only checks for "not arg"
-        #      or something else if a dummy Gatherer is expected to be done
+    def test_gatherer_is_done_if_all_are_finished(self):
+        for trainer in self.gatherer.trainer_statuses.keys():
+            self.gatherer.trainer_statuses[trainer].reply_time = time.time()
+        self.assertTrue(self.gatherer.is_done())
 
-    def test_gatherer_is_done(self):
-        print("This test is not implemented yet.")
-        # TODO Think about which different scenarios to test when Gatherer is done and when it is not.
-        #      Actually, how can a gatherer be "not done"?
-        #      We probably at least have the cases
-        #        ‣ all finished → is done
-        #        ‣ timeout
-        #        ‣ minimum number not received after grace period, exactly minimum number received, more than minimum number received [not sure I understood the logic correctly]
+    def test_gatherer_is_done_if_timeout(self):
+        # TODO Does that make sense (i.e., is there a check whether something _useful_ has been gathered later in the workflow?)
+        time.sleep(0.11)
+        with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
+            self.assertTrue(self.gatherer.is_done())
+        self.assertTrue("WARNING:Gatherer:[identity=, run=?]: Gatherer for round 0 timed out after 0.1 seconds" in log.output)
+
+    def test_gatherer_is_done_if_enough_responses_received(self):
+        time.sleep(0.11)
+        self.gatherer = self._get_gatherer(all_clients=[self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS],
+                                           trainers=[self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS],
+                                           min_responses_required=1)
+        self.gatherer.trainer_statuses[self.OTHER_CLIENT_THAT_TRAINS].reply_time = time.time()
+        print("This test does not work yet")
+        # TODO this is not what happens and what the message suggests the code should do: the code does not check if sufficiently many responses have been received
+        # with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
+        #     self.assertTrue(self.gatherer.is_done())
+        # self.assertTrue("WARNING:Gatherer:[identity=, run=?]: Gatherer for round 0 exit after 0.1 seconds since received minimum responses" in log.output)
+
+
+    def test_gatherer_is_not_done_if_no_trainer_is_finished(self):
+        self.assertIsNone(self.gatherer.is_done())
+        # TODO is this the correct return value? is_done suggests True or False, not True or None
+
+    def test_gatherer_is_not_done_if_insufficient_responses_received(self):
+        time.sleep(0.11)
+        self.gatherer = self._get_gatherer(all_clients=[self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS],
+                                           trainers=[self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS],
+                                           min_responses_required=2)
+        self.gatherer.trainer_statuses[self.OTHER_CLIENT_THAT_TRAINS].reply_time = time.time()
+        self.assertIsNone(self.gatherer.is_done())
+        # TODO is this the correct return value? is_done suggests True or False, not True or None
 
 # TODO
-# ‣ Can we test that events were fired?
+# ‣ Can we test that events were fired (where appropriate)?
