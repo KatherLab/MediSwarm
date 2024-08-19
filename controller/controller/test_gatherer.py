@@ -102,7 +102,7 @@ class TestGatherer(unittest.TestCase):
 
     def test_gatherer_initialization_logs_correctly(self):
         for current_best_client, expected_message in ((None, "INFO:Gatherer:[identity=, run=?]: gatherer starting from scratch"),
-                                                      (self.CLIENT_THAT_TRAINS,  "INFO:Gatherer:[identity=, run=?]: gatherer starting with previous best result from client client_a with metric None at round None")):  # TODO is this trailing whitespace intended?
+                                                      (self.CLIENT_THAT_TRAINS, "INFO:Gatherer:[identity=, run=?]: gatherer starting with previous best result from client client_a with metric None at round None")):
             with (self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log):
                 task_data = Shareable()
                 task_data.set_header(Constant.CLIENT, current_best_client)
