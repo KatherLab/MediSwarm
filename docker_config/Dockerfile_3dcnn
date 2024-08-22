@@ -50,7 +50,7 @@ COPY ../controller /workspace/controller
 RUN python -m pip install /workspace/controller
 
 # Set python path
-ENV PYTHONPATH=/workspace/controller
+ENV PYTHONPATH=/workspace/controller/controller
 
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:3dcnn"
