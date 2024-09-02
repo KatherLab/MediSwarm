@@ -13,5 +13,6 @@ docker run -it --rm \
     --gpus=all \
     -v ./:/workspace \
     -v $DATADIR:/data:ro \
+    --user $(id -u):$(id -g) \
     --entrypoint=/workspace/_runTestsInsideDocker.sh \
     nvflare-pt-dev:testing
