@@ -12,6 +12,9 @@ class TestSwarmServerController(unittest.TestCase):
     CLIENT_THAT_DOES_NOTHING = 'client4'
 
     def setUp(self):
+        # I think this doesn't work; the doc says:
+        # Never create a new FL Context directly with FLContext()! Always call engine.new_context().
+        # where to take the engine from?
         self.fl_ctx = FLContext()
         self.participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_TRAINS_AND_AGGREGATES]
         # TODO does this belong in the general setUp, do the individual tests need their own controller setup, or are there joint ones (to be moved to a method)?
