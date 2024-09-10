@@ -1,33 +1,66 @@
 import unittest
+import logging
 from unittest.mock import MagicMock
 
 from swarm_client_ctl import SwarmClientController
 from nvflare.apis.fl_context import FLContext
 
+# TODO move constants to suitable location
+TASK_NAME_PREFIX = 'test_prefix'
+LEARN_TASK_NAME = 'test_learn_task'
 
 class TestSwarmClientController(unittest.TestCase):
+
+    def setup_controller(self,
+                        task_name_prefix=TASK_NAME_PREFIX,
+                        learn_task_name=LEARN_TASK_NAME,
+                        persistor_id="test_persistor_id",
+                        shareable_generator_id="test_generator_id",
+                        aggregator_id="test_aggregator_id",
+                        **kwargs
+    ):
+        self.controller = SwarmClientController(
+            task_name_prefix=task_name_prefix,
+            learn_task_name=learn_task_name,
+            persistor_id=persistor_id,
+            shareable_generator_id=shareable_generator_id,
+            aggregator_id=aggregator_id,
+            **kwargs
+        )
+
     def setUp(self):
         """
         Set up a mock FLContext and instantiate the SwarmClientController with test data
         for unit testing.
         """
         self.fl_ctx = MagicMock(FLContext)
-        self.controller = SwarmClientController(
-            task_name_prefix="test_prefix",
-            learn_task_name="test_learn_task",
-            persistor_id="test_persistor",
-            shareable_generator_id="test_generator",
-            aggregator_id="test_aggregator"
-        )
+        self.controller = None
+        self.setup_controller()
+        self.testee_logger = logging.getLogger("swarm_client_ctl")
 
-    def test_initialization(self):
+    def test_initialization_sets_members_correctly(self):
         """
         Test the initialization of the SwarmClientController to ensure proper assignment
         of attributes.
         """
         self.assertIsInstance(self.controller, SwarmClientController)
-        self.assertEqual(self.controller.task_name_prefix, "test_prefix")
-        self.assertEqual(self.controller.learn_task_name, "test_learn_task")
+        self.assertEqual(self.controller.task_name_prefix, TASK_NAME_PREFIX)
+        self.assertEqual(self.controller.learn_task_name, LEARN_TASK_NAME)
+
+    def test_incorrect_initializations_raise_errors(self):
+        for argument_empty in ('learn_task_name','persistor_id', 'shareable_generator_id', 'aggregator_id'):
+            # TODO should also fail on empty 'metric_comparator_id' (but does not)
+            with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
+                self.setup_controller(**{argument_empty: ''})
+            self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {argument_empty} must not be empty"))
+
+        for nonpositive_number, value in (('learn_task_timeout', -1.0), ('min_responses_required', 0), ('wait_time_after_min_resps_received', 0.0)):
+            # no need to distinguish between float and int here
+            # TODO should also fail for learn_task_timeout 0.0 (but does not)
+            with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
+                self.setup_controller(**{nonpositive_number: value})
+            self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {nonpositive_number} must > 0, but got {value}"))
+
 
     def test_process_config(self):
         """
