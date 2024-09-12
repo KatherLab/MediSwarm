@@ -106,6 +106,11 @@ class TestSwarmClientController(unittest.TestCase):
         """
         print("This test does not work yet.")
         return
+        # TODO clarify what needs to be done starting a run is possible
+        #      check succcessful execution and logging if self.metric_comparator_id is set
+        #                                                                              not set
+        #            system_panic if aggregator is not an instance of Aggregator
+        #                            metric_comparator is not an instance of MetricComparator
         self.controller.engine = MagicMock()
         self.controller.engine.get_component = MagicMock(return_value=MagicMock(Aggregator))
         self.controller.start_run(self.fl_ctx)
