@@ -64,17 +64,29 @@ class TestSwarmClientController(unittest.TestCase):
             self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {nonpositive_number} must > 0, but got {value}"))
 
 
-    def test_process_config(self):
+    def test_process_config_sets_client_roles_correctly(self):
         """
         Test the process_config method to verify correct role assignment as trainer or aggregator.
         """
         print("This test does not work yet.")
+        # This is prepared and called via execute().
+        # TODO think about whether a minimal preparation makes sense for a separate test or whether the method should implicitly tested via execute()
+        """
+        # TODO cases to check: default (all train, all aggregate), trainers specified (not all), aggregators specified (not all)
+        # self.controller.get_config_prop = MagicMock(side_effect=lambda x, y=None: ["client1", "client2", "client3"])
+        # self.controller.process_config(self.fl_ctx)
+        # self.assertTrue(self.controller.is_trainer)
+        # self.assertTrue(self.controller.is_aggr)
+        """
         return
-        self.controller.me = "client1"
-        self.controller.get_config_prop = MagicMock(side_effect=lambda x, y=None: ["client1", "client2", "client3"])
-        self.controller.process_config(self.fl_ctx)
-        self.assertTrue(self.controller.is_trainer)
-        self.assertTrue(self.controller.is_aggr)
+
+
+    def test_process_config_raises_errors_and_logs(self):
+        fl_context = FLContext()
+        with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(TypeError) as error:
+            self.controller.process_config(fl_context)
+        self.assertEqual(log.output[0], "ERROR:swarm_client_ctl:Exception during process_config: argument of type 'NoneType' is not iterable")
+
 
     def test_execute(self):
         """
