@@ -171,11 +171,9 @@ class TestGatherer(unittest.TestCase):
         expected_entry = f"ERROR:Gatherer:[identity=, run=?]: Bad result from {self.CLIENT_THAT_TRAINS} for round {current_round}: EXECUTION_RESULT_ERROR."
         self.assertTrue(expected_entry in log.output)
 
-
     def _set_metrics(self, executor_best: float, current_best: float):
         self.gatherer.executor.best_metric = executor_best
         self.gatherer.current_best_global_metric = current_best
-
 
     def test_aggregating_returns_error_on_exception_during_aggregation(self):
         self.gatherer.aggregator = MockedAggregatorRaisingException()
@@ -184,15 +182,13 @@ class TestGatherer(unittest.TestCase):
         # TODO is this the correct behavior: exception is caught, error code is returned and we could continue?
 
     def test_aggregating_determines_best_metric_correctly(self):
-        # TODO clarify how NaN an tie should be treated, adapt test accordingly, drop "fixme" in the loop
-        # TODO need to consider other edge cases (Inf, negative, zero?
-        for executor_best, current_best, best, first_is_better, fixme in ((0.4,  0.6,  0.6, False, False), # other is better (note: for metrics, larger is better)
-                                                                          (0.6,  0.4,  0.6, True,  False), # own is better
-                                                                          (0.5,  0.5,  0.5, True,  True),  # TODO what should happen in case of tie?
-                                                                          (None, 0.5,  0.5, False, False), # 0.5 is better than None
-                                                                          (0.5,  None, 0.5, True,  False),
-                                                                          (0.5,  NaN,  0.5, True,  True),  # TODO NaN should not be better than value
-                                                                          (NaN,  0.5,  0.5, False, False)):
+        for executor_best, current_best, best, first_is_better in ((0.4,  0.6,  0.6, False ), # other is better (note: for metrics, larger is better)
+                                                                   (0.6,  0.4,  0.6, True  ), # own is better
+                                                                   (0.5,  0.5,  0.5, False ), # own is not better, take other
+                                                                   (None, 0.5,  0.5, False ), # 0.5 is better than None
+                                                                   (0.5,  None, 0.5, True  ),
+                                                                   (0.5,  NaN,  0.5, True  ),
+                                                                   (NaN,  0.5,  0.5, False )):
             current_round = 0
             result = MockedResult(current_round)
             self.gatherer = self._get_gatherer()
@@ -201,14 +197,12 @@ class TestGatherer(unittest.TestCase):
             with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
                 result = self.gatherer.aggregate()
 
-            if not fixme:
-                if first_is_better:
-                    self.assertTrue("INFO:Gatherer:[identity=, run=?]: Finished aggregation for round 0" == log.output[-3])
-                    self.assertTrue(log.output[-2].startswith("INFO:Gatherer:[identity=, run=?]: I got better metric"))
-                else:
-                    self.assertTrue("INFO:Gatherer:[identity=, run=?]: Finished aggregation for round 0" == log.output[-2])
-                self.assertAlmostEqual(best, result.get_header(Constant.METRIC))
-
+            if first_is_better:
+                self.assertTrue("INFO:Gatherer:[identity=, run=?]: Finished aggregation for round 0" == log.output[-3])
+                self.assertTrue(log.output[-2].startswith("INFO:Gatherer:[identity=, run=?]: I got better metric"))
+            else:
+                self.assertTrue("INFO:Gatherer:[identity=, run=?]: Finished aggregation for round 0" == log.output[-2])
+            self.assertAlmostEqual(best, result.get_header(Constant.METRIC))
 
     def test_gatherer_is_done_if_all_are_finished(self):
         for trainer in self.gatherer.trainer_statuses.keys():
