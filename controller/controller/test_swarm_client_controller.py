@@ -2,7 +2,7 @@ import unittest
 import logging
 from unittest.mock import MagicMock
 
-from nvflare.apis.fl_context import FLContext
+from nvflare.apis.fl_context import FLContext, FLContextManager
 from nvflare.apis.shareable import Shareable
 from nvflare.apis.signal import Signal
 from nvflare.app_common.app_event_type import AppEventType
@@ -15,8 +15,20 @@ from swarm_client_ctl import SwarmClientController
 TASK_NAME_PREFIX = 'test_prefix'
 LEARN_TASK_NAME = 'test_learn_task'
 
-class TestSwarmClientController(unittest.TestCase):
 
+class MockedEngineForTesting:
+    # TODO consider merging this with test_swarm_server_controller.MockedEngineForTesting
+    def __init__(self):
+        self.fl_ctx_mgr = FLContextManager(engine=self)
+
+    def new_context(self):
+        context = self.fl_ctx_mgr.new_context()
+        return context
+
+    def register_aux_message_handler(self, topic, message_handle_func):
+        pass
+
+class TestSwarmClientController(unittest.TestCase):
     def setup_controller(self,
                         task_name_prefix=TASK_NAME_PREFIX,
                         learn_task_name=LEARN_TASK_NAME,
@@ -41,6 +53,8 @@ class TestSwarmClientController(unittest.TestCase):
         """
         self.controller = None
         self.setup_controller()
+        self.engine = None
+        self.fl_context = None
         self.testee_logger = logging.getLogger("swarm_client_ctl")
 
     def test_initialization_sets_members_correctly(self):
@@ -76,17 +90,24 @@ class TestSwarmClientController(unittest.TestCase):
         """
         Test the process_config method to verify correct role assignment as trainer or aggregator.
         """
-        print("This test does not work yet.")
-        # This is prepared and called via execute().
-        # TODO think about whether a minimal preparation makes sense for a separate test or whether the method should implicitly tested via execute()
-        """
-        # TODO cases to check: default (all train, all aggregate), trainers specified (not all), aggregators specified (not all)
-        # self.controller.get_config_prop = MagicMock(side_effect=lambda x, y=None: ["client1", "client2", "client3"])
-        # self.controller.process_config(self.fl_ctx)
-        # self.assertTrue(self.controller.is_trainer)
-        # self.assertTrue(self.controller.is_aggr)
-        """
-        return
+        for config in ({Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C2', 'C3']},
+                       {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C2', 'C3'], Constant.AGGR_CLIENTS: ['C1', 'C3']},
+                       {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C1', 'C3']},
+                       {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2']                                     },
+                       {Constant.CLIENTS: ['C1', 'C2', 'C3'],                                       Constant.AGGR_CLIENTS: ['C2', 'C3']},
+                       {Constant.CLIENTS: ['C1', 'C2', 'C3'],                                                                          }):
+            self.setup_controller()
+            fl_engine = MockedEngineForTesting()
+            fl_context = fl_engine.new_context()
+            self.controller.me = "C1"
+            self.controller.engine = fl_engine
+
+            self.controller.config = config
+            self.controller.process_config(fl_context)
+            is_trainer = ( Constant.TRAIN_CLIENTS not in config.keys() ) or ( "C1" in config[Constant.TRAIN_CLIENTS] )
+            is_aggregator = (Constant.AGGR_CLIENTS not in config.keys()) or ("C1" in config[Constant.AGGR_CLIENTS])
+            self.assertEqual(self.controller.is_trainer, is_trainer)
+            self.assertEqual(self.controller.is_aggr, is_aggregator)
 
 
     def test_process_config_raises_errors_and_logs(self):
