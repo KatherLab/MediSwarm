@@ -32,6 +32,7 @@ RUN python3 -m pip install \
     isort==5.10.1 \
     mccabe==0.7.0 \
     mlflow==2.14.2 \
+    mock==5.1.0 \
     mypy-extensions==1.0.0 \
     nvidia-nccl-cu12==2.22.3 \
     omegaconf==2.3.0 \

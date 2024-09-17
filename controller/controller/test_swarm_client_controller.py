@@ -1,5 +1,6 @@
 import unittest
 import logging
+from mock import mock
 from unittest.mock import MagicMock
 
 from nvflare.apis.fl_context import FLContext, FLContextManager
@@ -187,15 +188,12 @@ class TestSwarmClientController(unittest.TestCase):
         # self.assertIsNotNone(self.controller.best_result)
 
     def test_handle_event_logs_and_raises_exception(self):
-        def raise_error(last_round, action):
-            raise ValueError("dummy error")
-
         fl_context = FLContext()
-        self.controller.update_status = raise_error
 
-        with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
-            self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
-        self.assertEqual(log.output[0], 'ERROR:swarm_client_ctl:Exception during handle_event: dummy error')
+        with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(Exception) as error:
+            with mock.patch('swarm_client_ctl.SwarmClientController.update_status', side_effect=Exception('exception')):
+                self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
+        self.assertEqual(log.output[0], 'ERROR:swarm_client_ctl:Exception during handle_event: exception')
 
     def test_start_workflow(self):
         """
