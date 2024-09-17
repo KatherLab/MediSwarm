@@ -105,12 +105,12 @@ class SwarmClientController(ClientSideController):
             self.trainers = self.get_config_prop(Constant.TRAIN_CLIENTS)
             if not self.trainers:
                 self.trainers = all_clients
-            self.is_trainer = self.me in self.trainers
+            self.is_trainer = (self.me in self.trainers)
 
             self.aggrs = self.get_config_prop(Constant.AGGR_CLIENTS)
             if not self.aggrs:
                 self.aggrs = all_clients
-            self.is_aggr = self.me in self.aggrs
+            self.is_aggr = (self.me in self.aggrs)
 
             # Register message handler for sharing results
             self.engine.register_aux_message_handler(
