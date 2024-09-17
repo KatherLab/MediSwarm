@@ -90,6 +90,15 @@ class TestSwarmClientController(unittest.TestCase):
                 self.setup_controller(**{nonpositive_number: value})
             self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {nonpositive_number} must > 0, but got {value}"))
 
+    def _setup_for_processing_config(self, config):
+        self.setup_controller()
+        fl_engine = MockedEngineForTesting()
+        fl_context = fl_engine.new_context()
+        self.controller.me = config[Constant.CLIENTS][0]
+        self.controller.engine = fl_engine
+        self.controller.config = config
+        return fl_context
+
     def test_process_config_sets_client_roles_correctly(self):
         """
         Test the process_config method to verify correct role assignment as trainer or aggregator.
@@ -100,13 +109,7 @@ class TestSwarmClientController(unittest.TestCase):
                        {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2']                                     },
                        {Constant.CLIENTS: ['C1', 'C2', 'C3'],                                       Constant.AGGR_CLIENTS: ['C2', 'C3']},
                        {Constant.CLIENTS: ['C1', 'C2', 'C3'],                                                                          }):
-            self.setup_controller()
-            fl_engine = MockedEngineForTesting()
-            fl_context = fl_engine.new_context()
-            self.controller.me = "C1"
-            self.controller.engine = fl_engine
-
-            self.controller.config = config
+            fl_context = self._setup_for_processing_config(config)
             self.controller.process_config(fl_context)
             is_trainer = ( Constant.TRAIN_CLIENTS not in config.keys() ) or ( "C1" in config[Constant.TRAIN_CLIENTS] )
             is_aggregator = (Constant.AGGR_CLIENTS not in config.keys()) or ("C1" in config[Constant.AGGR_CLIENTS])
@@ -119,39 +122,28 @@ class TestSwarmClientController(unittest.TestCase):
             self.controller.process_config(fl_context)
         self.assertEqual(log.output[0], "ERROR:swarm_client_ctl:Exception during process_config: argument of type 'NoneType' is not iterable")
 
+    def _setup_for_executing(self, config):
+        fl_context = self._setup_for_processing_config(config)
+        shareable = Shareable()
+        shareable[Constant.CONFIG] = None
+        abort_signal = Signal()
+        return fl_context, shareable, abort_signal
+
     def test_execute_returns_if_no_exception(self):
         """
         Test the execute method to ensure proper handling of the task execution flow.
         """
-        # TODO reduce code duplication with test above and below
         for task_name, expected_result in (('test_prefix_report_learn_result', {'__headers__': {'__rc__': 'EXECUTION_EXCEPTION'}}),
                                            ('wrong_task_name', {'__headers__': {'__rc__': 'TASK_UNKNOWN'}})):
             config = {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C2', 'C3']}
-            self.setup_controller()
-            fl_engine = MockedEngineForTesting()
-            fl_context = fl_engine.new_context()
-            self.controller.me = "C1"
-            self.controller.engine = fl_engine
-            self.controller.config = config
-
-            shareable = Shareable()
-            shareable[Constant.CONFIG] = None
-            abort_signal = Signal()
+            fl_context, shareable, abort_signal = self._setup_for_executing(config)
             result = self.controller.execute(task_name, shareable, fl_context, abort_signal)
             self.assertDictEqual(result, expected_result)
 
     def test_execute_logs_and_returns_on_exception(self):
         config = {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C2', 'C3']}
-        self.setup_controller()
-        fl_engine = MockedEngineForTesting()
-        fl_context = fl_engine.new_context()
-        self.controller.me = "C1"
-        self.controller.engine = fl_engine
-        self.controller.config = config
+        fl_context, shareable, abort_signal = self._setup_for_executing(config)
 
-        shareable = Shareable()
-        shareable[Constant.CONFIG] = None
-        abort_signal = Signal()
         with self.assertLogs(self.testee_logger, logging.ERROR) as log:
             with mock.patch('swarm_client_ctl.SwarmClientController._process_learn_result', side_effect=Exception('exception')):
                 result = self.controller.execute('test_prefix_report_learn_result', shareable, fl_context, abort_signal)
