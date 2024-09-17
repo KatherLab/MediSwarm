@@ -2,8 +2,14 @@ import unittest
 import logging
 from unittest.mock import MagicMock
 
-from swarm_client_ctl import SwarmClientController
 from nvflare.apis.fl_context import FLContext
+from nvflare.apis.shareable import Shareable
+from nvflare.apis.signal import Signal
+from nvflare.app_common.app_event_type import AppEventType
+from nvflare.app_common.ccwf.common import Constant
+
+from swarm_client_ctl import SwarmClientController
+
 
 # TODO move constants to suitable location
 TASK_NAME_PREFIX = 'test_prefix'
@@ -33,7 +39,6 @@ class TestSwarmClientController(unittest.TestCase):
         Set up a mock FLContext and instantiate the SwarmClientController with test data
         for unit testing.
         """
-        self.fl_ctx = MagicMock(FLContext)
         self.controller = None
         self.setup_controller()
         self.testee_logger = logging.getLogger("swarm_client_ctl")
@@ -92,13 +97,37 @@ class TestSwarmClientController(unittest.TestCase):
         """
         Test the execute method to ensure proper handling of the task execution flow.
         """
+        # TODO clarify what needs to be done before executing is possible
+        #      check sucessful execution with task_name = self.report_learn_result_task_name
+        #                                     task_name ≠ self.report_learn_result_task_name
+        #            handling of exception
+
         print("This test does not work yet.")
-        return
-        shareable = MagicMock(Shareable)
-        abort_signal = MagicMock(Signal)
-        self.controller._process_learn_result = MagicMock(return_value=shareable)
-        result = self.controller.execute("test_learn_task", shareable, self.fl_ctx, abort_signal)
-        self.assertEqual(result, shareable)
+
+        fl_context = FLContext()  # TODO how to set up the context for testing purposes?
+        fl_context.set_prop(Constant.CLIENTS, ['C1', 'C2', 'C3'])
+        fl_context.set_prop(Constant.TRAIN_CLIENTS, ['C1', 'C2'])
+        fl_context.set_prop(Constant.AGGR_CLIENTS, ['C2', 'C3'])
+        self.controller.me = "C1"
+        shareable = Shareable()  # TODO Which Shareable to use here? How to set it up for testing purposes?
+        shareable[Constant.CONFIG] = None
+        abort_signal = Signal()
+        _ = self.controller.execute("test_prefix_config", shareable, fl_context, abort_signal)
+        # TODO implement what else needs to be done for this to succeed and compare
+
+    def test_execute_logs_and_returns_on_exception(self):
+        print("This test does not work yet.")
+        # TODO think about how to test this.
+        #      The code in the try block of self.controller.execute() catches all exceptions and just logs them,
+        #      so we never end up in the except block.
+        #
+        # fl_context = FLContext()
+        # shareable = Shareable()
+        # abort_signal = Signal()
+        # with self.assertLogs(fl_context.logger, logging.ERROR) as log:
+        #     result = self.controller.execute("test_learn_task", shareable, fl_context, abort_signal)
+        # self.assertEqual(result, make_reply(ReturnCode.EXECUTION_EXCEPTION))
+
 
     def test_start_run(self):
         """
@@ -122,12 +151,27 @@ class TestSwarmClientController(unittest.TestCase):
         """
         print("This test does not work yet.")
         return
-        self.controller.me = "client1"
-        self.fl_ctx.get_prop = MagicMock(return_value="client1")
-        self.fl_ctx.set_prop = MagicMock()
-        self.controller.best_result = None
-        self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, self.fl_ctx)
-        self.assertIsNotNone(self.controller.best_result)
+        # TODO cases:
+        #      event_type = AppEventType.GLOBAL_BEST_MODEL_AVAILABLE
+        #                 ≠
+        #      exception logged and raised
+        # self.controller.me = "client1"
+        # self.fl_ctx.get_prop = MagicMock(return_value="client1")
+        # self.fl_ctx.set_prop = MagicMock()
+        # self.controller.best_result = None
+        # self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, self.fl_ctx)
+        # self.assertIsNotNone(self.controller.best_result)
+
+    def test_handle_event_logs_and_raises_exception(self):
+        def raise_error(last_round, action):
+            raise ValueError("dummy error")
+
+        fl_context = FLContext()
+        self.controller.update_status = raise_error
+
+        with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
+            self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
+        self.assertEqual(log.output[0], 'ERROR:swarm_client_ctl:Exception during handle_event: dummy error')
 
     def test_start_workflow(self):
         """
