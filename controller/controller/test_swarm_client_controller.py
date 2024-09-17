@@ -3,8 +3,9 @@ import logging
 from mock import mock
 from unittest.mock import MagicMock
 
+from nvflare.apis.fl_constant import ReturnCode
 from nvflare.apis.fl_context import FLContext, FLContextManager
-from nvflare.apis.shareable import Shareable
+from nvflare.apis.shareable import Shareable, make_reply
 from nvflare.apis.signal import Signal
 from nvflare.app_common.app_event_type import AppEventType
 from nvflare.app_common.ccwf.common import Constant
@@ -27,6 +28,9 @@ class MockedEngineForTesting:
         return context
 
     def register_aux_message_handler(self, topic, message_handle_func):
+        pass
+
+    def fire_event(self, event_type, fl_ctx):
         pass
 
 class TestSwarmClientController(unittest.TestCase):
@@ -86,7 +90,6 @@ class TestSwarmClientController(unittest.TestCase):
                 self.setup_controller(**{nonpositive_number: value})
             self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {nonpositive_number} must > 0, but got {value}"))
 
-
     def test_process_config_sets_client_roles_correctly(self):
         """
         Test the process_config method to verify correct role assignment as trainer or aggregator.
@@ -110,49 +113,50 @@ class TestSwarmClientController(unittest.TestCase):
             self.assertEqual(self.controller.is_trainer, is_trainer)
             self.assertEqual(self.controller.is_aggr, is_aggregator)
 
-
     def test_process_config_raises_errors_and_logs(self):
         fl_context = FLContext()
         with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(TypeError) as error:
             self.controller.process_config(fl_context)
         self.assertEqual(log.output[0], "ERROR:swarm_client_ctl:Exception during process_config: argument of type 'NoneType' is not iterable")
 
-
-    def test_execute(self):
+    def test_execute_returns_if_no_exception(self):
         """
         Test the execute method to ensure proper handling of the task execution flow.
         """
-        # TODO clarify what needs to be done before executing is possible
-        #      check sucessful execution with task_name = self.report_learn_result_task_name
-        #                                     task_name ≠ self.report_learn_result_task_name
-        #            handling of exception
+        # TODO reduce code duplication with test above and below
+        for task_name, expected_result in (('test_prefix_report_learn_result', {'__headers__': {'__rc__': 'EXECUTION_EXCEPTION'}}),
+                                           ('wrong_task_name', {'__headers__': {'__rc__': 'TASK_UNKNOWN'}})):
+            config = {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C2', 'C3']}
+            self.setup_controller()
+            fl_engine = MockedEngineForTesting()
+            fl_context = fl_engine.new_context()
+            self.controller.me = "C1"
+            self.controller.engine = fl_engine
+            self.controller.config = config
 
-        print("This test does not work yet.")
-
-        fl_context = FLContext()  # TODO how to set up the context for testing purposes?
-        fl_context.set_prop(Constant.CLIENTS, ['C1', 'C2', 'C3'])
-        fl_context.set_prop(Constant.TRAIN_CLIENTS, ['C1', 'C2'])
-        fl_context.set_prop(Constant.AGGR_CLIENTS, ['C2', 'C3'])
-        self.controller.me = "C1"
-        shareable = Shareable()  # TODO Which Shareable to use here? How to set it up for testing purposes?
-        shareable[Constant.CONFIG] = None
-        abort_signal = Signal()
-        _ = self.controller.execute("test_prefix_config", shareable, fl_context, abort_signal)
-        # TODO implement what else needs to be done for this to succeed and compare
+            shareable = Shareable()
+            shareable[Constant.CONFIG] = None
+            abort_signal = Signal()
+            result = self.controller.execute(task_name, shareable, fl_context, abort_signal)
+            self.assertDictEqual(result, expected_result)
 
     def test_execute_logs_and_returns_on_exception(self):
-        print("This test does not work yet.")
-        # TODO think about how to test this.
-        #      The code in the try block of self.controller.execute() catches all exceptions and just logs them,
-        #      so we never end up in the except block.
-        #
-        # fl_context = FLContext()
-        # shareable = Shareable()
-        # abort_signal = Signal()
-        # with self.assertLogs(fl_context.logger, logging.ERROR) as log:
-        #     result = self.controller.execute("test_learn_task", shareable, fl_context, abort_signal)
-        # self.assertEqual(result, make_reply(ReturnCode.EXECUTION_EXCEPTION))
+        config = {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C2', 'C3']}
+        self.setup_controller()
+        fl_engine = MockedEngineForTesting()
+        fl_context = fl_engine.new_context()
+        self.controller.me = "C1"
+        self.controller.engine = fl_engine
+        self.controller.config = config
 
+        shareable = Shareable()
+        shareable[Constant.CONFIG] = None
+        abort_signal = Signal()
+        with self.assertLogs(self.testee_logger, logging.ERROR) as log:
+            with mock.patch('swarm_client_ctl.SwarmClientController._process_learn_result', side_effect=Exception('exception')):
+                result = self.controller.execute('test_prefix_report_learn_result', shareable, fl_context, abort_signal)
+                self.assertEqual(result, make_reply(ReturnCode.EXECUTION_EXCEPTION))
+            self.assertEqual(log.output[0], 'ERROR:swarm_client_ctl:Exception during execute: exception')
 
     def test_start_run(self):
         """
