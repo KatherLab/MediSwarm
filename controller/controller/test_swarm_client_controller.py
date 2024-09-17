@@ -51,6 +51,9 @@ class TestSwarmClientController(unittest.TestCase):
         self.assertIsInstance(self.controller, SwarmClientController)
         self.assertEqual(self.controller.task_name_prefix, TASK_NAME_PREFIX)
         self.assertEqual(self.controller.learn_task_name, LEARN_TASK_NAME)
+        metric_comparator_id = "test_metric_comparator_id"
+        self.setup_controller(metric_comparator_id=metric_comparator_id)
+        self.assertEqual(self.controller.metric_comparator_id, metric_comparator_id)
 
     def test_incorrect_initializations_raise_errors_and_logs(self):
         print("This test is not complete yet.")
