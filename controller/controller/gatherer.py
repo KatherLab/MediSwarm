@@ -2,6 +2,8 @@ import threading
 import time
 import logging
 
+import numpy as np
+
 from nvflare.apis.fl_component import FLComponent
 from nvflare.apis.fl_constant import ReturnCode
 from nvflare.apis.fl_context import FLContext
@@ -146,6 +148,10 @@ class Gatherer(FLComponent):
         """
         Perform the aggregation of results gathered from trainers.
         """
+
+        def _is_valid_value(value: float) -> bool:
+            return ( value is not None ) and ( not np.isnan(value) )
+
         fl_ctx = self.fl_ctx
         self.log_info(fl_ctx, f"Start aggregation for round {self.for_round}")
         self.fire_event(AppEventType.BEFORE_AGGREGATION, fl_ctx)
@@ -162,13 +168,13 @@ class Gatherer(FLComponent):
         self.log_info(fl_ctx, f"Finished aggregation for round {self.for_round}")
 
         mine_is_better = False
-        if self.current_best_global_metric is not None:
+        if _is_valid_value(self.current_best_global_metric):
             if (
-                self.executor.best_metric is not None
+                _is_valid_value(self.executor.best_metric)
                 and self.metric_comparator.compare(self.executor.best_metric, self.current_best_global_metric) > 0
             ):
                 mine_is_better = True
-        elif self.executor.best_metric is not None:
+        elif _is_valid_value(self.executor.best_metric):
             mine_is_better = True
 
         # Determine if the local metric is better than the current global best
