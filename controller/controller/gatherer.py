@@ -201,6 +201,7 @@ class Gatherer(FLComponent):
     def is_done(self):
         """
         Check if the gather process is complete, either by receiving all responses or timing out.
+        For compatibility with NVFlare Gatherer, do not return False, but None.
         """
         unfinished = sum(1 for s in self.trainer_statuses.values() if not s.reply_time)
         if unfinished == 0:
