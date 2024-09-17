@@ -142,17 +142,6 @@ class TestGatherer(unittest.TestCase):
             self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
         self.assertTrue(log.output[0].startswith("ERROR:Gatherer:[identity=, run=?]: Exception gathering"))
 
-    def test_gatherer_gathering_from_current_round_without_enough_responses_TODO(self):
-        current_round = 0
-        self.gatherer = self._get_gatherer(for_round=current_round,
-                                           all_clients=[self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS],
-                                           trainers=[self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS],
-                                           min_responses_required=2)
-        result = MockedResult(current_round)
-        response = self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
-        # TODO what is expected behavior if there are not enough responses?
-        print("This test does not work yet.")
-
     def test_gatherer_gathering_from_current_round_with_enough_responses_gets_logged(self):
         current_round = 0
         result = MockedResult(current_round)
@@ -179,7 +168,6 @@ class TestGatherer(unittest.TestCase):
         self.gatherer.aggregator = MockedAggregatorRaisingException()
         self._set_metrics(0.0, 0.0)
         self.assertEqual(make_reply(ReturnCode.EXECUTION_EXCEPTION), self.gatherer.aggregate())
-        # TODO is this the correct behavior: exception is caught, error code is returned and we could continue?
 
     def test_aggregating_determines_best_metric_correctly(self):
         for executor_best, current_best, best, first_is_better in ((0.4,  0.6,  0.6, False ), # other is better (note: for metrics, larger is better)
@@ -211,6 +199,7 @@ class TestGatherer(unittest.TestCase):
 
     def test_gatherer_is_done_if_timeout(self):
         # TODO Does that make sense (i.e., is there a check whether something _useful_ has been gathered later in the workflow?)
+        #      Does the context have the information why/in which way the gatherer is done?
         time.sleep(0.11)
         with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
             self.assertTrue(self.gatherer.is_done())
@@ -222,16 +211,15 @@ class TestGatherer(unittest.TestCase):
                                            trainers=[self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS],
                                            min_responses_required=1)
         self.gatherer.trainer_statuses[self.OTHER_CLIENT_THAT_TRAINS].reply_time = time.time()
-        print("This test does not work yet")
+        # print("This test does not work yet")
         # TODO this is not what happens and what the message suggests the code should do: the code does not check if sufficiently many responses have been received
-        # with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
-        #     self.assertTrue(self.gatherer.is_done())
-        # self.assertTrue("WARNING:Gatherer:[identity=, run=?]: Gatherer for round 0 exit after 0.1 seconds since received minimum responses" in log.output)
-
+        # TODO think again about what I meant with this TODO
+        with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
+            self.assertTrue(self.gatherer.is_done())
+        self.assertTrue("WARNING:Gatherer:[identity=, run=?]: Gatherer for round 0 exit after 0.1 seconds since received minimum responses" in log.output)
 
     def test_gatherer_is_not_done_if_no_trainer_is_finished(self):
         self.assertIsNone(self.gatherer.is_done())
-        # TODO is this the correct return value? is_done suggests True or False, not True or None
 
     def test_gatherer_is_not_done_if_insufficient_responses_received(self):
         time.sleep(0.11)
@@ -240,7 +228,6 @@ class TestGatherer(unittest.TestCase):
                                            min_responses_required=2)
         self.gatherer.trainer_statuses[self.OTHER_CLIENT_THAT_TRAINS].reply_time = time.time()
         self.assertIsNone(self.gatherer.is_done())
-        # TODO is this the correct return value? is_done suggests True or False, not True or None
 
 # TODO
-# ‣ Can we test that events were fired (where appropriate)?
+# ‣ Can we test that events were fired (where appropriate)? Gets fired to the engine.
