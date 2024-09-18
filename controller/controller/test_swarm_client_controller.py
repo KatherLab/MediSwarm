@@ -1,7 +1,6 @@
 import unittest
 import logging
 from mock import mock
-from unittest.mock import MagicMock
 
 from nvflare.apis.fl_constant import ReturnCode
 from nvflare.apis.fl_context import FLContext, FLContextManager
@@ -60,7 +59,6 @@ class TestSwarmClientController(unittest.TestCase):
         self.controller = None
         self.setup_controller()
         self.engine = None
-        self.fl_context = None
         self.testee_logger = logging.getLogger("swarm_client_ctl")
 
     def test_initialization_sets_members_correctly(self):
@@ -162,27 +160,26 @@ class TestSwarmClientController(unittest.TestCase):
         #                                                                              not set
         #            system_panic if aggregator is not an instance of Aggregator
         #                            metric_comparator is not an instance of MetricComparator
-        self.controller.engine = MagicMock()
-        self.controller.engine.get_component = MagicMock(return_value=MagicMock(Aggregator))
-        self.controller.start_run(self.fl_ctx)
-        self.assertIsInstance(self.controller.aggregator, Aggregator)
 
-    def test_handle_event(self):
-        """
-        Test the handle_event method to check if global best model events are handled correctly.
-        """
-        print("This test does not work yet.")
-        return
-        # TODO cases:
-        #      event_type = AppEventType.GLOBAL_BEST_MODEL_AVAILABLE
-        #                 ≠
-        #      exception logged and raised
-        # self.controller.me = "client1"
-        # self.fl_ctx.get_prop = MagicMock(return_value="client1")
-        # self.fl_ctx.set_prop = MagicMock()
-        # self.controller.best_result = None
-        # self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, self.fl_ctx)
-        # self.assertIsNotNone(self.controller.best_result)
+    def test_handle_event_unexpected_event_does_not_fail(self):
+        fl_context = FLContext()
+        result = self.controller.handle_event(AppEventType.LOCAL_BEST_MODEL_AVAILABLE, fl_context)
+        self.assertIsNone(result)
+
+    def test_handle_event_expected_event_logged_correctly(self):
+        fl_context = FLContext()
+        # TODO Here, we cannot use self.testee_logger.
+        #      Unlike error logs, the SwarmClientController logs this only once via self.log_info, as opposed to self.log_error followed by logger.error.
+        #      Is this intended and what do we actually want to test?
+        with self.assertLogs(logging.getLogger("SwarmClientController"), logging.INFO) as log:
+            self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
+        self.assertEqual(log.output[0], 'INFO:SwarmClientController:[identity=, run=?]: Got GLOBAL_BEST_MODEL_AVAILABLE: best metric=None')
+
+    def test_handle_event_other_client_affected_does_not_fail(self):
+        fl_context = FLContext()
+        fl_context.set_prop(Constant.CLIENT, 'C1')
+        self.controller.me = 'C2'
+        self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
 
     def test_handle_event_logs_and_raises_exception(self):
         fl_context = FLContext()
@@ -198,11 +195,6 @@ class TestSwarmClientController(unittest.TestCase):
         """
         print("This test does not work yet.")
         return
-        shareable = MagicMock(Shareable)
-        abort_signal = MagicMock(Signal)
-        self.controller._scatter = MagicMock(return_value=True)
-        result = self.controller.start_workflow(shareable, self.fl_ctx, abort_signal)
-        self.assertEqual(result.get_return_code(), ReturnCode.OK)
 
     def test_do_learn_task(self):
         print("This test does not work yet.")
