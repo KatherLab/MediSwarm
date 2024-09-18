@@ -33,6 +33,7 @@ class MockedEngineForTesting:
     def fire_event(self, event_type, fl_ctx):
         pass
 
+
 class TestSwarmClientController(unittest.TestCase):
     def setup_controller(self,
                         task_name_prefix=TASK_NAME_PREFIX,
@@ -202,3 +203,8 @@ class TestSwarmClientController(unittest.TestCase):
         self.controller._scatter = MagicMock(return_value=True)
         result = self.controller.start_workflow(shareable, self.fl_ctx, abort_signal)
         self.assertEqual(result.get_return_code(), ReturnCode.OK)
+
+    def test_do_learn_task(self):
+        print("This test does not work yet.")
+        return
+        # TODO implement test for possible cases in learn_task, including exception, including verifying that event was fired
