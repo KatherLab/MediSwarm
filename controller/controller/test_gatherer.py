@@ -1,7 +1,7 @@
 import unittest
 import time
 import logging
-
+from mock import mock
 from numpy import NaN
 
 from gatherer import _TrainerStatus, Gatherer
@@ -61,6 +61,12 @@ class MockedClientSideController(ClientSideController):
     def start_workflow(self, _a: Shareable, _b: FLContext, _c: Signal) -> Shareable:
         pass
 
+class EventCatcher():
+    def __init__(self):
+        self.events_caught = []
+
+    def catch_event(self, *event_args):
+        self.events_caught.append(event_args[0])
 
 class TestGatherer(unittest.TestCase):
     CLIENT_THAT_TRAINS = 'client_a'
@@ -142,14 +148,18 @@ class TestGatherer(unittest.TestCase):
             self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
         self.assertTrue(log.output[0].startswith("ERROR:Gatherer:[identity=, run=?]: Exception gathering"))
 
-    def test_gatherer_gathering_from_current_round_with_enough_responses_gets_logged(self):
+    def test_gatherer_gathering_from_current_round_with_enough_responses_gets_logged_and_events_are_fired(self):
+        event_catcher = EventCatcher()
+
         current_round = 0
         result = MockedResult(current_round)
-        with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
+        with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log, \
+             mock.patch('nvflare.apis.fl_component.FLComponent.fire_event', side_effect=event_catcher.catch_event):
             response = self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
         self.assertEqual(make_reply(ReturnCode.OK), response)
         expected_entry = f"INFO:Gatherer:[identity=, run=?]: Contribution from {self.CLIENT_THAT_TRAINS} ACCEPTED by the aggregator at round 0."
         self.assertTrue(expected_entry in log.output)
+        self.assertListEqual(event_catcher.events_caught, ['_before_contribution_accept', '_after_contribution_accept'])
 
     def test_gatherer_gathering_bad_result_gets_logged(self):
         current_round = 0
@@ -169,6 +179,13 @@ class TestGatherer(unittest.TestCase):
         self._set_metrics(0.0, 0.0)
         self.assertEqual(make_reply(ReturnCode.EXECUTION_EXCEPTION), self.gatherer.aggregate())
 
+    def _prepare_for_aggregation(self, executor_best: float, current_best: float):
+        current_round = 0
+        result = MockedResult(current_round)
+        self.gatherer = self._get_gatherer()
+        self._set_metrics(executor_best, current_best)
+        self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
+
     def test_aggregating_determines_best_metric_correctly(self):
         for executor_best, current_best, best, first_is_better in ((0.4,  0.6,  0.6, False ), # other is better (note: for metrics, larger is better)
                                                                    (0.6,  0.4,  0.6, True  ), # own is better
@@ -177,11 +194,7 @@ class TestGatherer(unittest.TestCase):
                                                                    (0.5,  None, 0.5, True  ),
                                                                    (0.5,  NaN,  0.5, True  ),
                                                                    (NaN,  0.5,  0.5, False )):
-            current_round = 0
-            result = MockedResult(current_round)
-            self.gatherer = self._get_gatherer()
-            self._set_metrics(executor_best, current_best)
-            self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
+            self._prepare_for_aggregation(executor_best, current_best)
             with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
                 result = self.gatherer.aggregate()
 
@@ -191,6 +204,15 @@ class TestGatherer(unittest.TestCase):
             else:
                 self.assertTrue("INFO:Gatherer:[identity=, run=?]: Finished aggregation for round 0" == log.output[-2])
             self.assertAlmostEqual(best, result.get_header(Constant.METRIC))
+
+    def test_aggregating_fires_events(self):
+        event_catcher = EventCatcher()
+
+        self._prepare_for_aggregation(0.4, 0.6)
+        with mock.patch('nvflare.apis.fl_component.FLComponent.fire_event', side_effect=event_catcher.catch_event):
+            self.gatherer.aggregate()
+
+        self.assertListEqual(event_catcher.events_caught, ['_before_aggregation', '_after_aggregation'])
 
     def test_gatherer_is_done_if_all_are_finished(self):
         for trainer in self.gatherer.trainer_statuses.keys():
@@ -227,6 +249,3 @@ class TestGatherer(unittest.TestCase):
                                            min_responses_required=2)
         self.gatherer.trainer_statuses[self.OTHER_CLIENT_THAT_TRAINS].reply_time = time.time()
         self.assertIsNone(self.gatherer.is_done())
-
-# TODO
-# ‣ Can we test that events were fired (where appropriate)? Gets fired to the engine.
