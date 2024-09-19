@@ -149,18 +149,6 @@ class TestSwarmClientController(unittest.TestCase):
                 self.assertEqual(result, make_reply(ReturnCode.EXECUTION_EXCEPTION))
             self.assertEqual(log.output[0], 'ERROR:swarm_client_ctl:Exception during execute: exception')
 
-    def test_start_run(self):
-        """
-        Test the start_run method to verify that components such as the aggregator are set up correctly.
-        """
-        print("This test does not work yet.")
-        return
-        # TODO clarify what needs to be done starting a run is possible
-        #      check succcessful execution and logging if self.metric_comparator_id is set
-        #                                                                              not set
-        #            system_panic if aggregator is not an instance of Aggregator
-        #                            metric_comparator is not an instance of MetricComparator
-
     def test_handle_event_unexpected_event_does_not_fail(self):
         fl_context = FLContext()
         result = self.controller.handle_event(AppEventType.LOCAL_BEST_MODEL_AVAILABLE, fl_context)
@@ -189,14 +177,31 @@ class TestSwarmClientController(unittest.TestCase):
                 self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
         self.assertEqual(log.output[0], 'ERROR:swarm_client_ctl:Exception during handle_event: exception')
 
+    def test_start_run(self):
+        """
+        Test the start_run method to verify that components such as the aggregator are set up correctly.
+        """
+        print("This test does not work yet.")
+        return
+        # TODO clarify what needs to be done so that starting a run is possible and
+        #              whether this is actually a useful unit test and not an integration test
+        #      check succcessful execution and logging if self.metric_comparator_id is set
+        #                                                                              not set
+        #            system_panic if aggregator is not an instance of Aggregator
+        #                            metric_comparator is not an instance of MetricComparator
+
     def test_start_workflow(self):
         """
         Test the start_workflow method to ensure the workflow is initiated correctly.
         """
         print("This test does not work yet.")
         return
+        # TODO clarify what needs to be done so that starting a workflow is possible and
+        #              whether this is actually a useful unit test and not an integration test
 
     def test_do_learn_task(self):
         print("This test does not work yet.")
         return
-        # TODO implement test for possible cases in learn_task, including exception, including verifying that event was fired
+        # TODO clarify what needs to be done so that starting a workflow is possible and
+        #              whether this is actually a useful unit test and not an integration test
+        #      implement test for possible cases in learn_task, including exception, including verifying that event was fired
