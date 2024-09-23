@@ -69,10 +69,10 @@ class EventCatcher():
         self.events_caught.append(event_args[0])
 
 class TestGatherer(unittest.TestCase):
-    CLIENT_THAT_TRAINS = 'client_a'
-    CLIENT_THAT_DOES_NOT_TRAIN = 'client_b'
-    OTHER_CLIENT_THAT_TRAINS = 'client_c'
-    YET_ANOTHER_CLIENT_THAT_TRAINS = 'client_d'
+    CLIENT_THAT_TRAINS = "client_a"
+    CLIENT_THAT_DOES_NOT_TRAIN = "client_b"
+    OTHER_CLIENT_THAT_TRAINS = "client_c"
+    YET_ANOTHER_CLIENT_THAT_TRAINS = "client_d"
 
     def _get_gatherer(self,
                       task_data = Shareable(),
@@ -156,12 +156,12 @@ class TestGatherer(unittest.TestCase):
         current_round = 0
         result = MockedResult(current_round)
         with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log, \
-             mock.patch('nvflare.apis.fl_component.FLComponent.fire_event', side_effect=event_catcher.catch_event):
+             mock.patch("nvflare.apis.fl_component.FLComponent.fire_event", side_effect=event_catcher.catch_event):
             response = self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
         self.assertEqual(make_reply(ReturnCode.OK), response)
         expected_entry = f"INFO:Gatherer:[identity=, run=?]: Contribution from {self.CLIENT_THAT_TRAINS} ACCEPTED by the aggregator at round 0."
         self.assertTrue(expected_entry in log.output)
-        self.assertListEqual(event_catcher.events_caught, ['_before_contribution_accept', '_after_contribution_accept'])
+        self.assertListEqual(event_catcher.events_caught, ["_before_contribution_accept", "_after_contribution_accept"])
 
     def test_gatherer_gathering_bad_result_gets_logged(self):
         current_round = 0
@@ -211,10 +211,10 @@ class TestGatherer(unittest.TestCase):
         event_catcher = EventCatcher()
 
         self._prepare_for_aggregation(0.4, 0.6)
-        with mock.patch('nvflare.apis.fl_component.FLComponent.fire_event', side_effect=event_catcher.catch_event):
+        with mock.patch("nvflare.apis.fl_component.FLComponent.fire_event", side_effect=event_catcher.catch_event):
             self.gatherer.aggregate()
 
-        self.assertListEqual(event_catcher.events_caught, ['_before_aggregation', '_after_aggregation'])
+        self.assertListEqual(event_catcher.events_caught, ["_before_aggregation", "_after_aggregation"])
 
     def test_gatherer_is_done_if_all_are_finished(self):
         for trainer in self.gatherer.trainer_statuses.keys():

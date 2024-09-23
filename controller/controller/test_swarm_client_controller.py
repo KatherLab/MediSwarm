@@ -12,8 +12,8 @@ from nvflare.app_common.ccwf.common import Constant
 from swarm_client_ctl import SwarmClientController
 
 
-TASK_NAME_PREFIX = 'test_prefix'
-LEARN_TASK_NAME = 'test_learn_task'
+TASK_NAME_PREFIX = "test_prefix"
+LEARN_TASK_NAME = "test_learn_task"
 
 
 class MockedEngineForTesting:
@@ -72,12 +72,12 @@ class TestSwarmClientController(unittest.TestCase):
         self.assertEqual(self.controller.metric_comparator_id, metric_comparator_id)
 
     def test_incorrect_initializations_raise_errors_and_logs(self):
-        for argument_empty in ('learn_task_name','persistor_id', 'shareable_generator_id', 'aggregator_id', 'metric_comparator_id'):
+        for argument_empty in ("learn_task_name","persistor_id", "shareable_generator_id", "aggregator_id", "metric_comparator_id"):
             with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
-                self.setup_controller(**{argument_empty: ''})
+                self.setup_controller(**{argument_empty: ""})
             self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {argument_empty} must not be empty"))
 
-        for nonpositive_number, value in (('learn_task_timeout', -1.0), ('min_responses_required', 0), ('wait_time_after_min_resps_received', 0.0), ('learn_task_timeout', 0.0)):
+        for nonpositive_number, value in (("learn_task_timeout", -1.0), ("min_responses_required", 0), ("wait_time_after_min_resps_received", 0.0), ("learn_task_timeout", 0.0)):
             # no need to distinguish between float and int here
             with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
                 self.setup_controller(**{nonpositive_number: value})
@@ -96,12 +96,12 @@ class TestSwarmClientController(unittest.TestCase):
         """
         Test the process_config method to verify correct role assignment as trainer or aggregator.
         """
-        for config in ({Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C2', 'C3']},
-                       {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C2', 'C3'], Constant.AGGR_CLIENTS: ['C1', 'C3']},
-                       {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C1', 'C3']},
-                       {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2']                                     },
-                       {Constant.CLIENTS: ['C1', 'C2', 'C3'],                                       Constant.AGGR_CLIENTS: ['C2', 'C3']},
-                       {Constant.CLIENTS: ['C1', 'C2', 'C3'],                                                                          }):
+        for config in ({Constant.CLIENTS: ["C1", "C2", "C3"], Constant.TRAIN_CLIENTS: ["C1", "C2"], Constant.AGGR_CLIENTS: ["C2", "C3"]},
+                       {Constant.CLIENTS: ["C1", "C2", "C3"], Constant.TRAIN_CLIENTS: ["C2", "C3"], Constant.AGGR_CLIENTS: ["C1", "C3"]},
+                       {Constant.CLIENTS: ["C1", "C2", "C3"], Constant.TRAIN_CLIENTS: ["C1", "C2"], Constant.AGGR_CLIENTS: ["C1", "C3"]},
+                       {Constant.CLIENTS: ["C1", "C2", "C3"], Constant.TRAIN_CLIENTS: ["C1", "C2"]                                     },
+                       {Constant.CLIENTS: ["C1", "C2", "C3"],                                       Constant.AGGR_CLIENTS: ["C2", "C3"]},
+                       {Constant.CLIENTS: ["C1", "C2", "C3"],                                                                          }):
             fl_context = self._setup_for_processing_config(config)
             self.controller.process_config(fl_context)
             is_trainer = ( Constant.TRAIN_CLIENTS not in config.keys() ) or ( "C1" in config[Constant.TRAIN_CLIENTS] )
@@ -126,22 +126,22 @@ class TestSwarmClientController(unittest.TestCase):
         """
         Test the execute method to ensure proper handling of the task execution flow.
         """
-        for task_name, expected_result in (('test_prefix_report_learn_result', {'__headers__': {'__rc__': 'EXECUTION_EXCEPTION'}}),
-                                           ('wrong_task_name', {'__headers__': {'__rc__': 'TASK_UNKNOWN'}})):
-            config = {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C2', 'C3']}
+        for task_name, expected_result in (("test_prefix_report_learn_result", {"__headers__": {"__rc__": "EXECUTION_EXCEPTION"}}),
+                                           ("wrong_task_name", {"__headers__": {"__rc__": "TASK_UNKNOWN"}})):
+            config = {Constant.CLIENTS: ["C1", "C2", "C3"], Constant.TRAIN_CLIENTS: ["C1", "C2"], Constant.AGGR_CLIENTS: ["C2", "C3"]}
             fl_context, shareable, abort_signal = self._setup_for_executing(config)
             result = self.controller.execute(task_name, shareable, fl_context, abort_signal)
             self.assertDictEqual(result, expected_result)
 
     def test_execute_logs_and_returns_on_exception(self):
-        config = {Constant.CLIENTS: ['C1', 'C2', 'C3'], Constant.TRAIN_CLIENTS: ['C1', 'C2'], Constant.AGGR_CLIENTS: ['C2', 'C3']}
+        config = {Constant.CLIENTS: ["C1", "C2", "C3"], Constant.TRAIN_CLIENTS: ["C1", "C2"], Constant.AGGR_CLIENTS: ["C2", "C3"]}
         fl_context, shareable, abort_signal = self._setup_for_executing(config)
 
         with self.assertLogs(self.testee_logger, logging.ERROR) as log:
-            with mock.patch('swarm_client_ctl.SwarmClientController._process_learn_result', side_effect=Exception('exception')):
-                result = self.controller.execute('test_prefix_report_learn_result', shareable, fl_context, abort_signal)
+            with mock.patch("swarm_client_ctl.SwarmClientController._process_learn_result", side_effect=Exception("exception")):
+                result = self.controller.execute("test_prefix_report_learn_result", shareable, fl_context, abort_signal)
                 self.assertEqual(result, make_reply(ReturnCode.EXECUTION_EXCEPTION))
-            self.assertEqual(log.output[0], 'ERROR:swarm_client_ctl:Exception during execute: exception')
+            self.assertEqual(log.output[0], "ERROR:swarm_client_ctl:Exception during execute: exception")
 
     def test_handle_event_unexpected_event_does_not_fail(self):
         fl_context = FLContext()
@@ -154,21 +154,21 @@ class TestSwarmClientController(unittest.TestCase):
         #      Unify this when unifying logging.
         with self.assertLogs(logging.getLogger("SwarmClientController"), logging.INFO) as log:
             self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
-        self.assertEqual(log.output[0], 'INFO:SwarmClientController:[identity=, run=?]: Got GLOBAL_BEST_MODEL_AVAILABLE: best metric=None')
+        self.assertEqual(log.output[0], "INFO:SwarmClientController:[identity=, run=?]: Got GLOBAL_BEST_MODEL_AVAILABLE: best metric=None")
 
     def test_handle_event_other_client_affected_does_not_fail(self):
         fl_context = FLContext()
-        fl_context.set_prop(Constant.CLIENT, 'C1')
-        self.controller.me = 'C2'
+        fl_context.set_prop(Constant.CLIENT, "C1")
+        self.controller.me = "C2"
         self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
 
     def test_handle_event_logs_and_raises_exception(self):
         fl_context = FLContext()
 
         with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(Exception) as error:
-            with mock.patch('swarm_client_ctl.SwarmClientController.update_status', side_effect=Exception('exception')):
+            with mock.patch("swarm_client_ctl.SwarmClientController.update_status", side_effect=Exception("exception")):
                 self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
-        self.assertEqual(log.output[0], 'ERROR:swarm_client_ctl:Exception during handle_event: exception')
+        self.assertEqual(log.output[0], "ERROR:swarm_client_ctl:Exception during handle_event: exception")
 
     def test_start_run(self):
         """
