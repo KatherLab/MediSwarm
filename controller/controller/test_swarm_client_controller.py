@@ -12,13 +12,11 @@ from nvflare.app_common.ccwf.common import Constant
 from swarm_client_ctl import SwarmClientController
 
 
-# TODO move constants to suitable location
 TASK_NAME_PREFIX = 'test_prefix'
 LEARN_TASK_NAME = 'test_learn_task'
 
 
 class MockedEngineForTesting:
-    # TODO consider merging this with test_swarm_server_controller.MockedEngineForTesting
     def __init__(self):
         self.fl_ctx_mgr = FLContextManager(engine=self)
 
@@ -156,9 +154,8 @@ class TestSwarmClientController(unittest.TestCase):
 
     def test_handle_event_expected_event_logged_correctly(self):
         fl_context = FLContext()
-        # TODO Here, we cannot use self.testee_logger.
-        #      Unlike error logs, the SwarmClientController logs this only once via self.log_info, as opposed to self.log_error followed by logger.error.
-        #      Is this intended and what do we actually want to test?
+        # TODO Unlike error logs, the SwarmClientController logs this only once via self.log_info, as opposed to self.log_error followed by logger.error.
+        #      Unify this when unifying logging.
         with self.assertLogs(logging.getLogger("SwarmClientController"), logging.INFO) as log:
             self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
         self.assertEqual(log.output[0], 'INFO:SwarmClientController:[identity=, run=?]: Got GLOBAL_BEST_MODEL_AVAILABLE: best metric=None')
