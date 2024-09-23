@@ -55,10 +55,10 @@ class SwarmClientController(ClientSideController):
             check_non_empty_str("shareable_generator_id", shareable_generator_id)
             check_non_empty_str("aggregator_id", aggregator_id)
 
-            if metric_comparator_id:
+            if metric_comparator_id is not None:
                 check_non_empty_str("metric_comparator_id", metric_comparator_id)
 
-            if learn_task_timeout:
+            if learn_task_timeout is not None:
                 check_positive_number("learn_task_timeout", learn_task_timeout)
 
             check_positive_int("min_responses_required", min_responses_required)

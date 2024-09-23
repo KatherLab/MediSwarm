@@ -72,17 +72,13 @@ class TestSwarmClientController(unittest.TestCase):
         self.assertEqual(self.controller.metric_comparator_id, metric_comparator_id)
 
     def test_incorrect_initializations_raise_errors_and_logs(self):
-        print("This test is not complete yet.")
-        for argument_empty in ('learn_task_name','persistor_id', 'shareable_generator_id', 'aggregator_id'):
-            # TODO should also fail on empty 'metric_comparator_id' (but does not)
+        for argument_empty in ('learn_task_name','persistor_id', 'shareable_generator_id', 'aggregator_id', 'metric_comparator_id'):
             with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
                 self.setup_controller(**{argument_empty: ''})
             self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {argument_empty} must not be empty"))
 
-        print("This test is not complete yet.")
-        for nonpositive_number, value in (('learn_task_timeout', -1.0), ('min_responses_required', 0), ('wait_time_after_min_resps_received', 0.0)):
+        for nonpositive_number, value in (('learn_task_timeout', -1.0), ('min_responses_required', 0), ('wait_time_after_min_resps_received', 0.0), ('learn_task_timeout', 0.0)):
             # no need to distinguish between float and int here
-            # TODO should also fail for learn_task_timeout 0.0 (but does not)
             with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
                 self.setup_controller(**{nonpositive_number: value})
             self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {nonpositive_number} must > 0, but got {value}"))
