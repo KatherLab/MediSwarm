@@ -72,6 +72,7 @@ class TestGatherer(unittest.TestCase):
     CLIENT_THAT_TRAINS = 'client_a'
     CLIENT_THAT_DOES_NOT_TRAIN = 'client_b'
     OTHER_CLIENT_THAT_TRAINS = 'client_c'
+    YET_ANOTHER_CLIENT_THAT_TRAINS = 'client_d'
 
     def _get_gatherer(self,
                       task_data = Shareable(),
@@ -79,6 +80,7 @@ class TestGatherer(unittest.TestCase):
                       all_clients = [CLIENT_THAT_TRAINS, CLIENT_THAT_DOES_NOT_TRAIN],
                       trainers = [CLIENT_THAT_TRAINS],
                       min_responses_required = 1,
+                      timeout = 0.1
                       ):
         return Gatherer(task_data = task_data,
                         fl_ctx = self.fl_context,
@@ -90,7 +92,7 @@ class TestGatherer(unittest.TestCase):
                         trainers =  trainers,
                         min_responses_required = min_responses_required,
                         wait_time_after_min_resps_received = 0.1,
-                        timeout = 0.1)
+                        timeout = timeout)
 
     def setUp(self):
         self.fl_context = FLContext()
@@ -244,3 +246,18 @@ class TestGatherer(unittest.TestCase):
                                            min_responses_required=2)
         self.gatherer.trainer_statuses[self.OTHER_CLIENT_THAT_TRAINS].reply_time = time.time()
         self.assertIsNone(self.gatherer.is_done())
+
+    def test_gatherer_is_done_if_enough_responses_received_and_waiting_time_expired(self):
+        self.gatherer = self._get_gatherer(all_clients=[self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS, self.YET_ANOTHER_CLIENT_THAT_TRAINS],
+                                           trainers=[self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS, self.YET_ANOTHER_CLIENT_THAT_TRAINS],
+                                           min_responses_required=2,
+                                           timeout=0.5)
+        now = time.time()
+        self.gatherer.trainer_statuses[self.CLIENT_THAT_TRAINS].reply_time = now
+        self.gatherer.trainer_statuses[self.OTHER_CLIENT_THAT_TRAINS].reply_time = now
+        self.gatherer.min_resps_received_time = now
+        time.sleep(0.11)
+        with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
+            self.assertTrue(self.gatherer.is_done())
+        print("----->", log.output)
+        self.assertTrue("INFO:Gatherer:[identity=, run=?]: Gatherer for round 0 exit after 0.1 seconds since received minimum responses" in log.output)
