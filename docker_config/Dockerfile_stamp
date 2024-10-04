@@ -1,0 +1,57 @@
+# Use Ubuntu as the base image since the environment is to be set up locally and OpenSlide needs to be installed
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE}
+
+# Specify the NVFlare version
+ARG NVF_VERSION=2.4.1
+ENV NVF_BRANCH=${NVF_VERSION}
+
+# Install necessary system dependencies (OpenSlide, OpenCV dependencies, Python 3.10, git, etc.)
+RUN apt update && apt install -y \
+    openslide-tools \
+    libgl1-mesa-glx \
+    python3.10 \
+    python3-pip \
+    wget \
+    bzip2 \
+    git
+
+# Upgrade pip and install Python packages
+RUN python3.10 -m pip install --upgrade pip && \
+    python3.10 -m pip install git+https://github.com/KatherLab/STAMP && \
+    python3.10 -m pip install \
+        matplotlib \
+        scikit-learn \
+        openpyxl \
+        torchio \
+        SimpleITK \
+        pydicom
+
+# Set the working directory
+WORKDIR /workspace
+
+# Initialize STAMP and set up configuration
+RUN stamp init && stamp setup
+
+# Set the entrypoint to allow usage of the STAMP command directly
+# ENTRYPOINT ["stamp"]
+
+# Copy the modified NVFlare source code into the image
+COPY ./NVFlare /workspace/nvflare
+
+# Install NVFlare from the local source
+RUN python3.10 -m pip install /workspace/nvflare
+
+# Copy and install the controller package
+COPY ../controller /workspace/controller
+RUN python3.10 -m pip install /workspace/controller
+
+# Set python path for the controller
+ENV PYTHONPATH=/workspace/controller
+
+# Set the Docker image label
+LABEL name="jefftud/nvflare-stamp-dev:v1.1.1"
+LABEL description="Docker image for development of NVFlare and STAMP"
+LABEL version="1.1.1"
+
+#docker build -f Dockerfile_stamp -t jefftud/nvflare-stamp-dev:v1.1.1 .
