@@ -113,7 +113,7 @@ def main():
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
-            max_epochs=5,
+            max_epochs=max_epochs,
             num_sanity_val_steps=2,
             logger=TensorBoardLogger(save_dir=path_run_dir)
         )
