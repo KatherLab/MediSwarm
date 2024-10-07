@@ -73,6 +73,6 @@ RUN python3 -m pip install \
 # additional package needed for [black]jupyter
 RUN python3 -m pip install tokenize-rt==5.2.0
 
-ENV PYTHONPATH=/workspace/controller
+ENV PYTHONPATH=/workspace/controller/controller
 
 LABEL name="nvflare-pt-dev:testing"
