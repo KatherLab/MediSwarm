@@ -38,14 +38,9 @@ class SwarmServerController(ServerSideController):
         client configurations for training and aggregation.
         """
         try:
-            if not participating_clients:
-                raise ValueError(f"Not enough participating_clients: must > 1, but got '{participating_clients}'")
-
             # Normalize and validate result_clients and starting_client inputs
             result_clients = normalize_config_arg(result_clients)
             starting_client = normalize_config_arg(starting_client)
-            if starting_client == "":
-                raise ValueError("starting_client must be specified")
 
             # Initialize the ServerSideController with validated arguments
             super().__init__(
@@ -67,11 +62,11 @@ class SwarmServerController(ServerSideController):
             )
 
             # If train_clients or aggr_clients are not provided, initialize them as empty lists
+            if not aggr_clients:
+                aggr_clients = []
+
             if not train_clients:
                 train_clients = []
-
-            if not aggr_clients:
-                raise ValueError("aggr_client must be specified")
 
             # Assign aggregation and training clients
             self.aggr_clients = aggr_clients

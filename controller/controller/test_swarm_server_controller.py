@@ -90,17 +90,6 @@ class TestSwarmServerController(unittest.TestCase):
         self.assertIn(self.CLIENT_THAT_AGGREGATES, controller.aggr_clients)
         controller.finalize_run(self.fl_ctx)
 
-    def test_unspecified_staring_client_raises_error(self):
-        participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
-        with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(ValueError) as error:
-            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                      participating_clients=participating_clients,
-                                      # starting_client not specified
-                                      train_clients=[self.CLIENT_THAT_TRAINS],
-                                      aggr_clients=[self.CLIENT_THAT_AGGREGATES])
-        expected_message = "starting_client must be specified"
-        self._verify_exception_and_error_log_during_constructor(error, log, expected_message)
-
     def test_invalid_starting_client_raises_error(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
         controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
@@ -134,27 +123,24 @@ class TestSwarmServerController(unittest.TestCase):
         self._set_up(clients=participating_clients)
         self._initialize_start_finalize(controller)
 
-    def test_unspecified_aggregating_client_raises_error(self):
+    def test_unspecified_aggregating_client_succeeds_initialization(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS]
-        with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(ValueError) as error:
-            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                      participating_clients=participating_clients,
-                                      starting_client=self.CLIENT_THAT_TRAINS,
-                                      train_clients=participating_clients)
-                                      # no aggr_clients given
-        expected_message = "aggr_client must be specified"
-        self._verify_exception_and_error_log_during_constructor(error, log, expected_message)
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_TRAINS,
+                                           train_clients=participating_clients)  # no aggr_clients given
+        self._set_up(clients=participating_clients)
+        self._initialize_start_finalize(controller)
 
-    def test_no_aggregating_client_raises_error(self):
+    def test_no_aggregating_client_succeeds_initialization(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.OTHER_CLIENT_THAT_TRAINS]
-        with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(ValueError) as error:
-            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                      participating_clients=participating_clients,
-                                      starting_client=self.CLIENT_THAT_TRAINS,
-                                      train_clients=participating_clients,
-                                      aggr_clients=[])
-        expected_message = "aggr_client must be specified"
-        self._verify_exception_and_error_log_during_constructor(error, log, expected_message)
+        controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
+                                           participating_clients=participating_clients,
+                                           starting_client=self.CLIENT_THAT_TRAINS,
+                                           train_clients=participating_clients,
+                                           aggr_clients=[])
+        self._set_up(clients=participating_clients)
+        self._initialize_start_finalize(controller)
 
     def test_uncategorized_client_raises_error(self):
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_DOES_NOTHING]
@@ -180,19 +166,6 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=[self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_TRAINS_AND_AGGREGATES])
         self._set_up(clients=participating_clients)
         self._initialize_start_finalize(controller)
-
-    def test_unspecified_participating_clients_fails_initialization(self):
-        with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(ValueError) as error:
-            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS)
-        expected_message = f"Not enough participating_clients: must > 1, but got 'None'"
-        self._verify_exception_and_error_log_during_constructor(error, log, expected_message)
-
-    def test_no_participating_clients_fails_initialization(self):
-        with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(ValueError) as error:
-            _ = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
-                                      participating_clients=[])
-        expected_message = f"Not enough participating_clients: must > 1, but got '[]'"
-        self._verify_exception_and_error_log_during_constructor(error, log, expected_message)
 
     def test_one_participating_client_fails_initialization(self):
         with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(ValueError) as error:
