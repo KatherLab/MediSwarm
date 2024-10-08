@@ -40,6 +40,17 @@ docker tag nvflare-pt-dev:3dcnn jefftud/nvflare-pt-dev:3dcnn
 docker push jefftud/nvflare-pt-dev:3dcnn
 ```
 
+### 4. Build and Push `nvflare-stamp-dev` Image
+
+Build the Docker image using the `Dockerfile_stamp` file and push it to Docker Hub.
+
+```sh
+docker build -t nvflare-stamp-dev . -f Dockerfile_stamp
+docker tag nvflare-stamp-dev jefftud/nvflare-stamp-dev:v1.1.1
+docker push jefftud/nvflare-stamp-dev:v1.1.1
+```
+
+
 ## Notes
 
 - Make sure to replace `/path/to/parent_directory` with the actual path to your parent directory containing the `controller` and `NVFlare` directories.

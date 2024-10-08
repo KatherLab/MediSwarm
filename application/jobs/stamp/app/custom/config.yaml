@@ -19,11 +19,11 @@ preprocessing:
   device: cuda:0 # device to run feature extraction on (cpu, cuda, cuda:0, etc.)
 
 modeling:
-  clini_table: # Path to clini_table file (.xlsx or .csv)
-  slide_table: # Path to slide_table file (.xlsx or .csv)
-  feature_dir: ${preprocessing.output_dir}/STAMP_macenko_xiyuewang-ctranspath-7c998680 # Path to feature directory
-  output_dir: # Path to output directory
-  target_label: # Target label. No spaces allowed! Format clinical table accordingly
+  clini_table: data_dir/clinical_table.csv # Path to clini_table file (.xlsx or .csv)
+  slide_table: data_dir/slide_table.csv # Path to slide_table file (.xlsx or .csv)
+  feature_dir: data_dir/All_merged_features_CTRANSPATH # Path to feature directory
+  output_dir: data_dir/out # Path to output directory
+  target_label: Disease # Target label. No spaces allowed! Format clinical table accordingly
   categories: [] # Categories (list), leave empty to automatically infer based on unique values in the target_label column
   cat_labels: [] # Extra input category labels (list, can be empty)
   cont_labels: [] # Extra input continuous labels (list, can be empty)

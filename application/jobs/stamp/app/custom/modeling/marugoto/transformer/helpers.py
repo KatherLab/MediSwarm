@@ -14,8 +14,12 @@ from fastai.vision.learner import load_learner
 import torch
 
 from application.jobs.stamp.app.custom.env_config import load_environment_variables
-from .base import train, train_federated, deploy
-from .data import get_cohort_df, get_target_enc, SKLearnEncoder
+from base import train, train_federated, deploy
+from data import get_cohort_df, get_target_enc, SKLearnEncoder
+
+import nvflare.client as flare
+# Initialize NVFlare client API
+flare.init()
 
 __all__ = [
     'train_federated_categorical_model_', 'train_categorical_model_', 'deploy_categorical_model_', 'categorical_crossval_']
@@ -43,17 +47,7 @@ def safe_load_learner(model_path, use_cpu):
             raise
 
 
-def train_federated_categorical_model_(
-        clini_table: PathLike,
-        slide_table: PathLike,
-        feature_dir: PathLike,
-        output_path: PathLike,
-        *,
-        target_label: str,
-        cat_labels: Sequence[str] = [],
-        cont_labels: Sequence[str] = [],
-        categories: Optional[Iterable[str]] = None,
-) -> None:
+def train_federated_categorical_model_() -> None:
     """Train a categorical model on a cohort's tile's features.
 
     Args:
@@ -66,7 +60,13 @@ def train_federated_categorical_model_(
         output_path:  File to save model in.
     """
     env_vars = load_environment_variables()
+    clini_table = Path(env_vars['clini_table'])
+    slide_table = Path(env_vars['slide_table'])
     feature_dir = Path(env_vars['feature_dir'])
+    target_label = env_vars['target_label']
+    cat_labels = env_vars['cat_labels']
+    cont_labels = env_vars['cont_labels']
+    categories = env_vars['categories']
     output_path = Path(env_vars['output_path'])
     output_path.mkdir(exist_ok=True, parents=True)
 
