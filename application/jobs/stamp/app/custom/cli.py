@@ -157,7 +157,7 @@ def run_cli(args: argparse.Namespace):
                 model_path = f"{os.environ['STAMP_RESOURCES_DIR']}/uni/vit_large_patch16_224.dinov2.uni_mass100k/pytorch_model.bin"
             if not Path(model_path).exists():
                 raise ConfigurationError(f"Feature extractor model {model_path} does not exist, please run `stamp setup` to download it.")
-            from .preprocessing.wsi_norm import preprocess
+            from preprocessing.wsi_norm import preprocess
             preprocess(
                 output_dir=Path(c.output_dir),
                 wsi_dir=Path(c.wsi_dir),
@@ -183,7 +183,7 @@ def run_cli(args: argparse.Namespace):
                 paths_to_check=["clini_table", "slide_table", "feature_dir"]
             )
             c = cfg.modeling
-            from .modeling.marugoto.transformer.helpers import train_categorical_model_
+            from modeling.marugoto.transformer.helpers import train_categorical_model_
             train_categorical_model_(clini_table=Path(c.clini_table), 
                                      slide_table=Path(c.slide_table),
                                      feature_dir=Path(c.feature_dir), 
@@ -200,7 +200,7 @@ def run_cli(args: argparse.Namespace):
                 paths_to_check=["clini_table", "slide_table", "feature_dir"]
             )
             c = cfg.modeling
-            from .modeling.marugoto.transformer.helpers import categorical_crossval_
+            from modeling.marugoto.transformer.helpers import categorical_crossval_
             categorical_crossval_(clini_table=Path(c.clini_table), 
                                   slide_table=Path(c.slide_table),
                                   feature_dir=Path(c.feature_dir),
@@ -218,7 +218,7 @@ def run_cli(args: argparse.Namespace):
                 paths_to_check=["clini_table", "slide_table", "deploy_feature_dir"]
             )
             c = cfg.modeling
-            from .modeling.marugoto.transformer.helpers import deploy_categorical_model_
+            from modeling.marugoto.transformer.helpers import deploy_categorical_model_
             deploy_categorical_model_(clini_table=Path(c.clini_table),
                                       slide_table=Path(c.slide_table),
                                       feature_dir=Path(c.deploy_feature_dir),
@@ -235,7 +235,7 @@ def run_cli(args: argparse.Namespace):
                 prefix="modeling.statistics",
                 paths_to_check=["pred_csvs"]
             )
-            from .modeling.statistics import compute_stats
+            from modeling.statistics import compute_stats
             c = cfg.modeling.statistics
             if isinstance(c.pred_csvs,str):
                 c.pred_csvs = [c.pred_csvs]
@@ -252,7 +252,7 @@ def run_cli(args: argparse.Namespace):
                 paths_to_check=["feature_dir","wsi_dir","model_path"]
             )
             c = cfg.heatmaps
-            from .heatmaps.__main__ import main
+            from heatmaps.__main__ import main
             main(slide_name=str(c.slide_name),
                  feature_dir=Path(c.feature_dir),
                  wsi_dir=Path(c.wsi_dir),
@@ -265,11 +265,6 @@ def run_cli(args: argparse.Namespace):
             raise ConfigurationError(f"Unknown command {args.command}")
 
 def main() -> None:
-    import nvflare.client as flare
-    import torch
-    from torch.utils.data import DataLoader
-    from nvflare.client.api import FLModel
-    flare.init()
     parser = argparse.ArgumentParser(prog="stamp", description="STAMP: Solid Tumor Associative Modeling in Pathology")
     parser.add_argument("--config", "-c", type=Path, default=None, help=f"Path to config file (if unspecified, defaults to {DEFAULT_CONFIG_FILE.absolute()} or the default STAMP config file shipped with the package if {DEFAULT_CONFIG_FILE.absolute()} does not exist)")
 
@@ -285,12 +280,7 @@ def main() -> None:
     commands.add_parser("heatmaps", help="Generate heatmaps for a trained model")
 
     args = parser.parse_args()
-    # set dummy variable to avoid error
-    args.slide_name = None
-    # train
-    args.command = "train"
-
-
+    args.command = 'train'
     # If no command is given, print help and exit
     if args.command is None:
         parser.print_help()

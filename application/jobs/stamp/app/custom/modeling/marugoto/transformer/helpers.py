@@ -13,16 +13,11 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from fastai.vision.learner import load_learner
 import torch
 
-from application.jobs.stamp.app.custom.env_config import load_environment_variables
-from base import train, train_federated, deploy
-from data import get_cohort_df, get_target_enc, SKLearnEncoder
-
-import nvflare.client as flare
-# Initialize NVFlare client API
-flare.init()
+from .base import train, deploy
+from .data import get_cohort_df, get_target_enc, SKLearnEncoder
 
 __all__ = [
-    'train_federated_categorical_model_', 'train_categorical_model_', 'deploy_categorical_model_', 'categorical_crossval_']
+    'train_categorical_model_', 'deploy_categorical_model_', 'categorical_crossval_']
 
 
 PathLike = Union[str, Path]
@@ -46,107 +41,6 @@ def safe_load_learner(model_path, use_cpu):
         else:
             raise
 
-
-def train_federated_categorical_model_() -> None:
-    """Train a categorical model on a cohort's tile's features.
-
-    Args:
-        clini_table:  Path to the clini table.
-        slide_table:  Path to the slide tabel.
-        target_label:  Label to train for.
-        categories:  Categories to train for, or all categories appearing in the
-            clini table if none given (e.g. '["MSIH", "nonMSIH"]').
-        feature_dir:  Path containing the features.
-        output_path:  File to save model in.
-    """
-    env_vars = load_environment_variables()
-    clini_table = Path(env_vars['clini_table'])
-    slide_table = Path(env_vars['slide_table'])
-    feature_dir = Path(env_vars['feature_dir'])
-    target_label = env_vars['target_label']
-    cat_labels = env_vars['cat_labels']
-    cont_labels = env_vars['cont_labels']
-    categories = env_vars['categories']
-    output_path = Path(env_vars['output_path'])
-    output_path.mkdir(exist_ok=True, parents=True)
-
-    # just a big fat object to dump all kinds of info into for later reference
-    # not used during actual training
-    from datetime import datetime
-    info = {
-        'description': 'MIL training',
-        'clini': str(Path(env_vars['clini_table']).absolute()),
-        'slide': str(Path(env_vars['slide_table']).absolute()),
-        'feature_dir': str(feature_dir.absolute()),
-        'target_label': str(env_vars['target_label']),
-        'cat_labels': [str(c) for c in env_vars['cat_labels']],
-        'cont_labels': [str(c) for c in env_vars['cont_labels']],
-        'output_path': str(output_path.absolute()),
-        'datetime': datetime.now().astimezone().isoformat()}
-
-    model_path = output_path / 'export.pkl'
-    if model_path.exists():
-        print(f'{model_path} already exists. Skipping...')
-        return
-
-    clini_df = pd.read_csv(clini_table, dtype=str) if Path(clini_table).suffix == '.csv' else pd.read_excel(clini_table,
-                                                                                                            dtype=str)
-    slide_df = pd.read_csv(slide_table, dtype=str) if Path(slide_table).suffix == '.csv' else pd.read_excel(slide_table,
-                                                                                                            dtype=str)
-
-    df = clini_df.merge(slide_df, on='PATIENT')
-
-    # filter na, infer categories if not given
-    df = df.dropna(subset=target_label)
-
-    # TODO move into get_cohort_df
-    if not categories:
-        categories = df[target_label].unique()
-    categories = np.array(categories)
-    info['categories'] = list(categories)
-
-    df = get_cohort_df(clini_table, slide_table, feature_dir, target_label, categories)
-
-    print('Overall distribution')
-    print(df[target_label].value_counts())
-    info['class distribution'] = {'overall': {  # type: ignore
-        k: int(v) for k, v in df[target_label].value_counts().items()}}
-
-    # Split off validation set
-    train_patients, valid_patients = train_test_split(df.PATIENT, stratify=df[target_label], random_state=1337)
-    train_df = df[df.PATIENT.isin(train_patients)]
-    valid_df = df[df.PATIENT.isin(valid_patients)]
-    train_df.drop(columns='slide_path').to_csv(output_path / 'train.csv', index=False)
-    valid_df.drop(columns='slide_path').to_csv(output_path / 'valid.csv', index=False)
-
-    info['class distribution']['training'] = {  # type: ignore
-        k: int(v) for k, v in train_df[target_label].value_counts().items()}
-    info['class distribution']['validation'] = {  # type: ignore
-        k: int(v) for k, v in valid_df[target_label].value_counts().items()}
-
-    with open(output_path / 'info.json', 'w') as f:
-        json.dump(info, f)
-
-    target_enc = OneHotEncoder(sparse_output=False).fit(categories.reshape(-1, 1))
-
-    add_features = []
-    if cat_labels: add_features.append((_make_cat_enc(train_df, cat_labels), df[cat_labels].values))
-    if cont_labels: add_features.append((_make_cont_enc(train_df, cont_labels), df[cont_labels].values))
-
-    learn = train_federated(
-        bags=df.slide_path.values,
-        targets=(target_enc, df[target_label].values),
-        add_features=add_features,
-        valid_idxs=df.PATIENT.isin(valid_patients).values,
-        path=output_path,
-        cores=max(1, os.cpu_count() // 4)
-    )
-
-    # save some additional information to the learner to make deployment easier
-    learn.target_label = target_label
-    learn.cat_labels, learn.cont_labels = cat_labels, cont_labels
-
-    learn.export()
 
 def train_categorical_model_(
     clini_table: PathLike,
