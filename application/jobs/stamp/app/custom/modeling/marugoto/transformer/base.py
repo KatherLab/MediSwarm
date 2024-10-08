@@ -14,136 +14,17 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from data import make_dataset, SKLearnEncoder
-from TransMIL import TransMIL
+from .data import make_dataset, SKLearnEncoder
+from .TransMIL import TransMIL
 
 
-__all__ = ['train_federated', 'train', 'deploy']
+__all__ = ['train', 'deploy']
 
 
 T = TypeVar('T')
 
 import nvflare.client as flare
-import torch
-from torch.utils.data import DataLoader
 from nvflare.client.api import FLModel
-
-
-def train_federated(
-        *,
-        bags: Sequence[Iterable[Path]],
-        targets: Tuple[SKLearnEncoder, np.ndarray],
-        add_features: Iterable[Tuple[SKLearnEncoder, Sequence[Any]]] = [],
-        valid_idxs: np.ndarray,
-        n_epoch: int = 32,
-        patience: int = 8,
-        path: Optional[Path] = None,
-        batch_size: int = 64,
-        cores: int = 8,
-        plot: bool = False
-) -> Learner:
-    """Train a MLP on image features using NVFlare federated learning."""
-
-    # Receive the global model from the NVFlare server
-    input_model = flare.receive()
-    params = input_model.params  # Get parameters from received FLModel
-
-    # Set up device for training
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    if device.type == "cuda":
-        torch.set_float32_matmul_precision("medium")
-
-    # Unpack targets and set up datasets
-    target_enc, targs = targets
-    train_ds = make_dataset(
-        bags=bags[~valid_idxs],
-        targets=(target_enc, targs[~valid_idxs]),
-        add_features=[
-            (enc, vals[~valid_idxs])
-            for enc, vals in add_features],
-        bag_size=512)
-
-    valid_ds = make_dataset(
-        bags=bags[valid_idxs],
-        targets=(target_enc, targs[valid_idxs]),
-        add_features=[
-            (enc, vals[valid_idxs])
-            for enc, vals in add_features],
-        bag_size=None)
-
-    # Build dataloaders
-    train_dl = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=True, num_workers=cores,
-        drop_last=len(train_ds) > batch_size,
-        device=device, pin_memory=device.type == "cuda"
-    )
-    valid_dl = DataLoader(
-        valid_ds, batch_size=1, shuffle=False, num_workers=cores,
-        device=device, pin_memory=device.type == "cuda"
-    )
-
-    batch = train_dl.one_batch()
-    feature_dim = batch[0].shape[-1]
-
-    # Build model using the input model's parameters
-    model = TransMIL(
-        num_classes=len(target_enc.categories_[0]), input_dim=feature_dim,
-        dim=512, depth=2, heads=8, mlp_dim=512, dropout=.0
-    )
-    model.load_state_dict(params)  # Load received model parameters
-    model.to(device)
-
-    print(f"Model: {model}", end=" ")
-    print(f"[Parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}]")
-
-    # Weigh inversely to class occurrences
-    counts = pd.Series(targs[~valid_idxs]).value_counts()
-    weight = counts.sum() / counts
-    weight /= weight.sum()
-    weight = torch.tensor(
-        list(map(weight.get, target_enc.categories_[0])), dtype=torch.float32, device=device)
-    loss_func = nn.CrossEntropyLoss(weight=weight)
-
-    # DataLoaders setup
-    dls = DataLoaders(train_dl, valid_dl, device=device)
-
-    # Set up Learner
-    learn = Learner(
-        dls,
-        model,
-        loss_func=loss_func,
-        opt_func=partial(OptimWrapper, opt=torch.optim.AdamW),
-        metrics=[RocAuc()],
-        path=path,
-    )
-
-    # Callbacks for training
-    cbs = [
-        SaveModelCallback(monitor='valid_loss', fname=f'best_valid'),
-        EarlyStoppingCallback(monitor='valid_loss', patience=patience),
-        CSVLogger(),
-    ]
-    learn.fit_one_cycle(n_epoch=n_epoch, reset_opt=True, lr_max=1e-4, wd=1e-2, cbs=cbs)
-
-    # Plot results if required
-    if plot:
-        path_plots = path / "plots"
-        path_plots.mkdir(parents=True, exist_ok=True)
-        learn.recorder.plot_loss()
-        plt.savefig(path_plots / 'losses_plot.png')
-        plt.close()
-
-        learn.recorder.plot_sched()
-        plt.savefig(path_plots / 'lr_scheduler.png')
-        plt.close()
-
-    # Collect trained model parameters and send them back to the server
-    new_params = model.state_dict()
-    output_model = FLModel(params=new_params)
-    flare.send(output_model)  # Send updated model back to NVFlare server
-
-    return learn
-
 
 def train(
     *,
@@ -151,110 +32,115 @@ def train(
     targets: Tuple[SKLearnEncoder, np.ndarray],
     add_features: Iterable[Tuple[SKLearnEncoder, Sequence[Any]]] = [],
     valid_idxs: np.ndarray,
-    n_epoch: int = 32,
+    n_epoch: int = 3,
     patience: int = 8,
     path: Optional[Path] = None,
     batch_size: int = 64,
     cores: int = 8,
     plot: bool = False
 ) -> Learner:
-    """Train a MLP on image features.
+    """Train a MLP on image features using NVFlare federated learning."""
 
-    Args:
-        bags:  H5s containing bags of tiles.
-        targets:  An (encoder, targets) pair.
-        add_features:  An (encoder, targets) pair for each additional input.
-        valid_idxs:  Indices of the datasets to use for validation.
-    """
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    if device.type == "cuda":
-        # allow for usage of TensorFloat32 as internal dtype for matmul on modern NVIDIA GPUs
-        torch.set_float32_matmul_precision("medium")
+    # init flare client
+    flare.init()
+    while flare.is_running():
+        # Receive the global model from the NVFlare server
+        input_model = flare.receive()
+        params = input_model.params  # Get parameters from received FLModel
 
-    target_enc, targs = targets
-    train_ds = make_dataset(
-        bags=bags[~valid_idxs],
-        targets=(target_enc, targs[~valid_idxs]),
-        add_features=[
-            (enc, vals[~valid_idxs])
-            for enc, vals in add_features],
-        bag_size=512)
+        # Set up device for training
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if device.type == "cuda":
+            torch.set_float32_matmul_precision("medium")
 
-    valid_ds = make_dataset(
-        bags=bags[valid_idxs],
-        targets=(target_enc, targs[valid_idxs]),
-        add_features=[
-            (enc, vals[valid_idxs])
-            for enc, vals in add_features],
-        bag_size=None)
-    
-    # build dataloaders
-    train_dl = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=True, num_workers=cores,
-        drop_last=len(train_ds) > batch_size,
-        device=device, pin_memory=device.type == "cuda"
-    )
-    valid_dl = DataLoader(
-        valid_ds, batch_size=1, shuffle=False, num_workers=cores,
-        device=device, pin_memory=device.type == "cuda"
-    )
-    batch = train_dl.one_batch()
-    feature_dim = batch[0].shape[-1]
+        # Unpack targets and set up datasets
+        target_enc, targs = targets
+        train_ds = make_dataset(
+            bags=bags[~valid_idxs],
+            targets=(target_enc, targs[~valid_idxs]),
+            add_features=[
+                (enc, vals[~valid_idxs])
+                for enc, vals in add_features],
+            bag_size=512)
 
-    # for binary classification num_classes=2
-    model = TransMIL(
-        num_classes=len(target_enc.categories_[0]), input_dim=feature_dim,
-        dim=512, depth=2, heads=8, mlp_dim=512, dropout=.0
-    )
-    # TODO:
-    # maybe increase mlp_dim? Not necessary 4*dim, but maybe a bit?
-    # maybe add at least some dropout?
-    
-    # model = torch.compile(model)
-    model.to(device)
-    print(f"Model: {model}", end=" ")
-    print(f"[Parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}]")
+        valid_ds = make_dataset(
+            bags=bags[valid_idxs],
+            targets=(target_enc, targs[valid_idxs]),
+            add_features=[
+                (enc, vals[valid_idxs])
+                for enc, vals in add_features],
+            bag_size=None)
 
-    # weigh inversely to class occurrences
-    counts = pd.Series(targs[~valid_idxs]).value_counts()
-    weight = counts.sum() / counts
-    weight /= weight.sum()
-    # reorder according to vocab
-    weight = torch.tensor(
-        list(map(weight.get, target_enc.categories_[0])), dtype=torch.float32, device=device)
-    loss_func = nn.CrossEntropyLoss(weight=weight)
+        # Build dataloaders
+        train_dl = DataLoader(
+            train_ds, batch_size=batch_size, shuffle=True, num_workers=cores,
+            drop_last=len(train_ds) > batch_size,
+            device=device, pin_memory=device.type == "cuda"
+        )
+        valid_dl = DataLoader(
+            valid_ds, batch_size=1, shuffle=False, num_workers=cores,
+            device=device, pin_memory=device.type == "cuda"
+        )
 
-    dls = DataLoaders(train_dl, valid_dl, device=device)
+        batch = train_dl.one_batch()
+        feature_dim = batch[0].shape[-1]
 
-    learn = Learner(
-        dls,
-        model,
-        loss_func=loss_func,
-        opt_func = partial(OptimWrapper, opt=torch.optim.AdamW),
-        metrics=[RocAuc()],
-        path=path,
-    )#.to_bf16()
+        # Build model using the input model's parameters
+        model = TransMIL(
+            num_classes=len(target_enc.categories_[0]), input_dim=feature_dim,
+            dim=512, depth=2, heads=8, mlp_dim=512, dropout=.0
+        )
+        model.load_state_dict(params)  # Load received model parameters
+        model.to(device)
 
-    cbs = [
-        SaveModelCallback(monitor='valid_loss', fname=f'best_valid'),
-        EarlyStoppingCallback(monitor='valid_loss', patience=patience),
-        CSVLogger(),
-        # MixedPrecision(amp_mode=AMPMode.BF16)
-    ]
-    learn.fit_one_cycle(n_epoch=n_epoch, reset_opt=True, lr_max=1e-4, wd=1e-2, cbs=cbs)
-    
-    # Plot training and validation losses as well as learning rate schedule
-    if plot:
-        path_plots = path / "plots"
-        path_plots.mkdir(parents=True, exist_ok=True)
+        print(f"Model: {model}", end=" ")
+        print(f"[Parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}]")
 
-        learn.recorder.plot_loss()
-        plt.savefig(path_plots / 'losses_plot.png')
-        plt.close()
+        # Weigh inversely to class occurrences
+        counts = pd.Series(targs[~valid_idxs]).value_counts()
+        weight = counts.sum() / counts
+        weight /= weight.sum()
+        weight = torch.tensor(
+            list(map(weight.get, target_enc.categories_[0])), dtype=torch.float32, device=device)
+        loss_func = nn.CrossEntropyLoss(weight=weight)
 
-        learn.recorder.plot_sched()
-        plt.savefig(path_plots / 'lr_scheduler.png')
-        plt.close()
+        # DataLoaders setup
+        dls = DataLoaders(train_dl, valid_dl, device=device)
+
+        # Set up Learner
+        learn = Learner(
+            dls,
+            model,
+            loss_func=loss_func,
+            opt_func=partial(OptimWrapper, opt=torch.optim.AdamW),
+            metrics=[RocAuc()],
+            path=path,
+        )
+
+        # Callbacks for training
+        cbs = [
+            SaveModelCallback(monitor='valid_loss', fname=f'best_valid'),
+            EarlyStoppingCallback(monitor='valid_loss', patience=patience),
+            CSVLogger(),
+        ]
+        learn.fit_one_cycle(n_epoch=n_epoch, reset_opt=True, lr_max=1e-4, wd=1e-2, cbs=cbs)
+
+        # Plot results if required
+        if plot:
+            path_plots = path / "plots"
+            path_plots.mkdir(parents=True, exist_ok=True)
+            learn.recorder.plot_loss()
+            plt.savefig(path_plots / 'losses_plot.png')
+            plt.close()
+
+            learn.recorder.plot_sched()
+            plt.savefig(path_plots / 'lr_scheduler.png')
+            plt.close()
+
+        # Collect trained model parameters and send them back to the server
+        new_params = model.state_dict()
+        output_model = flare.FLModel(params=new_params)
+        flare.send(output_model)  # Send updated model back to NVFlare server
 
     return learn
 

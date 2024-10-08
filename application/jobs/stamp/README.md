@@ -4,6 +4,7 @@
 To run the project using a Docker container, execute the following command:
 
 ```bash
+export DATASET_DIR=/mnt/swarm_beta/stamp_test_data/data/1/
 # Start the Docker container
 docker run -it --rm \
     --shm-size=16g \
@@ -13,6 +14,7 @@ docker run -it --rm \
     -v ./docker_config/NVFlare:/workspace/nvflare \
     --gpus=all \
     -v ./:/workspace \
+    -v $DATASET_DIR:/data \
     jefftud/nvflare-stamp-dev:v1.1.1
 ```
 
