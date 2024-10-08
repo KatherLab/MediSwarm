@@ -10,14 +10,14 @@ class MiniDatasetForTesting(data.Dataset):
 
     @staticmethod
     def dummy_image(index):
-        shape = (1, 32, 32, 32)
+        shape = (1, 18, 18)
         dtype = np.float16
         if index % 2 == 0:
             array = np.zeros(shape, dtype=dtype)
-            array[0, 0, 0, index] = 1
+            array[0, 0, index] = 1
         else:
             array = np.ones(shape, dtype=dtype)
-            array[0, 0, 0, index] = 0
+            array[0, 0, index] = 0
         return torch.from_numpy(array)
 
     def __getitem__(self, index):
