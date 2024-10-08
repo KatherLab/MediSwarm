@@ -7,8 +7,8 @@
 
 export MPLCONFIGDIR=/tmp
 
-cd controller/controller
+cd tests/unit_tests/controller
 
-python3 -m coverage run --source=. -m unittest discover
+python3 -m coverage run --source=/workspace/controller/controller -m unittest discover
 coverage report -m
 rm .coverage
