@@ -6,6 +6,9 @@ FROM ${BASE_IMAGE}
 ARG NVF_VERSION=2.4.1
 ENV NVF_BRANCH=${NVF_VERSION}
 
+# Set the Python version
+ENV PYTHON_VERSION=3.10.14
+
 # Install necessary system dependencies (OpenSlide, OpenCV dependencies, Python 3.10, git, etc.)
 RUN apt update && apt install -y \
     openslide-tools \
@@ -15,6 +18,10 @@ RUN apt update && apt install -y \
     wget \
     bzip2 \
     git
+
+# Install specific versions of pip and setuptools
+RUN python3.10 -m pip install -U pip==23.3.1
+RUN python3.10 -m pip install -U setuptools==69.5.1
 
 # Upgrade pip and install Python packages
 RUN python3.10 -m pip install --upgrade pip && \
@@ -42,12 +49,14 @@ COPY ./NVFlare /workspace/nvflare
 # Install NVFlare from the local source
 RUN python3.10 -m pip install /workspace/nvflare
 
-# Copy and install the controller package
+COPY ./NVFlare/dashboard /workspace/nvflare/dashboard
+
 COPY ../controller /workspace/controller
+# Install the controller package
 RUN python3.10 -m pip install /workspace/controller
 
-# Set python path for the controller
-ENV PYTHONPATH=/workspace/controller
+# Set python path
+ENV PYTHONPATH=/workspace/controller/controller
 
 # Set the Docker image label
 LABEL name="jefftud/nvflare-stamp-dev:v1.1.1"

@@ -265,6 +265,11 @@ def run_cli(args: argparse.Namespace):
             raise ConfigurationError(f"Unknown command {args.command}")
 
 def main() -> None:
+    import nvflare.client as flare
+    import torch
+    from torch.utils.data import DataLoader
+    from nvflare.client.api import FLModel
+    flare.init()
     parser = argparse.ArgumentParser(prog="stamp", description="STAMP: Solid Tumor Associative Modeling in Pathology")
     parser.add_argument("--config", "-c", type=Path, default=None, help=f"Path to config file (if unspecified, defaults to {DEFAULT_CONFIG_FILE.absolute()} or the default STAMP config file shipped with the package if {DEFAULT_CONFIG_FILE.absolute()} does not exist)")
 
@@ -280,6 +285,11 @@ def main() -> None:
     commands.add_parser("heatmaps", help="Generate heatmaps for a trained model")
 
     args = parser.parse_args()
+    # set dummy variable to avoid error
+    args.slide_name = None
+    # train
+    args.command = "train"
+
 
     # If no command is given, print help and exit
     if args.command is None:

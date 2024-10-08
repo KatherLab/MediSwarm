@@ -14,8 +14,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .data import make_dataset, SKLearnEncoder
-from .TransMIL import TransMIL
+from data import make_dataset, SKLearnEncoder
+from TransMIL import TransMIL
 
 
 __all__ = ['train_federated', 'train', 'deploy']
@@ -43,9 +43,6 @@ def train_federated(
         plot: bool = False
 ) -> Learner:
     """Train a MLP on image features using NVFlare federated learning."""
-
-    # Initialize NVFlare client API
-    flare.init()
 
     # Receive the global model from the NVFlare server
     input_model = flare.receive()
