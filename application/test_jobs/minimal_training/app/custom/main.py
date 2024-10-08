@@ -6,11 +6,11 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 import nvflare.client.lightning as flare
 from data.datamodules import DataModule
-from model_selector import select_model
 from env_config import load_environment_variables, create_run_directory
 import nvflare.client as flare_util
 
 from data.datasets import MiniDatasetForTesting
+from models import MiniCNNForTesting
 
 import logging
 
@@ -57,7 +57,7 @@ def main():
         data_module = set_up_data_module(env_vars)
 
         # Initialize the model
-        model = select_model()
+        model = MiniCNNForTesting(in_ch=1, out_ch=1, spatial_dims=3)
 
         to_monitor = "val/AUC_ROC"
         min_max = "max"
