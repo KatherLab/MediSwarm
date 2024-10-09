@@ -57,7 +57,7 @@ class TestSwarmClientController(unittest.TestCase):
         self.controller = None
         self.setup_controller()
         self.engine = None
-        self.testee_logger = logging.getLogger("swarm_client_ctl")
+        self.testee_logger = logging.getLogger("SwarmClientController")
 
     def test_initialization_sets_members_correctly(self):
         """
@@ -75,13 +75,13 @@ class TestSwarmClientController(unittest.TestCase):
         for argument_empty in ("learn_task_name","persistor_id", "shareable_generator_id", "aggregator_id", "metric_comparator_id"):
             with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
                 self.setup_controller(**{argument_empty: ""})
-            self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {argument_empty} must not be empty"))
+            self.assertTrue(log.output[0].startswith(f"ERROR:SwarmClientController:Error during initialization: {argument_empty} must not be empty"))
 
         for nonpositive_number, value in (("learn_task_timeout", -1.0), ("min_responses_required", 0), ("wait_time_after_min_resps_received", 0.0), ("learn_task_timeout", 0.0)):
             # no need to distinguish between float and int here
             with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(ValueError) as error:
                 self.setup_controller(**{nonpositive_number: value})
-            self.assertTrue(log.output[0].startswith(f"ERROR:swarm_client_ctl:Error during initialization: {nonpositive_number} must > 0, but got {value}"))
+            self.assertTrue(log.output[0].startswith(f"ERROR:SwarmClientController:Error during initialization: {nonpositive_number} must > 0, but got {value}"))
 
     def _setup_for_processing_config(self, config):
         self.setup_controller()
@@ -113,7 +113,7 @@ class TestSwarmClientController(unittest.TestCase):
         fl_context = FLContext()
         with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(TypeError) as error:
             self.controller.process_config(fl_context)
-        self.assertEqual(log.output[0], "ERROR:swarm_client_ctl:Exception during process_config: argument of type 'NoneType' is not iterable")
+        self.assertIn("ERROR:SwarmClientController:[identity=, run=?]: Exception during process_config: argument of type 'NoneType' is not iterable", log.output)
 
     def _setup_for_executing(self, config):
         fl_context = self._setup_for_processing_config(config)
@@ -141,7 +141,7 @@ class TestSwarmClientController(unittest.TestCase):
             with mock.patch("swarm_client_ctl.SwarmClientController._process_learn_result", side_effect=Exception("exception")):
                 result = self.controller.execute("test_prefix_report_learn_result", shareable, fl_context, abort_signal)
                 self.assertEqual(result, make_reply(ReturnCode.EXECUTION_EXCEPTION))
-            self.assertEqual(log.output[0], "ERROR:swarm_client_ctl:Exception during execute: exception")
+        self.assertIn("ERROR:SwarmClientController:[identity=, run=?]: Exception during execute: exception", log.output)
 
     def test_handle_event_unexpected_event_does_not_fail(self):
         fl_context = FLContext()
@@ -168,7 +168,7 @@ class TestSwarmClientController(unittest.TestCase):
         with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(Exception) as error:
             with mock.patch("swarm_client_ctl.SwarmClientController.update_status", side_effect=Exception("exception")):
                 self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
-        self.assertEqual(log.output[0], "ERROR:swarm_client_ctl:Exception during handle_event: exception")
+        self.assertIn("ERROR:SwarmClientController:[identity=, run=?]: Exception during handle_event: exception", log.output)
 
     def test_start_run(self):
         """
