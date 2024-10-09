@@ -27,6 +27,9 @@ class MockedEngineForTesting:
     def get_clients(self):
         return self.clients
 
+    def fire_event(self, _a, _b):
+        pass
+
 
 class TestSwarmServerController(unittest.TestCase):
     CLIENT_THAT_TRAINS                = "client1"
@@ -41,7 +44,7 @@ class TestSwarmServerController(unittest.TestCase):
     def _set_up(self, clients):
         self._engine = MockedEngineForTesting(job_id="UnitTestJob", clients=clients)
         self.fl_ctx = self._engine.new_context()
-        self.testee_logger = logging.getLogger("swarm_server_ctl")
+        self.testee_logger = logging.getLogger("SwarmServerController")
 
     def setUp(self):
         self._set_up(clients=[])
@@ -59,10 +62,10 @@ class TestSwarmServerController(unittest.TestCase):
 
     def _verify_exception_and_error_log(self, error, log, log_prefix: str, expected_message: str):
         self.assertEqual(expected_message, str(error.exception))
-        self.assertEqual(log.output, [f"{log_prefix}: {expected_message}"])
+        self.assertIn(f"{log_prefix}: {expected_message}", log.output)
 
     def _verify_exception_and_error_log_during_constructor(self, error, log, expected_message: str):
-        log_prefix = "ERROR:swarm_server_ctl:Error during initialization"
+        log_prefix = "ERROR:SwarmServerController:Error during initialization"
         self._verify_exception_and_error_log(error, log, log_prefix, expected_message)
 
     def _initialize_start_finalize(self, controller):
@@ -151,7 +154,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=[self.CLIENT_THAT_AGGREGATES])
         self._set_up(clients=participating_clients)
         expected_message = f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client"
-        log_prefix = f"ERROR:swarm_server_ctl:Error during start_controller"
+        log_prefix = f"ERROR:SwarmServerController:[identity=, run=?, wf=UnitTestJob]: Error during start_controller"
         with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(RuntimeError) as error:
             controller.initialize_run(self.fl_ctx)
         self._verify_exception_and_error_log(error, log, log_prefix, expected_message)
@@ -179,7 +182,7 @@ class TestSwarmServerController(unittest.TestCase):
         controller = self._get_minimum_valid_controller()
         del controller.train_clients  # do something (that usually would not make any sense) to trigger an exception/error thrown in prepare_config
         expected_message = "'SwarmServerController' object has no attribute 'train_clients'"
-        log_prefix = f"ERROR:swarm_server_ctl:Error during prepare_config"
+        log_prefix = f"ERROR:SwarmServerController:Error during prepare_config"
         with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(AttributeError) as error:
             controller.prepare_config()
         self._verify_exception_and_error_log(error, log, log_prefix, expected_message)
