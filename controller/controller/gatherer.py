@@ -1,7 +1,5 @@
 import threading
 import time
-import logging
-
 import numpy as np
 
 from nvflare.apis.fl_component import FLComponent
@@ -16,8 +14,6 @@ from nvflare.app_common.ccwf.client_ctl import ClientSideController
 from nvflare.app_common.ccwf.common import Constant
 from nvflare.security.logging import secure_format_traceback
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 class _TrainerStatus:
     """
@@ -89,7 +85,7 @@ class Gatherer(FLComponent):
                 return self._do_gather(client_name, result, fl_ctx)
             except Exception as e:
                 self.log_error(fl_ctx, f"Exception gathering: {secure_format_traceback()}")
-                logger.error(f"Exception during gather: {e}")
+                self.log_error(fl_ctx, f"Exception during gather: {e}")  # TODO need to log twice?
                 return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
     def _do_gather(self, client_name: str, result: Shareable, fl_ctx: FLContext) -> Shareable:
@@ -159,7 +155,7 @@ class Gatherer(FLComponent):
             aggr_result = self.aggregator.aggregate(fl_ctx)
         except Exception as e:
             self.log_error(fl_ctx, f"Exception in aggregation: {secure_format_traceback()}")
-            logger.error(f"Exception during aggregation: {e}")
+            self.log_error(fl_ctx, f"Exception during aggregation: {e}")  # TODO need to log twice?
             self.executor.update_status(action="aggregate", error=ReturnCode.EXECUTION_EXCEPTION)
             return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
