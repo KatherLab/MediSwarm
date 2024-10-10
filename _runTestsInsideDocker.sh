@@ -12,6 +12,18 @@ python3 -m coverage run --source=. -m unittest discover
 coverage report -m
 rm .coverage
 
-# run simulation mode for (not yet) minimal example
+# run simulation mode for minimal example
 cd /workspace
 nvflare simulator -w /tmp/minimal_training -n 2 -t 2 application/test_jobs/minimal_training -c simulated_node_0,simulated_node_1
+
+# run proof-of-concept mode for minimal example
+cd /workspace
+nvflare poc prepare -c poc_client_0 poc_client_1
+nvflare poc prepare-jobs-dir -j application/test_jobs/
+nvflare poc start -ex admin@nvidia.com
+sleep 10
+nvflare job submit -j application/test_jobs/minimal_training
+sleep 60
+echo "Will shut down now after sleeping 60 seconds to allow the background process to complete"
+sleep 2
+nvflare poc stop
