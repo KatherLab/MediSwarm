@@ -21,7 +21,8 @@ cd /workspace
 nvflare poc prepare -c poc_client_0 poc_client_1
 nvflare poc prepare-jobs-dir -j application/test_jobs/
 nvflare poc start -ex admin@nvidia.com
-sleep 10
+sleep 15
+echo "Will submit job now after sleeping 15 seconds to allow the background process to complete"
 nvflare job submit -j application/test_jobs/minimal_training
 sleep 60
 echo "Will shut down now after sleeping 60 seconds to allow the background process to complete"
