@@ -8,6 +8,5 @@ docker run -it --rm \
     -v ./docker_config/NVFlare:/workspace/nvflare \
     --gpus=all \
     -v ./:/workspace \
-    --user $(id -u):$(id -g) \
     --entrypoint=/workspace/_runTestsInsideDocker.sh \
     nvflare-pt-dev:testing
