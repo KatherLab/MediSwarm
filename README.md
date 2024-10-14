@@ -42,14 +42,6 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 2. **Run the 3D CNN for classifying breast tumors:**
    See [3dcnn_ptl/README.md](application/jobs/3dcnn_ptl/README.md)
 
-3. **Run the STAMP Protocol:**
-   The STAMP protocol (Solid Tumor Associative Modeling in Pathology) repository contains code for steps described in the [Nature Protocols paper](https://www.nature.com/articles/s41596-024-01047-2):
-   > From whole-slide image to biomarker prediction: end-to-end weakly supervised deep learning in computational pathology.
-
-   See the [STAMP/README.md](application/jobs/STAMP/README.md) for more details.
-
-Github Repository: [STAMP](https://github.com/KatherLab/STAMP/tree/main)
-
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
