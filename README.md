@@ -19,7 +19,7 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
 * an NVIDIA GPU with 48 GB of RAM (24 is the  minimum)
 * 8 TB of Storage (4 TB is the absolute minimum)
 * We deliberately want to show that we can work with lightweight hardware like this. Here are three quotes for systems like this for less than 10k EUR (Lambda, Dell Precision, and Dell Alienware)
-  
+
 #### Operating System
 * Ubuntu 20.04 LTS
 
@@ -34,12 +34,20 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
     cd MediSwarm
     ```
 
-1. **Run with Docker Environment:**
+1. **Prepare Example Data:**
 
+    Download example data and prepare a dataset split for two simulated nodes
     ```bash
     # Set the DATADIR variable
     export DATADIR=<your_data_directory>
-    # Run the Docker container
+
+    envsetup_scripts/get_dataset_gdown.sh -w $DATADIR
+    envsetup_scripts/prepare_dataset_split_for_simulation_and_poc.sh -w $DATADIR
+    ```
+
+2. **Run with Docker Environment:**
+
+    ```bash
     docker run -it --rm \
         --shm-size=16g \
         --ipc=host \
@@ -52,25 +60,27 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
         jefftud/nvflare-pt-dev:3dcnn
     ```
 
-2. **Run Simulator:**
+    You may want to build the container locally in case the one from the registry reports problems.
+
+3. **Run Simulator:**
 
     The FL Simulator is a lightweight tool that uses threads to simulate different clients. This is useful for quick research runs and debugging applications locally.
 
     ```bash
-    nvflare simulator -w /tmp/3dcnn_ptl -n 2 -t 2 application/jobs/3dcnn_ptl -c manual_dl0,manual_dl3
+    nvflare simulator -w /tmp/3dcnn_ptl -n 2 -t 2 application/jobs/3dcnn_ptl -c simulated_node_0,simulated_node_1
     ```
 
     For more details on using the simulator, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/2.4.1/getting_started.html#quick-start-with-simulator).
 
-3. **Run POC Mode:**
+4. **Run POC Mode:**
 
     Proof of Concept (POC) mode allows for quick local setups on a single machine, where the FL server and clients run in different processes or Docker containers.
 
     ```bash
     # With Docker (requires Docker in Docker)
-    nvflare poc prepare -c manual_dl0 manual_dl3 -d jefftud/nvflare-pt-dev:3dcnn
+    nvflare poc prepare -c simulated_node_0 simulated_node_1 -d jefftud/nvflare-pt-dev:3dcnn
     # Without Docker
-    nvflare poc prepare -c manual_dl0 manual_dl3
+    nvflare poc prepare -c simulated_node_0 simulated_node_1
 
     nvflare poc prepare-jobs-dir -j application/jobs/
 
@@ -80,7 +90,7 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
 
     For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
 
-4. **Run Production Mode:**
+5. **Run Production Mode:**
 
     Production mode is secure and suitable for real-world deployments, supporting local or remote, on-premise or cloud setups. For more information, refer to the [NVFLARE Production Mode](https://nvflare.readthedocs.io/en/2.4.1/real_world_fl.html).
 
@@ -109,7 +119,7 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
     ```
 
     Access the dashboard at `https://localhost:443`. After project admin configuration, clients download the startup kits and run the following commands to join the server:
-    
+
     For more information on the NVFLARE dashboard, see the [NVFLARE Dashboard](https://nvflare.readthedocs.io/en/2.4.1/user_guide/dashboard_ui.html).
 
     ```bash
