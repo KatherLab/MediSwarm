@@ -77,18 +77,26 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
     Proof of Concept (POC) mode allows for quick local setups on a single machine, where the FL server and clients run in different processes or Docker containers.
 
     ```bash
-    # With Docker (requires Docker in Docker)
-    nvflare poc prepare -c simulated_node_0 simulated_node_1 -d jefftud/nvflare-pt-dev:3dcnn
-    # Without Docker
     nvflare poc prepare -c simulated_node_0 simulated_node_1
 
     nvflare poc prepare-jobs-dir -j application/jobs/
 
     # Start POC
-    nvflare poc start
+    nvflare poc start -ex admin@nvidia.com
+    # wait until this has finished
+    nvflare job submit -j application/jobs/3dcnn_ptl
+    # wait until this has finished
+    nvflare poc stop
     ```
 
     For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
+
+    Alternatively, using Docker in Docker, start with
+
+    ```bash
+    nvflare poc prepare -c simulated_node_0 simulated_node_1 -d jefftud/nvflare-pt-dev:3dcnn
+    ```
+    and proceed as above.
 
 5. **Run Production Mode:**
 
