@@ -43,7 +43,7 @@ fi
 mkdir -p $workspace_dir/data
 gdown --fuzzy https://drive.google.com/drive/folders/1clbK91sQv8bYtGAhC9AmZAbgVo473yrz?usp=share_link -O $workspace_dir/data --folder
 gdown --fuzzy https://drive.google.com/file/d/1HKjqbALJgZCqLeNJ-_xKk0lEDNcJV_5Z/view?usp=share_link   -O $workspace_dir/data/odelia_dataset_only_sub.zip
-unzip $workspace_dir/odelia_dataset_only_sub.zip -d $workspace_dir/images/
+unzip $workspace_dir/data/odelia_dataset_only_sub.zip -d $workspace_dir/data/
 
 # If an error occurs, print an error message and exit
 if [ $? -ne 0 ]; then

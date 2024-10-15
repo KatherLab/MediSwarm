@@ -56,7 +56,7 @@ MediSwarm is an open-source project dedicated to advancing medical deep learning
         -v ./docker_config/NVFlare:/workspace/nvflare \
         --gpus=all \
         -v ./:/workspace \
-        -v $DATADIR:/data \
+        -v $DATADIR/data:/data \
         jefftud/nvflare-pt-dev:3dcnn
     ```
 
