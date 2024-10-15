@@ -36,11 +36,11 @@ done
 cd $workspace_dir/data
 mkdir simulated_node_0
 cd simulated_node_0
-ln -s ../images/odelia_dataset_only_sub/00* ./
+ln -s ../odelia_dataset_only_sub/00* ./
 cd ..
 mkdir simulated_node_1
 cd simulated_node_1
-ln -s ../images/odelia_dataset_only_sub/01* ./
+ln -s ../odelia_dataset_only_sub/01* ./
 cd ..
 
 # If an error occurs, print an error message and exit
