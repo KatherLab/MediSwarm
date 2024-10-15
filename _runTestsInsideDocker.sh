@@ -2,13 +2,14 @@
 
 # run NVFlare's unit tests (takes about 2 minutes), does not include NVFlare's integration tests yet
 # cd nvflare
-# ./runtest.sh
+# ./runtest.sh -c -r
+# coverage report -m
 # cd ..
 
 # run unit tests of ODELIA swarm learning and report coverage
 export MPLCONFIGDIR=/tmp
-cd controller/controller
-python3 -m coverage run --source=. -m unittest discover
+cd tests/unit_tests/controller
+python3 -m coverage run --source=/workspace/controller/controller -m unittest discover
 coverage report -m
 rm .coverage
 
