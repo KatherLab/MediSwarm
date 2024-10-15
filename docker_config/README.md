@@ -12,20 +12,16 @@ This guide provides step-by-step instructions for building and pushing Docker im
 
 ## Steps
 
-### 1. Copy the `controller` Directory
+### 1. Go to the `MediSwarm` Directory
 
-Ensure the `controller` directory is copied into the current build context.
-
-```sh
-cp -r ../controller .
-```
+Go to root directory of your MediSwarm code
 
 ### 2. Build and Push `nvflare-pt-dev:nfcore` Image
 
 Build the Docker image using the `Dockerfile_nfcore` file and push it to Docker Hub.
 
 ```sh
-docker build -t nvflare-pt-dev:nfcore . -f Dockerfile_nfcore
+docker build -t nvflare-pt-dev:nfcore . -f docker_config/Dockerfile_nfcore
 docker tag nvflare-pt-dev:nfcore jefftud/nvflare-pt-dev:nfcore
 docker push jefftud/nvflare-pt-dev:nfcore
 ```
@@ -35,7 +31,7 @@ docker push jefftud/nvflare-pt-dev:nfcore
 Build the Docker image using the `Dockerfile_3dcnn` file and push it to Docker Hub.
 
 ```sh
-docker build -t nvflare-pt-dev:3dcnn . -f Dockerfile_3dcnn
+docker build -t nvflare-pt-dev:3dcnn . -f docker_config/Dockerfile_3dcnn
 docker tag nvflare-pt-dev:3dcnn jefftud/nvflare-pt-dev:3dcnn
 docker push jefftud/nvflare-pt-dev:3dcnn
 ```

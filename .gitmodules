@@ -1,0 +1,4 @@
+[submodule "docker_config/NVFlare_MediSwarm"]
+	path = docker_config/NVFlare
+	url = ../NVFlare_MediSwarm.git
+	branch = MediSwarm

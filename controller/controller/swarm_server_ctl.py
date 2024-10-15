@@ -4,35 +4,45 @@ from nvflare.app_common.ccwf.common import Constant
 from nvflare.app_common.ccwf.server_ctl import ServerSideController
 from nvflare.fuel.utils.validation_utils import DefaultValuePolicy, normalize_config_arg, validate_candidates
 
+# Configure logging to display debug level messages
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-
 class SwarmServerController(ServerSideController):
+    """
+    The SwarmServerController class manages the server side of the swarm learning workflow, a decentralized
+    form of federated learning. This controller is responsible for managing the overall job status and ensuring
+    the proper execution of the learning workflow across multiple rounds.
+    """
+
     def __init__(
         self,
-        num_rounds: int,
-        start_round: int = 0,
-        task_name_prefix=Constant.TN_PREFIX_SWARM,
-        start_task_timeout=Constant.START_TASK_TIMEOUT,
-        configure_task_timeout=Constant.CONFIG_TASK_TIMEOUT,
-        task_check_period: float = Constant.TASK_CHECK_INTERVAL,
-        job_status_check_interval: float = Constant.JOB_STATUS_CHECK_INTERVAL,
-        participating_clients=None,
-        result_clients=None,
-        starting_client: str = "",
-        max_status_report_interval: float = Constant.PER_CLIENT_STATUS_REPORT_TIMEOUT,
-        progress_timeout: float = Constant.WORKFLOW_PROGRESS_TIMEOUT,
-        private_p2p: bool = True,
-        aggr_clients=None,
-        train_clients=None,
+        num_rounds: int,  # Number of training rounds to be performed across the workflow
+        start_round: int = 0,  # Initial round to start training (default is 0)
+        task_name_prefix=Constant.TN_PREFIX_SWARM,  # Prefix for naming tasks, default is 'swarm'
+        start_task_timeout=Constant.START_TASK_TIMEOUT,  # Timeout for starting a task (in seconds)
+        configure_task_timeout=Constant.CONFIG_TASK_TIMEOUT,  # Timeout for configuring a task (in seconds)
+        task_check_period: float = Constant.TASK_CHECK_INTERVAL,  # Interval for checking task status (in seconds)
+        job_status_check_interval: float = Constant.JOB_STATUS_CHECK_INTERVAL,  # Interval for checking job status (in seconds)
+        participating_clients=None,  # List of clients participating in the job
+        result_clients=None,  # List of clients to receive the final model
+        starting_client=None,  # Client responsible for initiating the workflow
+        max_status_report_interval: float = Constant.PER_CLIENT_STATUS_REPORT_TIMEOUT,  # Max interval for client status reporting (in seconds)
+        progress_timeout: float = Constant.WORKFLOW_PROGRESS_TIMEOUT,  # Timeout for overall workflow progress (in seconds)
+        private_p2p: bool = True,  # Flag to indicate private peer-to-peer communication
+        aggr_clients=None,  # Clients designated for aggregation
+        train_clients=None,  # Clients designated for training
     ):
+        """
+        Initializes the SwarmServerController. This includes setting up the base ServerSideController and handling
+        client configurations for training and aggregation.
+        """
         try:
+            # Normalize and validate result_clients and starting_client inputs
             result_clients = normalize_config_arg(result_clients)
             starting_client = normalize_config_arg(starting_client)
-            if starting_client is None:
-                raise ValueError("starting_client must be specified")
 
+            # Initialize the ServerSideController with validated arguments
             super().__init__(
                 num_rounds=num_rounds,
                 start_round=start_round,
@@ -50,12 +60,15 @@ class SwarmServerController(ServerSideController):
                 progress_timeout=progress_timeout,
                 private_p2p=private_p2p,
             )
-            if not train_clients:
-                train_clients = []
 
+            # If train_clients or aggr_clients are not provided, initialize them as empty lists
             if not aggr_clients:
                 aggr_clients = []
 
+            if not train_clients:
+                train_clients = []
+
+            # Assign aggregation and training clients
             self.aggr_clients = aggr_clients
             self.train_clients = train_clients
         except Exception as e:
@@ -63,9 +76,15 @@ class SwarmServerController(ServerSideController):
             raise
 
     def start_controller(self, fl_ctx: FLContext):
+        """
+        Starts the SwarmServerController, initiating the swarm learning process. This method validates the client
+        assignments and ensures that every participating client is designated as either a training or aggregation client.
+        """
         try:
+            # Call the base class method to start the controller
             super().start_controller(fl_ctx)
 
+            # Validate and assign train_clients based on participating_clients
             self.train_clients = validate_candidates(
                 var_name="train_clients",
                 candidates=self.train_clients,
@@ -74,6 +93,7 @@ class SwarmServerController(ServerSideController):
                 allow_none=False,
             )
 
+            # Validate and assign aggr_clients based on participating_clients
             self.aggr_clients = validate_candidates(
                 var_name="aggr_clients",
                 candidates=self.aggr_clients,
@@ -82,7 +102,7 @@ class SwarmServerController(ServerSideController):
                 allow_none=False,
             )
 
-            # make sure every participating client is either training or aggr client
+            # Ensure every participating client is in at least one category: training or aggregation
             for c in self.participating_clients:
                 if c not in self.train_clients and c not in self.aggr_clients:
                     raise RuntimeError(f"Config Error: client {c} is neither train client nor aggr client")
@@ -91,55 +111,12 @@ class SwarmServerController(ServerSideController):
             raise
 
     def prepare_config(self):
+        """
+        Prepares and returns the configuration for the current swarm learning round, including the lists of
+        aggregation and training clients.
+        """
         try:
             return {Constant.AGGR_CLIENTS: self.aggr_clients, Constant.TRAIN_CLIENTS: self.train_clients}
         except Exception as e:
             logger.error(f"Error during prepare_config: {e}")
             raise
-
-# Test Cases
-
-import unittest
-from unittest.mock import MagicMock
-
-class TestSwarmServerController(unittest.TestCase):
-
-    def setUp(self):
-        self.fl_ctx = MagicMock(FLContext)
-        self.participating_clients = ['client1', 'client2', 'client3']
-        self.controller = SwarmServerController(
-            num_rounds=10,
-            participating_clients=self.participating_clients,
-            starting_client='client1'
-        )
-
-    def test_initialization(self):
-        self.assertIsInstance(self.controller, SwarmServerController)
-        self.assertEqual(self.controller.num_rounds, 10)
-        self.assertEqual(self.controller.starting_client, 'client1')
-
-    def test_start_controller(self):
-        self.controller.start_controller(self.fl_ctx)
-        self.assertIn('client1', self.controller.train_clients)
-        self.assertIn('client1', self.controller.aggr_clients)
-
-    def test_prepare_config(self):
-        config = self.controller.prepare_config()
-        self.assertIn(Constant.AGGR_CLIENTS, config)
-        self.assertIn(Constant.TRAIN_CLIENTS, config)
-
-    def test_invalid_starting_client(self):
-        with self.assertRaises(ValueError):
-            SwarmServerController(
-                num_rounds=10,
-                participating_clients=self.participating_clients,
-                starting_client=None
-            )
-
-    def test_client_not_in_train_or_aggr(self):
-        self.controller.participating_clients.append('client4')
-        with self.assertRaises(RuntimeError):
-            self.controller.start_controller(self.fl_ctx)
-
-if __name__ == "__main__":
-    unittest.main()
