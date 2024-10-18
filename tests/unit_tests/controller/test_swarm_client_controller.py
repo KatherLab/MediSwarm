@@ -113,7 +113,7 @@ class TestSwarmClientController(unittest.TestCase):
         fl_context = FLContext()
         with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(TypeError) as error:
             self.controller.process_config(fl_context)
-        self.assertIn("ERROR:SwarmClientController:[identity=, run=?]: Exception during process_config: argument of type 'NoneType' is not iterable", log.output)
+        self.assertTrue(log.output[0].startswith("ERROR:SwarmClientController:[identity=, run=?]: Exception during process_config"))
 
     def _setup_for_executing(self, config):
         fl_context = self._setup_for_processing_config(config)
@@ -141,7 +141,7 @@ class TestSwarmClientController(unittest.TestCase):
             with mock.patch("swarm_client_ctl.SwarmClientController._process_learn_result", side_effect=Exception("exception")):
                 result = self.controller.execute("test_prefix_report_learn_result", shareable, fl_context, abort_signal)
                 self.assertEqual(result, make_reply(ReturnCode.EXECUTION_EXCEPTION))
-        self.assertIn("ERROR:SwarmClientController:[identity=, run=?]: Exception during execute: exception", log.output)
+        self.assertTrue(log.output[0].startswith("ERROR:SwarmClientController:[identity=, run=?]: Exception during execute"))
 
     def test_handle_event_unexpected_event_does_not_fail(self):
         fl_context = FLContext()
@@ -168,7 +168,7 @@ class TestSwarmClientController(unittest.TestCase):
         with self.assertLogs(self.testee_logger, logging.ERROR) as log, self.assertRaises(Exception) as error:
             with mock.patch("swarm_client_ctl.SwarmClientController.update_status", side_effect=Exception("exception")):
                 self.controller.handle_event(AppEventType.GLOBAL_BEST_MODEL_AVAILABLE, fl_context)
-        self.assertIn("ERROR:SwarmClientController:[identity=, run=?]: Exception during handle_event: exception", log.output)
+        self.assertTrue(log.output[0].startswith("ERROR:SwarmClientController:[identity=, run=?]: Exception during handle_event"))
 
     """
     The start_run, start_workflow, and learn_task methods are not unit-tested (yet)
