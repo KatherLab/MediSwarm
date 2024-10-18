@@ -85,7 +85,6 @@ class Gatherer(FLComponent):
                 return self._do_gather(client_name, result, fl_ctx)
             except Exception as e:
                 self.log_error(fl_ctx, f"Exception gathering: {secure_format_traceback()}")
-                self.log_error(fl_ctx, f"Exception during gather: {e}")  # TODO need to log twice?
                 return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
     def _do_gather(self, client_name: str, result: Shareable, fl_ctx: FLContext) -> Shareable:
@@ -155,7 +154,6 @@ class Gatherer(FLComponent):
             aggr_result = self.aggregator.aggregate(fl_ctx)
         except Exception as e:
             self.log_error(fl_ctx, f"Exception in aggregation: {secure_format_traceback()}")
-            self.log_error(fl_ctx, f"Exception during aggregation: {e}")  # TODO need to log twice?
             self.executor.update_status(action="aggregate", error=ReturnCode.EXECUTION_EXCEPTION)
             return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
