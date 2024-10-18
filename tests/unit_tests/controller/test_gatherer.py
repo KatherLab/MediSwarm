@@ -146,7 +146,7 @@ class TestGatherer(unittest.TestCase):
         result = MockedResultRaisingException(0)
         with self.assertLogs(logging.getLogger("Gatherer"), logging.ERROR) as log:  # but does not raise exception
             self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
-        self.assertTrue('ERROR:Gatherer:[identity=, run=?]: Exception during gather: Test exception' in log.output)
+        self.assertTrue(log.output[0].startswith('ERROR:Gatherer:[identity=, run=?]: Exception gathering: Traceback'))
 
     def test_gatherer_gathering_from_current_round_with_enough_responses_gets_logged_and_events_are_fired(self):
         event_catcher = EventCatcher()
