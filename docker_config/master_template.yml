@@ -8,7 +8,7 @@ readme_am: |
   client.crt
   client.key
   fl_admin.sh
-  
+
   Please install the nvflare package by 'python3 -m pip nvflare.'  This will install a set of Python codes
   in your environment.  After installation, you can run the fl_admin.sh file to start communicating to the admin server.
 
@@ -235,7 +235,7 @@ fed_server: |
             "ssl_cert": "server.crt",
             "ssl_root_cert": "rootCA.pem"
         }
-    ] 
+    ]
   }
 
 fed_admin: |
@@ -434,7 +434,7 @@ start_svr_sh: |
   else
     $DIR/sub_start.sh &
   fi
-    
+
 stop_fl_sh: |
   #!/usr/bin/env bash
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
@@ -498,7 +498,7 @@ sub_start_cln_sh: |
     kill -9 $pid
     rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl 2> /dev/null 1>&2
   }
-    
+
   if [[ -f "$DIR/../daemon_pid.fl" ]]; then
     dpid=`cat $DIR/../daemon_pid.fl`
     kill -0 ${dpid} 2> /dev/null 1>&2
@@ -548,7 +548,7 @@ sub_start_svr_sh: |
   #!/usr/bin/env bash
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   echo "WORKSPACE set to $DIR/.."
-  mkdir -p $DIR/../transfer 
+  mkdir -p $DIR/../transfer
 
   SECONDS=0
   lst=-400
@@ -585,7 +585,7 @@ sub_start_svr_sh: |
     kill -9 $pid
     rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl
   }
-    
+
   if [[ -f "$DIR/../daemon_pid.fl" ]]; then
     dpid=`cat $DIR/../daemon_pid.fl`
     kill -0 ${dpid} 2> /dev/null 1>&2
@@ -633,38 +633,38 @@ sub_start_svr_sh: |
 
 docker_cln_sh: |
   #!/usr/bin/env bash
-  
+
   # Get the directory of the current script
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  
+
   # Prompt the user for the data directory
   read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
   : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
-  
+
   # Prompt the user for the scratch directory
   read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
   : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
-  
+
   sudo mkdir -p $MY_SCRATCH_DIR
   sudo chown -R $(id -u):$(id -g) $MY_SCRATCH_DIR
   sudo chmod -R 777 $MY_SCRATCH_DIR
-  
+
   # Prompt the user for GPU index or 'all'
   read -p "Enter the GPU index to use or 'all' (default: all): " user_gpu
   : ${GPU2USE:="--gpus=${user_gpu:-all}"}
-  
+
   # To use host network
   NETARG="--net=host"
-  
+
   # Docker image to use
   DOCKER_IMAGE={~~docker_image~~}
   echo "Updating docker image"
   docker pull $DOCKER_IMAGE
   echo "Starting docker with $DOCKER_IMAGE"
-  
+
   # Get the mode argument, default to '-r'
   mode="${1:--r}"
-  
+
   # Run docker with appropriate parameters
   if [ $mode = "-d" ]; then
     docker run -d --rm --name={~~client_name~~} $GPU2USE -u $(id -u):$(id -g) \
@@ -914,7 +914,7 @@ helm_chart_values: |
 
 cloud_script_header: |
   #!/usr/bin/env bash
-  
+
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   function report_status() {
     status="$1"
@@ -1241,7 +1241,7 @@ aws_start_svr_sh: |
     ssh -f -i $KEY_FILE -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEST_SITE} \
     "docker run -d -v ${DEST_FOLDER}:${DEST_FOLDER} --network host ${DOCKER_OPTION} ${image_name} \
     /bin/bash -c \"python -u -m nvflare.private.fed.app.server.server_train -m ${DEST_FOLDER} \
-    -s fed_server.json --set secure_train=true config_folder=config org={~~ORG~~} \" " > /tmp/nvflare.log 2>&1 
+    -s fed_server.json --set secure_train=true config_folder=config org={~~ORG~~} \" " > /tmp/nvflare.log 2>&1
     report_status "$?" "launching container"
   else
     ssh -f -i $KEY_FILE -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEST_SITE} \
@@ -1250,7 +1250,7 @@ aws_start_svr_sh: |
     touch ${DEST_FOLDER}/startup/requirements.txt && \
     python3 -m pip install -r ${DEST_FOLDER}/startup/requirements.txt && \
     nohup ${DEST_FOLDER}/startup/start.sh && sleep 20 && \
-    exit" > /tmp/nvflare.log 2>&1 
+    exit" > /tmp/nvflare.log 2>&1
     report_status "$?" "installing packages"
   fi
 
@@ -1412,7 +1412,7 @@ aws_start_cln_sh: |
     ssh -f -i $KEY_FILE -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEST_SITE} \
     "docker run -d -v ${DEST_FOLDER}:${DEST_FOLDER} --network host ${DOCKER_OPTION} ${image_name} \
     /bin/bash -c \"python -u -m nvflare.private.fed.app.client.client_train -m ${DEST_FOLDER} \
-    -s fed_client.json --set uid={~~SITE~~} secure_train=true config_folder=config org={~~ORG~~} \" " > /tmp/nvflare.log 2>&1 
+    -s fed_client.json --set uid={~~SITE~~} secure_train=true config_folder=config org={~~ORG~~} \" " > /tmp/nvflare.log 2>&1
     report_status "$?" "launching container"
   else
     echo "Installing packages in $VM_NAME, may take a few minutes."
@@ -1422,7 +1422,7 @@ aws_start_cln_sh: |
     touch ${DEST_FOLDER}/startup/requirements.txt && \
     python3 -m pip install -r ${DEST_FOLDER}/startup/requirements.txt && \
     nohup ${DEST_FOLDER}/startup/start.sh && sleep 20 && \
-    exit" > /tmp/nvflare.log 2>&1 
+    exit" > /tmp/nvflare.log 2>&1
 
     report_status "$?" "installing packages"
   fi
@@ -1445,7 +1445,7 @@ aws_start_dsb_sh: |
   DEST_FOLDER=/home/${ADMIN_USERNAME}
   KEY_PAIR=NVFlareDashboardKeyPair
   KEY_FILE=${KEY_PAIR}.pem
-  
+
   echo "This script requires aws (AWS CLI), sshpass, dig and jq.  Now checking if they are installed."
 
   check_binary aws "Please see https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html on how to install it on your system."
