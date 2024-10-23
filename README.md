@@ -34,12 +34,17 @@ We demonstrate that the system can run on lightweight hardware like this. For le
     cd MediSwarm
     ```
 
+1. **Set up VPN Connection:**
+  1. Obtain credentials for goodaccess from swarm admin
+  2. Either use [envsetup_scripts/setup_vpntunnel.sh ](envsetup_scripts/setup_vpntunnel.sh) from the command line or follow TODO via system settings to set up the VPN connection
+  3. Call `ifconfig` and check if a network interface (e.g., tun0) with an IP address in the range 172.24.4.x is available
+
 ### Running the Application
 
-1. **Run the minimal CIFAR-10 example:**
+2. **Run the minimal CIFAR-10 example:**
    See [cifar10/README.md](application/jobs/cifar10/README.md)
 
-2. **Run the 3D CNN for classifying breast tumors:**
+3. **Run the 3D CNN for classifying breast tumors:**
    See [3dcnn_ptl/README.md](application/jobs/3dcnn_ptl/README.md)
 
 ## License

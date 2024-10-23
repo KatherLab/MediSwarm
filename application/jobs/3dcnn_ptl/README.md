@@ -85,7 +85,7 @@ To set up production mode, follow these steps:
 
 ### Connect to VPN
 
-Start the VPN connection as described in TODO.
+Start the VPN connection as described in [../../../README.md](../../../README.md)
 
 ### Edit `/etc/hosts`
 
