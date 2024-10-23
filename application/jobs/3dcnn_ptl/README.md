@@ -85,6 +85,10 @@ Production mode is designed for secure, real-world deployments. It supports both
 
 To set up production mode, follow these steps:
 
+### Connect to VPN
+
+Start the VPN connection as described in TODO.
+
 ### Edit `/etc/hosts`
 
 Ensure that your `/etc/hosts` file includes the correct host mappings. For example, add the following line (replace `<IP>` with the server's actual IP address):
@@ -93,7 +97,7 @@ Ensure that your `/etc/hosts` file includes the correct host mappings. For examp
 <IP>    dl3.tud.de dl3
 ```
 
-### Start the production setup
+### Swarm Admin: Start the Production Setup
 
 ```bash
 docker run -it --rm \
@@ -107,12 +111,33 @@ docker run -it --rm \
 nvflare dashboard --port 443 --start -i jefftud/nvflare-pt-dev:nfcore
 ```
 
-Access the dashboard at `https://localhost:443`. After setting up the project admin configuration, clients can download their startup kits and run the following commands to join the server:
+Access the dashboard at `https://localhost:443`.
 
+The admin can submit jobs and initiate training by logging in with the admin email and submitting the job folder. For more information, refer to the [NVFLARE Dashboard](https://nvflare.readthedocs.io/en/2.4.1/user_guide/dashboard_ui.html).
+
+### Swarm Participant: Set up the Swarm Node
+
+From here onwards, only the startup kit is needed, no contents of the repository.
+
+- Open `http://dl3.tud.de:443/` in a graphical browser from the system with VPN connection. TODO will this stay dl3 with the IP specified above?
+  - If configuring the node remotely, one option is installing and using chromium, adding `export XAUTHORITY=$HOME/.Xauthority` to `~/.bashrc`, and connecting with `ssh -XY ...`.
+  - If warned, accept to proceed with an unencrypted connection
+- Log in or sign up for a user account and wait for it to be approved
+- On first setup, register the swarm client with number of GPUs and GPU memory
+- Download the startup kit for your site, note the password ("secure PIN", even though it is alphanumerical)  displayed, and unpack the startup kit
+
+### Swarm Participant: Start Swarm Node
+
+- make sure the data folder name matches the node name TODO think about how this should be configured via `docker.sh`
+- in the folder where you unpacked the startup kit, proceed with the following commands, specifying the directory where the training data is located, a scratch directory (TODO what is the purpose of this directory?), and which GPUs to use.
 ```bash
+cd <SITE NAME>/startup
 ./docker.sh
 cd startup
 ./start.sh
 ```
-
-The admin can submit jobs and initiate training by logging in with the admin email and submitting the job folder. For more information, refer to the [NVFLARE Dashboard](https://nvflare.readthedocs.io/en/2.4.1/user_guide/dashboard_ui.html).
+- TODO how to detatch from Docker container, CRTL-x or calling `docker.sh -d`?
+- TODO any changes needed for redirecting console output to file? so that node can continue running in the background and one can log out locally/close remote connection
+- TODO any changes to put per-job logs to a more useful location than where the startup kit was unpacked or mention choosing a useful location above?
+- TODO how to stop (or should one just kill the docker container)?
+- Note: application code is submitted as part of the job by the swarm admin, there is no need to provide this code to the docker container.
