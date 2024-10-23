@@ -70,8 +70,6 @@ nvflare poc stop
 
 For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
 
-For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
-
 Alternatively, using Docker in Docker, start with
 
 ```bash
