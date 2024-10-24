@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 
-
 def load_environment_variables():
     """Load environment variables and return them as a dictionary."""
     return {
