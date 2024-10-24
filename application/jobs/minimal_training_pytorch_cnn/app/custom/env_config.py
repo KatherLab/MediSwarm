@@ -18,4 +18,4 @@ def create_run_directory(scratch_dir):
     # make dir if not exist
     if not os.path.exists(scratch_dir):
         os.makedirs(scratch_dir)
-    return os.path.join(scratch_dir, f"{current_time}_minimal_training")
+    return os.path.join(scratch_dir, f"{current_time}_minimal_training_pytorch_cnn")
