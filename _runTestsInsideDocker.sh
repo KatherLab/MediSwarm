@@ -20,7 +20,7 @@ nvflare simulator -w /tmp/minimal_training_test -n 2 -t 2 application/jobs/minim
 # run proof-of-concept mode for minimal example
 cd /workspace
 nvflare poc prepare -c poc_client_0 poc_client_1
-nvflare poc prepare-jobs-dir -j application/test_jobs/
+nvflare poc prepare-jobs-dir -j application/jobs/
 nvflare poc start -ex admin@nvidia.com
 sleep 15
 echo "Will submit job now after sleeping 15 seconds to allow the background process to complete"
