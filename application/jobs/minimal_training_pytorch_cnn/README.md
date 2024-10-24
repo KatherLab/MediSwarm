@@ -34,7 +34,7 @@ docker run -it --rm \
 The FL Simulator is a lightweight tool that uses threads to simulate multiple clients. It is useful for quick local testing and debugging. Run the following command to start the simulator:
 
 ```bash
-nvflare simulator -w /tmp/minimal_training_task -n 2 -t 2 application/jobs/minimal_training_task -c simulated_node_0,simulated_node_1
+nvflare simulator -w /tmp/minimal_training_pytorch_cnn -n 2 -t 2 application/jobs/minimal_training_pytorch_cnn -c simulated_node_0,simulated_node_1
 ```
 
 - `-w /tmp/3dcnn_ptl`: Specifies the working directory.
