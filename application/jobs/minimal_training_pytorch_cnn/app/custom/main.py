@@ -9,7 +9,6 @@ flare_util.init()
 SITE_NAME=flare.get_site_name()
 
 
-
 def main():
     """
     Main function for training and evaluating the model using NVFlare and PyTorch Lightning.
