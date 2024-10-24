@@ -35,9 +35,7 @@ We demonstrate that the system can run on lightweight hardware like this. For le
     ```
 
 1. **Set up VPN Connection:**
-  1. Obtain credentials for goodaccess from swarm admin
-  2. Either use [envsetup_scripts/setup_vpntunnel.sh ](envsetup_scripts/setup_vpntunnel.sh) from the command line or follow TODO via system settings to set up the VPN connection
-  3. Call `ifconfig` and check if a network interface (e.g., tun0) with an IP address in the range 172.24.4.x is available
+   See [assets/openvpn_configs/good_access/README.md](assets/openvpn_configs/good_access/README.md)
 
 ### Running the Application
 
