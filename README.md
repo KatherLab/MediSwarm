@@ -39,7 +39,7 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 1. **CIFAR-10 example:**
    See [cifar10/README.md](application/jobs/cifar10/README.md)
 2. **Minimal PyTorch CNN example:**
-   See [application/jobs/minimal_training_test/README.md](application/jobs/minimal_training_test/README.md)
+   See [application/jobs/minimal_training_pytorch_cnn/README.md](application/jobs/minimal_training_pytorch_cnn/README.md)
 3. **3D CNN for classifying breast tumors:**
    See [3dcnn_ptl/README.md](application/jobs/3dcnn_ptl/README.md)
 
