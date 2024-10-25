@@ -43,6 +43,23 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 3. **3D CNN for classifying breast tumors:**
    See [3dcnn_ptl/README.md](application/jobs/3dcnn_ptl/README.md)
 
+## Running Tests
+
+1. Build the required docker image (TODO should this use images from the registry?)
+    ```bash
+    docker build -t nvflare-pt-dev:3dcnn   . -f docker_config/Dockerfile_3dcnn
+    docker build -t nvflare-pt-dev:testing . -f docker_config/Dockerfile_testing
+    ```
+2. Run the Tests via
+    ```bash
+    ./runTestsInDocker.sh
+    ```
+3. You should see
+  1. several expected errors and warnings printed from unit tests that should succeed overall, and a coverage report
+  2. output of a successful simulation run with two nodes
+  3. output of a successful proof-of-concept run run with two nodes
+4. Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`
+
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
