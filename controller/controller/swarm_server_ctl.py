@@ -1,12 +1,8 @@
-import logging
 from nvflare.apis.fl_context import FLContext
 from nvflare.app_common.ccwf.common import Constant
 from nvflare.app_common.ccwf.server_ctl import ServerSideController
 from nvflare.fuel.utils.validation_utils import DefaultValuePolicy, normalize_config_arg, validate_candidates
 
-# Configure logging to display debug level messages
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 class SwarmServerController(ServerSideController):
     """
@@ -72,7 +68,7 @@ class SwarmServerController(ServerSideController):
             self.aggr_clients = aggr_clients
             self.train_clients = train_clients
         except Exception as e:
-            logger.error(f"Error during initialization: {e}")
+            self.log_error(None, f"Error during initialization: {e}")
             raise
 
     def start_controller(self, fl_ctx: FLContext):
@@ -107,7 +103,7 @@ class SwarmServerController(ServerSideController):
                 if c not in self.train_clients and c not in self.aggr_clients:
                     raise RuntimeError(f"Config Error: client {c} is neither train client nor aggr client")
         except Exception as e:
-            logger.error(f"Error during start_controller: {e}")
+            self.log_error(fl_ctx, f"Error during start_controller: {e}")
             raise
 
     def prepare_config(self):
@@ -118,5 +114,5 @@ class SwarmServerController(ServerSideController):
         try:
             return {Constant.AGGR_CLIENTS: self.aggr_clients, Constant.TRAIN_CLIENTS: self.train_clients}
         except Exception as e:
-            logger.error(f"Error during prepare_config: {e}")
+            self.log_error(None, f"Error during prepare_config: {e}")
             raise
