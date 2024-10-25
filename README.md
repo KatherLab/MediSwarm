@@ -2,7 +2,7 @@
 # MediSwarm
 
 ## Introduction
-MediSwarm is an open-source project dedicated to advancing medical deep learning through swarm intelligence, leveraging the NVFlare platform. Developed in collaboration with the Odelia consortium, this repository aims to create a decentralized and collaborative framework for medical research and applications.
+MediSwarm is an open-source project dedicated to advancing medical deep learning through swarm intelligence, leveraging the NVFlare platform. Developed in collaboration with the ODELIA consortium, this repository aims to create a decentralized and collaborative framework for medical research and applications.
 
 ## Key Features
 - **Swarm Learning:** Utilizes swarm intelligence principles to improve model performance and adaptability.
