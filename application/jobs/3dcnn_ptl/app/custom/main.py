@@ -28,6 +28,9 @@ elif SITE_NAME == "dl2":
     MAX_EPOCHS = 4
 elif SITE_NAME == "MEVIS":
     MAX_EPOCHS = 8
+else:
+    MAX_EPOCHS = 5
+
 print(f"Site name: {SITE_NAME}")
 print(f"Max epochs set to: {MAX_EPOCHS}")
 def main():
