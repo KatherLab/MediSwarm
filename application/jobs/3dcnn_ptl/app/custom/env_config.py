@@ -5,7 +5,7 @@ from datetime import datetime
 def load_environment_variables():
     """Load environment variables and return them as a dictionary."""
     return {
-        'task_data_name': os.getenv('DATA_FOLDER', 'DUKE'),
+        'task_data_name': os.getenv('DATA_FOLDER', 'Odelia'),
         'scratch_dir': os.getenv('SCRATCH_DIR', '/scratch/'),
         'data_dir': os.getenv('DATA_DIR', '/data/'),
         'max_epochs': int(os.getenv('MAX_EPOCHS', 100)),
@@ -47,6 +47,8 @@ def prepare_dataset(task_data_name, data_dir, site_name):
         from data.datasets import DUKE_Dataset3D_external as dataset_class
     elif task_data_name == "DUKE":
         from data.datasets import DUKE_Dataset3D as dataset_class
+    elif task_data_name == "Odelia":
+        from data.datasets import Odelia_Dataset3D as dataset_class
     else:
         print(f"Invalid task data name specified: {task_data_name}")
 
