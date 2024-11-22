@@ -77,15 +77,12 @@ Ensure that your `/etc/hosts` file includes the correct host mappings. For examp
 ### Start the production setup
 
 ```bash
-docker run -it --rm \
-    --ipc=host \
-    -v ./docker_config/NVFlare:/workspace/nvflare \
-    -v ./:/workspace \
+docker run -d --rm \
+     --ipc=host -p 8443:8443 \
+    --name=odelia_swarm_admin \
     -v /var/run/docker.sock:/var/run/docker.sock \
     jefftud/nvflare-pt-dev:nfcore \
-    /bin/bash
-
-nvflare dashboard --port 443 --start -i jefftud/nvflare-pt-dev:nfcore
+    /bin/bash -c "nvflare dashboard --start --local --cred <ADMIN_USER_EMAIL>:<PASSWORD>"
 ```
 
 Access the dashboard at `https://localhost:443`. After setting up the project admin configuration, clients can download their startup kits and run the following commands to join the server:
