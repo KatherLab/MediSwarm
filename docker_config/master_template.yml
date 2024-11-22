@@ -639,48 +639,65 @@ sub_start_svr_sh: |
 
 docker_cln_sh: |
   #!/usr/bin/env bash
-  
+  # docker run script for FL client
+
+  while [[ "$#" -gt 0 ]]; do
+      case $1 in
+          --data_dir)    MY_DATA_DIR="$2"; shift ;;
+          --scratch_dir) MY_SCRATCH_DIR="$2"; shift ;;
+          --GPU)         GPU2USE="$2"; shift ;;
+          --no-pull)     NOPULL="1";;
+          -d)            DETACH="1";;
+          *) echo "Unknown parameter passed: $1"; exit 1 ;;
+      esac
+      shift
+  done
+
+  # Ask user for parameters not passed as command line arguments
+  if [ -z "$MY_DATA_DIR" ]; then
+     read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
+     : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
+  fi
+
+  if [ -z "$MY_SCRATCH_DIR" ]; then
+      read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
+      : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
+  fi
+
+  if [ -z "$GPU2USE" ]; then
+      read -p "Enter the GPU index to use or 'all' (default: all): " user_gpu
+      : ${GPU2USE:="${user_gpu:-all}"}
+  fi
+
   # Get the directory of the current script
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  
-  # Prompt the user for the data directory
-  read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
-  : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
-  
-  # Prompt the user for the scratch directory
-  read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
-  : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
-  
+
   sudo mkdir -p $MY_SCRATCH_DIR
   sudo chown -R $(id -u):$(id -g) $MY_SCRATCH_DIR
   sudo chmod -R 777 $MY_SCRATCH_DIR
-  
-  # Prompt the user for GPU index or 'all'
-  read -p "Enter the GPU index to use or 'all' (default: all): " user_gpu
-  : ${GPU2USE:="--gpus=${user_gpu:-all}"}
-  
+
   # To use host network
   NETARG="--net=host"
-  
+
   # Docker image to use
   DOCKER_IMAGE={~~docker_image~~}
-  echo "Updating docker image"
-  docker pull $DOCKER_IMAGE
+  if [ -z "$NOPULL" ]; then
+      echo "Updating docker image"
+      docker pull $DOCKER_IMAGE
+  fi
   echo "Starting docker with $DOCKER_IMAGE"
-  
-  # Get the mode argument, default to '-r'
-  mode="${1:--r}"
-  
+  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
+
   # Run docker with appropriate parameters
-  if [ $mode = "-d" ]; then
-    docker run -d --rm --name={~~client_name~~} $GPU2USE -u $(id -u):$(id -g) \
-    -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
-    -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
-    /bin/bash -c "export PYTHONPATH=/workspace/controller/controller && python -u -m nvflare.private.fed.app.client.client_train -m /workspace -s fed_client.json --set uid={~~client_name~~} secure_train=true config_folder=config org={~~org_name~~}"
+  if [ -z "$DETACH" ]; then
+      docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
+      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
+      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE /bin/bash -c "export PYTHONPATH=/workspace/controller/controller && /bin/bash"
   else
-    docker run --rm -it --name={~~client_name~~} $GPU2USE -u $(id -u):$(id -g) \
-    -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
-    -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE /bin/bash -c "export PYTHONPATH=/workspace/controller/controller && /bin/bash"
+      docker run -d -t --rm --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
+      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
+      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "export PYTHONPATH=/workspace/controller/controller && nohup ./start.sh && /bin/bash"
   fi
 
 
