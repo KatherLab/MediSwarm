@@ -38,8 +38,6 @@ COPY ./docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl
 # Install NVFlare from the local source
 RUN python -m pip install /workspace/nvflare
 
-# COPY ./NVFlare/dashboard /workspace/nvflare/dashboard
-
 COPY ./controller /workspace/controller
 # Set python path
 ENV PYTHONPATH=/workspace/controller/controller
@@ -47,6 +45,5 @@ ENV PYTHONPATH=/workspace/controller/controller
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:nfcore"
 
-# Optional: expose a port or set any other necessary environment variables
+# expose port for https access to dashboard
 EXPOSE 443
-# ENV SOME_ENV_VARIABLE=some_value
