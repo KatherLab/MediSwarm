@@ -1,7 +1,6 @@
 from models.base_model import BasicClassifier
 import torch
 import torch.nn as nn
-import torchinfo
 import math
 
 class MiniCNNForTesting(BasicClassifier):
@@ -35,7 +34,6 @@ class MiniCNNForTesting(BasicClassifier):
             nn.Linear(linear_waste_of_memory, 1)
         )
         print(self.model)
-        torchinfo.summary(self.model, input_size=(1, 1, 18, 18))
 
     def forward(self, x_in: torch.Tensor, **kwargs) -> torch.Tensor:
         return self.model(x_in)
