@@ -1,10 +1,10 @@
 import torchio as tio
-from typing import Tuple, Union, Optional, Dict
+from typing import Tuple, Union, Optional, Dict, Sequence
 from numbers import Number
 import nibabel as nib
 import numpy as np
 import torch
-from torchio.typing import TypeRangeFloat
+from torchio.typing import TypeRangeFloat, TypeTripletInt
 from torchio.transforms.transform import TypeMaskingMethod
 from torchio import Subject, Image
 
@@ -215,6 +215,59 @@ class Pad(tio.Pad):
             image.affine = new_affine
         return subject
 
+
+class UKA_CropOrPad(tio.CropOrPad):
+    """CropOrPad. 
+     random_center: Random center for crop and pad if no mask is set otherwise only random padding."""
+
+    def __init__(
+        self,
+        target_shape: Union[int, TypeTripletInt, None] = None,
+        padding_mode: Union[str, float] = 0,
+        mask_name: Optional[str] = None,
+        labels: Optional[Sequence[int]] = None,
+        random_center=False,
+        **kwargs,
+    ):
+        super().__init__(
+            target_shape=target_shape,
+            padding_mode=padding_mode,
+            mask_name=mask_name,
+            labels=labels,
+            **kwargs
+        )
+        self.random_center = random_center
+
+    def _get_six_bounds_parameters(self, parameters: np.ndarray) :
+        result = []
+        for number in parameters:
+            if self.random_center:
+                ini = np.random.randint(low=0, high=number+1)
+            else:
+                ini = int(np.ceil(number/2))
+            fin = number-ini
+            result.extend([ini, fin])
+        return tuple(result)
+    
+        
+    def apply_transform(self, subject: tio.Subject) -> tio.Subject:
+        subject.check_consistent_space()
+        padding_params, cropping_params = self.compute_crop_or_pad(subject)
+        padding_kwargs = {'padding_mode': self.padding_mode}
+        if padding_params is not None:
+            if self.random_center:
+                random_padding_params = []
+                for i in range(0, len(padding_params), 2):
+                    s = padding_params[i] + padding_params[i + 1]
+                    r = np.random.randint(0, s+1)
+                    random_padding_params.extend([r, s - r])
+                padding_params = random_padding_params
+            pad = tio.Pad(padding_params, **padding_kwargs)
+            subject = pad(subject)  # type: ignore[assignment]
+        if cropping_params is not None:
+            crop = tio.Crop(cropping_params)
+            subject = crop(subject)  # type: ignore[assignment]
+        return subject
 
 class CropOrPad(tio.CropOrPad):
     """Fixed version of TorchIO CropOrPad.
