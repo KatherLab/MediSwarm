@@ -23,7 +23,7 @@ def load_prediction_modules(prediction_flag):
     from predict import predict
     return predict, prediction_flag
 
-def prepare_dataset(task_data_name, data_dir, site_name):
+def prepare_dataset(task_data_name, data_dir, site_name, split="train"):
 
 
     """Prepare the dataset based on task data name."""
@@ -48,13 +48,16 @@ def prepare_dataset(task_data_name, data_dir, site_name):
     elif task_data_name == "DUKE":
         from data.datasets import DUKE_Dataset3D as dataset_class
     elif task_data_name == "Odelia":
-        from data.datasets import DUKE_Dataset3D_odelia as dataset_class
+        from data.datasets import ODELIA_Dataset3D as dataset_class
     else:
         print(f"Invalid task data name specified: {task_data_name}")
 
 
     if dataset_class:
-        return dataset_class(flip=True, path_root=os.path.join(data_dir, site_name)), task_data_name
+        if task_data_name == "Odelia":
+            return dataset_class(flip=True, path_root=os.path.join(data_dir, site_name)), task_data_name
+        else:
+            return dataset_class(flip=True, path_root=os.path.join(data_dir, site_name), split=split), task_data_name
     else:
         raise ValueError("Invalid task data name specified")
 

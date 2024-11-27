@@ -38,36 +38,46 @@ def main():
         logger.info(f'Model name: {env_vars["model_name"]}')
 
         predict, prediction_flag = load_prediction_modules(env_vars['prediction_flag'])
-        ds, task_data_name = prepare_dataset(env_vars['task_data_name'], env_vars['data_dir'], site_name=SITE_NAME)
         path_run_dir = generate_run_directory(env_vars['scratch_dir'], env_vars['task_data_name'], env_vars['model_name'], env_vars['local_compare_flag'])
 
         accelerator = 'gpu' if torch.cuda.is_available() else 'cpu'
         logger.info(f"Using {accelerator} for training")
 
-        labels = ds.get_labels()
-
+        
         # Generate indices and perform stratified split
-        indices = list(range(len(ds)))
-        train_indices, val_indices = train_test_split(indices, test_size=0.2, stratify=labels, random_state=42)
+        if SITE_NAME.startswith("manual"):
+            ds, task_data_name = prepare_dataset(env_vars['task_data_name'], env_vars['data_dir'], site_name=SITE_NAME)
+            
+            labels = ds.get_labels()
+            indices = list(range(len(ds)))
+        
+	    train_indices, val_indices = train_test_split(indices, test_size=0.2, stratify=labels, random_state=42)
 
-        # Create training and validation subsets
-        ds_train = Subset(ds, train_indices)
-        ds_val = Subset(ds, val_indices)
+	    # Create training and validation subsets
+	    ds_train = Subset(ds, train_indices)
+	    ds_val = Subset(ds, val_indices)
+	    # Extract training labels using the train_indices
+	    train_labels = [labels[i] for i in train_indices]
+        else:
+            # institutions have their local split file
+            ds_train, task_data_name = prepare_dataset(env_vars['task_data_name'], env_vars['data_dir'], site_name=SITE_NAME, split='train')
+            ds_val, task_data_name = prepare_dataset(env_vars['task_data_name'], env_vars['data_dir'], site_name=SITE_NAME, split='val')
+            train_labels = ds_train.get_label()
 
-        # Extract training labels using the train_indices
-        train_labels = [labels[i] for i in train_indices]
-        label_counts = Counter(train_labels)
 
-        # Calculate the total number of samples in the training set
-        total_samples = len(train_labels)
+	
 
-        # Print the percentage of the training set for each label
-        for label, count in label_counts.items():
-            percentage = (count / total_samples) * 100
-            logger.info(f"Label '{label}': {percentage:.2f}% of the training set, Exact count: {count}")
+	# Calculate the total number of samples in the training set
+	total_samples = len(train_labels)
+        label_counts = Counter()
+
+	# Print the percentage of the training set for each label
+	for label, count in label_counts.items():
+	    percentage = (count / total_samples) * 100
+	    logger.info(f"Label '{label}': {percentage:.2f}% of the training set, Exact count: {count}")
 
         logger.info(f"Total number of different labels in the training set: {len(label_counts)}")
-
+	
         adsValData = DataLoader(ds_val, batch_size=2, shuffle=False)
         logger.info(f'adsValData type: {type(adsValData)}')
 

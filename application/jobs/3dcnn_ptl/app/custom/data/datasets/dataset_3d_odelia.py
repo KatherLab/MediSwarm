@@ -1,105 +1,116 @@
-from pathlib import Path
-import pandas as pd
-from data.datasets import SimpleDataset3D
+from pathlib import Path 
+import pandas as pd 
+import torch.utils.data as data 
+import torchio as tio
+import torch  
+# 					TODO maybe adapt to ImageOrSubjectToTensor (both functions in one) for all centers.
+from ..augmentation.augmentations_3d import ImageToTensor, ZNormalization, CropOrPad, UKA_CropOrPad
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-class DUKE_Dataset3D_odelia(SimpleDataset3D):
-    """
-    DUKE Dataset for 3D medical images, extending SimpleDataset3D.
-
-    Args:
-        path_root (str): Root directory of the dataset.
-        item_pointers (list, optional): List of file paths. Defaults to [].
-        crawler_glob (str, optional): Glob pattern for crawling files. Defaults to '*.nii.gz'.
-        transform (callable, optional): Transformations to apply to the data. Defaults to None.
-        image_resize (tuple, optional): Desired output image size. Defaults to None.
-        flip (bool, optional): Whether to apply random flipping. Defaults to False.
-        image_crop (tuple, optional): Desired crop size. Defaults to None.
-        norm (str, optional): Normalization method. Defaults to 'znorm_clip'.
-        to_tensor (bool, optional): Whether to convert images to tensor. Defaults to True.
-        sequence (str, optional): Sequence type to use for loading images. Defaults to 'sub'.
-    """
+class ODELIA_Dataset3D(data.Dataset):
+    ALL_INSTITUTIONS = ['CAM', 'RSH', 'RUMC', 'UKA', 'UMCU']
 
     def __init__(
             self,
-            path_root,
-            item_pointers=[],
-            crawler_glob='*.nii.gz',
-            transform=None,
-            image_resize=None,
-            flip=False,
-            image_crop=None,
-            norm='znorm_clip',
-            to_tensor=True,
-            sequence='sub'
-    ):
-        super().__init__(path_root, item_pointers, crawler_glob, transform, image_resize, flip, image_crop, norm,
-                         to_tensor)
-        df = pd.read_excel(Path(self.path_root).parent / 'Clinical_and_Other_Features.xlsx', header=[0, 1, 2])
-        df = df[df[df.columns[38]] == 0]  # Only unilateral cases (Bilateral = 0)
-        df = df[[df.columns[0], df.columns[36], df.columns[38]]]  # Patient ID, Tumor Side, Bilateral
-        df.columns = ['PatientID', 'Location', 'Bilateral']  # Rename columns
-        dfs = []
-        existing_folders = {folder.name for folder in Path(path_root).iterdir() if folder.is_dir()}
+            path_root=None,
+            institutions="UKA",
+            fold = 0,
+            split= None,
+            fraction=None,
+            transform = None,
+            flip = False,
+            random_rotate=False,
+            random_inverse=False,
+            noise=False, 
+            to_tensor = True,
+        ):
+        self.path_root = Path(self.PATH_ROOT if path_root is None else path_root)
+        self.split = split 
+        
+        if (institutions is None) or (institutions == "ODELIA"):
+            institutions = self.ALL_INSTITUTIONS
+        elif isinstance(institutions, str):
+            institutions = [institutions]
+        self.institutions = institutions
+        
+        logger.info(f"-------------------- {path_root} -----------------------")
+        for path_file in self.path_root.iterdir():
+            logger.info(f"-------------------- {path_file} -----------------------")
+        
 
-        for side in ["left", 'right']:
-            dfs.append(pd.DataFrame({
-                'PatientID': df["PatientID"].str.split('_').str[2] + f"_{side}",
-                'Malign': df[["Location", "Bilateral"]].apply(
-                    lambda ds: (ds[0].lower() == side[0]) | (ds[1] == 1), axis=1
-                )
-            }))
+        if transform is None: 
+            self.transform = tio.Compose([
+                tio.Flip((1,0)), # Just for viewing, otherwise upside down
+                UKA_CropOrPad((224, 224, 32), random_center=random_rotate), 
 
-        self.df = pd.concat(dfs, ignore_index=True)
-        self.df = self.df[self.df['PatientID'].isin(existing_folders)].set_index('PatientID', drop=True)
-        self.item_pointers = self.df.index[self.df.index.isin(self.item_pointers)].tolist()
-        self.sequence = sequence
+                ZNormalization(per_channel=True, masking_method=lambda x:(x>x.min()) & (x<x.max()), percentiles=(0.5, 99.5)), 
 
-    def __getitem__(self, index):
-        """
-        Retrieves an item from the dataset.
+                # tio.Lambda(lambda x: x.moveaxis(1, 2) if torch.rand((1,),)[0]<0.5 else x ) if random_rotate else tio.Lambda(lambda x: x), # WARNING: 1,2 if Subject, 2, 3 if tensor
+                tio.RandomAffine(scales=0, degrees=(0, 0, 0, 0, 0,90), translation=0, isotropic=True, default_pad_value='minimum') if random_rotate else tio.Lambda(lambda x: x),
+                tio.RandomFlip((0,1,2)) if flip else tio.Lambda(lambda x: x), # WARNING: Padding mask 
+                tio.Lambda(lambda x:-x if torch.rand((1,),)[0]<0.5 else x, types_to_apply=[tio.INTENSITY]) if random_inverse else tio.Lambda(lambda x: x),
+                tio.RandomNoise(std=(0.0, 0.25)) if noise else tio.Lambda(lambda x: x),
 
-        Args:
-            index (int): Index of the item to retrieve.
+                ImageToTensor() if to_tensor else tio.Lambda(lambda x: x)             
+            ])
+        else:
+            self.transform = transform
+        
+        path_csv = self.path_root/'metadata/split.csv'
+        df = ds.load_split(path_csv, fold=fold, split=split, fraction=fraction)
+            
+        # Verify files exist
+        uids = self.run_item_crawler(self.path_root/'data_unilateral')
+        df = df[df['UID'].isin(uids)]
 
-        Returns:
-            dict: A dictionary with 'uid', 'source', and 'target' keys.
-        """
-        uid = self.item_pointers[index]
-        # Use Sub1 images specifically
-        path_item = self.path_root / uid / f"{uid.split('_')[1].upper()}-Sub1.nii.gz"
-        img = self.load_item([path_item])
-        target = self.df.loc[uid]['Malign']
-        return {'uid': uid, 'source': self.transform(img), 'target': target}
+        self.df = df # pd.concat(df).reset_index()
+        self.item_pointers = self.df.index.tolist()
 
-    @classmethod
-    def run_item_crawler(cls, path_root, crawler_ext, **kwargs):
-        """
-        Crawls the directory to find items matching the glob pattern.
+        
 
-        Args:
-            path_root (Path): Root directory to start crawling.
-            crawler_ext (str): Extension to match files.
-
-        Returns:
-            list: List of relative file paths.
-        """
-        return [path.relative_to(path_root).name for path in Path(path_root).iterdir() if path.is_dir()]
-
-    def get_labels(self):
-        """
-        Gets the labels for the dataset items.
-
-        Returns:
-            list: List of labels.
-        """
-        return self.df.loc[self.item_pointers, 'Malign'].tolist()
 
     def __len__(self):
-        """
-        Returns the number of items in the dataset.
-
-        Returns:
-            int: Number of items.
-        """
         return len(self.item_pointers)
+
+    def load_img(self, path_img):
+        return tio.ScalarImage(path_img)
+
+    def load_map(self, path_img):
+        return tio.LabelMap(path_img)
+
+    def __getitem__(self, index):
+        idx = self.item_pointers[index]
+        item = self.df.loc[idx]
+        target = item['Class']
+        uid = item['UID']
+
+        # Use only binary label (Cancer yes/no)
+        if self.institutions != "DUKE":
+            target = int(target == 2)
+    
+        img = self.load_img(self.path_root/'data_unilateral'/uid/'Sub.nii.gz')
+        img = self.transform(img)
+
+        return {'uid':uid, 'source': img, 'target':target}
+    
+    def get_label(self):
+        return self.df['Class']
+    
+    @classmethod
+    def load_split(cls, filepath_or_buffer=None, fold=0, split=None, fraction=None):
+        df = pd.read_csv(filepath_or_buffer)
+        df = df[df['Fold'] == fold]
+        if split is not None:
+            df = df[df['Split'] == split]   
+        if fraction is not None:
+            df = df.sample(frac=fraction, random_state=0).reset_index()
+        return df
+    
+    @classmethod
+    def run_item_crawler(cls, path_root, **kwargs):
+        return [path.relative_to(path_root).name for path in Path(path_root).iterdir() if path.is_dir() ]
