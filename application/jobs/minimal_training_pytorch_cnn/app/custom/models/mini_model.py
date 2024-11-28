@@ -20,8 +20,8 @@ class MiniCNNForTesting(BasicClassifier):
         super().__init__(in_ch, out_ch, spatial_dims, loss, loss_kwargs, optimizer, optimizer_kwargs, lr_scheduler,
                          lr_scheduler_kwargs, aucroc_kwargs, acc_kwargs)
 
-        waste_of_memory = 16
-        linear_waste_of_memory = int(math.sqrt(waste_of_memory/4))
+        waste_of_memory = 128*(1024**2)                             # bytes
+        linear_waste_of_memory = int(math.sqrt(waste_of_memory/2))  # 2 or 4, depending on float size on GPU
 
         self.model = torch.nn.Sequential(
             nn.Conv2d(1, 3, 3),
