@@ -1,4 +1,3 @@
-from .base_model import VeryBasicModel, BasicModel, BasicClassifier
-from .mini_model import MiniCNNForTesting
+from .models_for_testing import MiniCNNForTesting, FixedSizeCNNForTesting
 
-__all__ = ['VeryBasicModel', 'BasicModel', 'BasicClassifier', 'MiniCNNForTesting']
+__all__ = ['MiniCNNForTesting', 'FixedSizeCNNForTesting']
