@@ -11,7 +11,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 from data.datamodules import DataModule
 from data.datasets import MiniDatasetForTesting
-from models import MiniCNNForTesting
+from models import FixedSizeCNNForTesting
 
 
 def load_environment_variables():
@@ -72,7 +72,7 @@ def prepare_training(logger):
         data_module = set_up_data_module(env_vars)
 
         # Initialize the model
-        model = MiniCNNForTesting()
+        model = FixedSizeCNNForTesting(128000000)
 
         to_monitor = "val/AUC_ROC"
         min_max = "max"
