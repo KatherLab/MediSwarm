@@ -29,6 +29,7 @@ COPY ./NVFlare /workspace/nvflare
 
 # Install NVFlare from the local source
 RUN python -m pip install /workspace/nvflare
+RUN rm -rf /workspace/nvflare
 
 COPY ./NVFlare/dashboard /workspace/nvflare/dashboard
 
