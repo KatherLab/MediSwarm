@@ -366,6 +366,27 @@ start_ovsr_sh: |
 
 start_cln_sh: |
   #!/usr/bin/env bash
+
+  # modify nvflare sources to set timeouts to 100 hours (for experiments, to be patched in the code put in the Docker image once this works reliably)
+  sed -i 's+READ_TIMEOUT = 300+READ_TIMEOUT = 360000+'                                          /opt/conda/lib/python3.10/site-packages/nvflare/fuel/f3/streaming/byte_receiver.py
+  sed -i 's+STREAM_ACK_WAIT = 60+STREAM_ACK_WAIT = 360000+'                                     /opt/conda/lib/python3.10/site-packages/nvflare/fuel/f3/streaming/byte_streamer.py
+  sed -i 's+CONFIG_TASK_TIMEOUT = 300+CONFIG_TASK_TIMEOUT = 360000+'                            /opt/conda/lib/python3.10/site-packages/nvflare/app_common/ccwf/common.py
+  sed -i 's+START_TASK_TIMEOUT = 10+START_TASK_TIMEOUT = 360000+'                               /opt/conda/lib/python3.10/site-packages/nvflare/app_common/ccwf/common.py
+  sed -i 's+END_WORKFLOW_TIMEOUT = 2.0+END_WORKFLOW_TIMEOUT = 360000+'                          /opt/conda/lib/python3.10/site-packages/nvflare/app_common/ccwf/common.py
+  sed -i 's+PER_CLIENT_STATUS_REPORT_TIMEOUT = 90.0+PER_CLIENT_STATUS_REPORT_TIMEOUT = 360000+' /opt/conda/lib/python3.10/site-packages/nvflare/app_common/ccwf/common.py
+  sed -i 's+WORKFLOW_PROGRESS_TIMEOUT = 3600.0+WORKFLOW_PROGRESS_TIMEOUT = 360000+'             /opt/conda/lib/python3.10/site-packages/nvflare/app_common/ccwf/common.py
+  sed -i 's+LEARN_TASK_ACK_TIMEOUT = 10+LEARN_TASK_ACK_TIMEOUT = 360000+'                       /opt/conda/lib/python3.10/site-packages/nvflare/app_common/ccwf/common.py
+  sed -i 's+LEARN_TASK_ABORT_TIMEOUT = 5.0+LEARN_TASK_ABORT_TIMEOUT = 360000+'                  /opt/conda/lib/python3.10/site-packages/nvflare/app_common/ccwf/common.py
+  sed -i 's+FINAL_RESULT_ACK_TIMEOUT = 10+FINAL_RESULT_ACK_TIMEOUT = 360000+'                   /opt/conda/lib/python3.10/site-packages/nvflare/app_common/ccwf/common.py
+  sed -i 's+GET_MODEL_TIMEOUT = 10+GET_MODEL_TIMEOUT = 360000+'                                 /opt/conda/lib/python3.10/site-packages/nvflare/app_common/ccwf/common.py
+  sed -i 's+resend_interval=2.0+resend_interval=360000+'                                        /opt/conda/lib/python3.10/site-packages/nvflare/fuel/utils/pipe/pipe_handler.py
+  sed -i 's+submit_result_timeout=30.0+submit_result_timeout=360000+'                           /opt/conda/lib/python3.10/site-packages/nvflare/fuel/utils/pipe/pipe_handler.py
+  sed -i 's+resend_interval=2.0+resend_interval=360000+'                                        /opt/conda/lib/python3.10/site-packages/nvflare/app_common/executors/task_exchanger.py
+  sed -i 's+submit_result_timeout=30.0+submit_result_timeout=360000+'                           /opt/conda/lib/python3.10/site-packages/nvflare/app_common/executors/task_exchanger.py
+  sed -i 's+resend_interval=2.0+resend_interval=360000+'                                        /opt/conda/lib/python3.10/site-packages/nvflare/client/flare_agent.py
+  sed -i 's+submit_result_timeout=30.0+submit_result_timeout=360000+'                           /opt/conda/lib/python3.10/site-packages/nvflare/client/flare_agent.py
+  sed -i 's+heartbeat_timeout=30.0+heartbeat_timeout=360000+'                                   /opt/conda/lib/python3.10/site-packages/nvflare/client/flare_agent.py
+
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   all_arguments="${@}"
   doCloud=false
