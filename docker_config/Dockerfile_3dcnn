@@ -106,8 +106,6 @@ RUN python3 -m pip install \
 
 RUN rm -rf /workspace/nvflare
 
-# COPY ./NVFlare/dashboard /workspace/nvflare/dashboard
-
 COPY ./controller /workspace/controller
 # Install the controller package
 RUN python3 -m pip install /workspace/controller
