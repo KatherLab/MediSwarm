@@ -106,6 +106,9 @@ RUN python3 -m pip install \
 
 RUN rm -rf /workspace/nvflare
 
+# TODO remove the following when not needed any more
+RUN chmod a+w -R /opt/conda/lib/python3.10/site-packages/nvflare/
+
 COPY ./controller /workspace/controller
 # Install the controller package
 RUN python3 -m pip install /workspace/controller
