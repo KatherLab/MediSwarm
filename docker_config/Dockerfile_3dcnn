@@ -116,5 +116,7 @@ RUN python3 -m pip install /workspace/controller
 # Set python path
 ENV PYTHONPATH=/workspace/controller/controller
 
+RUN chmod a+rX /workspace/controller -R
+
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:3dcnn"
