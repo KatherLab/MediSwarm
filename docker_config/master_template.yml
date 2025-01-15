@@ -692,12 +692,12 @@ docker_cln_sh: |
   if [ -z "$DETACH" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
       -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
-      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE /bin/bash -c "export PYTHONPATH=/workspace/controller/controller && /bin/bash"
+      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE /bin/bash -c "/bin/bash"
   else
       docker run -d -t --rm --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
       -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
       -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
-      /bin/bash -c "export PYTHONPATH=/workspace/controller/controller && nohup ./start.sh && /bin/bash"
+      /bin/bash -c "nohup ./start.sh && /bin/bash"
   fi
 
 
@@ -734,12 +734,12 @@ docker_svr_sh: |
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
-      /bin/bash -c "export PYTHONPATH=/workspace/controller/controller && /bin/bash"
+      /bin/bash -c "/bin/bash"
   else
       docker run -d -t --rm --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
-      /bin/bash -c "export PYTHONPATH=/workspace/controller/controller && nohup ./start.sh && chmod a+r nohup.out && /bin/bash"
+      /bin/bash -c "nohup ./start.sh && chmod a+r nohup.out && /bin/bash"
   fi
 
 
