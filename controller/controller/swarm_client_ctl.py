@@ -4,7 +4,7 @@ import threading
 import time
 import logging
 
-from gatherer import Gatherer
+from controller.gatherer import Gatherer
 
 from nvflare.apis.controller_spec import Task
 from nvflare.apis.fl_constant import FLContextKey, ReturnCode
