@@ -1,7 +1,7 @@
 from models.base_model import BasicClassifier
 import torch
 import torch.nn as nn
-import math
+
 
 class CNNForTesting(BasicClassifier):
     def __init__(self,
@@ -15,7 +15,7 @@ class CNNForTesting(BasicClassifier):
                  lr_scheduler=None,
                  lr_scheduler_kwargs: dict = {},
                  aucroc_kwargs: dict = {"task": "binary"},
-                 acc_kwargs: dict = {"task": "binary"},
+                 acc_kwargs: dict = {"task": "binary"}
                  ):
         super().__init__(in_ch, out_ch, spatial_dims, loss, loss_kwargs, optimizer, optimizer_kwargs, lr_scheduler,
                          lr_scheduler_kwargs, aucroc_kwargs, acc_kwargs)
