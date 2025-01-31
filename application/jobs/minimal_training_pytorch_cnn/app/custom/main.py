@@ -20,7 +20,7 @@ def main():
         flare.patch(trainer)  # Patch trainer to enable swarm learning
         torch.autograd.set_detect_anomaly(True)
 
-        logger.info(f"Site name: {flare.get_site_name()}")
+        logger.info(f"Site name: {SITE_NAME}")
 
         while flare.is_running():
             input_model = flare.receive()
