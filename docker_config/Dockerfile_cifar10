@@ -13,31 +13,25 @@ ENV PYTHON_VERSION=3.10.14
 RUN python3 -m pip install -U pip==23.3.1
 RUN python3 -m pip install -U setuptools==69.5.1
 
-
-
 # Install additional Python packages
 RUN python3 -m pip install \
     torchvision==0.14.0 \
     tensorboard==2.16.2
 
-# Set the working directory
-WORKDIR /workspace/
-
-# Copy the modified NVFlare source code into the image
+# Install NVFlare from the local source and nvflare-nightly (not at fixed version)
 # (Assuming you have your modified nvflare source code in a local directory named 'nvflare')
-COPY ./NVFlare /workspace/nvflare
-
-# Install NVFlare from the local source
+WORKDIR /workspace/
+COPY ./docker_config/NVFlare /workspace/nvflare
 RUN python -m pip install /workspace/nvflare
+RUN rm -rf /workspace/nvflare
 
-COPY ./NVFlare/dashboard /workspace/nvflare/dashboard
+# TODO is this needed in addition to the copy operation above?
+COPY ./docker_config/NVFlare/dashboard /workspace/nvflare/dashboard
 
-COPY ../controller /workspace/controller
 # Install the controller package
+COPY ../controller /workspace/controller
 RUN python -m pip install /workspace/controller
-
-# Set python path
-ENV PYTHONPATH=/workspace/controller/controller
+RUN rm -rf /workspace/controller
 
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:cifar10"

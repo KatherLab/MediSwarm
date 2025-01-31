@@ -76,6 +76,7 @@ RUN python3 -m pip install tokenize-rt==5.2.0
 RUN mkdir /scratch
 RUN chmod a+rwx /scratch
 
-ENV PYTHONPATH=/workspace/controller/controller
+# copy previously installed code, is now needed for unit testing
+COPY ./controller /workspace/controller
 
 LABEL name="nvflare-pt-dev:testing"
