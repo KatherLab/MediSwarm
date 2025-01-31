@@ -22,12 +22,21 @@ flare_util.init()
 SITE_NAME=flare.get_site_name()
 
 #TODO: Set max_epochs based on the data set size
-if SITE_NAME == "manual_dl3":
-    MAX_EPOCHS = 2
-elif SITE_NAME == "manual_dl2":
-    MAX_EPOCHS = 4
-elif SITE_NAME == "manual_dl0":
-    MAX_EPOCHS = 8
+NUM_EPOCHS_FOR_SITE = { "TUD_1":   2,
+                        "TUD_2":   4,
+                        "TUD_3":   8,
+                        "MEVIS_1": 2,
+                        "MEVIS_2": 4,
+                        "UKA":     2,
+                      }
+
+if SITE_NAME in NUM_EPOCHS_FOR_SITE.keys():
+    MAX_EPOCHS = NUM_EPOCHS_FOR_SITE[SITE_NAME]
+else:
+    MAX_EPOCHS = 5
+
+print(f"Site name: {SITE_NAME}")
+print(f"Max epochs set to: {MAX_EPOCHS}")
 
 def main():
     """
@@ -113,7 +122,7 @@ def main():
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
-            max_epochs=5,
+            max_epochs=MAX_EPOCHS,
             num_sanity_val_steps=2,
             logger=TensorBoardLogger(save_dir=path_run_dir)
         )
