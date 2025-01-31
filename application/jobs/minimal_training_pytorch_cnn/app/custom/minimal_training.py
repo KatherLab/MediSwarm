@@ -72,7 +72,7 @@ def prepare_training(logger):
         data_module = set_up_data_module(env_vars)
 
         # Initialize the model
-        model = MiniCNNForTesting(in_ch=1, out_ch=1, spatial_dims=3)
+        model = MiniCNNForTesting()
 
         to_monitor = "val/AUC_ROC"
         min_max = "max"

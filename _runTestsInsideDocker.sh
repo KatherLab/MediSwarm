@@ -9,7 +9,7 @@
 # run unit tests of ODELIA swarm learning and report coverage
 export MPLCONFIGDIR=/tmp
 cd tests/unit_tests/controller
-python3 -m coverage run --source=/workspace/controller/controller -m unittest discover
+PYTHONPATH=/workspace/controller/controller python3 -m coverage run --source=/workspace/controller/controller -m unittest discover
 coverage report -m
 rm .coverage
 
