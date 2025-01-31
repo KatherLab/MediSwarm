@@ -15,9 +15,6 @@ from nvflare.app_common.ccwf.client_ctl import ClientSideController
 from nvflare.app_common.ccwf.common import Constant, NumberMetricComparator
 from nvflare.app_common.abstract.aggregator import Aggregator
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 
 class MockedResult(Shareable):
     def __init__(self, current_round: int):
@@ -98,6 +95,8 @@ class TestGatherer(unittest.TestCase):
         self.fl_context = FLContext()
         self.aggregator = MockedAggregator()
         self.gatherer = self._get_gatherer()
+        self.testee_logger = logging.getLogger("Gatherer")
+
 
     def test_trainer_status_can_be_accessed(self):
         name = "test name"
@@ -107,11 +106,10 @@ class TestGatherer(unittest.TestCase):
         self.assertEqual(name, trainer_status.name)
         self.assertEqual(now, trainer_status.reply_time)
 
-
     def test_gatherer_initialization_logs_correctly(self):
         for current_best_client, expected_message in ((None, "INFO:Gatherer:[identity=, run=?]: gatherer starting from scratch"),
                                                       (self.CLIENT_THAT_TRAINS, "INFO:Gatherer:[identity=, run=?]: gatherer starting with previous best result from client client_a with metric None at round None")):
-            with (self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log):
+            with (self.assertLogs(self.testee_logger, logging.INFO) as log):
                 task_data = Shareable()
                 task_data.set_header(Constant.CLIENT, current_best_client)
                 self.gatherer = self._get_gatherer(task_data=task_data)
@@ -148,7 +146,7 @@ class TestGatherer(unittest.TestCase):
         result = MockedResultRaisingException(0)
         with self.assertLogs(logging.getLogger("Gatherer"), logging.ERROR) as log:  # but does not raise exception
             self.gatherer.gather(self.CLIENT_THAT_TRAINS, result, self.fl_context)
-        self.assertTrue(log.output[0].startswith("ERROR:Gatherer:[identity=, run=?]: Exception gathering"))
+        self.assertTrue(log.output[0].startswith('ERROR:Gatherer:[identity=, run=?]: Exception gathering: Traceback'))
 
     def test_gatherer_gathering_from_current_round_with_enough_responses_gets_logged_and_events_are_fired(self):
         event_catcher = EventCatcher()
@@ -259,5 +257,4 @@ class TestGatherer(unittest.TestCase):
         time.sleep(0.11)
         with self.assertLogs(logging.getLogger("Gatherer"), logging.INFO) as log:
             self.assertTrue(self.gatherer.is_done())
-        print("----->", log.output)
         self.assertTrue("INFO:Gatherer:[identity=, run=?]: Gatherer for round 0 exit after 0.1 seconds since received minimum responses" in log.output)
