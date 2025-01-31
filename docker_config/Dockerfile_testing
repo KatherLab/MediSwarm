@@ -73,8 +73,6 @@ RUN python3 -m pip install \
 # additional package needed for [black]jupyter
 RUN python3 -m pip install tokenize-rt==5.2.0
 
-RUN python3 -m pip install torchinfo
-
 RUN mkdir /scratch
 RUN chmod a+rwx /scratch
 
