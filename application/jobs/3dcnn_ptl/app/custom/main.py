@@ -7,6 +7,7 @@ import threedcnn_ptl
 flare_util.init()
 
 SITE_NAME = flare.get_site_name()
+NUM_EPOCHS_PER_ROUND = threedcnn_ptl.get_num_epochs_per_round(SITE_NAME)
 
 
 def main():
@@ -15,8 +16,7 @@ def main():
     """
     logger = threedcnn_ptl.set_up_logging()
     try:
-        max_epochs = threedcnn_ptl.get_max_num_of_epochs(SITE_NAME)
-        data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(logger, max_epochs, SITE_NAME)
+        data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(logger, NUM_EPOCHS_PER_ROUND, SITE_NAME)
 
         flare.patch(trainer)  # Patch trainer to enable swarm learning
         torch.autograd.set_detect_anomaly(True)

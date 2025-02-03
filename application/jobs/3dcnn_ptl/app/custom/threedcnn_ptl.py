@@ -13,7 +13,7 @@ import os
 import logging
 
 
-def get_max_num_of_epochs(site_name: str) -> int:
+def get_num_epochs_per_round(site_name: str) -> int:
     #TODO: Set max_epochs based on the data set size
     NUM_EPOCHS_FOR_SITE = { "TUD_1":   2,
                             "TUD_2":   4,
