@@ -648,6 +648,7 @@ docker_cln_sh: |
           --GPU)         GPU2USE="$2"; shift ;;
           --no-pull)     NOPULL="1";;
           -d)            DETACH="1";;
+          -l)            LOCAL_TRAINING="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -688,16 +689,27 @@ docker_cln_sh: |
   echo "Starting docker with $DOCKER_IMAGE"
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
 
-  # Run docker with appropriate parameters
-  if [ -z "$DETACH" ]; then
-      docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
-      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
-      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE /bin/bash -c "/bin/bash"
-  else
+  # Run docker with appropriate parameters  # TODO reduce code duplication
+  if [[ ! -z "$DETACH" ]]; then
       docker run -d -t --rm --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
       -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
-      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
+      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ \
+      --env TRAINING_MODE='swarm' \
+      -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh && /bin/bash"
+  elif [[ ! -z "$LOCAL_TRAINING" ]]; then
+      docker run -d -t --rm --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
+      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
+      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ \
+      --env TRAINING_MODE='local_training' \
+      -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "nohup ./start.sh && /bin/bash"
+  else
+      docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
+      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
+      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ \
+      -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "/bin/bash"
   fi
 
 
