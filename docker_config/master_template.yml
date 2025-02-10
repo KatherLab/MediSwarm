@@ -698,7 +698,14 @@ docker_cln_sh: |
       -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh && /bin/bash"
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
-      echo "not implemented yet"
+      SITE_NAME={~~client_name~~}
+      NUM_EPOCHS=1  # FIXME how to set number of epochs
+      docker run -d -t --rm --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
+      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
+      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ \
+      --env TRAINING_MODE='local_training' \
+      -w /MediSwarm/ --ipc=host $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "application/jobs/3dcnn_ptl/app/custom/main.py"
   else
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
       -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
