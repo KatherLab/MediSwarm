@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 import nvflare.client.lightning as flare
 import nvflare.client as flare_util
 import torch
@@ -14,7 +16,7 @@ if TRAINING_MODE == "swarm":
     NUM_EPOCHS = threedcnn_ptl.get_num_epochs_per_round(SITE_NAME)
 elif TRAINING_MODE == "local_training":
     SITE_NAME=os.getenv("SITE_NAME")
-    NUM_EPOCIHS = os.getenv("NUM_EPOCHS")
+    NUM_EPOCHS = int(os.getenv("NUM_EPOCHS"))
 else:
     raise Exception(f"Illegal TRAINING_MODE {TRAINING_MODE}")
 
