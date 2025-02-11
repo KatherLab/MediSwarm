@@ -23,12 +23,12 @@ def get_num_epochs_per_round(site_name: str) -> int:
                             "UKA":     2,
                            }
 
-    if SITE_NAME in NUM_EPOCHS_FOR_SITE.keys():
-        MAX_EPOCHS = NUM_EPOCHS_FOR_SITE[SITE_NAME]
+    if site_name in NUM_EPOCHS_FOR_SITE.keys():
+        MAX_EPOCHS = NUM_EPOCHS_FOR_SITE[site_name]
     else:
         MAX_EPOCHS = 5
 
-    print(f"Site name: {SITE_NAME}")
+    print(f"Site name: {site_name}")
     print(f"Max epochs set to: {MAX_EPOCHS}")
 
     return MAX_EPOCHS
