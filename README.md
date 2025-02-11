@@ -116,7 +116,7 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 2. Start the client
    ```bash
    rm -rf ../pid.fl ../daemon_pid.fl nohup.out  # clean up potential leftovers from previous run
-   ./docker.sh --data_dir /data/MEVISTwoNodeSwarm/data --scratch_dir /data/MEVISTwoNodeSwarm/scratch --GPU all --start_client
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --start_client
    ```
 3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
    ```bash
