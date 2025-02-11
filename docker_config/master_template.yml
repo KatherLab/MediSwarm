@@ -702,7 +702,7 @@ docker_cln_sh: |
       /bin/bash -c "nohup ./start.sh && /bin/bash"
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
       # TODO how to set number of epochs
-      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME=temporary_vm --env NUM_EPOCHS=1"
+      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
       docker run --rm -it \
       $DOCKER_OPTIONS_A $DOCKER_MOUNTS $DOCKER_OPTIONS_B $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
