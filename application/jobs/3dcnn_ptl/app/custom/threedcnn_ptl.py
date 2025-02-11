@@ -154,5 +154,9 @@ def validate_and_train(logger, data_module, model, trainer) -> None:
 def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
     model.save_best_checkpoint(trainer.logger.log_dir, checkpointing.best_model_path)
     predict, prediction_flag = load_prediction_modules(env_vars['prediction_flag'])
-    predict(path_run_dir, os.path.join(env_vars['data_dir'], env_vars['task_data_name'], 'test'), env_vars['model_name'], last_flag=False, prediction_flag=prediction_flag)
+    test_data_path = os.path.join(env_vars['data_dir'], env_vars['task_data_name'], 'test')
+    if os.path.exists(test_data_path):
+        predict(path_run_dir, os.path.join(env_vars['data_dir'], env_vars['task_data_name'], 'test'), env_vars['model_name'], last_flag=False, prediction_flag=prediction_flag)
+    else:
+        logger.info('No test data found, not running evaluation')
     logger.info('Training completed successfully')
