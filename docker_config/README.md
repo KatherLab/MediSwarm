@@ -16,7 +16,11 @@ This guide provides step-by-step instructions for building and pushing Docker im
 
 Go to root directory of your MediSwarm code
 
-### 2. Build and Push `nvflare-pt-dev:nfcore` Image
+### 2. Build the `nvflare-pt-dev:nfcore` and `nvflare-pt-dev:3dcnn` Docker Images
+
+Use `buildDockerImages.sh` to build the required images.
+
+### 3. Manually Build and Push `nvflare-pt-dev:nfcore` Image
 
 Build the Docker image using the `Dockerfile_nfcore` file and push it to Docker Hub.
 
@@ -26,7 +30,7 @@ docker tag nvflare-pt-dev:nfcore jefftud/nvflare-pt-dev:nfcore
 docker push jefftud/nvflare-pt-dev:nfcore
 ```
 
-### 3. Build and Push `nvflare-pt-dev:3dcnn` Image
+### 4. Manually Build and Push `nvflare-pt-dev:3dcnn` Image
 
 Build the Docker image using the `Dockerfile_3dcnn` file and push it to Docker Hub.
 
@@ -36,7 +40,7 @@ docker tag nvflare-pt-dev:3dcnn jefftud/nvflare-pt-dev:3dcnn
 docker push jefftud/nvflare-pt-dev:3dcnn
 ```
 
-### 4. Build and Push `nvflare-pt-dev:cifar10` Image
+### 5. Manually Build and Push `nvflare-pt-dev:cifar10` Image
 
 Build the Docker image using the `Dockerfile_cifar10` file and push it to Docker Hub.
 
