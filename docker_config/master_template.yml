@@ -333,7 +333,17 @@ authz_def: |
 fl_admin_sh: |
   #!/usr/bin/env bash
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  mkdir -p $DIR/../transfer
+  cd $DIR/../transfer/MediSwarm
+  CURRENT_GIT_REVISION=`git rev-parse HEAD`
+  EXPECTED_GIT_REVISION=DOCKER_BUILT_FROM_MEDISWARM_REVISION  # this should be replaced by buildDockerImages.sh
+  if [ "$CURRENT_GIT_REVISION" != "$EXPECTED_GIT_REVISION" ]; then
+    echo "Transfer code is at wrong revision $CURRENT_GIT_REVISION but should be at $EXPECTED_GIT_REVISION"
+    exit 1
+  fi
+  if ! git diff --quiet || ! git diff --staged --quiet ; then
+    echo "Transfer code has local changes"
+    exit 1
+  fi
   python3 -m nvflare.fuel.hci.tools.admin -m $DIR/.. -s fed_admin.json
 
 log_config: |
