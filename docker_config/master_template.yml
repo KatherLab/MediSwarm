@@ -693,29 +693,30 @@ docker_cln_sh: |
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/"
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
+  DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
 
-  # Run docker with appropriate parameters  # TODO reduce code duplication
+  # Run docker with appropriate parameters
   if [[ ! -z "$START_CLIENT" ]]; then
       DOCKER_ENV_VAR="--env TRAINING_MODE=swarm"
       docker run -d -t --rm \
-      $DOCKER_OPTIONS_A $DOCKER_MOUNTS $DOCKER_OPTIONS_B $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh && /bin/bash"
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
       # TODO how to set number of epochs
       DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
       docker run --rm -it \
-      $DOCKER_OPTIONS_A $DOCKER_MOUNTS $DOCKER_OPTIONS_B $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
   elif [[ ! -z "$DUMMY_TRAINING" ]]; then
       DOCKER_ENV_VAR="--env TRAINING_MODE=local_training"
       docker run --rm -it \
-      $DOCKER_OPTIONS_A $DOCKER_MOUNTS $DOCKER_OPTIONS_B $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
   else
       # start interactive container
       DOCKER_ENV_VAR=""
       docker run --rm -it --detach-keys="ctrl-x" \
-      $DOCKER_OPTIONS_A $DOCKER_MOUNTS $DOCKER_OPTIONS_B $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/bin/bash"
   fi
 
