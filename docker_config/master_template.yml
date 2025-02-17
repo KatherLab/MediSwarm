@@ -725,8 +725,8 @@ docker_svr_sh: |
 
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-          --no-pull)     NOPULL="1";;
-          -d)            DETACH="1";;
+          --no-pull)      NOPULL="1";;
+          --start_server) START_SERVER="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -748,7 +748,7 @@ docker_svr_sh: |
   CONTAINER_NAME=odelia_swarm_server_$svr_name
 
   # Run docker with appropriate parameters
-  if [ -z "$DETACH" ]; then
+  if [ -z "$START_SERVER" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
