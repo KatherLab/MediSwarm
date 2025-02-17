@@ -96,13 +96,13 @@ We demonstrate that the system can run on lightweight hardware like this. For le
    ```
 3. Verify that your Docker/GPU setup is working
    ```bash
-   /docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --minimal_training
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --dummy_training
    ```
    * This will pull the Docker image, which might take a while.
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
 4. Verify that your local data can be accessed and the model can be trained locally
    ```bash
-   /docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --local_training
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --dummy_training
    ```
    * Training time depends on the size of the local dataset
    * TODO update call when handling of the number of epochs has been implemented
