@@ -649,7 +649,7 @@ docker_cln_sh: |
           --no-pull)         NOPULL="1";;
           --start_client)    START_CLIENT="1";;
           --local_training)  LOCAL_TRAINING="1";;
-          --minimal_example) MINIMAL_EXAMPLE="1";;
+          --dummy_training)  DUMMY_TRAINING="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -706,7 +706,7 @@ docker_cln_sh: |
       docker run --rm -it \
       $DOCKER_OPTIONS_A $DOCKER_MOUNTS $DOCKER_OPTIONS_B $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
-  elif [[ ! -z "$MINIMAL_EXAMPLE" ]]; then
+  elif [[ ! -z "$DUMMY_TRAINING" ]]; then
       DOCKER_ENV_VAR="--env TRAINING_MODE=local_training"
       docker run --rm -it \
       $DOCKER_OPTIONS_A $DOCKER_MOUNTS $DOCKER_OPTIONS_B $DOCKER_ENV_VAR $DOCKER_IMAGE \
