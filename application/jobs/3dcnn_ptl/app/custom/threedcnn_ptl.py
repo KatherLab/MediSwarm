@@ -91,7 +91,7 @@ def create_run_directory(env_vars):
     return path_run_dir
 
 
-def prepare_training(logger, max_epochs:int , site_name: str):
+def prepare_training(logger, max_epochs:int, site_name: str):
     try:
         env_vars = load_environment_variables()
         path_run_dir = create_run_directory(env_vars)
@@ -151,8 +151,9 @@ def validate_and_train(logger, data_module, model, trainer) -> None:
     trainer.fit(model, datamodule=data_module)
 
 
-def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
+def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars, site_name: str) -> None:
     model.save_best_checkpoint(trainer.logger.log_dir, checkpointing.best_model_path)
     predict, prediction_flag = load_prediction_modules(env_vars['prediction_flag'])
-    predict(path_run_dir, env_vars['data_dir'], env_vars['model_name'], last_flag=False, prediction_flag=prediction_flag)
+    predict(path_run_dir, os.path.join(env_vars['data_dir'], site_name), env_vars['model_name'], last_flag=False, prediction_flag=prediction_flag)
+    # FIXME the logic that there is a site_name subdirectory of the data dir should be implemented at one location only
     logger.info('Training completed successfully')

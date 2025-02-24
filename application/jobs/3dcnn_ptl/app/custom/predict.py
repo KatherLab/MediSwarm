@@ -9,7 +9,7 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_recall_curve, 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from data.datasets import DUKE_Dataset3D, DUKE_Dataset3D_external, DUKE_Dataset3D_collab
+from data.datasets import DUKE_Dataset3D, DUKE_Dataset3D_external, DUKE_Dataset3D_collab, ODELIA_DUKE_Dataset3D
 from data.datamodules import DataModule
 from utils.roc_curve import plot_roc_curve, cm2acc, cm2x
 from models import ResNet, VisionTransformer, EfficientNet, DenseNet121, UNet3D
@@ -39,7 +39,7 @@ def predict(model_dir, test_data_dir, model_name, last_flag, prediction_flag, co
 
         # Load Data
         if prediction_flag == 'ext':  # TODO consider which prediction_flag to use for this cross-validation
-            ds = ODELIA_DUKE_Dataset3D(flip=False, test_data_dir, fold=0, split='test')
+            ds = ODELIA_DUKE_Dataset3D(test_data_dir, flip=False, fold=0, split='test')
         elif prediction_flag == 'internal':
             ds = DUKE_Dataset3D(flip=False, path_root=test_data_dir)
         elif prediction_flag == 'collab':
