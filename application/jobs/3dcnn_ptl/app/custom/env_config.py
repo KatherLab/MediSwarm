@@ -24,8 +24,6 @@ def load_prediction_modules(prediction_flag):
     return predict, prediction_flag
 
 def prepare_dataset(task_data_name, data_dir, site_name):
-
-
     """Prepare the dataset based on task data name."""
     print('task_data_name: ', task_data_name)
     print("Current Directory ", os.getcwd())

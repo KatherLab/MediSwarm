@@ -49,7 +49,7 @@ def main():
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer)
 
         if TRAINING_MODE in [TM_LOCAL_TRAINING, TM_SWARM]:
-            threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)
+            threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars, SITE_NAME)
 
     except Exception as e:
         logger.error(f"Error in main function: {e}")
