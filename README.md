@@ -111,10 +111,9 @@ We demonstrate that the system can run on lightweight hardware like this. For le
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
 4. Verify that your local data can be accessed and the model can be trained locally
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --local_training
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --preflight_check
    ```
    * Training time depends on the size of the local dataset
-   * TODO update call when handling of the number of epochs has been implemented
 
 ## Start Swarm Node
 
