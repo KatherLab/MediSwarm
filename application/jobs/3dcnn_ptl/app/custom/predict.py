@@ -38,8 +38,8 @@ def predict(model_dir, test_data_dir, model_name, last_flag, prediction_flag, co
         fontdict = {'fontsize': 10, 'fontweight': 'bold'}
 
         # Load Data
-        if prediction_flag == 'ext':
-            ds = DUKE_Dataset3D_external(flip=False, path_root=test_data_dir)
+        if prediction_flag == 'ext':  # TODO consider which prediction_flag to use for this cross-validation
+            ds = ODELIA_DUKE_Dataset3D(flip=False, test_data_dir, fold=0, split='test')
         elif prediction_flag == 'internal':
             ds = DUKE_Dataset3D(flip=False, path_root=test_data_dir)
         elif prediction_flag == 'collab':
