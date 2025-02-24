@@ -2,6 +2,7 @@ from pathlib import Path
 import pandas as pd
 from data.datasets import SimpleDataset3D
 
+
 class DUKE_Dataset3D_external(SimpleDataset3D):
     """
     DUKE External Dataset for 3D medical images, extending SimpleDataset3D.
