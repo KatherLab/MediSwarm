@@ -156,7 +156,7 @@ def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_v
     predict, prediction_flag = load_prediction_modules(env_vars['prediction_flag'])
     test_data_path = os.path.join(env_vars['data_dir'], env_vars['task_data_name'], 'test')
     if os.path.exists(test_data_path):
-        predict(path_run_dir, os.path.join(env_vars['data_dir'], env_vars['task_data_name'], 'test'), env_vars['model_name'], last_flag=False, prediction_flag=prediction_flag)
+        predict(path_run_dir, test_data_path, env_vars['model_name'], last_flag=False, prediction_flag=prediction_flag)
     else:
         logger.info('No test data found, not running evaluation')
     logger.info('Training completed successfully')
