@@ -46,7 +46,7 @@ def prepare_dataset(task_data_name, data_dir, site_name):
     elif task_data_name == "DUKE_ext":
         from data.datasets import DUKE_Dataset3D_external as dataset_class
     elif task_data_name == "DUKE":
-        from data.datasets import DUKE_Dataset3D as dataset_class
+        from data.datasets import ODELIA_DUKE_Dataset3D as dataset_class
     else:
         print(f"Invalid task data name specified: {task_data_name}")
 
