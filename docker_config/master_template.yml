@@ -647,9 +647,10 @@ docker_cln_sh: |
           --scratch_dir)     MY_SCRATCH_DIR="$2"; shift ;;
           --GPU)             GPU2USE="$2"; shift ;;
           --no-pull)         NOPULL="1";;
-          --start_client)    START_CLIENT="1";;
-          --local_training)  LOCAL_TRAINING="1";;
           --dummy_training)  DUMMY_TRAINING="1";;
+          --preflight_check) PREFLIGHT_CHECK="1";;
+          --local_training)  LOCAL_TRAINING="1";;
+          --start_client)    START_CLIENT="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -696,27 +697,32 @@ docker_cln_sh: |
   DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
 
   # Run docker with appropriate parameters
-  if [[ ! -z "$START_CLIENT" ]]; then
-      DOCKER_ENV_VAR="--env TRAINING_MODE=swarm"
-      docker run -d -t --rm \
-      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
-      /bin/bash -c "nohup ./start.sh && /bin/bash"
-  elif [[ ! -z "$LOCAL_TRAINING" ]]; then
-      # TODO how to set number of epochs
-      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
-      docker run --rm -it \
-      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
-      /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
-  elif [[ ! -z "$DUMMY_TRAINING" ]]; then
+  if [[ ! -z "$DUMMY_TRAINING" ]]; then
       DOCKER_ENV_VAR="--env TRAINING_MODE=local_training"
       docker run --rm -it \
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
+  elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
+      DOCKER_ENV_VAR="--env TRAINING_MODE=preflight_check --env SITE_NAME=temporary_vm --env NUM_EPOCHS=1"
+      docker run --rm -it \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
+  elif [[ ! -z "$LOCAL_TRAINING" ]]; then
+      # TODO how to set number of epochs
+      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME=temporary_vm --env NUM_EPOCHS=1"
+      docker run --rm -it \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
+  elif [[ ! -z "$START_CLIENT" ]]; then
+      DOCKER_ENV_VAR="--env TRAINING_MODE=swarm"
+      docker run -d -t --rm \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "nohup ./start.sh && /bin/bash"
   else
       # start interactive container
       DOCKER_ENV_VAR=""
       docker run --rm -it --detach-keys="ctrl-x" \
-      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+    $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/bin/bash"
   fi
 
