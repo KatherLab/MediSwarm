@@ -82,7 +82,7 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 
 1. TODO steps until startup kit has been extracted
 
-## Run Pre-Flight Check
+## Run Preflight Check
 
 1. Directories
    ```bash
@@ -98,20 +98,20 @@ We demonstrate that the system can run on lightweight hardware like this. For le
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --dummy_training
    ```
-   * This will pull the Docker image, which might take a while.
+   * This will pull the Docker image, which might take a while, and then “train” a small dummy model on a dummy dataset.
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
-4. Verify that your local data can be accessed and the model can be trained locally
+4. Verify that your local data can be accessed
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --local_training
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --preflight_check
    ```
+   * This will run one epoch of training with the local dataset
    * Training time depends on the size of the local dataset
-   * TODO update call when handling of the number of epochs has been implemented
 
 ## Start Swarm Node
 
 1. From the directory where you unpacked the startup kit
    ```bash
-   cd $SITE_NAME/startup  # skip this if you just ran the pre-flight check
+   cd $SITE_NAME/startup  # you can skip this if you just ran the preflight check
    ```
 2. Start the client
    ```bash
