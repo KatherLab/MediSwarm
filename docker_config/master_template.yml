@@ -646,7 +646,7 @@ docker_cln_sh: |
           --data_dir)        MY_DATA_DIR="$2"; shift ;;
           --scratch_dir)     MY_SCRATCH_DIR="$2"; shift ;;
           --GPU)             GPU2USE="$2"; shift ;;
-          --no-pull)         NOPULL="1";;
+          --no_pull)         NOPULL="1";;
           --start_client)    START_CLIENT="1";;
           --local_training)  LOCAL_TRAINING="1";;
           --dummy_training)  DUMMY_TRAINING="1";;
@@ -726,7 +726,7 @@ docker_svr_sh: |
 
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-          --no-pull)      NOPULL="1";;
+          --no_pull)      NOPULL="1";;
           --start_server) START_SERVER="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
