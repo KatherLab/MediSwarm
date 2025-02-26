@@ -687,7 +687,6 @@ docker_cln_sh: |
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
   fi
-  echo "Starting docker with $DOCKER_IMAGE"
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
 
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
@@ -695,6 +694,7 @@ docker_cln_sh: |
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
   DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
 
+  echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
   if [[ ! -z "$START_CLIENT" ]]; then
       DOCKER_ENV_VAR="--env TRAINING_MODE=swarm"
@@ -748,6 +748,7 @@ docker_svr_sh: |
   svr_name="${SVR_NAME:-flserver}"
   CONTAINER_NAME=odelia_swarm_server_$svr_name
 
+  echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
   if [ -z "$START_SERVER" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
