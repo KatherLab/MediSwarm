@@ -14,9 +14,7 @@ RUN python3 -m pip install -U pip==23.3.1
 RUN python3 -m pip install -U setuptools==69.5.1
 
 # Install additional Python packages
-RUN python3 -m pip install \
-    torchvision==0.14.0 \
-    tensorboard==2.16.2
+RUN python3 -m pip install torchvision==0.14.0 tensorboard==2.16.2
 
 # Install NVFlare from the local source and nvflare-nightly (not at fixed version)
 # (Assuming you have your modified nvflare source code in a local directory named 'nvflare')
