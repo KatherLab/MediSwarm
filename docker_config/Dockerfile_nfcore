@@ -41,7 +41,7 @@ COPY ./NVFlare/dashboard /workspace/nvflare/dashboard
 
 COPY ../controller /workspace/controller
 # Set python path
-ENV PYTHONPATH=/workspace/controller/controller
+ENV PYTHONPATH=/workspace/controller
 
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:nfcore"
