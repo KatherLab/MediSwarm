@@ -42,6 +42,11 @@ COPY ./docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl
 RUN python -m pip install /workspace/nvflare
 RUN rm -rf /workspace/nvflare
 
+# Copy source code to image
+RUN mkdir -p /fl_admin/transfer
+COPY . /fl_admin/transfer/MediSwarm
+RUN cd /fl_admin/transfer/MediSwarm && git clean -f .
+
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:nfcore"
 
