@@ -59,6 +59,3 @@ COPY . /MediSwarm
 RUN cd /MediSwarm && git clean -f .
 RUN mkdir -p /fl_admin/transfer
 RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
-
-# Set the Docker image name TODO think about name, also of this Dockerfile and the tag to be used when building
-LABEL name="nvflare-pt-dev:ODELIA"
