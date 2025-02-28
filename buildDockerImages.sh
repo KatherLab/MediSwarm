@@ -8,3 +8,4 @@ fi
 
 docker build -t nvflare-pt-dev:odelia . -f docker_config/Dockerfile_ODELIA
 # TODO enable tagging and pushing
+# TODO think about tag name (to be adapted in the project config as well)

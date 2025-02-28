@@ -776,7 +776,7 @@ docker_adm_sh: |
   # To use host network
   NETARG="--net=host"
 
-  DOCKER_IMAGE=nvflare-pt-dev:nfcore  # hard-coded FIXME use jefftud/… image
+  DOCKER_IMAGE={~~docker_image~~}
   if [ -z "$NOPULL" ]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
