@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# run NVFlare's unit tests (takes about 2 minutes), does not include NVFlare's integration tests yet
+# run NVFlare's unit tests (takes about 2 minutes) TODO make this use our fork of NVFlare, not the latest 2.3.0 upstream nightly build
 # cd nvflare
 # ./runtest.sh -c -r
 # coverage report -m
