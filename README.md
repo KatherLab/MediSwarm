@@ -66,7 +66,16 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 
 ## Setting up a Swarm
 
+### Via the Dashboard
 * currently described (here)[/application/jobs/3dcnn_ptl/README.md]
+
+### Via Script Call
+
+* Use, e.g., the file `application/provision/project_MEVIS_test.yml`, adapt as needed (network protocol etc.)
+* call `buildStartupKits.sh /path/to/project_configuration.yml` to build the startup kits
+* startup kits are generated to `workspace/<name configured in the .yml>/prod_00/`
+* deploy startup kits to the respective server/clients
+
 
 # Usage for Swarm Participants
 
