@@ -22,16 +22,43 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 
 # Usage for Developers
 
-## Setup
-
-0. **Clone the repository:**
+## Setup: Clone the repository
 
     ```bash
     git clone https://github.com/KatherLab/MediSwarm.git
     cd MediSwarm
     ```
 
+## Build the Docker Image
+
+The Docker image contains all dependencies for administrative purposes (dashboard, command-line provisioning, admin console, server) as well as for running the 3DCNN pipeline under the pytorch-lightning framework.
+    ```bash
+    ./buildDockerImage.sh
+    ```
+Use the commented lines to tag and push the image to DockerHub, provided you have the necessary rights.
+
+## Running Local Tests
+
+   ```bash
+   ./runTestsInDocker.sh
+   ```
+
+You should see
+   1. several expected errors and warnings printed from unit tests that should succeed overall, and a coverage report
+   2. output of a successful simulation run with two nodes
+   3. output of a successful proof-of-concept run run with two nodes
+Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`.
+
+## Building Startup Kits
+
+   ```bash
+   ./runTestsInDocker.sh
+   ```
+Distribute the startup kits to the clients.
+
 ## Running the Application
+
+TODO consolidate applications
 
 1. **CIFAR-10 example:**
    See [cifar10/README.md](application/jobs/cifar10/README.md)
@@ -40,27 +67,11 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 3. **3D CNN for classifying breast tumors:**
    See [3dcnn_ptl/README.md](application/jobs/3dcnn_ptl/README.md)
 
-### Running Tests
-
-1. Build the testing docker image
-   ```bash
-   docker build -t nvflare-pt-dev:odelia   . -f docker_config/Dockerfile_ODELIA
-   ```
-2. Run the Tests via
-   ```bash
-   ./runTestsInDocker.sh
-   ```
-3. You should see
-   1. several expected errors and warnings printed from unit tests that should succeed overall, and a coverage report
-   2. output of a successful simulation run with two nodes
-   3. output of a successful proof-of-concept run run with two nodes
-4. Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`
-
-
 ## Contributing Application Code
 
 * take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to work with NVFlare
 * take a look at application/jobs/3dcnn_ptl for a more relastic example of pytorch code that can run in the swarm
+* use the local tests to check if the code is swarm-ready
 * TODO more detailed instructions
 
 ## Setting up a Swarm
