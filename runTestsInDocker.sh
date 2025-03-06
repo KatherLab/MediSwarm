@@ -8,4 +8,4 @@ docker run -it --rm \
     -v /tmp:/scratch \
     --gpus=all \
     --entrypoint=/MediSwarm/_runTestsInsideDocker.sh \
-    nvflare-pt-dev:odelia
+    jefftud/odelia:1.0rc1
