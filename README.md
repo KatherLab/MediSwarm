@@ -44,8 +44,7 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 
 1. Build the testing docker image
    ```bash
-   docker build -t nvflare-pt-dev:3dcnn   . -f docker_config/Dockerfile_3dcnn
-   docker build -t nvflare-pt-dev:testing . -f docker_config/Dockerfile_testing
+   docker build -t nvflare-pt-dev:odelia   . -f docker_config/Dockerfile_ODELIA
    ```
 2. Run the Tests via
    ```bash

@@ -1,9 +1,0 @@
-FROM nvflare-pt-dev:odelia
-
-# Install packages needed for testing
-RUN python3 -m pip install coverage==7.5.4 mock==5.1.0
-
-RUN mkdir /scratch
-RUN chmod a+rwx /scratch
-
-LABEL name="nvflare-pt-dev:testing"
