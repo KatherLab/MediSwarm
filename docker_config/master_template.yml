@@ -725,8 +725,9 @@ docker_svr_sh: |
 
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-          --no_pull)      NOPULL="1";;
-          --start_server) START_SERVER="1";;
+          --no_pull)       NOPULL="1";;
+          --list_licenses) LIST_LICENSES="1";;
+          --start_server)  START_SERVER="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -749,16 +750,20 @@ docker_svr_sh: |
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
-  if [ -z "$START_SERVER" ]; then
-      docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
-      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
-      --ipc=host $NETARG $DOCKER_IMAGE \
-      /bin/bash -c "/bin/bash"
-  else
+  if [ ! -z "$START_SERVER" ]; then
       docker run -d -t --rm --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh && chmod a+r nohup.out && /bin/bash"
+  elif [ ! -z "$LIST_LICENSES" ]; then
+      docker run -it --rm --name=$CONTAINER_NAME \
+      $DOCKER_IMAGE \
+      /bin/bash -c "pip-licenses -s -u --order=license"
+  else
+      docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
+      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
+      --ipc=host $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "/bin/bash"
   fi
 
 docker_adm_sh: |
