@@ -650,6 +650,7 @@ docker_cln_sh: |
           --start_client)    START_CLIENT="1";;
           --local_training)  LOCAL_TRAINING="1";;
           --dummy_training)  DUMMY_TRAINING="1";;
+          --interactive)     INTERACTIVE="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -712,12 +713,18 @@ docker_cln_sh: |
       docker run --rm -it \
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
-  else
+  elif [[ ! -z "$INTERACTIVE" ]]; then
       # start interactive container
       DOCKER_ENV_VAR=""
       docker run --rm -it --detach-keys="ctrl-x" \
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/bin/bash"
+  else
+      echo "One of the following options must be passed:"
+      echo "--start_client    start the swarm learning client"
+      echo "--local_training  run a local training"
+      echo "--dummy_training  locally train a minimum example (to check if the Docker/GPU setup is working)"
+      echo "--interactive     start the container with an interactive shell (for debugging purposes)"
   fi
 
 docker_svr_sh: |
