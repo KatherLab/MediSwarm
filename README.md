@@ -76,7 +76,16 @@ TODO consolidate applications
 
 ## Setting up a Swarm
 
+### Via the Dashboard
 * currently described (here)[/application/jobs/3dcnn_ptl/README.md]
+
+### Via Script Call
+
+* Use, e.g., the file `application/provision/project_MEVIS_test.yml`, adapt as needed (network protocol etc.)
+* call `buildStartupKits.sh /path/to/project_configuration.yml` to build the startup kits
+* startup kits are generated to `workspace/<name configured in the .yml>/prod_00/`
+* deploy startup kits to the respective server/clients
+
 
 # Usage for Swarm Participants
 
@@ -112,10 +121,9 @@ TODO consolidate applications
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
 4. Verify that your local data can be accessed and the model can be trained locally
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --local_training
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --preflight_check
    ```
    * Training time depends on the size of the local dataset
-   * TODO update call when handling of the number of epochs has been implemented
 
 ## Start Swarm Node
 
