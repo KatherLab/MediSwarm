@@ -9,12 +9,16 @@ import torch
 import threedcnn_ptl
 
 TRAINING_MODE = os.getenv("TRAINING_MODE")
+TM_PREFLIGHT_CHECK = "preflight_check"
+TM_LOCAL_TRAINING="local_training"
+TM_SWARM = "swarm"
 
-if TRAINING_MODE == "swarm":
+
+if TRAINING_MODE == TM_SWARM:
     flare_util.init()
     SITE_NAME=flare.get_site_name()
     NUM_EPOCHS = threedcnn_ptl.get_num_epochs_per_round(SITE_NAME)
-elif TRAINING_MODE == "local_training":
+elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
     SITE_NAME=os.getenv("SITE_NAME")
     NUM_EPOCHS = int(os.getenv("NUM_EPOCHS"))
 else:
@@ -29,7 +33,7 @@ def main():
     try:
         data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(logger, NUM_EPOCHS, SITE_NAME)
 
-        if TRAINING_MODE == "swarm":
+        if TRAINING_MODE == TM_SWARM:
             flare.patch(trainer)  # Patch trainer to enable swarm learning
             torch.autograd.set_detect_anomaly(True)
 
@@ -41,10 +45,12 @@ def main():
 
                 threedcnn_ptl.validate_and_train(logger, data_module, model, trainer)
 
-        elif TRAINING_MODE == "preflight_check" or TRAINING_MODE == "local_training":
+        elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer)
 
-        threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)
+        if TRAINING_MODE in [TM_LOCAL_TRAINING, TM_SWARM]:
+            threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)
+
     except Exception as e:
         logger.error(f"Error in main function: {e}")
         raise
