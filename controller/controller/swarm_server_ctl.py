@@ -3,9 +3,6 @@ from nvflare.app_common.ccwf.common import Constant
 from nvflare.app_common.ccwf.server_ctl import ServerSideController
 from nvflare.fuel.utils.validation_utils import DefaultValuePolicy, normalize_config_arg, validate_candidates
 
-# Configure logging to display debug level messages
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 class SwarmServerController(ServerSideController):
     """
