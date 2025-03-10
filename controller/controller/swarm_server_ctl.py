@@ -20,6 +20,7 @@ class SwarmServerController(ServerSideController):
         configure_task_timeout=Constant.CONFIG_TASK_TIMEOUT,  # Timeout for configuring a task (in seconds)
         task_check_period: float = Constant.TASK_CHECK_INTERVAL,  # Interval for checking task status (in seconds)
         job_status_check_interval: float = Constant.JOB_STATUS_CHECK_INTERVAL,  # Interval for checking job status (in seconds)
+        end_workflow_timeout: float = Constant.END_WORKFLOW_TIMEOUT,  # Timeout for ending the workflow (in seconds)
         participating_clients=None,  # List of clients participating in the job
         result_clients=None,  # List of clients to receive the final model
         starting_client=None,  # Client responsible for initiating the workflow
