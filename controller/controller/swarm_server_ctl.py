@@ -1,4 +1,3 @@
-import logging
 from nvflare.apis.fl_context import FLContext
 from nvflare.app_common.ccwf.common import Constant
 from nvflare.app_common.ccwf.server_ctl import ServerSideController
@@ -41,8 +40,6 @@ class SwarmServerController(ServerSideController):
             # Normalize and validate result_clients and starting_client inputs
             result_clients = normalize_config_arg(result_clients)
             starting_client = normalize_config_arg(starting_client)
-            if starting_client is None:
-                raise ValueError("starting_client must be specified")
 
             # Initialize the ServerSideController with validated arguments
             super().__init__(
@@ -53,6 +50,7 @@ class SwarmServerController(ServerSideController):
                 configure_task_timeout=configure_task_timeout,
                 task_check_period=task_check_period,
                 job_status_check_interval=job_status_check_interval,
+                end_workflow_timeout=end_workflow_timeout,
                 participating_clients=participating_clients,
                 result_clients=result_clients,
                 result_clients_policy=DefaultValuePolicy.ALL,
@@ -67,6 +65,7 @@ class SwarmServerController(ServerSideController):
             if not train_clients:
                 train_clients = []
 
+            # If train_clients or aggr_clients are not provided, initialize them as empty lists
             if not aggr_clients:
                 aggr_clients = []
 
@@ -74,7 +73,7 @@ class SwarmServerController(ServerSideController):
             self.aggr_clients = aggr_clients
             self.train_clients = train_clients
         except Exception as e:
-            logger.error(f"Error during initialization: {e}")
+            self.log_error(None, f"Error during initialization: {e}")
             raise
 
     def start_controller(self, fl_ctx: FLContext):
@@ -109,7 +108,7 @@ class SwarmServerController(ServerSideController):
                 if c not in self.train_clients and c not in self.aggr_clients:
                     raise RuntimeError(f"Config Error: client {c} is neither train client nor aggr client")
         except Exception as e:
-            logger.error(f"Error during start_controller: {e}")
+            self.log_error(fl_ctx, f"Error during start_controller: {e}")
             raise
 
     def prepare_config(self):
@@ -120,7 +119,7 @@ class SwarmServerController(ServerSideController):
         try:
             return {Constant.AGGR_CLIENTS: self.aggr_clients, Constant.TRAIN_CLIENTS: self.train_clients}
         except Exception as e:
-            logger.error(f"Error during prepare_config: {e}")
+            self.log_error(None, f"Error during prepare_config: {e}")
             raise
 
 
