@@ -31,21 +31,16 @@ WORKDIR /workspace/
 
 # Copy the modified NVFlare source code into the image
 # (Assuming you have your modified nvflare source code in a local directory named 'nvflare')
-COPY ./NVFlare /workspace/nvflare
-
+COPY ./docker_config/NVFlare /workspace/nvflare
+# use startup kit template in the dashboard
+COPY ./docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
 
 # Install NVFlare from the local source
 RUN python -m pip install /workspace/nvflare
-
-COPY ./NVFlare/dashboard /workspace/nvflare/dashboard
-
-COPY ../controller /workspace/controller
-# Set python path
-ENV PYTHONPATH=/workspace/controller
+RUN rm -rf /workspace/nvflare
 
 # Set the Docker image name
 LABEL name="nvflare-pt-dev:nfcore"
 
-# Optional: expose a port or set any other necessary environment variables
+# expose port for https access to dashboard
 EXPOSE 443
-# ENV SOME_ENV_VARIABLE=some_value
