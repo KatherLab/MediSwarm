@@ -29,6 +29,10 @@ We demonstrate that the system can run on lightweight hardware like this. For le
     cd MediSwarm
     ```
 
+## Versioning
+
+If needed, update the version number in file (odelia_image.version)[odelia_image.version]. It will be used automatically for the Docker image and startup kits.
+
 ## Build the Docker Image
 
 The Docker image contains all dependencies for administrative purposes (dashboard, command-line provisioning, admin console, server) as well as for running the 3DCNN pipeline under the pytorch-lightning framework.
