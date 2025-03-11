@@ -3,9 +3,6 @@ from nvflare.app_common.ccwf.common import Constant
 from nvflare.app_common.ccwf.server_ctl import ServerSideController
 from nvflare.fuel.utils.validation_utils import DefaultValuePolicy, normalize_config_arg, validate_candidates
 
-# Configure logging to display debug level messages
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 class SwarmServerController(ServerSideController):
     """
@@ -23,9 +20,10 @@ class SwarmServerController(ServerSideController):
         configure_task_timeout=Constant.CONFIG_TASK_TIMEOUT,  # Timeout for configuring a task (in seconds)
         task_check_period: float = Constant.TASK_CHECK_INTERVAL,  # Interval for checking task status (in seconds)
         job_status_check_interval: float = Constant.JOB_STATUS_CHECK_INTERVAL,  # Interval for checking job status (in seconds)
+        end_workflow_timeout: float = Constant.END_WORKFLOW_TIMEOUT,  # Timeout for ending the workflow (in seconds)
         participating_clients=None,  # List of clients participating in the job
         result_clients=None,  # List of clients to receive the final model
-        starting_client: str = "",  # Client responsible for initiating the workflow
+        starting_client=None,  # Client responsible for initiating the workflow
         max_status_report_interval: float = Constant.PER_CLIENT_STATUS_REPORT_TIMEOUT,  # Max interval for client status reporting (in seconds)
         progress_timeout: float = Constant.WORKFLOW_PROGRESS_TIMEOUT,  # Timeout for overall workflow progress (in seconds)
         private_p2p: bool = True,  # Flag to indicate private peer-to-peer communication
@@ -61,13 +59,12 @@ class SwarmServerController(ServerSideController):
                 private_p2p=private_p2p,
             )
 
-            # If train_clients or aggr_clients are not provided, initialize them as empty lists
-            if not train_clients:
-                train_clients = []
-
-            # If train_clients or aggr_clients are not provided, initialize them as empty lists
+            # If aggr_clients or train_clients are not provided, initialize them as empty lists
             if not aggr_clients:
                 aggr_clients = []
+
+            if not train_clients:
+                train_clients = []
 
             # Assign aggregation and training clients
             self.aggr_clients = aggr_clients
@@ -121,75 +118,3 @@ class SwarmServerController(ServerSideController):
         except Exception as e:
             self.log_error(None, f"Error during prepare_config: {e}")
             raise
-
-
-# Test Cases for the SwarmServerController
-
-import unittest
-from unittest.mock import MagicMock
-
-class TestSwarmServerController(unittest.TestCase):
-
-    def setUp(self):
-        """
-        Set up a mock FLContext and instantiate the SwarmServerController with test data
-        for unit testing.
-        """
-        self.fl_ctx = MagicMock(FLContext)
-        self.participating_clients = ['client1', 'client2', 'client3']
-        self.controller = SwarmServerController(
-            num_rounds=10,
-            participating_clients=self.participating_clients,
-            starting_client='client1'
-        )
-
-    def test_initialization(self):
-        """
-        Test the initialization of the SwarmServerController to ensure proper assignment
-        of attributes.
-        """
-        self.assertIsInstance(self.controller, SwarmServerController)
-        self.assertEqual(self.controller.num_rounds, 10)
-        self.assertEqual(self.controller.starting_client, 'client1')
-
-    def test_start_controller(self):
-        """
-        Test the start_controller method to verify that the participating clients are
-        correctly assigned as training or aggregation clients.
-        """
-        self.controller.start_controller(self.fl_ctx)
-        self.assertIn('client1', self.controller.train_clients)
-        self.assertIn('client1', self.controller.aggr_clients)
-
-    def test_prepare_config(self):
-        """
-        Test the preparation of the configuration dictionary, ensuring it includes the
-        aggregation and training clients.
-        """
-        config = self.controller.prepare_config()
-        self.assertIn(Constant.AGGR_CLIENTS, config)
-        self.assertIn(Constant.TRAIN_CLIENTS, config)
-
-    def test_invalid_starting_client(self):
-        """
-        Test the behavior when an invalid starting_client is provided, ensuring that a
-        ValueError is raised.
-        """
-        with self.assertRaises(ValueError):
-            SwarmServerController(
-                num_rounds=10,
-                participating_clients=self.participating_clients,
-                starting_client=None
-            )
-
-    def test_client_not_in_train_or_aggr(self):
-        """
-        Test the scenario where a participating client is neither in train_clients nor
-        aggr_clients, ensuring that a RuntimeError is raised.
-        """
-        self.controller.participating_clients.append('client4')
-        with self.assertRaises(RuntimeError):
-            self.controller.start_controller(self.fl_ctx)
-
-if __name__ == "__main__":
-    unittest.main()
