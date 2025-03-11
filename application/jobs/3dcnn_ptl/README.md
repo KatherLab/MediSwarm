@@ -98,18 +98,46 @@ Ensure that your `/etc/hosts` file includes the correct host mappings. For examp
 ### Swarm Admin: Start the Production Setup
 
 ```bash
-docker run -it --rm \
-    --ipc=host \
-    -v ./docker_config/NVFlare:/workspace/nvflare \
-    -v ./:/workspace \
+docker run -d --rm \
+     --ipc=host -p 8443:8443 \
+    --name=odelia_swarm_admin \
     -v /var/run/docker.sock:/var/run/docker.sock \
     jefftud/nvflare-pt-dev:nfcore \
-    /bin/bash
-
-nvflare dashboard --port 443 --start -i jefftud/nvflare-pt-dev:nfcore
+    /bin/bash -c "nvflare dashboard --start --local --cred <ADMIN_USER_EMAIL>:<PASSWORD>"
 ```
+using some credentials chosen for the swarm admin account.
 
-Access the dashboard at `https://localhost:443`.
+Access the dashboard at `https://localhost:8443` log in with these credentials, and configure the project:
+
+* enter project short name, name, description
+* enter docker download link: jefftud/nvflare-pt-dev:3dcnn
+* if needed, enter dates
+* click save
+* Server Configuration > Server (DNS name): <DNS name of server>
+* click make project public
+
+### Register client per site
+
+Access the dashboard at `https://<DNS name of server>:8443`.
+
+* register a user
+* enter organziation (corresponding to the site)
+* enter role (e.g., org admin)
+* add a site (note: must not contain spaces, best use alphanumerical name)
+* specify number of GPUs and their memory
+
+### Approve clients and finish configuration
+
+Access the dashboard at `https://localhost:8443` log in with the admin credentials.
+* Users Dashboard > approve client user
+* Client Sites > approve client sites
+* Project Home > freeze project
+
+### Download startup kits
+
+After setting up the project admin configuration, server and clients can download their startup kits. Store the passwords somewhere, they are only displayed once (or you can download them again).
+
+Start the startup kits using
 
 The admin can submit jobs and initiate training by logging in with the admin email and submitting the job folder. For more information, refer to the [NVFLARE Dashboard](https://nvflare.readthedocs.io/en/2.4.1/user_guide/dashboard_ui.html).
 
@@ -134,8 +162,14 @@ cd <SITE NAME>/startup
 cd startup
 ./start.sh
 ```
-- TODO how to detatch from Docker container, CRTL-x or calling `docker.sh -d`?
-- TODO any changes needed for redirecting console output to file? so that node can continue running in the background and one can log out locally/close remote connection
-- TODO any changes to put per-job logs to a more useful location than where the startup kit was unpacked or mention choosing a useful location above?
-- TODO how to stop (or should one just kill the docker container)?
-- Note: application code is submitted as part of the job by the swarm admin, there is no need to provide this code to the docker container.
+
+and enter the information you are prompted for, or look at docker.sh how to pass arguments from the command line.
+
+### Deploying a training
+
+The admin can submit jobs and initiate training by logging in with the admin email and submitting the job folder. For more information, refer to the [NVFLARE Dashboard](https://nvflare.readthedocs.io/en/2.4.1/user_guide/dashboard_ui.html).
+
+### TODO
+
+* merge these instructions with changes from other branches
+* check if (and how) the dashboard can be served and accessed via a standard port

@@ -633,87 +633,166 @@ sub_start_svr_sh: |
 
 docker_cln_sh: |
   #!/usr/bin/env bash
+  # docker run script for FL client
+
+  while [[ "$#" -gt 0 ]]; do
+      case $1 in
+          --data_dir)        MY_DATA_DIR="$2"; shift ;;
+          --scratch_dir)     MY_SCRATCH_DIR="$2"; shift ;;
+          --GPU)             GPU2USE="$2"; shift ;;
+          --no-pull)         NOPULL="1";;
+          --dummy_training)  DUMMY_TRAINING="1";;
+          --preflight_check) PREFLIGHT_CHECK="1";;
+          --local_training)  LOCAL_TRAINING="1";;
+          --start_client)    START_CLIENT="1";;
+          --interactive)     INTERACTIVE="1";;
+          *) echo "Unknown parameter passed: $1"; exit 1 ;;
+      esac
+      shift
+  done
+
+  # Ask user for parameters not passed as command line arguments
+  if [ -z "$MY_DATA_DIR" ]; then
+     read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
+     : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
+  fi
+
+  if [ -z "$MY_SCRATCH_DIR" ]; then
+      read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
+      : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
+  fi
+
+  if [ -z "$GPU2USE" ]; then
+      read -p "Enter the GPU index to use or 'all' (default: all): " user_gpu
+      : ${GPU2USE:="${user_gpu:-all}"}
+  fi
 
   # Get the directory of the current script
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-  # Prompt the user for the data directory
-  read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
-  : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
-
-  # Prompt the user for the scratch directory
-  read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
-  : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
-
   sudo mkdir -p $MY_SCRATCH_DIR
   sudo chown -R $(id -u):$(id -g) $MY_SCRATCH_DIR
   sudo chmod -R 777 $MY_SCRATCH_DIR
-
-  # Prompt the user for GPU index or 'all'
-  read -p "Enter the GPU index to use or 'all' (default: all): " user_gpu
-  : ${GPU2USE:="--gpus=${user_gpu:-all}"}
 
   # To use host network
   NETARG="--net=host"
 
   # Docker image to use
   DOCKER_IMAGE={~~docker_image~~}
-  echo "Updating docker image"
-  docker pull $DOCKER_IMAGE
-  echo "Starting docker with $DOCKER_IMAGE"
-
-  # Get the mode argument, default to '-r'
-  mode="${1:--r}"
-
-  # Run docker with appropriate parameters
-  if [ $mode = "-d" ]; then
-    docker run -d --rm --name={~~client_name~~} $GPU2USE -u $(id -u):$(id -g) \
-    -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
-    -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
-    /bin/bash -c "export PYTHONPATH=/workspace/controller && python -u -m nvflare.private.fed.app.client.client_train -m /workspace -s fed_client.json --set uid={~~client_name~~} secure_train=true config_folder=config org={~~org_name~~}"
-  else
-    docker run --rm -it --name={~~client_name~~} $GPU2USE -u $(id -u):$(id -g) \
-    -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
-    -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE bin/bash -c "export PYTHONPATH=/workspace/controller && /bin/bash"
+  if [ -z "$NOPULL" ]; then
+      echo "Updating docker image"
+      docker pull $DOCKER_IMAGE
   fi
+  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
 
+  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
+  DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/"
+  DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
+  DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
+
+  echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
+  # Run docker with appropriate parameters
+  if [[ ! -z "$DUMMY_TRAINING" ]]; then
+      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training"
+      docker run --rm -it \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
+  elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
+      DOCKER_ENV_VAR="--env TRAINING_MODE=preflight_check --env SITE_NAME=temporary_vm --env NUM_EPOCHS=1"
+      docker run --rm -it \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
+  elif [[ ! -z "$LOCAL_TRAINING" ]]; then
+      # TODO how to set number of epochs
+      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME=temporary_vm --env NUM_EPOCHS=1"
+      docker run --rm -it \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
+  elif [[ ! -z "$START_CLIENT" ]]; then
+      DOCKER_ENV_VAR="--env TRAINING_MODE=swarm"
+      docker run -d -t --rm \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "nohup ./start.sh && /bin/bash"
+  elif [[ ! -z "$INTERACTIVE" ]]; then
+      # start interactive container
+      DOCKER_ENV_VAR=""
+      docker run --rm -it --detach-keys="ctrl-x" \
+    $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "/bin/bash"
+  else
+      echo "One of the following options must be passed:"
+      echo "--dummy_training   locally train a minimum example (to check if the Docker/GPU setup is working)"
+      echo "--preflight_check  run a single epoch of local training (to check if your data can be accessed properly and if you are ready for swarm training)"
+      echo "--local_training   run a local training (to train a local model on your data only)"
+      echo "--start_client     start the swarm learning client"
+      echo "--interactive      start the container with an interactive shell (for debugging purposes)"
+  fi
 
 docker_svr_sh: |
   #!/usr/bin/env bash
-  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   # docker run script for FL server
+
+  while [[ "$#" -gt 0 ]]; do
+      case $1 in
+          --no_pull)      NOPULL="1";;
+          --start_server) START_SERVER="1";;
+          *) echo "Unknown parameter passed: $1"; exit 1 ;;
+      esac
+      shift
+  done
+
+  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
   # to use host network, use line below
   NETARG="--net=host"
   # or to expose specific ports, use line below
   #NETARG="-p {~~admin_port~~}:{~~admin_port~~} -p {~~fed_learn_port~~}:{~~fed_learn_port~~}"
+
   DOCKER_IMAGE={~~docker_image~~}
-  echo "Updating docker image"
-  docker pull $DOCKER_IMAGE
-  echo "Starting docker with $DOCKER_IMAGE"
+  if [ -z "$NOPULL" ]; then
+      echo "Updating docker image"
+      docker pull $DOCKER_IMAGE
+  fi
   svr_name="${SVR_NAME:-flserver}"
-  mode="${1:-r}"
-  if [ $mode = "-d" ]
-  then
-    docker run -d --rm --name=$svr_name -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
-    --ipc=host $NETARG $DOCKER_IMAGE /bin/bash -c \
-    "export PYTHONPATH=/workspace/controller && python -u -m nvflare.private.fed.app.server.server_train -m /workspace -s fed_server.json --set secure_train=true config_folder=config org={~~org_name~~}"
+  CONTAINER_NAME=odelia_swarm_server_$svr_name
+
+  echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
+  # Run docker with appropriate parameters
+  if [ -z "$START_SERVER" ]; then
+      docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
+      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
+      --ipc=host $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "/bin/bash"
   else
-    docker run --rm -it --name=$svr_name -v $DIR/..:/startupkit/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE bin/bash -c "export PYTHONPATH=/workspace/controller && /bin/bash"
+      docker run -d -t --rm --name=$CONTAINER_NAME \
+      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
+      --ipc=host $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "nohup ./start.sh && chmod a+r nohup.out && /bin/bash"
   fi
 
 docker_adm_sh: |
   #!/usr/bin/env bash
+
+  while [[ "$#" -gt 0 ]]; do
+      case $1 in
+         --no_pull)         NOPULL="1";;
+          *) echo "Unknown parameter passed: $1"; exit 1 ;;
+      esac
+      shift
+  done
+
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  # docker run script for FL admin
-  # to use host network, use line below
+  # To use host network
   NETARG="--net=host"
-  # Admin clients do not need to open ports, so the following line is not needed.
-  #NETARG="-p 8003:8003"
-  DOCKER_IMAGE={~~docker_image~~}
-  echo "Updating docker image"
-  docker pull $DOCKER_IMAGE
-  echo "Starting docker with $DOCKER_IMAGE"
-  docker run --rm -it --name=fladmin -v $DIR/..:/workspace/ -w /workspace/ $DOCKER_IMAGE /bin/bash
+  DOCKER_IMAGE=nvflare-pt-dev:nfcore  # hard-coded FIXME use jefftud/… image
+  if [ -z "$NOPULL" ]; then
+      echo "Updating docker image"
+      docker pull $DOCKER_IMAGE
+  fi
+  CONTAINER_NAME=odelia_swarm_admin
+
+  echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
+  docker run --rm -it --name=$CONTAINER_NAME -v $DIR/..:/workspace/ -w /workspace/ $NETARG $DOCKER_IMAGE /bin/bash -c 'startup/fl_admin.sh'
 
 compose_yaml: |
   services:
