@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+DOCKER_IMAGE=jefftud/odelia:`tail -n 1 odelia_image.version`
+
 docker run -it --rm \
     --shm-size=16g \
     --ipc=host \
@@ -8,4 +10,4 @@ docker run -it --rm \
     -v /tmp:/scratch \
     --gpus=all \
     --entrypoint=/MediSwarm/_runTestsInsideDocker.sh \
-    jefftud/odelia:1.0rc1
+    $DOCKER_IMAGE
