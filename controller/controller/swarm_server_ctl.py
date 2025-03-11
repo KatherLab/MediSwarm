@@ -59,7 +59,7 @@ class SwarmServerController(ServerSideController):
                 private_p2p=private_p2p,
             )
 
-            # If train_clients or aggr_clients are not provided, initialize them as empty lists
+            # If aggr_clients or train_clients are not provided, initialize them as empty lists
             if not aggr_clients:
                 aggr_clients = []
 
