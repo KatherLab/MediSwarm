@@ -1,10 +1,10 @@
 import copy
+import logging
 import random
 import threading
 import time
-import logging
 
-from gatherer import Gatherer
+from controller.gatherer import Gatherer
 
 from nvflare.apis.controller_spec import Task
 from nvflare.apis.fl_constant import FLContextKey, ReturnCode
@@ -21,8 +21,6 @@ from nvflare.app_common.ccwf.common import Constant, NumberMetricComparator, Res
 from nvflare.fuel.utils.validation_utils import check_non_empty_str, check_positive_int, check_positive_number
 from nvflare.security.logging import secure_format_traceback
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 class SwarmClientController(ClientSideController):
     """
@@ -92,7 +90,8 @@ class SwarmClientController(ClientSideController):
             self.is_aggr = False
             self.last_aggr_round_done = -1
         except Exception as e:
-            logger.error(f"Error during initialization: {e}")
+            logging.getLogger("SwarmClientController").log(logging.ERROR, f"Error during initialization: {e}")
+            # cannot log via self.log_error because we have no FLContext here
             raise
 
     def process_config(self, fl_ctx: FLContext):
@@ -119,7 +118,6 @@ class SwarmClientController(ClientSideController):
             )
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during process_config: {secure_format_traceback()}")
-            logger.error(f"Exception during process_config: {e}")
             raise
 
     def execute(self, task_name: str, shareable: Shareable, fl_ctx: FLContext, abort_signal: Signal) -> Shareable:
@@ -132,7 +130,6 @@ class SwarmClientController(ClientSideController):
             return super().execute(task_name, shareable, fl_ctx, abort_signal)
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during execute: {secure_format_traceback()}")
-            logger.error(f"Exception during execute: {e}")
             return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
     def start_run(self, fl_ctx: FLContext):
@@ -168,7 +165,6 @@ class SwarmClientController(ClientSideController):
             self.log_info(fl_ctx, "Started aggregator thread")
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during start_run: {secure_format_traceback()}")
-            logger.error(f"Exception during start_run: {e}")
             raise
 
     def handle_event(self, event_type: str, fl_ctx: FLContext):
@@ -191,7 +187,6 @@ class SwarmClientController(ClientSideController):
                 super().handle_event(event_type, fl_ctx)
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during handle_event: {secure_format_traceback()}")
-            logger.error(f"Exception during handle_event: {e}")
             raise
 
     def start_workflow(self, shareable: Shareable, fl_ctx: FLContext, abort_signal: Signal) -> Shareable:
@@ -216,7 +211,6 @@ class SwarmClientController(ClientSideController):
             return make_reply(ReturnCode.OK)
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during start_workflow: {secure_format_traceback()}")
-            logger.error(f"Exception during start_workflow: {e}")
             return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
     def _scatter(self, task_data: Shareable, for_round: int, fl_ctx: FLContext) -> bool:
@@ -241,7 +235,6 @@ class SwarmClientController(ClientSideController):
             return self.send_learn_task(targets=targets, request=task_data, fl_ctx=fl_ctx)
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during _scatter: {secure_format_traceback()}")
-            logger.error(f"Exception during _scatter: {e}")
             return False
 
     def _monitor_gather(self):
@@ -262,8 +255,7 @@ class SwarmClientController(ClientSideController):
                     try:
                         self._end_gather(gatherer)
                     except Exception as e:
-                        self.log_error(fl_ctx, f"Exception ending gatherer: {secure_format_traceback()}")
-                        logger.error(f"Exception ending gatherer: {e}")
+                        self.log_error(gatherer.fl_ctx, f"Exception ending gatherer: {secure_format_traceback()}")
                         self.update_status(action="aggregate", error=ReturnCode.EXECUTION_EXCEPTION)
             time.sleep(0.2)
 
@@ -276,7 +268,6 @@ class SwarmClientController(ClientSideController):
             aggr_result = gatherer.aggregate()
         except Exception as e:
             self.log_error(fl_ctx, f"Exception in aggregation: {secure_format_traceback()}")
-            logger.error(f"Exception during aggregation: {e}")
             self.update_status(action="aggregate", error=ReturnCode.EXECUTION_EXCEPTION)
             return
 
@@ -335,7 +326,6 @@ class SwarmClientController(ClientSideController):
                 self.log_error(fl_ctx, f"Client {client} failed to respond to share final result request: {rc}")
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during _ask_to_share_best_result: {secure_format_traceback()}")
-            logger.error(f"Exception during _ask_to_share_best_result: {e}")
 
     def _distribute_final_results(self, aggr_result: Shareable, fl_ctx: FLContext):
         """
@@ -360,7 +350,6 @@ class SwarmClientController(ClientSideController):
             self.broadcast_final_result(fl_ctx, ResultType.LAST, self.last_result, round_num=self.last_round)
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during _distribute_final_results: {secure_format_traceback()}")
-            logger.error(f"Exception during _distribute_final_results: {e}")
 
     def _process_learn_result(self, request: Shareable, fl_ctx: FLContext, abort_signal: Signal) -> Shareable:
         """
@@ -404,7 +393,7 @@ class SwarmClientController(ClientSideController):
             return gatherer.gather(client_name, request, fl_ctx)
         except Exception as e:
             self.log_exception(fl_ctx, f"Exception processing learn result: {secure_format_traceback()}")
-            logger.error(f"Exception processing learn result: {e}")
+            self.log_error(fl_ctx, f"Exception processing learn result: {e}")
             self.update_status(action="process_learn_result", error=ReturnCode.EXECUTION_EXCEPTION)
             return make_reply(ReturnCode.EXECUTION_EXCEPTION)
 
@@ -512,7 +501,6 @@ class SwarmClientController(ClientSideController):
                 self.update_status(last_round=current_round, action="finished_learn_task")
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during do_learn_task: {secure_format_traceback()}")
-            logger.error(f"Exception during do_learn_task: {e}")
             self.update_status(action="do_learn_task", error=ReturnCode.EXECUTION_EXCEPTION)
 
     def _process_share_result(self, topic: str, request: Shareable, fl_ctx: FLContext) -> Shareable:
@@ -536,5 +524,5 @@ class SwarmClientController(ClientSideController):
             return make_reply(ReturnCode.OK)
         except Exception as e:
             self.log_error(fl_ctx, f"Exception during _process_share_result: {secure_format_traceback()}")
-            logger.error(f"Exception during _process_share_result: {e}")
+            self.log_error(fl_ctx, f"Exception during _process_share_result: {e}")
             return make_reply(ReturnCode.EXECUTION_EXCEPTION)

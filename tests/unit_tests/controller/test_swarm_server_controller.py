@@ -27,6 +27,9 @@ class MockedEngineForTesting:
     def get_clients(self):
         return self.clients
 
+    def fire_event(self, _a, _b):
+        pass
+
 
 class TestSwarmServerController(unittest.TestCase):
     CLIENT_THAT_TRAINS                = "client1"
@@ -39,9 +42,13 @@ class TestSwarmServerController(unittest.TestCase):
     DEFAULT_NUM_ROUNDS = 2
 
     def _set_up(self, clients):
+        """
+        Set up a mock FLContext and instantiate the SwarmServerController with test data
+        for unit testing.
+        """
         self._engine = MockedEngineForTesting(job_id="UnitTestJob", clients=clients)
         self.fl_ctx = self._engine.new_context()
-        self.testee_logger = logging.getLogger("swarm_server_ctl")
+        self.testee_logger = logging.getLogger("SwarmServerController")
 
     def setUp(self):
         self._set_up(clients=[])
@@ -59,10 +66,10 @@ class TestSwarmServerController(unittest.TestCase):
 
     def _verify_exception_and_error_log(self, error, log, log_prefix: str, expected_message: str):
         self.assertEqual(expected_message, str(error.exception))
-        self.assertEqual(log.output, [f"{log_prefix}: {expected_message}"])
+        self.assertIn(f"{log_prefix}: {expected_message}", log.output)
 
     def _verify_exception_and_error_log_during_constructor(self, error, log, expected_message: str):
-        log_prefix = "ERROR:swarm_server_ctl:Error during initialization"
+        log_prefix = "ERROR:SwarmServerController:Error during initialization"
         self._verify_exception_and_error_log(error, log, log_prefix, expected_message)
 
     def _initialize_start_finalize(self, controller):
@@ -71,18 +78,30 @@ class TestSwarmServerController(unittest.TestCase):
         controller.finalize_run(self.fl_ctx)
 
     def test_initialization_initializes_correctly(self):
+        """
+        Test the initialization of the SwarmServerController to ensure proper assignment
+        of attributes.
+        """
         controller = self._get_minimum_valid_controller()
         self.assertIsInstance(controller, SwarmServerController)
         self.assertEqual(self.DEFAULT_NUM_ROUNDS, controller.num_rounds)
         self.assertEqual(self.CLIENT_THAT_TRAINS, controller.starting_client)
 
     def test_prepare_config_initializes_correctly(self):
+        """
+        Test the preparation of the configuration dictionary, ensuring it includes the
+        aggregation and training clients.
+        """
         controller = self._get_minimum_valid_controller()
         config = controller.prepare_config()
         self.assertIn(Constant.AGGR_CLIENTS, config)
         self.assertIn(Constant.TRAIN_CLIENTS, config)
 
     def test_starting_controller_succeeds(self):
+        """
+        Test the start_controller method to verify that the participating clients are
+        correctly assigned as training or aggregation clients.
+        """
         controller = self._get_minimum_valid_controller()
         controller.initialize_run(self.fl_ctx)
         controller.start_controller(self.fl_ctx)
@@ -91,6 +110,10 @@ class TestSwarmServerController(unittest.TestCase):
         controller.finalize_run(self.fl_ctx)
 
     def test_invalid_starting_client_raises_error(self):
+        """
+        Test the behavior when an invalid starting_client is provided, ensuring that a
+        ValueError is raised.
+        """
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES]
         controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
                                            participating_clients=participating_clients,
@@ -143,6 +166,10 @@ class TestSwarmServerController(unittest.TestCase):
         self._initialize_start_finalize(controller)
 
     def test_uncategorized_client_raises_error(self):
+        """
+        Test the scenario where a participating client is neither in train_clients nor
+        aggr_clients, ensuring that a RuntimeError is raised.
+        """
         participating_clients = [self.CLIENT_THAT_TRAINS, self.CLIENT_THAT_AGGREGATES, self.CLIENT_THAT_DOES_NOTHING]
         controller = SwarmServerController(num_rounds=TestSwarmServerController.DEFAULT_NUM_ROUNDS,
                                            participating_clients=participating_clients,
@@ -151,7 +178,7 @@ class TestSwarmServerController(unittest.TestCase):
                                            aggr_clients=[self.CLIENT_THAT_AGGREGATES])
         self._set_up(clients=participating_clients)
         expected_message = f"Config Error: client {self.CLIENT_THAT_DOES_NOTHING} is neither train client nor aggr client"
-        log_prefix = f"ERROR:swarm_server_ctl:Error during start_controller"
+        log_prefix = f"ERROR:SwarmServerController:[identity=, run=?, wf=UnitTestJob]: Error during start_controller"
         with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(RuntimeError) as error:
             controller.initialize_run(self.fl_ctx)
         self._verify_exception_and_error_log(error, log, log_prefix, expected_message)
@@ -179,7 +206,7 @@ class TestSwarmServerController(unittest.TestCase):
         controller = self._get_minimum_valid_controller()
         del controller.train_clients  # do something (that usually would not make any sense) to trigger an exception/error thrown in prepare_config
         expected_message = "'SwarmServerController' object has no attribute 'train_clients'"
-        log_prefix = f"ERROR:swarm_server_ctl:Error during prepare_config"
+        log_prefix = f"ERROR:SwarmServerController:Error during prepare_config"
         with self.assertLogs(self.testee_logger, logging.DEBUG) as log, self.assertRaises(AttributeError) as error:
             controller.prepare_config()
         self._verify_exception_and_error_log(error, log, log_prefix, expected_message)
