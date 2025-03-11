@@ -643,11 +643,13 @@ docker_cln_sh: |
 
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-          --data_dir)    MY_DATA_DIR="$2"; shift ;;
-          --scratch_dir) MY_SCRATCH_DIR="$2"; shift ;;
-          --GPU)         GPU2USE="$2"; shift ;;
-          --no-pull)     NOPULL="1";;
-          -d)            DETACH="1";;
+          --data_dir)        MY_DATA_DIR="$2"; shift ;;
+          --scratch_dir)     MY_SCRATCH_DIR="$2"; shift ;;
+          --GPU)             GPU2USE="$2"; shift ;;
+          --no_pull)         NOPULL="1";;
+          --start_client)    START_CLIENT="1";;
+          --local_training)  LOCAL_TRAINING="1";;
+          --dummy_training)  DUMMY_TRAINING="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -688,18 +690,35 @@ docker_cln_sh: |
   echo "Starting docker with $DOCKER_IMAGE"
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
 
-  # Run docker with appropriate parameters
-  if [ -z "$DETACH" ]; then
-      docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
-      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
-      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE /bin/bash -c "/bin/bash"
-  else
-      docker run -d -t --rm --name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g) \
-      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ \
-      -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/ -w /startupkit/startup/ --ipc=host $NETARG $DOCKER_IMAGE \
-      /bin/bash -c "nohup ./start.sh && /bin/bash"
-  fi
+  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
+  DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/"
+  DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
+  DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
 
+  # Run docker with appropriate parameters
+  if [[ ! -z "$START_CLIENT" ]]; then
+      DOCKER_ENV_VAR="--env TRAINING_MODE=swarm"
+      docker run -d -t --rm \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "nohup ./start.sh && /bin/bash"
+  elif [[ ! -z "$LOCAL_TRAINING" ]]; then
+      # TODO how to set number of epochs
+      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
+      docker run --rm -it \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
+  elif [[ ! -z "$DUMMY_TRAINING" ]]; then
+      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training"
+      docker run --rm -it \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
+  else
+      # start interactive container
+      DOCKER_ENV_VAR=""
+      docker run --rm -it --detach-keys="ctrl-x" \
+      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      /bin/bash -c "/bin/bash"
+  fi
 
 docker_svr_sh: |
   #!/usr/bin/env bash
@@ -707,8 +726,8 @@ docker_svr_sh: |
 
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-          --no-pull)     NOPULL="1";;
-          -d)            DETACH="1";;
+          --no_pull)      NOPULL="1";;
+          --start_server) START_SERVER="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -730,7 +749,7 @@ docker_svr_sh: |
   CONTAINER_NAME=odelia_swarm_server_$svr_name
 
   # Run docker with appropriate parameters
-  if [ -z "$DETACH" ]; then
+  if [ -z "$START_SERVER" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
@@ -741,7 +760,6 @@ docker_svr_sh: |
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh && chmod a+r nohup.out && /bin/bash"
   fi
-
 
 docker_adm_sh: |
   #!/usr/bin/env bash
