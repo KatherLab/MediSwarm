@@ -46,9 +46,7 @@ docker tag nvflare-pt-dev:cifar10 jefftud/nvflare-pt-dev:cifar10
 docker push jefftud/nvflare-pt-dev:cifar10
 ```
 
-
-
 ## Notes
 
-- Make sure to replace `/path/to/parent_directory` with the actual path to your parent directory containing the `controller` and `NVFlare` directories.
+- Make sure to replace `/path/to/parent_directory` with the actual path to your parent directory containing the `controller` and `NVFlare` directories. TODO what does this refer to?
 - Ensure you have the necessary permissions to push images to the `jefftud` repository on Docker Hub.

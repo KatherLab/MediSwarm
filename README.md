@@ -81,7 +81,7 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 
 ## Setup
 
-1. TODO compute node according to spec, installation of docker, openvpn, …
+1. TODO compute node according to spec, installation of docker, openvpn see [assets/openvpn_configs/good_access/README.md](assets/openvpn_configs/good_access/README.md), …
 
 ## Prepare Dataset
 
