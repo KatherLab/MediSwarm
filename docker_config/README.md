@@ -41,7 +41,7 @@ docker push jefftud/nvflare-pt-dev:3dcnn
 Build the Docker image using the `Dockerfile_cifar10` file and push it to Docker Hub.
 
 ```sh
-docker build -t nvflare-pt-dev:cifar10 . -f Dockerfile_cifar10
+docker build -t nvflare-pt-dev:cifar10 . -f docker_config/Dockerfile_cifar10
 docker tag nvflare-pt-dev:cifar10 jefftud/nvflare-pt-dev:cifar10
 docker push jefftud/nvflare-pt-dev:cifar10
 ```
