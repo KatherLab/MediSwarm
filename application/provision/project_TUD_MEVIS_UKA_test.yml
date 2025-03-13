@@ -1,5 +1,5 @@
 api_version: 3
-name: Odelia_3site_test
+name: Odelia___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___3site_test
 description: Odelia TUD-3node MEVIS-2node UKA-1node provision http based yaml file
 
 participants:
