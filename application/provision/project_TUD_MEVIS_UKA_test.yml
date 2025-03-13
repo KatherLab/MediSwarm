@@ -1,0 +1,77 @@
+api_version: 3
+name: Odelia_3site_test
+description: Odelia TUD-3node MEVIS-2node UKA-1node provision http based yaml file
+
+participants:
+  # change example.com to the FQDN of the server
+  - name: dl3.tud.de
+    type: server
+    org: TUD
+    fed_learn_port: 8002
+    admin_port: 8003
+  - name: TUD_1
+    type: client
+    org: TUD
+    # Specifying listening_host will enable the creation of one pair of
+    # certificate/private key for this client, allowing the client to function
+    # as a server for 3rd-party integration.
+    # The value must be a hostname that the external trainer can reach via the network.
+    # listening_host: site-1-lh
+  - name: TUD_2
+    type: client
+    org: TUD
+  - name: TUD_3
+    type: client
+    org: TUD
+  - name: MEVIS_1
+    type: client
+    org: MEVIS
+  - name: MEVIS_2
+    type: client
+    org: MEVIS
+  - name: UKA_1
+    type: client
+    org: UKA
+  - name: jiefu.zhu@tu-dresden.de
+    type: admin
+    org: TUD
+    role: project_admin
+
+# The same methods in all builders are called in their order defined in builders section
+builders:
+  - path: nvflare.lighter.impl.workspace.WorkspaceBuilder
+    args:
+      template_file: master_template.yml
+  - path: nvflare.lighter.impl.template.TemplateBuilder
+  - path: nvflare.lighter.impl.static_file.StaticFileBuilder
+    args:
+      # config_folder can be set to inform NVIDIA FLARE where to get configuration
+      config_folder: config
+
+      # scheme for communication driver (currently supporting the default, grpc, only).
+      scheme: http
+
+      # app_validator is used to verify if uploaded app has proper structures
+      # if not set, no app_validator is included in fed_server.json
+      # app_validator: PATH_TO_YOUR_OWN_APP_VALIDATOR
+
+      # when docker_image is set to a docker image name, docker.sh will be generated on server/client/admin
+      docker_image: jefftud/nvflare-pt-dev:3dcnn
+
+      # download_job_url is set to http://download.server.com/ as default in fed_server.json.  You can override this
+      # to different url.
+      # download_job_url: http://download.server.com/
+
+      overseer_agent:
+        path: nvflare.ha.dummy_overseer_agent.DummyOverseerAgent
+        # if overseer_exists is true, args here are ignored.  Provisioning
+        #   tool will fill role, name and other local parameters automatically.
+        # if overseer_exists is false, args in this section will be used and the sp_end_point
+        # must match the server defined above in the format of SERVER_NAME:FL_PORT:ADMIN_PORT
+        # 
+        overseer_exists: false
+        args:
+          sp_end_point: dl3.tud.de:8002:8003
+
+  - path: nvflare.lighter.impl.cert.CertBuilder
+  - path: nvflare.lighter.impl.signature.SignatureBuilder
