@@ -703,13 +703,13 @@ docker_cln_sh: |
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
   elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
-      DOCKER_ENV_VAR="--env TRAINING_MODE=preflight_check --env SITE_NAME=temporary_vm --env NUM_EPOCHS=1"
+      DOCKER_ENV_VAR="--env TRAINING_MODE=preflight_check --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
       docker run --rm -it \
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
       # TODO how to set number of epochs
-      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME=temporary_vm --env NUM_EPOCHS=1"
+      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
       docker run --rm -it \
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
