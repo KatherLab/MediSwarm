@@ -20,6 +20,14 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 ### Operating System
 * Ubuntu 20.04 LTS
 
+### Software
+* Docker
+* openvpn
+
+### VPN
+A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose,
+1. TODO describe VPN setup
+
 # Usage for Developers
 
 ## Setup: Clone the repository
@@ -82,7 +90,9 @@ Production mode is designed for secure, real-world deployments. It supports both
 To set up production mode, follow these steps:
 
 ## Edit `/etc/hosts`
-Ensure that your `/etc/hosts` file includes the correct host mappings. For example, add the following line (replace `<IP>` with the server's actual IP address):
+Ensure that your `/etc/hosts` file includes the correct host mappings. All hosts need to be able to communicate to the server node.
+
+For example, add the following line (replace `<IP>` with the server's actual IP address):
 
 ```plaintext
 <IP>    dl3.tud.de dl3
@@ -133,16 +143,19 @@ Access the dashboard at `https://localhost:8443` log in with the admin credentia
 After setting up the project admin configuration, server and clients can download their startup kits. Store the passwords somewhere, they are only displayed once (or you can download them again).
 
 ## Starting a Swarm Training
-1. Start the *server* startup kit using the respective `startup/docker.sh` script with the option to start the server
-2. Provide the *client* startup kits to the swarm participants (be aware that email providers or other channels may prevent encrypted archives)
-3. Make sure the participants have started their clients via the respective startup kits, see below
-4. Start the *admin* startup kit using the respective `startup/docker.sh` script to start the admin console
-5. Deploy a job by `submit_job <job folder>`
+1. Connect the *server* host to the VPN as described above.
+2. Start the *server* startup kit using the respective `startup/docker.sh` script with the option to start the server
+3. Provide the *client* startup kits to the swarm participants (be aware that email providers or other channels may prevent encrypted archives)
+4. Make sure the participants have started their clients via the respective startup kits, see below
+5. Start the *admin* startup kit using the respective `startup/docker.sh` script to start the admin console
+6. Deploy a job by `submit_job <job folder>`
 
 # Usage for Swarm Participants
 
 ## Setup
-1. TODO compute node according to spec, installation of docker, openvpn, …
+1. Make sure your compute node satisfies the specification and has the necessary software installed.
+2. Connect the client node to the VPN as described above.
+3. TODO anything else?
 
 ## Prepare Dataset
 1. TODO which data is expected in which folder structure + table structure
