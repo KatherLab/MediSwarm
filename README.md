@@ -26,7 +26,12 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 
 ### VPN
 A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose,
-1. TODO describe VPN setup
+1. Install OpenVPN
+   ```bash
+   sudo apt-get install openvpn
+   ```
+2. If you have a graphical user interface(GUI), follow this guide to connect to the VPN: [VPN setup guide(GUI).pdf](assets/VPN%20setup%20guide%28GUI%29.pdf)
+3. If you have a command line interface(CLI), follow this guide to connect to the VPN: [VPN setup guide(CLI).md](assets/VPN%20setup%20guide%28CLI%29.md)
 
 # Usage for Developers
 
