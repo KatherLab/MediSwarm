@@ -55,9 +55,9 @@ def prepare_dataset(task_data_name, data_dir, site_name, split="train"):
 
     if dataset_class:
         if task_data_name == "Odelia":
-            return dataset_class(flip=True, path_root=os.path.join(data_dir, site_name)), task_data_name
+            return dataset_class(random_flip=True, random_rotate=True, random_inverse=False, noise=True, path_root=os.path.join(data_dir, site_name)), task_data_name
         else:
-            return dataset_class(flip=True, path_root=os.path.join(data_dir, site_name), split=split), task_data_name
+            return dataset_class(path_root=os.path.join(data_dir, site_name), split=split), task_data_name
     else:
         raise ValueError("Invalid task data name specified")
 
