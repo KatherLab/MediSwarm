@@ -1,5 +1,5 @@
 api_version: 3
-name: Odelia_3site_test
+name: Odelia___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___3site_test
 description: Odelia TUD-3node MEVIS-2node UKA-1node provision http based yaml file
 
 participants:
@@ -56,7 +56,7 @@ builders:
       # app_validator: PATH_TO_YOUR_OWN_APP_VALIDATOR
 
       # when docker_image is set to a docker image name, docker.sh will be generated on server/client/admin
-      docker_image: jefftud/nvflare-pt-dev:3dcnn
+      docker_image: jefftud/odelia:__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__
 
       # download_job_url is set to http://download.server.com/ as default in fed_server.json.  You can override this
       # to different url.
@@ -68,7 +68,7 @@ builders:
         #   tool will fill role, name and other local parameters automatically.
         # if overseer_exists is false, args in this section will be used and the sp_end_point
         # must match the server defined above in the format of SERVER_NAME:FL_PORT:ADMIN_PORT
-        # 
+        #
         overseer_exists: false
         args:
           sp_end_point: dl3.tud.de:8002:8003
