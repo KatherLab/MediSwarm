@@ -5,7 +5,7 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-VERSION=`tail -n 1 odelia_image.version`
+VERSION=`./getVersionNumber.sh`
 DOCKER_IMAGE=jefftud/odelia:$VERSION
 
 sed -i 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__#'$VERSION'#' $1
