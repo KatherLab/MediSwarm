@@ -6,7 +6,8 @@ if ! git diff --quiet || ! git diff --staged --quiet ; then
    exit 1
 fi
 
-DOCKER_IMAGE=jefftud/odelia:`tail -n 1 odelia_image.version`
+VERSION=`./getVersionNumber.sh`
+DOCKER_IMAGE=jefftud/odelia:$VERSION
 
 docker build -t $DOCKER_IMAGE . -f docker_config/Dockerfile_ODELIA
 
