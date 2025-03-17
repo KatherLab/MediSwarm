@@ -23,6 +23,13 @@ We demonstrate that the system can run on lightweight hardware like this. For le
 ### Software
 * Docker
 * openvpn
+* git
+
+### Cloning the repository
+    ```bash
+    git clone https://github.com/KatherLab/MediSwarm.git --recurse-submodules
+    ```
+* The last argument is necessary because we are using a git submodule for the (ODELIA fork of NVFlare)[https://github.com/KatherLab/NVFlare_MediSwarm]
 
 ### VPN
 A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose,
@@ -35,18 +42,13 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 
 # Usage for Developers
 
-## Setup: Clone the repository
-    ```bash
-    git clone https://github.com/KatherLab/MediSwarm.git
-    cd MediSwarm
-    ```
-
 ## Versioning of ODELIA Docker Images
 If needed, update the version number in file (odelia_image.version)[odelia_image.version]. It will be used automatically for the Docker image and startup kits.
 
 ## Build the Docker Image
 The Docker image contains all dependencies for administrative purposes (dashboard, command-line provisioning, admin console, server) as well as for running the 3DCNN pipeline under the pytorch-lightning framework.
     ```bash
+    cd MediSwarm
     ./buildDockerImage.sh
     ```
 
