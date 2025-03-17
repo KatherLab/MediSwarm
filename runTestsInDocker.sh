@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-DOCKER_IMAGE=jefftud/odelia:`tail -n 1 odelia_image.version`
+VERSION=`./getVersionNumber.sh`
+DOCKER_IMAGE=jefftud/odelia:$VERSION
 
 docker run -it --rm \
     --shm-size=16g \
