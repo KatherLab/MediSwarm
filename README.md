@@ -40,8 +40,72 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 2. If you have a graphical user interface(GUI), follow this guide to connect to the VPN: [VPN setup guide(GUI).pdf](assets/VPN%20setup%20guide%28GUI%29.pdf)
 3. If you have a command line interface(CLI), follow this guide to connect to the VPN: [VPN setup guide(CLI).md](assets/VPN%20setup%20guide%28CLI%29.md)
 
-# Usage for Developers
+# Usage for Swarm Participants
+## Setup
+1. Make sure your compute node satisfies the specification and has the necessary software installed.
+2. Clone the repository and cnnect the client node to the VPN as described above.
+3. TODO anything else?
 
+## Prepare Dataset
+1. TODO which data is expected in which folder structure + table structure
+
+## Prepare Training Participation
+1. Extract startup kit provided by swarm operator
+
+## Run Pre-Flight Check
+1. Directories
+   ```bash
+   export SITE_NAME=<the name of your site>  # TODO should be defined above, also needed for dataset location
+   export DATADIR=<path to where the directory $SITE_NAME containing your local data is stored>
+   export SCRATCHDIR=<path to where the training can store temporary files>
+   ```
+2. From the directory where you unpacked the startup kit,
+   ```bash
+   cd $SITE_NAME/startup
+   ```
+3. Verify that your Docker/GPU setup is working
+   ```bash
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --dummy_training
+   ```
+   * This will pull the Docker image, which might take a while.
+   * The “training” itself should take less than minute and does not yield a meaningful classification performance.
+4. Verify that your local data can be accessed and the model can be trained locally
+   ```bash
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --preflight_check
+   ```
+   * Training time depends on the size of the local dataset
+
+## Start Swarm Node
+1. From the directory where you unpacked the startup kit
+   ```bash
+   cd $SITE_NAME/startup  # skip this if you just ran the pre-flight check
+   ```
+2. Start the client
+   ```bash
+   rm -rf ../pid.fl ../daemon_pid.fl nohup.out  # clean up potential leftovers from previous run
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --start_client
+   ```
+3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
+   ```bash
+   sudo chmod a+r nohup.out
+   ```
+4. Output files
+   * TODO describe
+
+## Run Local Training
+1. From the directory where you unpacked the startup kit
+   ```bash
+   cd $SITE_NAME/startup
+   ```
+2. Start local training
+   ```bash
+   /docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --local_training
+   ```
+   * TODO update when handling of the number of epochs has been implemented
+3. Output files
+   * TODO describe
+
+# Usage for MediSwarm and Application Code Developers
 ## Versioning of ODELIA Docker Images
 If needed, update the version number in file (odelia_image.version)[odelia_image.version]. It will be used automatically for the Docker image and startup kits.
 
@@ -88,7 +152,6 @@ Distribute the startup kits to the clients.
 2. Take a look at application/jobs/3dcnn_ptl for a more relastic example of pytorch code that can run in the swarm
 3. Use the local tests to check if the code is swarm-ready
 4. TODO more detailed instructions
-
 
 # Usage for Swarm Operators
 ## Setting up a Swarm
@@ -157,71 +220,6 @@ After setting up the project admin configuration, server and clients can downloa
 5. Start the *admin* startup kit using the respective `startup/docker.sh` script to start the admin console
 6. Deploy a job by `submit_job <job folder>`
 
-# Usage for Swarm Participants
-
-## Setup
-1. Make sure your compute node satisfies the specification and has the necessary software installed.
-2. Connect the client node to the VPN as described above.
-3. TODO anything else?
-
-## Prepare Dataset
-1. TODO which data is expected in which folder structure + table structure
-
-## Prepare Training Participation
-1. Extract startup kit provided by swarm operator
-
-## Run Pre-Flight Check
-1. Directories
-   ```bash
-   export SITE_NAME=<the name of your site>  # TODO should be defined above, also needed for dataset location
-   export DATADIR=<path to where the directory $SITE_NAME containing your local data is stored>
-   export SCRATCHDIR=<path to where the training can store temporary files>
-   ```
-2. From the directory where you unpacked the startup kit,
-   ```bash
-   cd $SITE_NAME/startup
-   ```
-3. Verify that your Docker/GPU setup is working
-   ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --dummy_training
-   ```
-   * This will pull the Docker image, which might take a while.
-   * The “training” itself should take less than minute and does not yield a meaningful classification performance.
-4. Verify that your local data can be accessed and the model can be trained locally
-   ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --preflight_check
-   ```
-   * Training time depends on the size of the local dataset
-
-## Start Swarm Node
-1. From the directory where you unpacked the startup kit
-   ```bash
-   cd $SITE_NAME/startup  # skip this if you just ran the pre-flight check
-   ```
-2. Start the client
-   ```bash
-   rm -rf ../pid.fl ../daemon_pid.fl nohup.out  # clean up potential leftovers from previous run
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --start_client
-   ```
-3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
-   ```bash
-   sudo chmod a+r nohup.out
-   ```
-4. Output files
-   * TODO describe
-
-## Run Local Training
-1. From the directory where you unpacked the startup kit
-   ```bash
-   cd $SITE_NAME/startup
-   ```
-2. Start local training
-   ```bash
-   /docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --local_training
-   ```
-   * TODO update when handling of the number of epochs has been implemented
-3. Output files
-   * TODO describe
 
 # License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
