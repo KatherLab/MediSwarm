@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
 
-# run NVFlare's unit tests (takes about 2 minutes), does not include NVFlare's integration tests yet
-# cd nvflare
-# ./runtest.sh -c -r
-# coverage report -m
-# cd ..
-
 # run unit tests of ODELIA swarm learning and report coverage
 export MPLCONFIGDIR=/tmp
 cd /MediSwarm/tests/unit_tests/controller
@@ -13,18 +7,24 @@ PYTHONPATH=/MediSwarm/controller/controller python3 -m coverage run --source=/Me
 coverage report -m
 rm .coverage
 
+# uncomment to run NVFlare's unit tests (takes about 2 minutes and will install python packages in the container)
+# cd /MediSwarm/docker_config/NVFlare
+# ./runtest.sh -c -r
+# coverage report -m
+# cd ..
+
 # run standalone version of minimal example
-cd /workspace/application/jobs/minimal_training_pytorch_cnn/app/custom/
+cd /MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/
 export TRAINING_MODE="local_training"
 ./main.py
 
 # run simulation mode for minimal example
-cd /workspace
+cd /MediSwarm
 export TRAINING_MODE="swarm"
 nvflare simulator -w /tmp/minimal_training_pytorch_cnn -n 2 -t 2 application/jobs/minimal_training_pytorch_cnn -c simulated_node_0,simulated_node_1
 
 # run proof-of-concept mode for minimal example
-cd /workspace
+cd /MediSwarm
 export TRAINING_MODE="swarm"
 nvflare poc prepare -c poc_client_0 poc_client_1
 nvflare poc prepare-jobs-dir -j application/jobs/
