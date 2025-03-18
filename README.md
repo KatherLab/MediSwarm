@@ -109,11 +109,12 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 ## Versioning of ODELIA Docker Images
 If needed, update the version number in file (odelia_image.version)[odelia_image.version]. It will be used automatically for the Docker image and startup kits.
 
-## Build the Docker Image
+## Build the Docker Image and Startup Kits
 The Docker image contains all dependencies for administrative purposes (dashboard, command-line provisioning, admin console, server) as well as for running the 3DCNN pipeline under the pytorch-lightning framework.
+The project description specifies the swarm nodes etc. to be used for a swarm training.
     ```bash
     cd MediSwarm
-    ./buildDockerImage.sh
+    ./buildDockerImageAndStartupKits.sh application/provision/<PROJECT DESCRIPTION.yml>
     ```
 
 1. Make sure you have no uncommitted changes.
@@ -133,10 +134,7 @@ You should see
 
 Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`.
 
-## Building Startup Kits
-   ```bash
-   ./runTestsInDocker.sh
-   ```
+## Distributing Startup Kits
 Distribute the startup kits to the clients.
 
 ## Running the Application
