@@ -5,6 +5,12 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
+# make sure we are building from a state without local changes
+if ! git diff --quiet || ! git diff --staged --quiet ; then
+   echo "Local changes exist"
+   exit 1
+fi
+
 VERSION=`./getVersionNumber.sh`
 DOCKER_IMAGE=jefftud/odelia:$VERSION
 
