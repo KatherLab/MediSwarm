@@ -1,0 +1,40 @@
+api_version: 3
+name: odelia___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___dummy_project_for_testing
+description: >
+  Test setup.
+
+participants:
+  - name: server.local
+    type: server
+    org: Test_Org
+    fed_learn_port: 8002
+    admin_port: 8003
+  - name: client_A
+    type: client
+    org: Test_Org
+  - name: client_B
+    type: client
+    org: Test_Org
+  - name: admin@test.odelia
+    type: admin
+    org: Test_Org
+    role: project_admin
+
+builders:
+  - path: nvflare.lighter.impl.workspace.WorkspaceBuilder
+    args:
+      template_file: master_template.yml
+  - path: nvflare.lighter.impl.template.TemplateBuilder
+  - path: nvflare.lighter.impl.static_file.StaticFileBuilder
+    args:
+      config_folder: config
+      scheme: grpc
+      docker_image: jefftud/odelia:__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__
+      overseer_agent:
+        path: nvflare.ha.dummy_overseer_agent.DummyOverseerAgent
+        overseer_exists: false
+        args:
+          sp_end_point: odeliatempvm.local:8002:8003
+
+  - path: nvflare.lighter.impl.cert.CertBuilder
+  - path: nvflare.lighter.impl.signature.SignatureBuilder
