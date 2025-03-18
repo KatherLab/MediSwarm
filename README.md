@@ -131,6 +131,8 @@ You should see
 1. several expected errors and warnings printed from unit tests that should succeed overall, and a coverage report
 2. output of a successful simulation run with two nodes
 3. output of a successful proof-of-concept run run with two nodes
+4. output of a set of startup kits being generated
+5. output of a dummy training run using one of the startup kits
 
 Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`.
 
