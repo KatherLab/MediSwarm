@@ -333,7 +333,6 @@ authz_def: |
 fl_admin_sh: |
   #!/usr/bin/env bash
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  mkdir -p $DIR/../transfer
   python3 -m nvflare.fuel.hci.tools.admin -m $DIR/.. -s fed_admin.json
 
 log_config: |
@@ -646,7 +645,7 @@ docker_cln_sh: |
           --data_dir)        MY_DATA_DIR="$2"; shift ;;
           --scratch_dir)     MY_SCRATCH_DIR="$2"; shift ;;
           --GPU)             GPU2USE="$2"; shift ;;
-          --no-pull)         NOPULL="1";;
+          --no_pull)         NOPULL="1";;
           --dummy_training)  DUMMY_TRAINING="1";;
           --preflight_check) PREFLIGHT_CHECK="1";;
           --local_training)  LOCAL_TRAINING="1";;
@@ -704,13 +703,13 @@ docker_cln_sh: |
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
   elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
-      DOCKER_ENV_VAR="--env TRAINING_MODE=preflight_check --env SITE_NAME=temporary_vm --env NUM_EPOCHS=1"
+      DOCKER_ENV_VAR="--env TRAINING_MODE=preflight_check --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
       docker run --rm -it \
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
       # TODO how to set number of epochs
-      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME=temporary_vm --env NUM_EPOCHS=1"
+      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
       docker run --rm -it \
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
@@ -740,8 +739,9 @@ docker_svr_sh: |
 
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-          --no_pull)      NOPULL="1";;
-          --start_server) START_SERVER="1";;
+          --no_pull)       NOPULL="1";;
+          --list_licenses) LIST_LICENSES="1";;
+          --start_server)  START_SERVER="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -764,16 +764,20 @@ docker_svr_sh: |
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
-  if [ -z "$START_SERVER" ]; then
-      docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
-      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
-      --ipc=host $NETARG $DOCKER_IMAGE \
-      /bin/bash -c "/bin/bash"
-  else
+  if [ ! -z "$START_SERVER" ]; then
       docker run -d -t --rm --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh && chmod a+r nohup.out && /bin/bash"
+  elif [ ! -z "$LIST_LICENSES" ]; then
+      docker run -it --rm --name=$CONTAINER_NAME \
+      $DOCKER_IMAGE \
+      /bin/bash -c "pip-licenses -s -u --order=license"
+  else
+      docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
+      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
+      --ipc=host $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "/bin/bash"
   fi
 
 docker_adm_sh: |
@@ -790,7 +794,8 @@ docker_adm_sh: |
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   # To use host network
   NETARG="--net=host"
-  DOCKER_IMAGE=nvflare-pt-dev:nfcore  # hard-coded FIXME use jefftud/… image
+
+  DOCKER_IMAGE={~~docker_image~~}
   if [ -z "$NOPULL" ]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
@@ -798,7 +803,7 @@ docker_adm_sh: |
   CONTAINER_NAME=odelia_swarm_admin
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
-  docker run --rm -it --name=$CONTAINER_NAME -v $DIR/..:/workspace/ -w /workspace/ $NETARG $DOCKER_IMAGE /bin/bash -c 'startup/fl_admin.sh'
+  docker run --rm -it --name=fladmin -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE /bin/bash -c "./fl_admin.sh"
 
 compose_yaml: |
   services:
