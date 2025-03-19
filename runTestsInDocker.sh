@@ -13,7 +13,8 @@ docker run -it --rm \
     --entrypoint=/MediSwarm/_runTestsInsideDocker.sh \
     $DOCKER_IMAGE
 
-./buildDockerImageAndStartupKits.sh tests/provision/dummy_project_for_testing.yml
+./_buildStartupKits.sh tests/provision/dummy_project_for_testing.yml $VERSION
+
 PROJECT_DIR=workspace/odelia_${VERSION}_dummy_project_for_testing
 cd $PROJECT_DIR/prod_00/client_A/startup/
 ./docker.sh  --data_dir /tmp/ --scratch_dir /tmp/ --GPU all --no_pull --dummy_training
