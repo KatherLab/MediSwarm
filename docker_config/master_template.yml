@@ -719,7 +719,7 @@ docker_cln_sh: |
       DOCKER_ENV_VAR="--env TRAINING_MODE=swarm"
       docker run -d -t --rm \
       $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
-      /bin/bash -c "nohup ./start.sh && /bin/bash"
+      /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
   elif [[ ! -z "$INTERACTIVE" ]]; then
       # start interactive container
       DOCKER_ENV_VAR=""
@@ -772,7 +772,7 @@ docker_svr_sh: |
       docker run -d -t --rm --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
-      /bin/bash -c "nohup ./start.sh && chmod a+r nohup.out && /bin/bash"
+      /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
   elif [ ! -z "$LIST_LICENSES" ]; then
       docker run -it --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
