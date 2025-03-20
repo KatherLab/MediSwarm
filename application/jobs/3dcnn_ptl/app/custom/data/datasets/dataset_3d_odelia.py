@@ -62,7 +62,7 @@ class ODELIA_Dataset3D(data.Dataset):
             self.transform = transform
         
         path_csv = self.path_root/'metadata/split.csv'
-        df = ds.load_split(path_csv, fold=fold, split=split, fraction=fraction)
+        df = self.load_split(path_csv, fold=fold, split=split, fraction=fraction)
             
         # Verify files exist
         uids = self.run_item_crawler(self.path_root/'data_unilateral')
@@ -98,7 +98,7 @@ class ODELIA_Dataset3D(data.Dataset):
 
         return {'uid':uid, 'source': img, 'target':target}
     
-    def get_label(self):
+    def get_labels(self):
         return self.df['Class']
     
     @classmethod
