@@ -82,7 +82,6 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```
 2. Start the client
    ```bash
-   rm -rf ../pid.fl ../daemon_pid.fl nohup.out  # clean up potential leftovers from previous run
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --start_client
    ```
 3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:

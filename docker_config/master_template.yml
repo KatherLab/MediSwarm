@@ -682,6 +682,8 @@ docker_cln_sh: |
   # To use host network
   NETARG="--net=host"
 
+  rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
+
   # Docker image to use
   DOCKER_IMAGE={~~docker_image~~}
   if [ -z "$NOPULL" ]; then
@@ -761,6 +763,8 @@ docker_svr_sh: |
   fi
   svr_name="${SVR_NAME:-flserver}"
   CONTAINER_NAME=odelia_swarm_server_$svr_name
+
+  rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
