@@ -8,9 +8,9 @@ readme_am: |
   client.crt
   client.key
   fl_admin.sh
+  docker.sh
 
-  Please install the nvflare package by 'python3 -m pip nvflare.'  This will install a set of Python codes
-  in your environment.  After installation, you can run the fl_admin.sh file to start communicating to the admin server.
+  Use the docker.sh script to start the admin console in the intended docker container.
 
   The rootCA.pem file is pointed by "ca_cert" in fl_admin.sh.  If you plan to move/copy it to a different place,
   you will need to modify fl_admin.sh.  The same applies to the other two files, client.crt and client.key.
@@ -31,8 +31,9 @@ readme_fc: |
   start.sh
   sub_start.sh
   stop_fl.sh
+  docker.sh
 
-  Run start.sh to start the client.
+  Use the docker.sh script with appropriate options to run preflight checks or to start the client in the intended docker container.
 
   The rootCA.pem file is pointed by "ssl_root_cert" in fed_client.json.  If you plan to move/copy it to a different place,
   you will need to modify fed_client.json.  The same applies to the other two files, client.crt and client.key.
@@ -55,8 +56,9 @@ readme_fs: |
   sub_start.sh
   stop_fl.sh
   signature.json
+  docker.sh
 
-  Run start.sh to start the server.
+  Use the docker.sh script to start the server in the intended docker container.
 
   The rootCA.pem file is pointed by "ssl_root_cert" in fed_server.json.  If you plan to move/copy it to a different place,
   you will need to modify fed_server.json.  The same applies to the other two files, server.crt and server.key.
