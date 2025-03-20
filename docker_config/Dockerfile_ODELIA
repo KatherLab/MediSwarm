@@ -62,7 +62,5 @@ RUN rm -rf /workspace/controller
 
 # Copy the source code for local training and deploying to the swarm
 COPY . /MediSwarm
-RUN cd /MediSwarm && git clean -f .
-RUN chmod a+rX /MediSwarm -R
 RUN mkdir -p /fl_admin/transfer
 RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
