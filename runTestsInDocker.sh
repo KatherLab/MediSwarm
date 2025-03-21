@@ -17,6 +17,6 @@ docker run -it --rm \
 
 PROJECT_DIR=workspace/odelia_${VERSION}_dummy_project_for_testing
 cd $PROJECT_DIR/prod_00/client_A/startup/
-./docker.sh  --data_dir /tmp/ --scratch_dir /tmp/ --GPU all --no_pull --dummy_training
+./docker.sh  --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU all --no_pull --dummy_training
 cd ../../../../../
 rm -rf $PROJECT_DIR
