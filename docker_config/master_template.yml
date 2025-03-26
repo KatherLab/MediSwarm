@@ -638,10 +638,10 @@ docker_cln_sh: |
       shift
   done
 
-  # Ask user for parameters not passed as command line arguments
-  if [ -z "$MY_DATA_DIR" ]; then
-     read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
-     : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
+  # Ask user for required parameters not passed as command line arguments
+  if [[ -z "$DUMMY_TRAINING" && -z "$MY_DATA_DIR" ]]; then
+      read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
+      : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
   fi
 
   if [ -z "$MY_SCRATCH_DIR" ]; then
@@ -675,7 +675,10 @@ docker_cln_sh: |
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
 
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
-  DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_DATA_DIR:/data/:ro -v $MY_SCRATCH_DIR:/scratch/"
+  DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
+  if [[ ! -z "$MY_DATA_DIR" ]]; then
+      DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
+  fi
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
   DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
 
