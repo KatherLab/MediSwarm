@@ -46,30 +46,53 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 2. Clone the repository and cnnect the client node to the VPN as described above.
 3. TODO anything else?
 
-## Prepare Dataset
-1. TODO which data is expected in which folder structure + table structure
+## Folders
+```bash
+export SITE_NAME=<the name of your site>  # TODO should be defined above, also needed for dataset location
+export DATADIR=<path to where the directory $SITE_NAME containing your local data is stored>
+export SCRATCHDIR=<path to where the training can store temporary files>
+```
+
+## Dataset
+The dataset should have been be prepared according to the instructions and scripts provided for this purpose. The expected data format is
+```
+$SITE_NAME
+├── data_unilateral
+│   ├── <UID_A>
+│   │   └── Sub.nii.gz
+│   ├── <UID_B>
+│   │   └── Sub.nii.gz
+│   ├── <UID_C>
+│   │   └── Sub.nii.gz
+│   └── …
+└── metadata
+    └── split.csv
+```
+where `split.csv` contains prepared lists of training/validation splits for a cross-validation, for example
+```
+PatientID,UID,Class,Fold,Split
+001,UID_A,1,0,val
+001,UID_B,0,0,train
+002,UID_C,1,0,test
+…
+```
+The UIDs must correspond to the folder names above. UIDs are different for left and right side belonging to the same patient. Further folders for raw data and intermediate steps of preprocessing may be present and are not used here.
 
 ## Prepare Training Participation
 1. Extract startup kit provided by swarm operator
 
 ## Run Pre-Flight Check
-1. Directories
-   ```bash
-   export SITE_NAME=<the name of your site>  # TODO should be defined above, also needed for dataset location
-   export DATADIR=<path to where the directory $SITE_NAME containing your local data is stored>
-   export SCRATCHDIR=<path to where the training can store temporary files>
-   ```
-2. From the directory where you unpacked the startup kit,
+1. From the directory where you unpacked the startup kit,
    ```bash
    cd $SITE_NAME/startup
    ```
-3. Verify that your Docker/GPU setup is working
+2. Verify that your Docker/GPU setup is working
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --dummy_training
    ```
    * This will pull the Docker image, which might take a while.
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
-4. Verify that your local data can be accessed and the model can be trained locally
+3. Verify that your local data can be accessed and the model can be trained locally
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --preflight_check
    ```
