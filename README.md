@@ -65,7 +65,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```
 3. Verify that your Docker/GPU setup is working
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --dummy_training
+   ./docker.sh --scratch_dir $SCRATCHDIR --GPU all --dummy_training
    ```
    * This will pull the Docker image, which might take a while.
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
