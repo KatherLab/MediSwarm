@@ -92,6 +92,7 @@ The UIDs must correspond to the folder names above. UIDs are different for left 
    ```
    * This will pull the Docker image, which might take a while.
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
+   * The data directory is ignored in the dummy training.
 3. Verify that your local data can be accessed and the model can be trained locally
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --preflight_check
