@@ -65,7 +65,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```
 3. Verify that your Docker/GPU setup is working
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --dummy_training
+   ./docker.sh --scratch_dir $SCRATCHDIR --GPU all --dummy_training
    ```
    * This will pull the Docker image, which might take a while.
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
@@ -82,7 +82,6 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```
 2. Start the client
    ```bash
-   rm -rf ../pid.fl ../daemon_pid.fl nohup.out  # clean up potential leftovers from previous run
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --start_client
    ```
 3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
@@ -109,11 +108,12 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 ## Versioning of ODELIA Docker Images
 If needed, update the version number in file (odelia_image.version)[odelia_image.version]. It will be used automatically for the Docker image and startup kits.
 
-## Build the Docker Image
+## Build the Docker Image and Startup Kits
 The Docker image contains all dependencies for administrative purposes (dashboard, command-line provisioning, admin console, server) as well as for running the 3DCNN pipeline under the pytorch-lightning framework.
+The project description specifies the swarm nodes etc. to be used for a swarm training.
     ```bash
     cd MediSwarm
-    ./buildDockerImage.sh
+    ./buildDockerImageAndStartupKits.sh application/provision/<PROJECT DESCRIPTION.yml>
     ```
 
 1. Make sure you have no uncommitted changes.
@@ -130,13 +130,12 @@ You should see
 1. several expected errors and warnings printed from unit tests that should succeed overall, and a coverage report
 2. output of a successful simulation run with two nodes
 3. output of a successful proof-of-concept run run with two nodes
+4. output of a set of startup kits being generated
+5. output of a dummy training run using one of the startup kits
 
 Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`.
 
-## Building Startup Kits
-   ```bash
-   ./runTestsInDocker.sh
-   ```
+## Distributing Startup Kits
 Distribute the startup kits to the clients.
 
 ## Running the Application
