@@ -40,6 +40,6 @@ docker build $DOCKER_BUILD_ARGS -t $DOCKER_IMAGE $CLEAN_SOURCE_DIR -f docker_con
 
 rm -rf $CLEAN_SOURCE_DIR
 
-./_buildStartupKits.sh $1 $VERSION
+./_buildStartupKits.sh $PROJECT_FILE $VERSION
 
 echo "If you wish, manually push $DOCKER_IMAGE now"
