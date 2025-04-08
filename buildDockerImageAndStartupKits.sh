@@ -1,14 +1,27 @@
 #!/usr/bin/env bash
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: buildDockerImageAndStartupKits.sh SWARM_PROJECT.yml"
-    exit 1
-fi
+set -e
 
 # make sure we are building from a state without local changes
 if ! git diff --quiet || ! git diff --staged --quiet ; then
-   echo "Local changes exist"
+   echo "Local changes exist, aborting"
    exit 1
+fi
+
+DOCKER_BUILD_ARGS=""
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -p)          PROJECT_FILE="$2"; shift ;;
+        --no-cache)  DOCKER_BUILD_ARGS="--no-cache";;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+if [ -z "$PROJECT_FILE" ]; then
+    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [--no-cache]"
+    exit 1
 fi
 
 VERSION=`./getVersionNumber.sh`
@@ -23,7 +36,7 @@ git clean -f .
 chmod a+rX . -R
 cd $CWD
 
-docker build -t $DOCKER_IMAGE $CLEAN_SOURCE_DIR -f docker_config/Dockerfile_ODELIA --build-arg CLEAN_SOURCE_DIR=$CLEAN_SOURCE_DIR
+docker build $DOCKER_BUILD_ARGS -t $DOCKER_IMAGE $CLEAN_SOURCE_DIR -f docker_config/Dockerfile_ODELIA --build-arg CLEAN_SOURCE_DIR=$CLEAN_SOURCE_DIR
 
 rm -rf $CLEAN_SOURCE_DIR
 
