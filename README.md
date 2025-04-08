@@ -113,11 +113,11 @@ The Docker image contains all dependencies for administrative purposes (dashboar
 The project description specifies the swarm nodes etc. to be used for a swarm training.
     ```bash
     cd MediSwarm
-    ./buildDockerImageAndStartupKits.sh application/provision/<PROJECT DESCRIPTION.yml>
+    ./buildDockerImageAndStartupKits.sh -p application/provision/<PROJECT DESCRIPTION.yml>
     ```
 
 1. Make sure you have no uncommitted changes.
-2. You may need to use `--no-cache` in the `docker build` command if, e.g., the apt repository index cache is out of date and package versions are not found.
+2. You may need to use `--no-cache` as an additional argument if, e.g., the apt repository index cache is out of date and package versions are not found.
 3. If package versions are still not available, you may have to check what the current version is and update the `Dockerfile` accordingly. Version numbers are hard-coded to avoid issues due to silently different versions being installed.
 4. After successful build (and after verifying that everything works as expected, i.e., local tests, building startup kits, running local trainings in the startup kit), you can manually push the image to DockerHub, provided you have the necessary rights. Make sure you are not re-using a version number for this purpose.
 
