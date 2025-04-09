@@ -65,13 +65,14 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```
 3. Verify that your Docker/GPU setup is working
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --dummy_training
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --dummy_training
    ```
    * This will pull the Docker image, which might take a while.
+   * If you have multiple GPUs and 0 is busy, use a different one.
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
 4. Verify that your local data can be accessed and the model can be trained locally
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --preflight_check
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check
    ```
    * Training time depends on the size of the local dataset
 
@@ -83,7 +84,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 2. Start the client
    ```bash
    rm -rf ../pid.fl ../daemon_pid.fl nohup.out  # clean up potential leftovers from previous run
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --start_client
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --start_client
    ```
 3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
    ```bash
