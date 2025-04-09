@@ -650,8 +650,8 @@ docker_cln_sh: |
   fi
 
   if [ -z "$GPU2USE" ]; then
-      read -p "Enter the GPU index to use or 'all' (default: all): " user_gpu
-      : ${GPU2USE:="${user_gpu:-all}"}
+      read -p "Enter the GPU index to use or 'all' (default: device=0): " user_gpu
+      : ${GPU2USE:="${user_gpu:-device=0}"}
   fi
 
   # Get the directory of the current script
