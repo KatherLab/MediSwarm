@@ -4,7 +4,7 @@
 
 ## 1. Run with Docker Environment
 
-To run the 3D CNN application using a Docker container, follow these steps:
+To run the 3D CNN application using a Docker container, first start an interactive container, either via the `docker.sh` script in the startup kit or manually via
 
 ```bash
 # Set the DATADIR variable

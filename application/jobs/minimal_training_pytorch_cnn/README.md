@@ -12,7 +12,7 @@ This should be done for development and debugging purposes only.
 
 ## Start Docker Environment
 
-To run the 3D CNN application using a Docker container, first start an interactive container
+To run the minimal CNN example application using a Docker container, first start an interactive container, either via the `docker.sh` script in the startup kit or manually via
 
 ```bash
 # Use the current image version, `tail -n 1 odelia_image.version` in the main MediSwarm directory
