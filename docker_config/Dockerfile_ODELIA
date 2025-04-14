@@ -21,6 +21,7 @@ RUN apt install -y base-files=12ubuntu4.7 bash=5.1-6ubuntu1.1 bsdutils=1:2.37.2-
 RUN apt install -y unzip=6.0-26ubuntu3.2 zip=3.0-12build2
 
 # Clean up apt cache
+RUN apt clean
 RUN rm -rf /var/lib/apt/lists/*
 
 # Install specific versions of pip and setuptools
