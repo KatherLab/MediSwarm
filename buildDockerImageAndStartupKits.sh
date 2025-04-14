@@ -13,7 +13,7 @@ DOCKER_BUILD_ARGS=""
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -p)          PROJECT_FILE="$2"; shift ;;
-        --no-cache)  DOCKER_BUILD_ARGS="--no-cache";;
+        --no-cache)  DOCKER_BUILD_ARGS="--no-cache --progress=plain";;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
