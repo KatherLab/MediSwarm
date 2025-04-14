@@ -57,7 +57,7 @@ For more details, refer to the [NVFLARE Quick Start with Simulator](https://nvfl
 
 ## Run Proof-of-Concept Mode
 
-Proof of Concept (POC) mode enables quick local setups on a single machine. The FL server and clients run in separate processes or Docker containers. To run POC mode:
+Proof of Concept (POC) mode enables quick local setups on a single machine. The FL server and clients run in separate processes. To run POC mode:
 
 ```bash
 nvflare poc prepare -c poc_client_0 poc_client_1
@@ -68,5 +68,3 @@ nvflare poc start
 ```
 
 For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
-
-TODO It should also be possible to run the proof of concept mode in separate Docker containers, requiring Docker in Docker. `nvflare poc prepare -c poc_client_0 poc_client_1 -d <name of the Docker image>`. This is currently not working.
