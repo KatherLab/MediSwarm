@@ -33,6 +33,9 @@ RUN apt install -y apparmor=3.0.4-2ubuntu2.4 containerd.io=1.7.27-1 dbus-user-se
 # Clean up apt cache
 RUN rm -rf /var/lib/apt/lists/*
 
+# uninstall conda to prevent usage and avoid and potential repository license issues
+RUN python3 -m pip uninstall -y conda conda-package-handling conda_index
+
 # Install specific versions of pip and setuptools
 RUN python3 -m pip install -U pip==23.3.1 setuptools==75.8.2
 
