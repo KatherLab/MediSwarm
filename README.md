@@ -30,6 +30,7 @@ We demonstrate that the system can run on lightweight hardware like this. For le
     git clone https://github.com/KatherLab/MediSwarm.git --recurse-submodules
     ```
 * The last argument is necessary because we are using a git submodule for the (ODELIA fork of NVFlare)[https://github.com/KatherLab/NVFlare_MediSwarm]
+* If you have cloned it without this argument, use `git submodule update --init --recursive`
 
 ### VPN
 A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose,
