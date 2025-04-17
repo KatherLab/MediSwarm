@@ -44,7 +44,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 # Usage for Swarm Participants
 ## Setup
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
-2. Clone the repository and cnnect the client node to the VPN as described above.
+2. Clone the repository and connect the client node to the VPN as described above.
 3. TODO anything else?
 
 ## Prepare Dataset
