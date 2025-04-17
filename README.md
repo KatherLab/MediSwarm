@@ -57,7 +57,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 1. Directories
    ```bash
    export SITE_NAME=<the name of your site>  # TODO should be defined above, also needed for dataset location
-   export DATADIR=<path to where the directory $SITE_NAME containing your local data is stored>
+   export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data is stored>
    export SCRATCHDIR=<path to where the training can store temporary files>
    ```
 2. From the directory where you unpacked the startup kit,
