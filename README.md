@@ -30,6 +30,7 @@ We demonstrate that the system can run on lightweight hardware like this. For le
     git clone https://github.com/KatherLab/MediSwarm.git --recurse-submodules
     ```
 * The last argument is necessary because we are using a git submodule for the (ODELIA fork of NVFlare)[https://github.com/KatherLab/NVFlare_MediSwarm]
+* If you have cloned it without this argument, use `git submodule update --init --recursive`
 
 ### VPN
 A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose,
@@ -43,7 +44,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 # Usage for Swarm Participants
 ## Setup
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
-2. Clone the repository and cnnect the client node to the VPN as described above.
+2. Clone the repository and connect the client node to the VPN as described above.
 3. TODO anything else?
 
 ## Prepare Dataset
@@ -56,7 +57,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 1. Directories
    ```bash
    export SITE_NAME=<the name of your site>  # TODO should be defined above, also needed for dataset location
-   export DATADIR=<path to where the directory $SITE_NAME containing your local data is stored>
+   export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data is stored>
    export SCRATCHDIR=<path to where the training can store temporary files>
    ```
 2. From the directory where you unpacked the startup kit,
@@ -65,7 +66,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```
 3. Verify that your Docker/GPU setup is working
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --dummy_training
+   ./docker.sh --scratch_dir $SCRATCHDIR --GPU device=0 --dummy_training
    ```
    * This will pull the Docker image, which might take a while.
    * If you have multiple GPUs and 0 is busy, use a different one.
@@ -83,7 +84,6 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```
 2. Start the client
    ```bash
-   rm -rf ../pid.fl ../daemon_pid.fl nohup.out  # clean up potential leftovers from previous run
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --start_client
    ```
 3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
@@ -110,15 +110,16 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 ## Versioning of ODELIA Docker Images
 If needed, update the version number in file (odelia_image.version)[odelia_image.version]. It will be used automatically for the Docker image and startup kits.
 
-## Build the Docker Image
+## Build the Docker Image and Startup Kits
 The Docker image contains all dependencies for administrative purposes (dashboard, command-line provisioning, admin console, server) as well as for running the 3DCNN pipeline under the pytorch-lightning framework.
+The project description specifies the swarm nodes etc. to be used for a swarm training.
     ```bash
     cd MediSwarm
-    ./buildDockerImage.sh
+    ./buildDockerImageAndStartupKits.sh -p application/provision/<PROJECT DESCRIPTION.yml>
     ```
 
 1. Make sure you have no uncommitted changes.
-2. You may need to use `--no-cache` in the `docker build` command if, e.g., the apt repository index cache is out of date and package versions are not found.
+2. You may need to use `--no-cache` as an additional argument if, e.g., the apt repository index cache is out of date and package versions are not found.
 3. If package versions are still not available, you may have to check what the current version is and update the `Dockerfile` accordingly. Version numbers are hard-coded to avoid issues due to silently different versions being installed.
 4. After successful build (and after verifying that everything works as expected, i.e., local tests, building startup kits, running local trainings in the startup kit), you can manually push the image to DockerHub, provided you have the necessary rights. Make sure you are not re-using a version number for this purpose.
 
@@ -131,13 +132,12 @@ You should see
 1. several expected errors and warnings printed from unit tests that should succeed overall, and a coverage report
 2. output of a successful simulation run with two nodes
 3. output of a successful proof-of-concept run run with two nodes
+4. output of a set of startup kits being generated
+5. output of a dummy training run using one of the startup kits
 
 Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`.
 
-## Building Startup Kits
-   ```bash
-   ./runTestsInDocker.sh
-   ```
+## Distributing Startup Kits
 Distribute the startup kits to the clients.
 
 ## Running the Application
