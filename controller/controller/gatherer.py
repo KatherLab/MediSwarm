@@ -23,6 +23,8 @@ class _TrainerStatus:
         self.name = name
         self.reply_time = None
 
+class MediSwarmConstant:
+    METRICS_TO_BROADCAST = 'METRICS_TO_BROADCAST'
 
 class Gatherer(FLComponent):
     """
@@ -54,6 +56,7 @@ class Gatherer(FLComponent):
         self.trainer_statuses = {}
         self.start_time = time.time()
         self.timeout = timeout
+        self.all_client_metrics = {}
 
         for t in trainers:
             self.trainer_statuses[t] = _TrainerStatus(t)
@@ -135,6 +138,8 @@ class Gatherer(FLComponent):
             fl_ctx, f"Contribution from {client_name} {accepted_msg} by the aggregator at round {result_round}."
         )
 
+        self.all_client_metrics[client_name] = result.get_header(MediSwarmConstant.METRICS_TO_BROADCAST, {})
+
         fl_ctx.set_prop(AppConstants.AGGREGATION_ACCEPTED, accepted, private=True, sticky=False)
         self.fire_event(AppEventType.AFTER_CONTRIBUTION_ACCEPT, fl_ctx)
         return make_reply(ReturnCode.OK)
@@ -189,6 +194,7 @@ class Gatherer(FLComponent):
         aggr_result.set_header(Constant.ROUND, best_round)
         aggr_result.set_header(Constant.METRIC, best_metric)
         aggr_result.set_header(Constant.CLIENT, best_client)
+        aggr_result.set_header(MediSwarmConstant.METRICS_TO_BROADCAST, self.all_client_metrics)
 
         return aggr_result
 

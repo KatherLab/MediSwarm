@@ -4,7 +4,7 @@ import random
 import threading
 import time
 
-from controller.gatherer import Gatherer
+from controller.gatherer import Gatherer, MediSwarmConstant
 
 from nvflare.apis.controller_spec import Task
 from nvflare.apis.dxo import from_shareable, MetaKey
@@ -295,6 +295,8 @@ class SwarmClientController(ClientSideController):
             next_round_data.set_header(Constant.CLIENT, best_client)
             next_round_data.set_header(Constant.METRIC, best_metric)
 
+        next_round_data.set_header(MediSwarmConstant.METRICS_TO_BROADCAST, gatherer.all_client_metrics)
+
         self._scatter(next_round_data, gatherer.for_round + 1, gatherer.fl_ctx)
 
     def _ask_to_share_best_result(self, client: str, metric, fl_ctx: FLContext):
@@ -414,6 +416,8 @@ class SwarmClientController(ClientSideController):
                 return
 
             self.log_info(fl_ctx, f"Round {current_round} started.")
+            metrics_from_previous_rounds = task_data.get_header(MediSwarmConstant.METRICS_TO_BROADCAST, {})
+            self.log_info(fl_ctx, f"Metrics from previous round: {metrics_from_previous_rounds}.")
             task_data.set_header(FLContextKey.TASK_NAME, name)
 
             base_model = fl_ctx.get_prop(AppConstants.GLOBAL_MODEL)
@@ -467,6 +471,7 @@ class SwarmClientController(ClientSideController):
                 dxo = from_shareable(result)
                 validation_metrics = dxo.get_meta_prop(MetaKey.INITIAL_METRICS)
                 self.log_info(fl_ctx, f"Current performance metrics: {validation_metrics}")
+                result.set_header(MediSwarmConstant.METRICS_TO_BROADCAST, validation_metrics)
 
                 self.log_info(fl_ctx, f"Sending training result to aggregation client {aggr}")
                 task = Task(
