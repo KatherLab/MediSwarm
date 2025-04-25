@@ -16,7 +16,7 @@ To run the minimal CNN example application using a Docker container, first start
 
 ```bash
 # Use the current image version, `tail -n 1 odelia_image.version` in the main MediSwarm directory
-DOCKER_IMAGE=jefftud/odelia:$DOCKER_IMAGE_VERSION
+export DOCKER_IMAGE=jefftud/odelia:$DOCKER_IMAGE_VERSION
 # Run the Docker container
 docker run -it --rm \
     --shm-size=16g \
@@ -48,6 +48,7 @@ cd /workspace
 The FL Simulator is a lightweight tool that uses threads to simulate multiple clients. It is useful for quick local testing and debugging. Run the following command to start the simulator:
 
 ```bash
+export TRAINING_MODE="swarm"
 nvflare simulator -w /tmp/minimal_training_pytorch_cnn -n 2 -t 2 application/jobs/minimal_training_pytorch_cnn -c simulated_node_0,simulated_node_1
 ```
 
@@ -63,11 +64,14 @@ For more details, refer to the [NVFLARE Quick Start with Simulator](https://nvfl
 Proof of Concept (POC) mode enables quick local setups on a single machine. The FL server and clients run in separate processes or Docker containers started from within the Docker container. To run POC mode:
 
 ```bash
+export TRAINING_MODE="swarm"
 nvflare poc prepare -c poc_client_0 poc_client_1
 nvflare poc prepare-jobs-dir -j application/jobs/
 
 # Start POC
-nvflare poc start
+nvflare poc start -ex dummy@add.ress
+# wait about 15 seconds until previous command finishes
+nvflare job submit -j application/jobs/minimal_training_pytorch_cnn
 ```
 
 For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
