@@ -7,6 +7,7 @@ import time
 from controller.gatherer import Gatherer
 
 from nvflare.apis.controller_spec import Task
+from nvflare.apis.dxo import from_shareable, MetaKey
 from nvflare.apis.fl_constant import FLContextKey, ReturnCode
 from nvflare.apis.fl_context import FLContext
 from nvflare.apis.shareable import Shareable, make_reply
@@ -462,6 +463,10 @@ class SwarmClientController(ClientSideController):
                     self.log_error(fl_ctx, f"Learn executor failed: {rc}")
                     self.update_status(action="learner_execution", error=rc)
                     return
+
+                dxo = from_shareable(result)
+                validation_metrics = dxo.get_meta_prop(MetaKey.INITIAL_METRICS)
+                self.log_info(fl_ctx, f"Current performance metrics: {validation_metrics}")
 
                 self.log_info(fl_ctx, f"Sending training result to aggregation client {aggr}")
                 task = Task(
