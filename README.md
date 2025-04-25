@@ -30,6 +30,7 @@ We demonstrate that the system can run on lightweight hardware like this. For le
     git clone https://github.com/KatherLab/MediSwarm.git --recurse-submodules
     ```
 * The last argument is necessary because we are using a git submodule for the (ODELIA fork of NVFlare)[https://github.com/KatherLab/NVFlare_MediSwarm]
+* If you have cloned it without this argument, use `git submodule update --init --recursive`
 
 ### VPN
 A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose,
@@ -43,7 +44,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 # Usage for Swarm Participants
 ## Setup
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
-2. Clone the repository and cnnect the client node to the VPN as described above.
+2. Clone the repository and connect the client node to the VPN as described above.
 3. TODO anything else?
 
 ## Prepare Dataset
@@ -56,7 +57,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 1. Directories
    ```bash
    export SITE_NAME=<the name of your site>  # TODO should be defined above, also needed for dataset location
-   export DATADIR=<path to where the directory $SITE_NAME containing your local data is stored>
+   export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data is stored>
    export SCRATCHDIR=<path to where the training can store temporary files>
    ```
 2. From the directory where you unpacked the startup kit,
