@@ -4,7 +4,7 @@
 
 ## 1. Run with Docker Environment
 
-To run the 3D CNN application using a Docker container, first start an interactive container, either via the `docker.sh` script in the startup kit or manually via
+To run the 3D CNN application using a Docker container, first start an interactive container from the main MediSwarm directory.
 
 ```bash
 # Set the DATADIR variable
@@ -32,6 +32,7 @@ docker run -it --rm \
 Before running a swarm dummy training, first make sure the code works in non-swarm mode.
 
 ```bash
+# cd /MediSwarm   # only if you wish to use the code contained in the image
 cd application/jobs/3dcnn_ptl/app/custom/
 export TRAINING_MODE="local_training"
 export SITE_NAME=<your site name, i.e., the subfolder of $DATADIR where your data is located>
@@ -42,29 +43,37 @@ cd /workspace
 
 ## Run Swarm Simulation
 
-The FL Simulator is a lightweight tool that uses threads to simulate multiple clients. It is useful for quick local testing and debugging. Run the following command to start the simulator:
+The FL Simulator is a lightweight tool that uses threads to simulate multiple clients. It is useful for quick local testing and debugging. Run the following command to start the simulator
 
 ```bash
+# cd /MediSwarm   # only if you wish to use the code contained in the image
+export TRAINING_MODE="swarm"
 nvflare simulator -w /tmp/3dcnn_ptl -n 2 -t 2 application/jobs/3dcnn_ptl -c simulated_node_0,simulated_node_1
 ```
 
 * `-w /tmp/3dcnn_ptl`: Specifies the working directory.
 * `-n 2`: Sets the number of clients.
 * `-t 2`: Specifies the number of threads.
-* `-c simulated_node_0,simulated_node_1`: Names the two simulated nodes.
+* `-c simulated_node_0,simulated_node_1`: Names the two simulated nodes. Subdirectories of $DATADIR with these names containing data need to be present.
 
 For more details, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/2.4.1/getting_started.html#quick-start-with-simulator).
 
 ## Run Proof-of-Concept Mode
 
-Proof of Concept (POC) mode enables quick local setups on a single machine. The FL server and clients run in separate processes. To run POC mode:
+Proof of Concept (POC) mode enables quick local setups on a single machine. The FL server and clients run in separate processes or Docker containers. To run POC mode:
 
 ```bash
-nvflare poc prepare -c poc_client_0 poc_client_1
+# cd /MediSwarm   # only if you wish to use the code contained in the image
+export TRAINING_MODE="swarm"
+nvflare poc prepare -c poc_client_0 poc_client_1  #  Subdirectories of $DATADIR with these names containing data need to be present.
 nvflare poc prepare-jobs-dir -j application/jobs/
 
 # Start POC
-nvflare poc start
+nvflare poc start -ex dummy@add.ress
+# wait about 15 seconds until previous command finishes
+nvflare job submit -j application/jobs/3dcnn_ptl
 ```
 
 For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
+
+TODO It should also be possible to run the proof of concept mode in separate Docker containers, requiring Docker in Docker. `nvflare poc prepare -c poc_client_0 poc_client_1 -d <name of the Docker image>`. This is currently not working.
