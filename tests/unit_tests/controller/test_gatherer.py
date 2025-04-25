@@ -21,7 +21,7 @@ class MockedResult(Shareable):
         super().__init__()
         self.current_round: int = current_round
 
-    def get_header(self, key):
+    def get_header(self, key, _=None):
         if key == AppConstants.CURRENT_ROUND:
             return self.current_round
 
