@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 # run unit tests of ODELIA swarm learning and report coverage
 export MPLCONFIGDIR=/tmp
 cd /MediSwarm/tests/unit_tests/controller

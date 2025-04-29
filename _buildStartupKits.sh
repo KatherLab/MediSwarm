@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 if [ "$#" -ne 2 ]; then
     echo "Usage: _buildStartupKits.sh SWARM_PROJECT.yml VERSION_STRING"
     exit 1
