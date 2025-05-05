@@ -32,7 +32,11 @@ CWD=`pwd`
 CLEAN_SOURCE_DIR=`mktemp -d`
 cp -r . $CLEAN_SOURCE_DIR/
 cd $CLEAN_SOURCE_DIR
-git clean -f .
+git clean -x -q -f .
+cd docker_config/NVFlare
+git clean -x -q -f .
+cd ../..
+rm .git -rf
 chmod a+rX . -R
 cd $CWD
 
