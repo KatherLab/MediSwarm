@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os
+import os, subprocess
 
 import nvflare.client.lightning as flare
 import nvflare.client as flare_util
@@ -24,6 +24,10 @@ def main():
     Main function for training and evaluating the model using NVFlare and PyTorch Lightning.
     """
     logger = minimal_training.set_up_logging()
+
+    if TRAINING_MODE == "swarm":
+        subprocess.call(['/MediSwarm/_verifyCodeIntegrity.sh', 'minimal_training_pytorch_cnn'])
+
     try:
         data_module, model, checkpointing, trainer = minimal_training.prepare_training(logger)
 
