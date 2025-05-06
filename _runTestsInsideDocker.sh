@@ -23,14 +23,22 @@ export TRAINING_MODE="local_training"
 # run simulation mode for minimal example
 cd /MediSwarm
 export TRAINING_MODE="swarm"
-nvflare simulator -w /tmp/minimal_training_pytorch_cnn -n 2 -t 2 application/jobs/minimal_training_pytorch_cnn -c simulated_node_0,simulated_node_1
+nvflare simulator -w /tmp/minimal_training_pytorch_cnn -n 2 -t 2 application/jobs/minimal_training_pytorch_cnn -c simulated_node_0,simulated_node_1 | tee /scratch/minimal_training_pytorch_cnn_sim.log
+
+if [[ ! -z $(grep "MediSwarm code verification succeeded" /scratch/minimal_training_pytorch_cnn_sim.log) ]] && \
+   [[ ! -z $(grep "Round 4 started" /scratch/minimal_training_pytorch_cnn_sim.log) ]]; then
+    echo "Simulation mode succeeded."
+else
+    echo "Simulation mode failed."
+    exit 1
+fi
 
 # run proof-of-concept mode for minimal example
 cd /MediSwarm
 export TRAINING_MODE="swarm"
 nvflare poc prepare -c poc_client_0 poc_client_1
 nvflare poc prepare-jobs-dir -j application/jobs/
-nvflare poc start -ex admin@nvidia.com
+nvflare poc start -ex admin@nvidia.com | tee /scratch/minimal_training_pytorch_cnn_poc.log &
 sleep 15
 echo "Will submit job now after sleeping 15 seconds to allow the background process to complete"
 nvflare job submit -j application/jobs/minimal_training_pytorch_cnn
@@ -38,3 +46,11 @@ sleep 60
 echo "Will shut down now after sleeping 60 seconds to allow the background process to complete"
 sleep 2
 nvflare poc stop
+
+if [[ ! -z $(grep "MediSwarm code verification succeeded" /scratch/minimal_training_pytorch_cnn_poc.log) ]] && \
+   [[ ! -z $(grep "Round 4 started" /scratch/minimal_training_pytorch_cnn_poc.log) ]]; then
+    echo "Proof-of-concept mode succeeded."
+else
+    echo "Proof-of-concept mode failed."
+    exit 1
+fi
