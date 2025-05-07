@@ -3,7 +3,7 @@
 # This script should be called only at the beginning of a swarm training.
 
 DISTRIBUTED_CODE_FOLDER=`pwd`
-EXPECTED_CODE_FOLDER=/MediSwarm/application/jobs/$1/app
+EXPECTED_CODE_FOLDER=/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app
 
 cd $EXPECTED_CODE_FOLDER
 find . \( -name "*.py" -o -name "*.conf" \) -exec shasum {} \; | sort > /tmp/expected_sha_sums.txt

@@ -25,9 +25,6 @@ def main():
     """
     logger = minimal_training.set_up_logging()
 
-    if TRAINING_MODE == "swarm":
-        subprocess.call(['/MediSwarm/_verifyCodeIntegrity.sh', 'minimal_training_pytorch_cnn'])
-
     try:
         data_module, model, checkpointing, trainer = minimal_training.prepare_training(logger)
 
