@@ -64,14 +64,21 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```bash
    cd $SITE_NAME/startup
    ```
-3. Verify that your Docker/GPU setup is working
+3. Check that the code contained in the startup kit is the expected code: Use
+   ```bash
+   ./docker.sh --scratch_dir $SCRATCHDIR --extract_mediswarm_code
+   ```
+   to extract the MediSwarm and application code.
+   This is the code used for local training.
+   For swarm training, the code distributed by NVFlare is compared to the files in this directory before being executed.
+4. Verify that your Docker/GPU setup is working
    ```bash
    ./docker.sh --scratch_dir $SCRATCHDIR --GPU device=0 --dummy_training
    ```
    * This will pull the Docker image, which might take a while.
    * If you have multiple GPUs and 0 is busy, use a different one.
    * The “training” itself should take less than minute and does not yield a meaningful classification performance.
-4. Verify that your local data can be accessed and the model can be trained locally
+5. Verify that your local data can be accessed and the model can be trained locally
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check
    ```
