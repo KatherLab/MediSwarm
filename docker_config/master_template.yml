@@ -684,7 +684,7 @@ docker_cln_sh: |
   if [[ ! -z "$MY_DATA_DIR" ]]; then
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
   fi
-  DOCKER_OPTIONS_C="-w /startupkit/startup/ --ipc=host $NETARG"
+  DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
   DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
