@@ -679,7 +679,7 @@ docker_cln_sh: |
   if [[ ! -z "$GPU2USE" ]]; then
      DOCKER_OPTIONS_A+=" --gpus=$GPU2USE"
   fi
-  DOCKER_OPTIONS_A+=" -u $(id -u):$(id -g)"
+  DOCKER_OPTIONS_A+=" -u $(id -u):$(id -g) --shm-size=16g"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
   if [[ ! -z "$MY_DATA_DIR" ]]; then
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
