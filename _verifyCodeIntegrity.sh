@@ -9,6 +9,12 @@ fi
 APC_FOLDER_NAME_=`cat custom/MediSwarmAPCFolderName.txt`
 APC_FOLDER_NAME=`basename $APC_FOLDER_NAME_`
 
+/MediSwarm/_validateMediSwarmAPCFolderName.py $APC_FOLDER_NAME
+if [ $? -ne 0 ]; then
+  echo "Invalid application folder name" $APC_FOLDER_NAME
+  exit 1
+fi
+
 DISTRIBUTED_CODE_FOLDER=`pwd`
 EXPECTED_CODE_FOLDER=/MediSwarm/application/jobs/$APC_FOLDER_NAME/app
 
