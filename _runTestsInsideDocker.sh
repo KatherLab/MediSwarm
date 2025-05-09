@@ -95,3 +95,20 @@ fi
 rm /scratch/minimal_training_pytorch_cnn_modified_poc.log
 
 rm -rf application/jobs/minimal_training_pytorch_cnn_modified
+
+# check, via simulation mode, that comparison is only allowed to known application code
+cd /MediSwarm
+export TRAINING_MODE="swarm"
+cp -r application/jobs/minimal_training_pytorch_cnn application/jobs/minimal_training_pytorch_cnn_modified
+echo "../some/other/path" > application/jobs/minimal_training_pytorch_cnn_modified/app/custom/MediSwarmAPCFolderName.txt
+
+nvflare simulator -w /tmp/minimal_training_pytorch_cnn_modified -n 2 -t 2 application/jobs/minimal_training_pytorch_cnn_modified -c simulated_node_0,simulated_node_1 | tee /scratch/minimal_training_pytorch_cnn_modified_sim.log
+
+if [[ ! -z $(grep "Invalid application folder name" /scratch/minimal_training_pytorch_cnn_modified_sim.log) ]] && \
+   [[ -z $(grep "Round 1 started" /scratch/minimal_training_pytorch_cnn_modified_sim.log) ]]; then
+    echo "✅ Code modification detected successfully. (Execution exceptions in the output above are expected)"
+else
+    echo "❌ Code modification not detected."
+    exit 1
+fi
+rm /scratch/minimal_training_pytorch_cnn_modified_sim.log
