@@ -40,7 +40,7 @@ rm .git -rf
 chmod a+rX . -R
 cd $CWD
 
-docker build $DOCKER_BUILD_ARGS -t $DOCKER_IMAGE $CLEAN_SOURCE_DIR -f docker_config/Dockerfile_ODELIA --build-arg CLEAN_SOURCE_DIR=$CLEAN_SOURCE_DIR
+docker build $DOCKER_BUILD_ARGS -t $DOCKER_IMAGE $CLEAN_SOURCE_DIR -f docker_config/Dockerfile_ODELIA
 
 rm -rf $CLEAN_SOURCE_DIR
 
