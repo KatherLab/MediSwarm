@@ -1,244 +1,238 @@
-import torchio as tio
-from typing import Tuple, Union, Optional, Dict
-from numbers import Number
-import nibabel as nib
-import numpy as np
 import torch
-from torchio.typing import TypeRangeFloat
+import torch.nn as nn
+import torchvision.models as models
+from einops import rearrange
+from torch.utils.checkpoint import checkpoint
+from x_transformers import Encoder
+from typing import Union, Optional, Sequence
+import torchio as tio
+from torchio.typing import TypeRangeFloat, TypeTripletInt
 from torchio.transforms.transform import TypeMaskingMethod
 from torchio import Subject, Image
+import numpy as np
+
+from .base_model import BasicClassifier, BasicRegression
 
 
-class SubjectToTensor:
-    """Transforms TorchIO Subjects into a Python dict and changes axes order from TorchIO to Torch."""
-
-    def __call__(self, subject: Subject) -> Dict[str, torch.Tensor]:
-        """Transforms the given subject.
-
-        Args:
-            subject (Subject): The subject to be transformed.
-
-        Returns:
-            Dict[str, torch.Tensor]: A dictionary with transformed subject data.
-        """
-        return {key: val.data.swapaxes(1, -1) if isinstance(val, Image) else val for key, val in subject.items()}
+def _get_resnet_torch(model):
+    """Retrieve the specified ResNet model from torchvision."""
+    return {
+        18: models.resnet18,
+        34: models.resnet34,
+        50: models.resnet50,
+        101: models.resnet101,
+        152: models.resnet152
+    }.get(model)
 
 
-class ImageToTensor:
-    """Transforms TorchIO Image into a Numpy/Torch Tensor and changes axes order from TorchIO [B, C, W, H, D] to Torch [B, C, D, H, W]."""
-
-    def __call__(self, image: Image) -> torch.Tensor:
-        """Transforms the given image.
-
-        Args:
-            image (Image): The image to be transformed.
-
-        Returns:
-            torch.Tensor: The transformed image tensor.
-        """
-        return image.data.swapaxes(1, -1)
+class TransformerEncoder(Encoder):
+    """Override the default forward to match input formatting."""
+    def forward(self, x, mask=None, src_key_padding_mask=None):
+        src_key_padding_mask = ~src_key_padding_mask if src_key_padding_mask is not None else None
+        mask = ~mask if mask is not None else None
+        return super().forward(x=x, context=None, mask=src_key_padding_mask, context_mask=None, attn_mask=mask)
 
 
-def parse_per_channel(per_channel: Union[bool, list], channels: int) -> list:
-    """Parses the per_channel argument.
+class _MST(nn.Module):
+    """Multi-slice transformer for 3D volume input classification or regression."""
+    def __init__(self, out_ch=1, backbone_type="dinov2", model_size="s", slice_fusion_type="transformer"):
+        super().__init__()
+        self.backbone_type = backbone_type
+        self.slice_fusion_type = slice_fusion_type
 
-    Args:
-        per_channel (Union[bool, list]): Whether to apply per channel.
-        channels (int): The number of channels.
-
-    Returns:
-        list: A list of channel tuples.
-    """
-    if isinstance(per_channel, bool):
-        if per_channel:
-            return [(ch,) for ch in range(channels)]
+        if backbone_type == "resnet":
+            Model = _get_resnet_torch(model_size)
+            self.backbone = Model(weights="DEFAULT")
+            emb_ch = self.backbone.fc.in_features
+            self.backbone.fc = nn.Identity()
+        elif backbone_type == "dinov2":
+            self.backbone = torch.hub.load('facebookresearch/dinov2', f'dinov2_vit{model_size}14')
+            self.backbone.mask_token = None
+            emb_ch = self.backbone.num_features
         else:
-            return [tuple(ch for ch in range(channels))]
-    else:
-        return per_channel
+            raise ValueError("Unknown backbone_type")
+
+        self.emb_ch = emb_ch
+
+        if slice_fusion_type == "transformer":
+            self.slice_fusion = TransformerEncoder(
+                dim=emb_ch,
+                heads=12 if emb_ch % 12 == 0 else 8,
+                ff_mult=1,
+                attn_dropout=0.0,
+                pre_norm=True,
+                depth=1,
+                attn_flash=True,
+                ff_no_bias=True,
+                rotary_pos_emb=True,
+            )
+            self.cls_token = nn.Parameter(torch.randn(1, 1, emb_ch))
+        elif slice_fusion_type in ["average", "none"]:
+            self.slice_fusion = None
+        else:
+            raise ValueError("Unknown slice_fusion_type")
+
+        self.linear = nn.Linear(emb_ch, out_ch)
+
+    def forward(self, x):
+        B, *_ = x.shape
+        x = rearrange(x, 'b c d h w -> (b c d) h w')
+        x = x[:, None].repeat(1, 3, 1, 1)  # Gray to RGB
+
+        x = self.backbone(x)  # (B * D, E)
+        x = rearrange(x, '(b d) e -> b d e', b=B)
+
+        if self.slice_fusion_type == 'none':
+            return x
+        elif self.slice_fusion_type == 'transformer':
+            x = torch.cat([x, self.cls_token.repeat(B, 1, 1)], dim=1)
+            x = self.slice_fusion(x)
+        elif self.slice_fusion_type == 'average':
+            x = x.mean(dim=1, keepdim=True)
+
+        x = self.linear(x[:, -1])
+        return x
+
+
+class MST(BasicClassifier):
+    """MST-based classifier using ViT or ResNet as backbone."""
+    def __init__(
+        self,
+        in_ch=1,
+        out_ch=1,
+        spatial_dims=3,
+        backbone_type="dinov2",
+        model_size="s",
+        slice_fusion_type="transformer",
+        optimizer_kwargs={'lr': 1e-6},
+        **kwargs
+    ):
+        super().__init__(in_ch, out_ch, spatial_dims, optimizer_kwargs=optimizer_kwargs, **kwargs)
+        self.mst = _MST(out_ch=out_ch, backbone_type=backbone_type, model_size=model_size, slice_fusion_type=slice_fusion_type)
+
+    def forward(self, x):
+        return self.mst(x)
+
+
+class MSTRegression(BasicRegression):
+    """MST-based regression model."""
+    def __init__(
+        self,
+        in_ch=1,
+        out_ch=1,
+        spatial_dims=3,
+        backbone_type="dinov2",
+        model_size="s",
+        slice_fusion_type="transformer",
+        optimizer_kwargs={'lr': 1e-6},
+        **kwargs
+    ):
+        super().__init__(in_ch, out_ch, spatial_dims, optimizer_kwargs=optimizer_kwargs, **kwargs)
+        self.mst = _MST(out_ch=out_ch, backbone_type=backbone_type, model_size=model_size, slice_fusion_type=slice_fusion_type)
+
+    def forward(self, x):
+        return self.mst(x)
+
+
+class ImageOrSubjectToTensor(object):
+    """Converts a torchio Image or Subject to a tensor format by swapping axes."""
+    def __call__(self, input: Union[Image, Subject]):
+        if isinstance(input, Subject):
+            return {key: val.data.swapaxes(1, -1) if isinstance(val, Image) else val for key, val in input.items()}
+        else:
+            return input.data.swapaxes(1, -1)
+
+
+def parse_per_channel(per_channel, channels):
+    if isinstance(per_channel, bool):
+        return [(ch,) for ch in range(channels)] if per_channel else [tuple(range(channels))]
+    return per_channel
 
 
 class ZNormalization(tio.ZNormalization):
-    """Add option 'per_channel' to apply znorm for each channel independently and percentiles to clip values first."""
-
+    """Z-Normalization with support for per-channel and per-slice options, and percentile-based clipping."""
     def __init__(
-            self,
-            percentiles: TypeRangeFloat = (0, 100),
-            per_channel: Union[bool, list] = True,
-            masking_method: TypeMaskingMethod = None,
-            **kwargs
+        self,
+        percentiles: TypeRangeFloat = (0, 100),
+        per_channel=True,
+        per_slice=False,
+        masking_method: TypeMaskingMethod = None,
+        **kwargs
     ):
         super().__init__(masking_method=masking_method, **kwargs)
         self.percentiles = percentiles
         self.per_channel = per_channel
+        self.per_slice = per_slice
 
-    def apply_normalization(
-            self,
-            subject: Subject,
-            image_name: str,
-            mask: torch.Tensor,
-    ) -> None:
-        """Applies normalization to the given subject.
-
-        Args:
-            subject (Subject): The subject to normalize.
-            image_name (str): The name of the image to normalize.
-            mask (torch.Tensor): The mask tensor.
-        """
+    def apply_normalization(self, subject: Subject, image_name: str, mask: torch.Tensor) -> None:
         image = subject[image_name]
         per_channel = parse_per_channel(self.per_channel, image.shape[0])
+        per_slice = parse_per_channel(self.per_slice, image.shape[-1])
 
         image.set_data(torch.cat([
-            self._znorm(image.data[chs,], mask[chs,], image_name, image.path)
-            for chs in per_channel])
-        )
+            torch.cat([
+                self._znorm(image.data[chs, ..., sl], mask[chs, ..., sl], image_name, image.path)
+                for sl in per_slice
+            ], dim=-1)
+            for chs in per_channel
+        ]))
 
-    def _znorm(self, image_data: torch.Tensor, mask: torch.Tensor, image_name: str, image_path: str) -> torch.Tensor:
-        """Applies z-normalization to the given image data.
-
-        Args:
-            image_data (torch.Tensor): The image data to normalize.
-            mask (torch.Tensor): The mask tensor.
-            image_name (str): The name of the image.
-            image_path (str): The path of the image.
-
-        Returns:
-            torch.Tensor: The normalized image data.
-
-        Raises:
-            RuntimeError: If standard deviation is 0 for masked values.
-        """
+    def _znorm(self, image_data, mask, image_name, image_path):
         cutoff = torch.quantile(image_data.masked_select(mask).float(), torch.tensor(self.percentiles) / 100.0)
         torch.clamp(image_data, *cutoff.to(image_data.dtype).tolist(), out=image_data)
-
         standardized = self.znorm(image_data, mask)
         if standardized is None:
-            message = (
-                'Standard deviation is 0 for masked values'
-                f' in image "{image_name}" ({image_path})'
+            raise RuntimeError(
+                f'Standard deviation is 0 for masked values in image "{image_name}" ({image_path})'
             )
-            raise RuntimeError(message)
         return standardized
 
 
-class RescaleIntensity(tio.RescaleIntensity):
-    """Add option 'per_channel' to apply rescale for each channel independently."""
-
-    def __init__(
-            self,
-            out_min_max: TypeRangeFloat = (0, 1),
-            percentiles: TypeRangeFloat = (0, 100),
-            masking_method: TypeMaskingMethod = None,
-            in_min_max: Optional[Tuple[float, float]] = None,
-            per_channel: Union[bool, list] = True,
-            # Bool or List of tuples containing channel indices that should be normalized together
-            **kwargs
-    ):
-        super().__init__(out_min_max, percentiles, masking_method, in_min_max, **kwargs)
-        self.per_channel = per_channel
-
-    def apply_normalization(
-            self,
-            subject: Subject,
-            image_name: str,
-            mask: torch.Tensor,
-    ) -> None:
-        """Applies normalization to the given subject.
-
-        Args:
-            subject (Subject): The subject to normalize.
-            image_name (str): The name of the image to normalize.
-            mask (torch.Tensor): The mask tensor.
-        """
-        image = subject[image_name]
-        per_channel = parse_per_channel(self.per_channel, image.shape[0])
-
-        image.set_data(torch.cat([
-            self.rescale(image.data[chs,], mask[chs,], image_name)
-            for chs in per_channel])
-        )
-
-
-class Pad(tio.Pad):
-    """Fixed version of TorchIO Pad.
-
-    Pads with zeros for LabelMaps independent of padding mode (e.g., don't pad with mean).
-    Pads with global (not per axis) 'maximum', 'mean', 'median', 'minimum' if any of these padding modes were selected.
-    """
-
-    def apply_transform(self, subject: Subject) -> Subject:
-        """Applies padding to the given subject.
-
-        Args:
-            subject (Subject): The subject to pad.
-
-        Returns:
-            Subject: The padded subject.
-        """
-        assert self.bounds_parameters is not None
-        low = self.bounds_parameters[::2]
-        for image in self.get_images(subject):
-            new_origin = nib.affines.apply_affine(image.affine, -np.array(low))
-            new_affine = image.affine.copy()
-            new_affine[:3, 3] = new_origin
-            kwargs: Dict[str, Union[str, float]]
-            if isinstance(self.padding_mode, Number):
-                kwargs = {
-                    'mode': 'constant',
-                    'constant_values': self.padding_mode,
-                }
-            elif isinstance(image, tio.LabelMap):  # FIX
-                kwargs = {
-                    'mode': 'constant',
-                    'constant_values': 0,
-                }
-            else:
-                if self.padding_mode in ['maximum', 'mean', 'median', 'minimum']:
-                    if self.padding_mode == 'maximum':
-                        constant_values = image.data.min()
-                    elif self.padding_mode == 'mean':
-                        constant_values = image.data.to(torch.float).mean().to(image.data.dtype)
-                    elif self.padding_mode == 'median':
-                        constant_values = image.data.median()
-                    elif self.padding_mode == 'minimum':
-                        constant_values = image.data.min()
-                    kwargs = {
-                        'mode': 'constant',
-                        'constant_values': constant_values,
-                    }
-                else:
-                    kwargs = {'mode': self.padding_mode}
-            pad_params = self.bounds_parameters
-            paddings = (0, 0), pad_params[:2], pad_params[2:4], pad_params[4:]
-            padded = np.pad(image.data, paddings, **kwargs)  # type: ignore[call-overload]  # noqa: E501
-            image.set_data(torch.as_tensor(padded))
-            image.affine = new_affine
-        return subject
-
-
 class CropOrPad(tio.CropOrPad):
-    """Fixed version of TorchIO CropOrPad.
+    """Crop or pad a subject with optional random center logic for padding."""
+    def __init__(
+        self,
+        target_shape: Union[int, TypeTripletInt, None] = None,
+        padding_mode: Union[str, float] = 0,
+        mask_name: Optional[str] = None,
+        labels: Optional[Sequence[int]] = None,
+        random_center=False,
+        **kwargs
+    ):
+        super().__init__(
+            target_shape=target_shape,
+            padding_mode=padding_mode,
+            mask_name=mask_name,
+            labels=labels,
+            **kwargs
+        )
+        self.random_center = random_center
 
-    Pads with zeros for LabelMaps independent of padding mode (e.g., don't pad with mean).
-    Pads with global (not per axis) 'maximum', 'mean', 'median', 'minimum' if any of these padding modes were selected.
-    """
+    def _get_six_bounds_parameters(self, parameters: np.ndarray):
+        result = []
+        for number in parameters:
+            ini = np.random.randint(low=0, high=number + 1) if self.random_center else int(np.ceil(number / 2))
+            fin = number - ini
+            result.extend([ini, fin])
+        return tuple(result)
 
-    def apply_transform(self, subject: Subject) -> Subject:
-        """Applies cropping or padding to the given subject.
-
-        Args:
-            subject (Subject): The subject to crop or pad.
-
-        Returns:
-            Subject: The cropped or padded subject.
-        """
+    def apply_transform(self, subject: tio.Subject) -> tio.Subject:
         subject.check_consistent_space()
         padding_params, cropping_params = self.compute_crop_or_pad(subject)
         padding_kwargs = {'padding_mode': self.padding_mode}
+
         if padding_params is not None:
-            pad = Pad(padding_params, **padding_kwargs)
-            subject = pad(subject)  # type: ignore[assignment]
+            if self.random_center:
+                padding_params = [
+                    np.random.randint(0, s + 1) if i % 2 == 0 else s - val
+                    for i, (s, val) in enumerate(zip(padding_params[::2], padding_params[1::2]))
+                    for _ in (0, 1)
+                ]
+            pad = tio.Pad(padding_params, **padding_kwargs)
+            subject = pad(subject)
+
         if cropping_params is not None:
             crop = tio.Crop(cropping_params)
-            subject = crop(subject)  # type: ignore[assignment]
+            subject = crop(subject)
+
         return subject
