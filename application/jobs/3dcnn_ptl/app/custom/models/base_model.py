@@ -9,6 +9,8 @@ from .utils.losses import CornLossMulti, MulitCELoss
 
 
 class VeryBasicModel(pl.LightningModule):
+    """Base LightningModule with training, validation, and test hooks stubbed out."""
+
     def __init__(self, save_hyperparameters=True):
         super().__init__()
         if save_hyperparameters:
@@ -38,13 +40,13 @@ class VeryBasicModel(pl.LightningModule):
         self._step_test += 1
         return self._step(batch, batch_idx, "test", self._step_test)
 
-    def on_train_epoch_end(self) -> None:
+    def on_train_epoch_end(self):
         self._epoch_end("train")
 
-    def on_validation_epoch_end(self) -> None:
+    def on_validation_epoch_end(self):
         self._epoch_end("val")
 
-    def on_test_epoch_end(self) -> None:
+    def on_test_epoch_end(self):
         self._epoch_end("test")
 
     @classmethod
@@ -68,7 +70,6 @@ class VeryBasicModel(pl.LightningModule):
             checkpoint_path = self._get_best_checkpoint_path(checkpoint_path, **kwargs)
 
         checkpoint = torch.load(checkpoint_path, map_location=map_location)
-
         return self.load_weights(checkpoint["state_dict"], **kwargs)
 
     def load_weights(self, pretrained_weights, strict=True, **kwargs):
@@ -81,13 +82,15 @@ class VeryBasicModel(pl.LightningModule):
 
 
 class BasicModel(VeryBasicModel):
+    """Extension of VeryBasicModel that includes optimizer and scheduler configuration."""
+
     def __init__(
-            self,
-            optimizer=torch.optim.Adam,
-            optimizer_kwargs={'lr': 1e-3, 'weight_decay': 1e-2},
-            lr_scheduler=None,
-            lr_scheduler_kwargs={},
-            save_hyperparameters=True
+        self,
+        optimizer=torch.optim.Adam,
+        optimizer_kwargs={'lr': 1e-3, 'weight_decay': 1e-2},
+        lr_scheduler=None,
+        lr_scheduler_kwargs={},
+        save_hyperparameters=True
     ):
         super().__init__(save_hyperparameters=save_hyperparameters)
         if save_hyperparameters:
@@ -101,28 +104,28 @@ class BasicModel(VeryBasicModel):
         optimizer = self.optimizer(self.parameters(), **self.optimizer_kwargs)
         if self.lr_scheduler is not None:
             lr_scheduler = self.lr_scheduler(optimizer, **self.lr_scheduler_kwargs)
-            lr_scheduler_config = {"scheduler": lr_scheduler, "interval": "epoch", "frequency": 1}
-            return [optimizer], [lr_scheduler_config]
-        else:
-            return [optimizer]
+            return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch", "frequency": 1}]
+        return [optimizer]
 
 
 class BasicClassifier(BasicModel):
+    """Generic classifier with dynamic metric and loss configuration based on task type."""
+
     def __init__(
-            self,
-            in_ch,
-            out_ch,
-            spatial_dims,
-            task="binary",  # binary or multiclass or multilabel (=multibinary)
-            loss=torch.nn.BCEWithLogitsLoss,
-            loss_kwargs={},
-            optimizer=torch.optim.AdamW,
-            optimizer_kwargs={'lr': 1e-4, 'weight_decay': 1e-2},
-            lr_scheduler=None,
-            lr_scheduler_kwargs={},
-            aucroc_kwargs={"task": "binary"},
-            acc_kwargs={"task": "binary"},
-            save_hyperparameters=True
+        self,
+        in_ch,
+        out_ch,
+        spatial_dims,
+        task="binary",
+        loss=torch.nn.BCEWithLogitsLoss,
+        loss_kwargs={},
+        optimizer=torch.optim.AdamW,
+        optimizer_kwargs={'lr': 1e-4, 'weight_decay': 1e-2},
+        lr_scheduler=None,
+        lr_scheduler_kwargs={},
+        aucroc_kwargs={"task": "binary"},
+        acc_kwargs={"task": "binary"},
+        save_hyperparameters=True
     ):
         super().__init__(optimizer, optimizer_kwargs, lr_scheduler, lr_scheduler_kwargs)
         self.in_ch = in_ch
@@ -130,8 +133,6 @@ class BasicClassifier(BasicModel):
         self.spatial_dims = spatial_dims
         self.task = task
 
-        if loss is not None:
-            loss = loss
         if task == "binary":
             loss = torch.nn.BCEWithLogitsLoss
         elif task == "multiclass":
@@ -144,18 +145,18 @@ class BasicClassifier(BasicModel):
         self.loss = loss(**loss_kwargs)
         self.loss_kwargs = loss_kwargs
 
+        # Adjust metrics config by task
         if task == "binary":
-            aucroc_kwargs.update({"task": "binary"})  # preds (N, ...) , target (N, ...)
+            aucroc_kwargs.update({"task": "binary"})
             acc_kwargs.update({"task": "binary"})
         elif task == "multiclass":
-            aucroc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})  # preds (N, C, ...) , target (N, ...)
+            aucroc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
             acc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
         elif task in ["multilabel", 'multibinary']:
-            aucroc_kwargs.update({"task": "multilabel", 'num_labels': out_ch})  # preds (N, C, ...) , target (N, C, ...)
+            aucroc_kwargs.update({"task": "multilabel", 'num_labels': out_ch})
             acc_kwargs.update({"task": "multilabel", 'num_labels': out_ch})
 
-        self.auc_roc = nn.ModuleDict(
-            {state: AUROC(**aucroc_kwargs) for state in ["train_", "val_", "test_"]})  # 'train' not allowed as key
+        self.auc_roc = nn.ModuleDict({state: AUROC(**aucroc_kwargs) for state in ["train_", "val_", "test_"]})
         self.acc = nn.ModuleDict({state: Accuracy(**acc_kwargs) for state in ["train_", "val_", "test_"]})
 
     def _step(self, batch: dict, batch_idx: int, state: str, step: int):
@@ -164,30 +165,17 @@ class BasicClassifier(BasicModel):
         batch_size = source.shape[0]
         self.batch_size = batch_size
 
-        # Run Model
-        pred = self(source)  # Binary [B, 1], [B, C]
+        pred = self(source)
+        loss_val = self.compute_loss(pred, target)
+        self.acc[state + "_"].update(pred, target)
+        self.auc_roc[state + "_"].update(pred, target)
 
-        # ------------------------- Compute Loss ---------------------------
-        logging_dict = {}
-        logging_dict['loss'] = self.compute_loss(pred, target)
-
-        # --------------------- Compute Metrics  -------------------------------
-        with torch.no_grad():
-            # Aggregate here to compute for entire set later
-            self.acc[state + "_"].update(pred, target)
-            self.auc_roc[state + "_"].update(pred, target)
-
-            # ----------------- Log Scalars ----------------------
-            for metric_name, metric_val in logging_dict.items():
-                self.log(f"{state}/{metric_name}", metric_val, batch_size=batch_size, on_step=True, on_epoch=True,
-                         sync_dist=False)
-
-        return logging_dict['loss']
+        self.log(f"{state}/loss", loss_val, batch_size=batch_size, on_step=True, on_epoch=True)
+        return loss_val
 
     def _epoch_end(self, state):
         for name, value in [("ACC", self.acc[state + "_"]), ("AUC_ROC", self.auc_roc[state + "_"])]:
-            self.log(f"{state}/{name}", value.compute(), batch_size=self.batch_size, on_step=False, on_epoch=True,
-                     sync_dist=True)
+            self.log(f"{state}/{name}", value.compute(), batch_size=self.batch_size, on_step=False, on_epoch=True)
             value.reset()
 
     def compute_loss(self, pred, target):
@@ -207,18 +195,20 @@ class BasicClassifier(BasicModel):
 
 
 class BasicRegression(BasicModel):
+    """Generic regression model with MAE metric and CORN/multi-class loss support."""
+
     def __init__(
-            self,
-            in_ch,
-            out_ch,
-            spatial_dims,
-            loss=CornLossMulti,  # MulitCELoss, CornLossMulti,
-            loss_kwargs={},
-            optimizer=torch.optim.AdamW,
-            optimizer_kwargs={'lr': 1e-4, 'weight_decay': 1e-2},
-            lr_scheduler=None,
-            lr_scheduler_kwargs={},
-            save_hyperparameters=True
+        self,
+        in_ch,
+        out_ch,
+        spatial_dims,
+        loss=CornLossMulti,
+        loss_kwargs={},
+        optimizer=torch.optim.AdamW,
+        optimizer_kwargs={'lr': 1e-4, 'weight_decay': 1e-2},
+        lr_scheduler=None,
+        lr_scheduler_kwargs={},
+        save_hyperparameters=True
     ):
         super().__init__(optimizer, optimizer_kwargs, lr_scheduler, lr_scheduler_kwargs)
         self.in_ch = in_ch
@@ -227,43 +217,25 @@ class BasicRegression(BasicModel):
 
         self.loss_func = loss(**loss_kwargs)
         self.loss_kwargs = loss_kwargs
-
-        self.mae = nn.ModuleDict(
-            {state: MeanAbsoluteError() for state in ["train_", "val_", "test_"]})  # 'train' not allowed as key
+        self.mae = nn.ModuleDict({state: MeanAbsoluteError() for state in ["train_", "val_", "test_"]})
 
     def _step(self, batch: dict, batch_idx: int, state: str, step: int):
         source = batch['source']
-        target = batch['target']  # ordinal: [B, num_classes]
-
+        target = batch['target']
         batch_size = source.shape[0]
         self.batch_size = batch_size
 
-        # Run Model
-        pred = self(source)  # MAE expects [B, num_classes], CORN expects [B, num_classes*(num_labels-1)]
+        pred = self(source)
+        loss_val = self.loss_func(pred, target)
+        pred_labels = self.loss_func.logits2labels(pred)
+        self.mae[state + "_"].update(pred_labels, target)
 
-        # ------------------------- Compute Loss ---------------------------
-        logging_dict = {}
-        logging_dict['loss'] = self.loss_func(pred, target)
-
-        # --------------------- Compute Metrics  -------------------------------
-        pred = self.loss_func.logits2labels(pred)
-
-        with torch.no_grad():
-            # Aggregate here to compute for entire set later
-            self.mae[state + "_"].update(pred, target)
-
-            # ----------------- Log Scalars ----------------------
-            for metric_name, metric_val in logging_dict.items():
-                self.log(f"{state}/{metric_name}", metric_val, batch_size=batch_size, on_step=True, on_epoch=True,
-                         sync_dist=False)
-
-        return logging_dict['loss']
+        self.log(f"{state}/loss", loss_val, batch_size=batch_size, on_step=True, on_epoch=True)
+        return loss_val
 
     def _epoch_end(self, state):
-        for name, value in [("MAE", self.mae[state + "_"]), ]:
-            self.log(f"{state}/{name}", value.compute(), batch_size=self.batch_size, on_step=False, on_epoch=True,
-                     sync_dist=True)
-            value.reset()
+        self.log(f"{state}/MAE", self.mae[state + "_"].compute(), batch_size=self.batch_size, on_step=False, on_epoch=True)
+        self.mae[state + "_"].reset()
 
     def logits2labels(self, logits):
         return self.loss_func.logits2labels(logits)
