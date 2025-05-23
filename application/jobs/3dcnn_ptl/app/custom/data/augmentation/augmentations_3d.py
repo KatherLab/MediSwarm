@@ -11,7 +11,7 @@ from torchio.transforms.transform import TypeMaskingMethod
 from torchio import Subject, Image
 import numpy as np
 
-from ..base_model import BasicClassifier, BasicRegression
+from models.base_model import BasicClassifier, BasicRegression
 
 
 def _get_resnet_torch(model):
