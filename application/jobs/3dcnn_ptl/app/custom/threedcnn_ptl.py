@@ -3,11 +3,11 @@ from torch.utils.data import DataLoader, Subset
 from collections import Counter
 import torch
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
-from model_selector import select_model
-from env_config import load_environment_variables, load_prediction_modules, prepare_dataset, generate_run_directory
+#from model_selector import select_model
+from env_config import load_environment_variables, load_prediction_modules, prepare_odelia_dataset, prepare_dataset, generate_run_directory
 
 import os
 import logging
@@ -41,17 +41,15 @@ def set_up_logging():
 
 
 def set_up_data_module(env_vars, logger, site_name: str):
-    ds, task_data_name = prepare_dataset(env_vars['task_data_name'], env_vars['data_dir'], site_name=site_name)
+    accelerator = 'gpu' if torch.cuda.is_available() else 'cpu'
+    torch.set_float32_matmul_precision('high')
+    ds_train, ds_val, path_run_dir, run_name, binary = prepare_odelia_dataset(env_vars['task_data_name'], env_vars['data_dir'], site_name=site_name)
 
-    labels = ds.get_labels()
+    samples = len(ds_train) + len(ds_val)
+    batch_size = 1
+    accumulate_grad_batches = 1
+    steps_per_epoch = samples / batch_size / accumulate_grad_batches
 
-    # Generate indices and perform stratified split
-    indices = list(range(len(ds)))
-    train_indices, val_indices = train_test_split(indices, test_size=0.2, stratify=labels, random_state=42)
-
-    # Create training and validation subsets
-    ds_train = Subset(ds, train_indices)
-    ds_val = Subset(ds, val_indices)
 
     # Extract training labels using the train_indices
     train_labels = [labels[i] for i in train_indices]
@@ -74,13 +72,18 @@ def set_up_data_module(env_vars, logger, site_name: str):
     val_size = len(ds_val)
     logger.info(f'Train size: {train_size}')
     logger.info(f'Val size: {val_size}')
-
+    samples = len(ds_train) + len(ds_val)
+    batch_size = 1
+    accumulate_grad_batches = 1
+    steps_per_epoch = samples / batch_size / accumulate_grad_batches
     dm = DataModule(
         ds_train=ds_train,
         ds_val=ds_val,
-        batch_size=1,
-        num_workers=16,
+        ds_test=ds_val,
+        batch_size=batch_size,
         pin_memory=True,
+        weights= None, #weights,
+        num_workers=16,
     )
 
     return dm
@@ -111,29 +114,38 @@ def prepare_training(logger, max_epochs:int , site_name: str):
         model = select_model(model_name)
         logger.info(f"Using model: {model_name}")
 
-        to_monitor = "val/AUC_ROC"
-        min_max = "max"
-        log_every_n_steps = 1
+        to_monitor = "val/AUC_ROC" if binary else "val/MAE"
+        min_max = "max" if binary else "min"
+        log_every_n_steps = 50
+        logger = WandbLogger(project='ODELIA', group=args.institution, name=run_name, log_model=False)
 
-        checkpointing = ModelCheckpoint(
-            dirpath=str(path_run_dir),
+        early_stopping = EarlyStopping(
             monitor=to_monitor,
+            min_delta=0.0,  # minimum change in the monitored quantity to qualify as an improvement
+            patience=25,  # number of checks with no improvement
+            mode=min_max
+        )
+        checkpointing = ModelCheckpoint(
+            dirpath=str(path_run_dir),  # dirpath
+            monitor=to_monitor,
+            # every_n_train_steps=log_every_n_steps,
             save_last=True,
-            save_top_k=2,
+            save_top_k=1,
             mode=min_max,
         )
 
         trainer = Trainer(
             accelerator=accelerator,
-            precision=16,
+            accumulate_grad_batches=accumulate_grad_batches,
+            precision='16-mixed',
             default_root_dir=str(path_run_dir),
-            callbacks=[checkpointing],
+            callbacks=[checkpointing, early_stopping],
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
-            max_epochs=max_epochs,
+            max_epochs=1000,
             num_sanity_val_steps=2,
-            logger=TensorBoardLogger(save_dir=path_run_dir)
+            logger=logger
         )
 
     except Exception as e:
