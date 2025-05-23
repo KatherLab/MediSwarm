@@ -1,10 +1,9 @@
-from typing import List, Union
+from typing import List, Union, Any
 from pathlib import Path
 import json
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from torchmetrics import AUROC, Accuracy
 
 
@@ -25,18 +24,18 @@ class VeryBasicModel(pl.LightningModule):
     def _step(self, batch: dict, batch_idx: int, state: str, step: int, optimizer_idx: int):
         raise NotImplementedError
 
-    def _epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]], state: str):
+    def _epoch_end(self, outputs: List[Any], state: str):
         return
 
-    def training_step(self, batch: dict, batch_idx: int, optimizer_idx: int = 0) -> STEP_OUTPUT:
+    def training_step(self, batch: dict, batch_idx: int, optimizer_idx: int = 0) -> Any:
         self._step_train += 1
         return self._step(batch, batch_idx, "train", self._step_train, optimizer_idx)
 
-    def validation_step(self, batch: dict, batch_idx: int) -> STEP_OUTPUT:
+    def validation_step(self, batch: dict, batch_idx: int) -> Any:
         self._step_val += 1
         return self._step(batch, batch_idx, "val", self._step_val, 0)
 
-    def test_step(self, batch: dict, batch_idx: int) -> STEP_OUTPUT:
+    def test_step(self, batch: dict, batch_idx: int) -> Any:
         self._step_test += 1
         return self._step(batch, batch_idx, "test", self._step_test, 0)
 
@@ -84,16 +83,16 @@ class BasicModel(VeryBasicModel):
     def __init__(
         self,
         optimizer=torch.optim.AdamW,
-        optimizer_kwargs={'lr': 1e-3, 'weight_decay': 1e-2},
+        optimizer_kwargs=None,
         lr_scheduler=None,
-        lr_scheduler_kwargs={},
+        lr_scheduler_kwargs=None,
     ):
         super().__init__()
-        self.save_hyperparameters()
         self.optimizer = optimizer
-        self.optimizer_kwargs = optimizer_kwargs
+        self.optimizer_kwargs = optimizer_kwargs or {'lr': 1e-3, 'weight_decay': 1e-2}
         self.lr_scheduler = lr_scheduler
-        self.lr_scheduler_kwargs = lr_scheduler_kwargs
+        self.lr_scheduler_kwargs = lr_scheduler_kwargs or {}
+        self.save_hyperparameters()
 
     def configure_optimizers(self):
         optimizer = self.optimizer(self.parameters(), **self.optimizer_kwargs)
@@ -111,20 +110,24 @@ class BasicClassifier(BasicModel):
         out_ch: int,
         spatial_dims: int,
         loss=torch.nn.CrossEntropyLoss,
-        loss_kwargs={},
+        loss_kwargs=None,
         optimizer=torch.optim.AdamW,
-        optimizer_kwargs={'lr': 1e-3, 'weight_decay': 1e-2},
+        optimizer_kwargs=None,
         lr_scheduler=None,
-        lr_scheduler_kwargs={},
-        aucroc_kwargs={"task": "binary"},
-        acc_kwargs={"task": "binary"}
+        lr_scheduler_kwargs=None,
+        aucroc_kwargs=None,
+        acc_kwargs=None,
     ):
         super().__init__(optimizer, optimizer_kwargs, lr_scheduler, lr_scheduler_kwargs)
+
         self.in_ch = in_ch
         self.out_ch = out_ch
         self.spatial_dims = spatial_dims
-        self.loss = loss(**loss_kwargs)
-        self.loss_kwargs = loss_kwargs
+        self.loss_kwargs = loss_kwargs or {}
+        self.loss = loss(**self.loss_kwargs)
+
+        aucroc_kwargs = aucroc_kwargs or {"task": "binary"}
+        acc_kwargs = acc_kwargs or {"task": "binary"}
 
         self.auc_roc = nn.ModuleDict({state: AUROC(**aucroc_kwargs) for state in ["train_", "val_", "test_"]})
         self.acc = nn.ModuleDict({state: Accuracy(**acc_kwargs) for state in ["train_", "val_", "test_"]})
