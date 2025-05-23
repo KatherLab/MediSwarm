@@ -1,37 +1,28 @@
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 from collections import Counter
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from data.datamodules import DataModule
-#from model_selector import select_model
-from env_config import load_environment_variables, load_prediction_modules, prepare_odelia_dataset, prepare_dataset, generate_run_directory
+from model_selector import select_model
+from env_config import load_environment_variables, load_prediction_modules, prepare_odelia_dataset, generate_run_directory
 
 import os
 import logging
 
 
 def get_num_epochs_per_round(site_name: str) -> int:
-    #TODO: Set max_epochs based on the data set size
-    NUM_EPOCHS_FOR_SITE = { "TUD_1":   2,
-                            "TUD_2":   4,
-                            "TUD_3":   8,
-                            "MEVIS_1": 2,
-                            "MEVIS_2": 4,
-                            "UKA":     2,
-                           }
-
-    if site_name in NUM_EPOCHS_FOR_SITE.keys():
-        MAX_EPOCHS = NUM_EPOCHS_FOR_SITE[site_name]
-    else:
-        MAX_EPOCHS = 5
-
+    NUM_EPOCHS_FOR_SITE = {
+        "TUD_1": 2, "TUD_2": 4, "TUD_3": 8,
+        "MEVIS_1": 2, "MEVIS_2": 4,
+        "UKA": 2,
+    }
+    max_epochs = NUM_EPOCHS_FOR_SITE.get(site_name, 5)
     print(f"Site name: {site_name}")
-    print(f"Max epochs set to: {MAX_EPOCHS}")
-
-    return MAX_EPOCHS
+    print(f"Max epochs set to: {max_epochs}")
+    return max_epochs
 
 
 def set_up_logging():
@@ -41,75 +32,50 @@ def set_up_logging():
 
 
 def set_up_data_module(env_vars, logger, site_name: str):
-    accelerator = 'gpu' if torch.cuda.is_available() else 'cpu'
     torch.set_float32_matmul_precision('high')
-    ds_train, ds_val, path_run_dir, run_name, binary = prepare_odelia_dataset(env_vars['task_data_name'], env_vars['data_dir'], site_name=site_name)
+    ds_train, ds_val, path_run_dir, run_name, binary = prepare_odelia_dataset(
+        env_vars['task_data_name'], env_vars['data_dir'], site_name=site_name
+    )
 
-    samples = len(ds_train) + len(ds_val)
-    batch_size = 1
-    accumulate_grad_batches = 1
-    steps_per_epoch = samples / batch_size / accumulate_grad_batches
-
-
-    # Extract training labels using the train_indices
-    train_labels = [labels[i] for i in train_indices]
-    label_counts = Counter(train_labels)
-
-    # Calculate the total number of samples in the training set
-    total_samples = len(train_labels)
-
-    # Print the percentage of the training set for each label
-    for label, count in label_counts.items():
-        percentage = (count / total_samples) * 100
-        logger.info(f"Label '{label}': {percentage:.2f}% of the training set, Exact count: {count}")
-
-    logger.info(f"Total number of different labels in the training set: {len(label_counts)}")
-
-    ads_val_data = DataLoader(ds_val, batch_size=2, shuffle=False)
-    logger.info(f'ads_val_data type: {type(ads_val_data)}')
-
-    train_size = len(ds_train)
-    val_size = len(ds_val)
-    logger.info(f'Train size: {train_size}')
-    logger.info(f'Val size: {val_size}')
-    samples = len(ds_train) + len(ds_val)
-    batch_size = 1
-    accumulate_grad_batches = 1
-    steps_per_epoch = samples / batch_size / accumulate_grad_batches
     dm = DataModule(
         ds_train=ds_train,
         ds_val=ds_val,
         ds_test=ds_val,
-        batch_size=batch_size,
+        batch_size=1,
         pin_memory=True,
-        weights= None, #weights,
+        weights=None,
         num_workers=16,
     )
 
-    return dm
+    # Log label distribution
+    distribution = dm.get_train_label_distribution(lambda sample: sample['label'])
+    logger.info(f"Total samples in training set: {distribution['total']}")
+    for label, pct in distribution['percentages'].items():
+        logger.info(f"Label '{label}': {pct:.2f}% of training set, Count: {distribution['counts'][label]}")
+    logger.info(f"Number of unique labels: {len(distribution['counts'])}")
+
+    return dm, path_run_dir, run_name, binary
 
 
 def create_run_directory(env_vars):
-    path_run_dir = generate_run_directory(env_vars['scratch_dir'], env_vars['task_data_name'], env_vars['model_name'], env_vars['local_compare_flag'])
-    return path_run_dir
+    return generate_run_directory(
+        env_vars['scratch_dir'],
+        env_vars['task_data_name'],
+        env_vars['model_name'],
+        env_vars['local_compare_flag']
+    )
 
 
-def prepare_training(logger, max_epochs:int , site_name: str):
+def prepare_training(logger, max_epochs: int, site_name: str):
     try:
         env_vars = load_environment_variables()
-        path_run_dir = create_run_directory(env_vars)
+        data_module, path_run_dir, run_name, binary = set_up_data_module(env_vars, logger, site_name)
+
         if not torch.cuda.is_available():
-            raise(RuntimeError("This example does not work without GPU"))
-        accelerator = 'gpu'
-        logger.info(f"Using {accelerator} for training")
+            raise RuntimeError("This example requires a GPU")
 
-        data_module = set_up_data_module(env_vars, logger, site_name)
+        logger.info(f"Using GPU for training")
 
-        # max_epochs = env_vars['max_epochs']
-        # cal_max_epochs = cal_max_epochs(max_epochs, cal_weightage(train_size))
-        # logger.info(f"Max epochs set to: {cal_max_epochs}")
-
-        # Initialize the model
         model_name = env_vars['model_name']
         model = select_model(model_name)
         logger.info(f"Using model: {model_name}")
@@ -117,39 +83,39 @@ def prepare_training(logger, max_epochs:int , site_name: str):
         to_monitor = "val/AUC_ROC" if binary else "val/MAE"
         min_max = "max" if binary else "min"
         log_every_n_steps = 50
-        logger = WandbLogger(project='ODELIA', group=args.institution, name=run_name, log_model=False)
+
+        wandb_logger = WandbLogger(project='ODELIA', group=site_name, name=run_name, log_model=False)
 
         early_stopping = EarlyStopping(
             monitor=to_monitor,
-            min_delta=0.0,  # minimum change in the monitored quantity to qualify as an improvement
-            patience=25,  # number of checks with no improvement
+            min_delta=0.0,
+            patience=25,
             mode=min_max
         )
         checkpointing = ModelCheckpoint(
-            dirpath=str(path_run_dir),  # dirpath
+            dirpath=str(path_run_dir),
             monitor=to_monitor,
-            # every_n_train_steps=log_every_n_steps,
             save_last=True,
             save_top_k=1,
             mode=min_max,
         )
 
         trainer = Trainer(
-            accelerator=accelerator,
-            accumulate_grad_batches=accumulate_grad_batches,
+            accelerator='gpu',
+            accumulate_grad_batches=1,
             precision='16-mixed',
             default_root_dir=str(path_run_dir),
             callbacks=[checkpointing, early_stopping],
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
-            max_epochs=1000,
+            max_epochs=max_epochs,
             num_sanity_val_steps=2,
-            logger=logger
+            logger=wandb_logger
         )
 
     except Exception as e:
-        logger.error(f"Error in set_up_training: {e}")
+        logger.error(f"Error in prepare_training: {e}")
         raise
 
     return data_module, model, checkpointing, trainer, path_run_dir, env_vars
@@ -166,9 +132,11 @@ def validate_and_train(logger, data_module, model, trainer) -> None:
 def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
     model.save_best_checkpoint(trainer.logger.log_dir, checkpointing.best_model_path)
     predict, prediction_flag = load_prediction_modules(env_vars['prediction_flag'])
+
     test_data_path = os.path.join(env_vars['data_dir'], env_vars['task_data_name'], 'test')
     if os.path.exists(test_data_path):
         predict(path_run_dir, test_data_path, env_vars['model_name'], last_flag=False, prediction_flag=prediction_flag)
     else:
-        logger.info('No test data found, not running evaluation')
-    logger.info('Training completed successfully')
+        logger.info('No test data found, skipping evaluation.')
+
+    logger.info('Training completed successfully.')
