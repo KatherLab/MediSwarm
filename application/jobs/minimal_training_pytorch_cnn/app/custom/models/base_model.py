@@ -28,6 +28,8 @@ class VeryBasicModel(pl.LightningModule):
         return
 
     def training_step(self, batch, batch_idx):
+        print(f"Batch content: {batch}")
+        exit()  # 直接中断运行用于检查
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
