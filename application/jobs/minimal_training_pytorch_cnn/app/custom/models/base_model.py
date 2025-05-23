@@ -28,16 +28,8 @@ class VeryBasicModel(pl.LightningModule):
         return
 
     def training_step(self, batch, batch_idx):
-        x = batch["source"]
-        y = batch["target"]
-
-        y = y.unsqueeze(1).float()
-
-        y_hat = self(x)
-        loss = self.loss(y_hat, y)
-
-        self.log("train/loss", loss)
-        return loss
+        self._step_train += 1
+        return self._step(batch, batch_idx, "train", self._step_train, 0)
 
     def validation_step(self, batch: dict, batch_idx: int) -> Any:
         self._step_val += 1
