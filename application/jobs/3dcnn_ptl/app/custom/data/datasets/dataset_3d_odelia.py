@@ -5,7 +5,7 @@ import torchio as tio
 import torch  
 import numpy as np 
 
-from .augmentations.augmentations_3d import ImageOrSubjectToTensor, ZNormalization, CropOrPad
+from augmentation.augmentations_3d import ImageOrSubjectToTensor, ZNormalization, CropOrPad
 
 
 class ODELIA_Dataset3D(data.Dataset):
