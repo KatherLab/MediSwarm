@@ -2,12 +2,12 @@ import argparse
 from pathlib import Path
 import logging
 from tqdm import tqdm
-import torch 
-import numpy as np 
-import matplotlib.pyplot as plt 
-import seaborn as sns 
-import pandas as pd 
-import ast 
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import ast
 import torch.nn.functional as F
 from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score, roc_auc_score, roc_curve
 
@@ -21,18 +21,18 @@ def one_hot(y, num_classes):
 
 def evaluate(gt, nn, nn_prob, label, label_vals, path_out):
     plt.rcParams.update({'font.size': 12})
-    fontdict = {'fontsize': 12, 'fontweight': 'bold'}  
+    fontdict = {'fontsize': 12, 'fontweight': 'bold'}
     colors = ['b', 'g', 'r']
-    y_prob = np.asarray(nn_prob)  
+    y_prob = np.asarray(nn_prob)
     y_pred = np.asarray(nn)
     y_true = np.asarray(gt)
     labels = list(range(len(label_vals)))
 
     fig, axes = plt.subplots(ncols=2, figsize=(12, 6))
-    
+
     # ------------------------------- ROC-AUC ---------------------------------
     y_true_hot = one_hot(y_true, len(label_vals))
-    y_prob = np.stack([1-y_prob, y_prob], axis=1) if binary else y_prob # Convert to one-hot 
+    y_prob = np.stack([1-y_prob, y_prob], axis=1) if binary else y_prob # Convert to one-hot
     # fig, axis = plt.subplots(ncols=1, nrows=1, figsize=(6,6))
     axis = axes[0]
     results = {'AUC': [], 'Sensitivity': [], 'Specificity': []}
@@ -67,8 +67,8 @@ def evaluate(gt, nn, nn_prob, label, label_vals, path_out):
     df_cm = pd.DataFrame(data=cm, columns=label_vals, index=label_vals)
     # fig, axis = plt.subplots(1, 1, figsize=(4,4))
     axis = axes[1]
-    sns.heatmap(df_cm, ax=axis, cbar=False, cmap="Blues", fmt='d', annot=True) 
-    axis.set_title(f'{label}', fontdict=fontdict) # CM =  [[TN, FP], [FN, TP]] 
+    sns.heatmap(df_cm, ax=axis, cbar=False, cmap="Blues", fmt='d', annot=True)
+    axis.set_title(f'{label}', fontdict=fontdict) # CM =  [[TN, FP], [FN, TP]]
     axis.set_xlabel('Neural Network' , fontdict=fontdict)
     axis.set_ylabel('Radiologist' , fontdict=fontdict)
     # fig.tight_layout()
@@ -79,7 +79,7 @@ def evaluate(gt, nn, nn_prob, label, label_vals, path_out):
     fig.savefig(path_out/f'roc_conf_{label}.png', dpi=300)
 
     #  -------------------------- Agreement -------------------------
-    # kappa = cohen_kappa_score(y_true, y_pred, weights="linear") 
+    # kappa = cohen_kappa_score(y_true, y_pred, weights="linear")
     # print(label, "Kappa", kappa)
 
 
@@ -92,20 +92,20 @@ if __name__ == "__main__":
     batch_size = 4
 
     #------------ Settings/Defaults ----------------
-    path_run = Path(args.path_run) 
+    path_run = Path(args.path_run)
     train_institution = path_run.parent.parent.name
     run_name = path_run.parent.name
     path_out = Path().cwd()/'results'/train_institution/run_name/args.test_institution
     path_out.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+
     # ------------ Logging --------------------
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.INFO)
 
 
     # ------------ Load Data ----------------
-    split = None if args.test_institution == 'RUMC' else 'test' # Use all samples if testing on RUMC  
+    split = None if args.test_institution == 'RUMC' else 'test' # Use all samples if testing on RUMC
     binary = run_name.split('_')[1] == "binary"
     config = run_name.split('_')[2]
     ds_test = ODELIA_Dataset3D(split=split, institutions=args.test_institution, binary=binary, config=config)
@@ -113,10 +113,10 @@ if __name__ == "__main__":
 
     dm = DataModule(
         ds_test = ds_test,
-        batch_size=batch_size, 
+        batch_size=batch_size,
         num_workers=16,
         # pin_memory=True,
-    ) 
+    )
 
 
     # ------------ Initialize Model ------------
@@ -139,10 +139,10 @@ if __name__ == "__main__":
         with torch.no_grad():
             logits = model(source.to(device)).cpu()
 
-        # Transfer logits to integer 
+        # Transfer logits to integer
         pred_prob = model.logits2probabilities(logits)
         pred = model.logits2labels(logits)
-        
+
         for b in range(pred.size(0)):
             results.append({
                 'UID': uid[b],
@@ -164,8 +164,8 @@ if __name__ == "__main__":
 
     gt = np.stack(df['GT'].values)
     nn = np.stack(df['NN'].values)
-    nn_prob = np.stack(df['NN_prob'].values) 
-    labels = ODELIA_Dataset3D.CLASS_LABELS[config] # {'Malignant Lesion': ['No', 'Yes']} if binary else 
+    nn_prob = np.stack(df['NN_prob'].values)
+    labels = ODELIA_Dataset3D.CLASS_LABELS[config] # {'Malignant Lesion': ['No', 'Yes']} if binary else
     for i in range(gt.shape[1]):
         label = list(labels.keys())[i]
         label_vals = labels[label]

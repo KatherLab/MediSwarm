@@ -2,7 +2,7 @@
 from pathlib import Path
 from datetime import datetime
 
-import torch 
+import torch
 from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
@@ -16,7 +16,7 @@ import argparse
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--institution', default='ODELIA', type=str)
-    parser.add_argument('--model', type=str, default='MST', choices=['ResNet', 'MST']) 
+    parser.add_argument('--model', type=str, default='MST', choices=['ResNet', 'MST'])
     parser.add_argument('--task', type=str, default="binary", choices=['binary', 'ordinal']) # binary: malignant lesion yes/no, ordinal: no lesion, benign, malignant
     parser.add_argument('--config', type=str, default="unilateral", choices=['original', 'unilateral'])
     args = parser.parse_args()
@@ -34,10 +34,10 @@ if __name__ == "__main__":
     ds_train = ODELIA_Dataset3D(institutions=args.institution, split='train', binary=binary, config=args.config,
                                  random_flip=True, random_rotate=True, random_inverse=False, noise=True)
     ds_val = ODELIA_Dataset3D(institutions=args.institution, split='val', binary=binary, config=args.config)
-    
+
     samples = len(ds_train) + len(ds_val)
     batch_size = 1
-    accumulate_grad_batches = 1 
+    accumulate_grad_batches = 1
     steps_per_epoch = samples / batch_size / accumulate_grad_batches
 
     # class_counts = ds_train.df["Lesion"].value_counts()
@@ -48,7 +48,7 @@ if __name__ == "__main__":
         ds_train=ds_train,
         ds_val=ds_val,
         ds_test=ds_val,
-        batch_size=batch_size, 
+        batch_size=batch_size,
         pin_memory=True,
         weights= None, #weights,
         num_workers=16,
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     loss_kwargs = {}
     out_ch = len(ds_train.labels)
     if not binary:
-        out_ch = sum(ds_train.class_labels_num)  
+        out_ch = sum(ds_train.class_labels_num)
         loss_kwargs={'class_labels_num': ds_train.class_labels_num}
 
     model_map = {
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     )
 
 
-    # Load pretrained model 
+    # Load pretrained model
     # model = ResNet.load_from_checkpoint('runs/DUKE/2024_11_14_132823/epoch=41-step=17514.ckpt')
 
 
