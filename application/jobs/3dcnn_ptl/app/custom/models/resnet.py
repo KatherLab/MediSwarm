@@ -1,4 +1,4 @@
-from odelia.models import BasicClassifier, BasicRegression
+from models import BasicClassifier, BasicRegression
 import monai.networks.nets as nets
 import torch
 import torch.nn as nn
