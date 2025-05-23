@@ -1,6 +1,6 @@
 from odelia.data.datasets import ODELIA_Dataset3D
-import torch 
-from pathlib import Path 
+import torch
+from pathlib import Path
 from torchvision.utils import save_image
 
 def tensor2image(tensor, batch=0):
@@ -11,7 +11,7 @@ for institution in all_institutions:
     ds = ODELIA_Dataset3D(
         institutions=institution,
         random_flip=True,
-        random_rotate=True, 
+        random_rotate=True,
         # random_inverse=True,
         # noise=True
         binary=False,
@@ -19,10 +19,10 @@ for institution in all_institutions:
     )
 
     print(f" ------------- Dataset {institution} ------------" )
-    df = ds.df 
-    print("Number of exams: ", len(df)) 
+    df = ds.df
+    print("Number of exams: ", len(df))
     print("Number of patients: ", df['PatientID'].nunique())
-    
+
     for label in ds.labels:
         print(f"Label {label}")
         print(df[label].value_counts())
