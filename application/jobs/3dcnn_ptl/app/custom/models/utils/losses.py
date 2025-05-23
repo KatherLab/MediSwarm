@@ -12,7 +12,7 @@ class CornLossMulti(torch.nn.Module):
     def __init__(self, class_labels_num):
         super().__init__()
         self.class_labels_num = class_labels_num # [Classes, Labels]
-    
+
     def forward(self, logits, targets):
         """
         Args:
@@ -36,7 +36,7 @@ class CornLossMulti(torch.nn.Module):
             label = corn_label_from_logits(chunk)
             labels.append(label)
         return torch.stack(labels, dim=1)
-    
+
     def logits2probabilities(self, logits):
         # Argmax can leed to different output: https://github.com/Raschka-research-group/coral-pytorch/discussions/27
         """
@@ -48,19 +48,19 @@ class CornLossMulti(torch.nn.Module):
         for c, chunk in enumerate(chunks):
             cumulative_probs = torch.sigmoid(chunk)
             # cumulative_probs = torch.cumprod(probas, dim=1)
-            
+
             # Add boundary conditions P(y >= 1) = 1 and P(y >= num_classes) = 0
             cumulative_probs = torch.cat([torch.ones_like(cumulative_probs[:, :1]), cumulative_probs, torch.zeros_like(cumulative_probs[:, :1])], dim=1)
-            
+
             # Compute class probabilities
             # cumulative_probs = torch.cat([torch.ones_like(cumulative_probs[:, :1]), cumulative_probs], dim=1)
             probs = cumulative_probs[:, :-1] - cumulative_probs[:, 1:]
             # probs = probs / probs.sum(dim=1, keepdim=True).clamp(min=1e-6)
             # probs = cumulative_probs
-          
+
             classes_probs.append(probs)
         return torch.stack(classes_probs, dim=1)
-    
+
 
 
 

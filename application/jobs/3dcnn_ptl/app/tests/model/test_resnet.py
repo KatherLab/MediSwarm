@@ -1,4 +1,4 @@
-import torch 
+import torch
 from odelia.models import ResNet, ResNetRegression
 
 input = torch.randn((1,1,32, 224,224))
