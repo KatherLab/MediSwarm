@@ -6,7 +6,8 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from data.datamodules import DataModule
-from model_selector import select_model
+#from model_selector import select_model
+from models import ResNet, MST, ResNetRegression, MSTRegression
 from env_config import load_environment_variables, load_prediction_modules, prepare_odelia_dataset, generate_run_directory
 
 import os
@@ -54,7 +55,15 @@ def set_up_data_module(env_vars, logger, site_name: str):
         logger.info(f"Label '{label}': {pct:.2f}% of training set, Count: {distribution['counts'][label]}")
     logger.info(f"Number of unique labels: {len(distribution['counts'])}")
 
-    return dm, path_run_dir, run_name, binary
+    # ------------ Initialize Model ------------
+    loss_kwargs = {}
+    out_ch = len(ds_train.labels)
+    if not binary:
+        out_ch = sum(ds_train.class_labels_num)
+        loss_kwargs = {'class_labels_num': ds_train.class_labels_num}
+
+
+    return dm, path_run_dir, run_name, binary, out_ch, loss_kwargs
 
 
 def create_run_directory(env_vars):
@@ -69,7 +78,7 @@ def create_run_directory(env_vars):
 def prepare_training(logger, max_epochs: int, site_name: str):
     try:
         env_vars = load_environment_variables()
-        data_module, path_run_dir, run_name, binary = set_up_data_module(env_vars, logger, site_name)
+        data_module, path_run_dir, run_name, binary , out_ch, loss_kwargs= set_up_data_module(env_vars, logger, site_name)
 
         if not torch.cuda.is_available():
             raise RuntimeError("This example requires a GPU")
@@ -77,7 +86,17 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         logger.info(f"Using GPU for training")
 
         model_name = env_vars['model_name']
-        model = select_model(model_name)
+
+        model_map = {
+            'ResNet': ResNet if binary else ResNetRegression,
+            'MST': MST if binary else MSTRegression
+        }
+        MODEL = model_map.get(args.model, None)
+        model = MODEL(
+            in_ch=1,
+            out_ch=out_ch,
+            loss_kwargs=loss_kwargs
+        )
         logger.info(f"Using model: {model_name}")
 
         to_monitor = "val/AUC_ROC" if binary else "val/MAE"
