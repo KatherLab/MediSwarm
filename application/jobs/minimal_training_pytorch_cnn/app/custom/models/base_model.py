@@ -142,14 +142,16 @@ class BasicClassifier(BasicModel):
     def _step(self, batch: dict, batch_idx: int, state: str, step: int, optimizer_idx: int):
         source, target = batch['source'], batch['target']
         target = target[:, None].float()
+        target_int = target.int()
         batch_size = source.shape[0]
 
         pred = self(source)
         loss_val = self.loss(pred, target)
 
         with torch.no_grad():
-            self.acc[state + "_"].update(pred, target)
-            self.auc_roc[state + "_"].update(pred, target)
+            prob = torch.sigmoid(pred)  # logits -> probability
+            self.acc[state + "_"].update(prob, target_int)
+            self.auc_roc[state + "_"].update(prob, target_int)
 
         self.log(f"{state}/loss", loss_val, batch_size=batch_size, on_step=True, on_epoch=True)
         return loss_val
