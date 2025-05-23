@@ -31,7 +31,7 @@ class VeryBasicModel(pl.LightningModule):
         x = batch["source"]
         y = batch["target"]
 
-        y = y.unsqueeze(1)
+        y = y.unsqueeze(1).float()
 
         y_hat = self(x)
         loss = self.loss(y_hat, y)
