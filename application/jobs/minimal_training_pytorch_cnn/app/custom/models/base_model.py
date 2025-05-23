@@ -27,9 +27,12 @@ class VeryBasicModel(pl.LightningModule):
     def _epoch_end(self, outputs: List[Any], state: str):
         return
 
-    def training_step(self, batch: dict, batch_idx: int, optimizer_idx: int = 0) -> Any:
-        self._step_train += 1
-        return self._step(batch, batch_idx, "train", self._step_train, optimizer_idx)
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = self.criterion(y_hat, y)
+        self.log("train/loss", loss)
+        return loss
 
     def validation_step(self, batch: dict, batch_idx: int) -> Any:
         self._step_val += 1
@@ -98,9 +101,8 @@ class BasicModel(VeryBasicModel):
         optimizer = self.optimizer(self.parameters(), **self.optimizer_kwargs)
         if self.lr_scheduler is not None:
             lr_scheduler = self.lr_scheduler(optimizer, **self.lr_scheduler_kwargs)
-            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
-        else:
-            return optimizer
+            return [optimizer], [{"scheduler": lr_scheduler, "interval": "epoch", "frequency": 1}]
+        return [optimizer]
 
 
 class BasicClassifier(BasicModel):
