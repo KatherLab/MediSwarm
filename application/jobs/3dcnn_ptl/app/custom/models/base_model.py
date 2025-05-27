@@ -40,13 +40,13 @@ class VeryBasicModel(pl.LightningModule):
         self._step_test += 1
         return self._step(batch, batch_idx, "test", self._step_test)
 
-    def on_train_epoch_end(self):
+    def on_train_epoch_end(self) -> None:
         self._epoch_end("train")
 
-    def on_validation_epoch_end(self):
+    def on_validation_epoch_end(self) -> None:
         self._epoch_end("val")
 
-    def on_test_epoch_end(self):
+    def on_test_epoch_end(self) -> None:
         self._epoch_end("test")
 
     @classmethod
