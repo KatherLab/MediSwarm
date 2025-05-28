@@ -105,12 +105,14 @@ def prepare_training(logger, max_epochs: int, site_name: str):
 
         wandb_logger = WandbLogger(project='ODELIA', group=site_name, name=run_name, log_model=False)
 
+        '''
         early_stopping = EarlyStopping(
             monitor=to_monitor,
             min_delta=0.0,
             patience=25,
             mode=min_max
         )
+        '''
         checkpointing = ModelCheckpoint(
             dirpath=str(path_run_dir),
             monitor=to_monitor,
@@ -124,7 +126,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
             accumulate_grad_batches=1,
             precision='16-mixed',
             default_root_dir=str(path_run_dir),
-            callbacks=[checkpointing, early_stopping],
+            callbacks=[checkpointing],
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
