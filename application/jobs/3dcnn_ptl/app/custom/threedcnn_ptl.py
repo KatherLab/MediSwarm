@@ -103,7 +103,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         min_max = "max" if binary else "min"
         log_every_n_steps = 50
 
-        wandb_logger = WandbLogger(project='ODELIA', group=site_name, name=run_name, log_model=False)
+        #wandb_logger = WandbLogger(project='ODELIA', group=site_name, name=run_name, log_model=False)
 
         '''
         early_stopping = EarlyStopping(
