@@ -77,9 +77,11 @@ def generate_run_directory(scratch_dir, task_data_name, model_name, local_compar
 
 
 def cal_weightage(train_size):
+    # TODO: Replace hardcoded value `808` with a dynamic calculation based on actual dataset size
     estimated_full_dataset_size = 808
     weightage = int(100 * train_size / estimated_full_dataset_size)
     return min(weightage, 100)
+
 
 
 def cal_max_epochs(preset_max_epochs, weightage):
