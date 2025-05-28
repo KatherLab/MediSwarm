@@ -75,14 +75,20 @@ def generate_run_directory(scratch_dir, task_data_name, model_name, local_compar
         os.makedirs(scratch_dir)
     return os.path.join(scratch_dir, f"{current_time}_{task_data_name}_{model_name}_{mode}")
 
-
+# TODO: Implement dynamic weightage calculation based on actual dataset size
 def cal_weightage(train_size):
-    # TODO: Replace hardcoded value `808` with a dynamic calculation based on actual dataset size
-    estimated_full_dataset_size = 808
-    weightage = int(100 * train_size / estimated_full_dataset_size)
-    return min(weightage, 100)
+    """
+    Placeholder function for calculating training weightage.
+    Currently unused.
+    """
+    pass  # To be implemented
 
 
-
+# TODO: Implement max epochs adjustment logic based on weightage
 def cal_max_epochs(preset_max_epochs, weightage):
-    return int(preset_max_epochs / (weightage / 100))
+    """
+    Placeholder function for dynamically adjusting max epochs.
+    Currently unused.
+    """
+    pass  # To be implemented
+
