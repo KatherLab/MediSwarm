@@ -9,7 +9,7 @@ from data.augmentation.augmentations_3d import ImageOrSubjectToTensor, ZNormaliz
 
 
 class ODELIA_Dataset3D(data.Dataset):
-    PATH_ROOT = Path('/')
+    PATH_ROOT = Path('/data')
     ALL_INSTITUTIONS = ['CAM', 'MHA', 'RSH', 'UKA', 'UMCU', 'VHIO', 'RUMC', 'USZ']
     DATA_DIR = {
         "original": "data",
