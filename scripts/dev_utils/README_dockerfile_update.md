@@ -14,7 +14,7 @@ If an update is necessary:
 ```bash
 scripts/dev_utils/dockerfile_update_removeVersionApt.py docker_config/Dockerfile_ODELIA
 git commit docker_config/Dockerfile_ODELIA -m 'WIP DO NOT PUSH'
-./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --no-cache  2>&1 | tee out.txt
+./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml 2>&1 | tee out.txt
 scripts/dev_utils/dockerfile_update_addAptVersionNumbers.py docker_config/Dockerfile_ODELIA out.txt
 rm out.txt
 git commit docker_config/Dockerfile_ODELIA --amend -m 'updated apt versions'
