@@ -620,60 +620,61 @@ sub_start_svr_sh: |
 
 docker_cln_sh: |
   #!/usr/bin/env bash
-  # docker run script for FL client
-
+  # docker run script for FL client with proper env variable forwarding
+  
+  # Parse command-line arguments
   while [[ "$#" -gt 0 ]]; do
       case $1 in
           --data_dir)        MY_DATA_DIR="$2"; shift ;;
           --scratch_dir)     MY_SCRATCH_DIR="$2"; shift ;;
           --GPU)             GPU2USE="$2"; shift ;;
-          --no_pull)         NOPULL="1";;
-          --dummy_training)  DUMMY_TRAINING="1";;
-          --preflight_check) PREFLIGHT_CHECK="1";;
-          --local_training)  LOCAL_TRAINING="1";;
-          --start_client)    START_CLIENT="1";;
-          --interactive)     INTERACTIVE="1";;
+          --no_pull)         NOPULL="1" ;;
+          --dummy_training)  DUMMY_TRAINING="1" ;;
+          --preflight_check) PREFLIGHT_CHECK="1" ;;
+          --local_training)  LOCAL_TRAINING="1" ;;
+          --start_client)    START_CLIENT="1" ;;
+          --interactive)     INTERACTIVE="1" ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
   done
-
-  # Ask user for required parameters not passed as command line arguments
+  
+  # Prompt for parameters if missing
   if [[ -z "$DUMMY_TRAINING" && -z "$MY_DATA_DIR" ]]; then
       read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
       : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
   fi
-
+  
   if [ -z "$MY_SCRATCH_DIR" ]; then
       read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
       : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
   fi
-
+  
   if [ -z "$GPU2USE" ]; then
       read -p "Enter the GPU index to use or 'all' (default: device=0): " user_gpu
       : ${GPU2USE:="${user_gpu:-device=0}"}
   fi
-
-  # Get the directory of the current script
+  
+  # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-  sudo mkdir -p $MY_SCRATCH_DIR
-  sudo chown -R $(id -u):$(id -g) $MY_SCRATCH_DIR
-  sudo chmod -R 777 $MY_SCRATCH_DIR
-
-  # To use host network
+  
+  # Setup scratch directory
+  sudo mkdir -p "$MY_SCRATCH_DIR"
+  sudo chown -R $(id -u):$(id -g) "$MY_SCRATCH_DIR"
+  sudo chmod -R 777 "$MY_SCRATCH_DIR"
+  
+  # Networking & Cleanup
   NETARG="--net=host"
-
-  rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
-
-  # Docker image to use
+  rm -rf ../pid.fl ../daemon_pid.fl
+  
+  # Docker image and container name
   DOCKER_IMAGE={~~docker_image~~}
   if [ -z "$NOPULL" ]; then
       echo "Updating docker image"
-      docker pull $DOCKER_IMAGE
+      docker pull "$DOCKER_IMAGE"
   fi
+  
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
-
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
   if [[ ! -z "$MY_DATA_DIR" ]]; then
@@ -681,44 +682,48 @@ docker_cln_sh: |
   fi
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
   DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
-
-  echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
-  # Run docker with appropriate parameters
+  
+  # Common ENV vars
+  ENV_VARS="--env SITE_NAME={~~client_name~~} \
+            --env DATA_DIR=$MY_DATA_DIR \
+            --env SCRATCH_DIR=$MY_SCRATCH_DIR \
+            --env GPU_DEVICE=$GPU2USE \
+            --env INSTITUTION=ODELIA \
+            --env MODEL=MST \
+            --env TASK=binary \
+            --env CONFIG=unilateral"
+  
+  # Execution modes
   if [[ ! -z "$DUMMY_TRAINING" ]]; then
-      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training"
-      docker run --rm -it \
-      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
+  
   elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
-      DOCKER_ENV_VAR="--env TRAINING_MODE=preflight_check --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
-      docker run --rm -it \
-      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=preflight_check --env NUM_EPOCHS=1 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
+  
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
-      # TODO how to set number of epochs
-      DOCKER_ENV_VAR="--env TRAINING_MODE=local_training --env SITE_NAME={~~client_name~~} --env NUM_EPOCHS=1"
-      docker run --rm -it \
-      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=5 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
+  
   elif [[ ! -z "$START_CLIENT" ]]; then
-      DOCKER_ENV_VAR="--env TRAINING_MODE=swarm"
-      docker run -d -t --rm \
-      $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
+      docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
+  
   elif [[ ! -z "$INTERACTIVE" ]]; then
-      # start interactive container
-      DOCKER_ENV_VAR=""
-      docker run --rm -it --detach-keys="ctrl-x" \
-    $DOCKER_OPTIONS $DOCKER_ENV_VAR $DOCKER_IMAGE \
-      /bin/bash -c "/bin/bash"
+      docker run --rm -it --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
+  
   else
-      echo "One of the following options must be passed:"
-      echo "--dummy_training   locally train a minimum example (to check if the Docker/GPU setup is working)"
-      echo "--preflight_check  run a single epoch of local training (to check if your data can be accessed properly and if you are ready for swarm training)"
-      echo "--local_training   run a local training (to train a local model on your data only)"
-      echo "--start_client     start the swarm learning client"
-      echo "--interactive      start the container with an interactive shell (for debugging purposes)"
+      echo "❗ One of the following options must be passed:"
+      echo "--dummy_training   minimal sanity check for Docker/GPU"
+      echo "--preflight_check  verify data access & local training"
+      echo "--local_training   train a local model"
+      echo "--start_client     launch FL client in swarm mode"
+      echo "--interactive      drop into interactive container"
+      exit 1
   fi
+
+
 
 docker_svr_sh: |
   #!/usr/bin/env bash
