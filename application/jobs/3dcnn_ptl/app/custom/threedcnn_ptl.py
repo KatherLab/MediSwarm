@@ -34,7 +34,7 @@ def set_up_logging():
 
 def set_up_data_module(env_vars, logger, site_name: str):
     torch.set_float32_matmul_precision('high')
-    ds_train, ds_val, path_run_dir, run_name, binary = prepare_odelia_dataset(
+    ds_train, ds_val, path_run_dir, run_name, is_binary_task = prepare_odelia_dataset(
         env_vars['task_data_name'], env_vars['data_dir'], site_name=site_name
     )
 
@@ -58,12 +58,12 @@ def set_up_data_module(env_vars, logger, site_name: str):
     # ------------ Initialize Model ------------
     loss_kwargs = {}
     out_ch = len(ds_train.labels)
-    if not binary:
+    if not is_binary_task:
         out_ch = sum(ds_train.class_labels_num)
         loss_kwargs = {'class_labels_num': ds_train.class_labels_num}
 
 
-    return dm, path_run_dir, run_name, binary, out_ch, loss_kwargs
+    return dm, path_run_dir, run_name, is_binary_task, out_ch, loss_kwargs
 
 
 def create_run_directory(env_vars):
@@ -78,7 +78,7 @@ def create_run_directory(env_vars):
 def prepare_training(logger, max_epochs: int, site_name: str):
     try:
         env_vars = load_environment_variables()
-        data_module, path_run_dir, run_name, binary , out_ch, loss_kwargs= set_up_data_module(env_vars, logger, site_name)
+        data_module, path_run_dir, run_name, is_binary_task , out_ch, loss_kwargs= set_up_data_module(env_vars, logger, site_name)
 
         if not torch.cuda.is_available():
             raise RuntimeError("This example requires a GPU")
@@ -88,8 +88,8 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         model_name = env_vars['model_name']
 
         model_map = {
-            'ResNet': ResNet if binary else ResNetRegression,
-            'MST': MST if binary else MSTRegression
+            'ResNet': ResNet if is_binary_task else ResNetRegression,
+            'MST': MST if is_binary_task else MSTRegression
         }
         MODEL = model_map.get(args.model, None)
         model = MODEL(
@@ -99,8 +99,8 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         )
         logger.info(f"Using model: {model_name}")
 
-        to_monitor = "val/AUC_ROC" if binary else "val/MAE"
-        min_max = "max" if binary else "min"
+        to_monitor = "val/AUC_ROC" if is_binary_task else "val/MAE"
+        min_max = "max" if is_binary_task else "min"
         log_every_n_steps = 50
 
         #wandb_logger = WandbLogger(project='ODELIA', group=site_name, name=run_name, log_model=False)
