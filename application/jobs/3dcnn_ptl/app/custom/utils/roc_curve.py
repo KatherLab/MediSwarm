@@ -21,10 +21,10 @@ def auc_bootstrapping(y_true, y_score, bootstrapping=1000, drop_intermediate=Fal
     """
     tprs, aucs, thrs = [], [], []
     mean_fpr = np.linspace(0, 1, 100)
-    np.random.seed(0)
+    rng = np.random.default_rng(seed)
 
     # Generate bootstrap samples with replacement
-    rand_idxs = np.random.randint(0, len(y_true), size=(bootstrapping, len(y_true)))
+    rand_idxs = rng.integers(0, len(y_true), size=(bootstrapping, len(y_true)))
 
     for rand_idx in rand_idxs:
         y_true_set = y_true[rand_idx]
