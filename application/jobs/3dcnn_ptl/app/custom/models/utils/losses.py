@@ -65,7 +65,7 @@ class CornLossMulti(torch.nn.Module):
 
 
 
-class MulitCELoss(nn.Module):
+class MultiCELoss(nn.Module):
     """
     CrossEntropyLoss per class-label group.
     """
