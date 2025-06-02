@@ -77,21 +77,64 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```
    * Training time depends on the size of the local dataset
 
+## Configurable Parameters for docker.sh
+
+When launching the client using `./docker.sh`, the following environment variables are automatically passed into the container. You can override them to customize training behavior:
+
+| Environment Variable | Default        | Description                                                                 |
+|----------------------|----------------|-----------------------------------------------------------------------------|
+| `SITE_NAME`          | *from flag*    | Name of your local site, e.g. `TUD_1`, passed via `--start_client`         |
+| `DATA_DIR`           | *from flag*    | Path to the host folder that contains your local data                      |
+| `SCRATCH_DIR`        | *from flag*    | Path for saving training outputs and temporary files                       |
+| `GPU_DEVICE`         | `device=0`     | GPU identifier to use inside the container (or `all`)                      |
+| `MODEL`              | `MST`          | Model architecture, choices: `MST`, `ResNet`                               |
+| `INSTITUTION`        | `ODELIA`       | Institution name, used to group experiment logs                            |
+| `TASK`               | `binary`       | Task type, choices: `binary`, `ordinal`                                    |
+| `CONFIG`             | `unilateral`   | Configuration schema for dataset (e.g. label scheme)                       |
+| `NUM_EPOCHS`         | `1` (test mode)| Number of training epochs (used in preflight/local training)               |
+| `TRAINING_MODE`      | derived        | Internal use. Automatically set based on flags like `--start_client`       |
+
+These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or exporting before run:
+
+```bash
+export MODEL=ResNet
+export CONFIG=original
+./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=1 --start_client
+```
+
+---
+
 ## Start Swarm Node
-1. From the directory where you unpacked the startup kit
+
+1. From the directory where you unpacked the startup kit:
    ```bash
-   cd $SITE_NAME/startup  # skip this if you just ran the pre-flight check
+   cd $SITE_NAME/startup  # Skip this if you just ran the pre-flight check
    ```
-2. Start the client
+
+2. Start the client:
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --start_client
    ```
+
 3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
    ```bash
    sudo chmod a+r nohup.out
    ```
-4. Output files
-   * TODO describe
+
+4. Output files:
+   - **Training logs and checkpoints** are saved under:
+     ```
+     $SCRATCHDIR/runs/INSTITUTION/MODEL_TASK_CONFIG_TIMESTAMP/
+     ```
+   - **Best checkpoint** usually saved as `best.ckpt` or `last.ckpt`
+   - **Prediction results**, if enabled, will appear in subfolders of the same directory
+   - **TensorBoard or WandB logs**, if activated, are stored in their respective folders inside the run directory
+
+5. (Optional) You can verify that the container is running properly:
+   ```bash
+   docker ps  # Check if odelia_swarm_client_$SITE_NAME is listed
+   tail -f nohup.out  # Follow training log
+   ```
 
 ## Run Local Training
 1. From the directory where you unpacked the startup kit
