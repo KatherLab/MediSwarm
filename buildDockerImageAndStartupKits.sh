@@ -8,19 +8,19 @@ if ! git diff --quiet || ! git diff --staged --quiet ; then
    exit 1
 fi
 
-DOCKER_BUILD_ARGS=""
+DOCKER_BUILD_ARGS="--no-cache --progress=plain";
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -p)          PROJECT_FILE="$2"; shift ;;
-        --no-cache)  DOCKER_BUILD_ARGS="--no-cache --progress=plain";;
+        -p)                  PROJECT_FILE="$2"; shift ;;
+        --use-docker-cache)  DOCKER_BUILD_ARGS="";;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
 done
 
 if [ -z "$PROJECT_FILE" ]; then
-    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [--no-cache]"
+    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [--use-docker-cache]"
     exit 1
 fi
 
