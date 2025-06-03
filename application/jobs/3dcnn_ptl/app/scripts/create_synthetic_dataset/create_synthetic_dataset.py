@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 
 import csv
+from itertools import product
 import numpy as np
 import os
 import pathlib
 import shutil
 import sys
 import SimpleITK as sitk
+from tqdm import tqdm
 
-size = (512,512,32)
+np.random.seed(1)
+
+size = (32,256,256)
 num_images_per_site = 15
 sites = ('client_A', 'client_B')  # this must match the swarm project definition
 metadata_folder = 'metadata_unilateral'
@@ -29,14 +33,14 @@ def create_folder_structure(output_folder) -> None:
 
 def get_image(i: int, j:int, lesion_class: int):
     # create three different types of images depending on the class
-    array = np.full(size, 100, dtype=np.uint16)
+    array = np.random.randint(-10, 10, size=size, dtype=np.int16)
     if lesion_class == 0:
-        array[i,j,:] = 50
+        array[:,i,j] = -50
     elif lesion_class == 1:
-        array[i,j,:] = 200
+        array[:,i,j] = 200
     else:
-        array[i,j,:size[2]//2] = 200
-        array[i,j,size[2]//2:] = 50
+        array[:size[2]//2,i,j] = 200
+        array[size[2]//2:,i,j] = 50
     image = sitk.GetImageFromArray(array)
     return image
 
@@ -91,7 +95,7 @@ if __name__ == '__main__':
 
     for i, site in enumerate(sites):
         table_data = []
-        for j in range (num_images_per_site):
+        for j in tqdm(range(num_images_per_site), f'Generating synthetic images for {site}'):
             lesion_class = j % 3
             image = get_image(i, j, lesion_class)
             for side in ('left', 'right'):
