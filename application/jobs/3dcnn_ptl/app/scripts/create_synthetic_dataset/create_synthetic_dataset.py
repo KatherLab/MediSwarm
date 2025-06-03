@@ -15,7 +15,8 @@ metadata_folder = 'metadata_unilateral'
 data_folder = 'data_unilateral'
 other_unused_folders = ('data_raw', 'data')
 folders = other_unused_folders + (metadata_folder, data_folder)
-
+some_age = 42*365
+num_folds = 5
 
 def create_folder_structure(output_folder) -> None:
     shutil.rmtree(output_folder, ignore_errors=True)
@@ -26,12 +27,12 @@ def create_folder_structure(output_folder) -> None:
             os.mkdir(output_folder/site/folder)
 
 
-def get_image(i: int, j:int, annotation_class: int):
+def get_image(i: int, j:int, lesion_class: int):
     # create three different types of images depending on the class
     array = np.full(size, 100, dtype=np.uint16)
-    if annotation_class == 0:
+    if lesion_class == 0:
         array[i,j,:] = 50
-    elif annotation_class == 1:
+    elif lesion_class == 1:
         array[i,j,:] = 200
     else:
         array[i,j,:size[2]//2] = 200
@@ -41,28 +42,43 @@ def get_image(i: int, j:int, annotation_class: int):
 
 
 def save_table(output_folder, site: str, table_data: dict) -> None:
-    def get_split(fold: int, num: int) -> str:
-        # mimic 60/20/20 split that slightly differs between folds
-        index = ( (fold + num) % num_images_per_site ) / num_images_per_site
-        if index < 0.6:
-            return 'train'
-        elif index < 0.8:
-            return 'val'
-        else:
-            return 'test'
+    def write_split_csv(output_folder, site: str, table_data: dict) -> None:
+        with open(output_folder/site/metadata_folder/'split.csv', 'w') as output_csv:
+            split_fields = ('UID','Fold','Split')
+            writer = csv.DictWriter(output_csv, fieldnames=split_fields)
+            writer.writeheader()
+            for linedata in table_data:
+                writer.writerow( { sf: linedata[sf] for sf in split_fields } )
 
-    with open(output_folder/site/metadata_folder/'split.csv', 'w') as output_csv:
-        writer = csv.DictWriter(output_csv, fieldnames=('PatientID','UID','Class','Fold','Split'))
-        writer.writeheader()
-        for i in range(5):
-            for j, linedata in enumerate(table_data):
-                linedata['Fold'] = i
-                linedata['Split'] = get_split(i, j)
-                writer.writerow(linedata)
+    def _get_annotation_data(table_data: dict, annotation_fields: tuple) -> list:
+        annotation_data = [ { af: linedata[af] for af in annotation_fields } for linedata in table_data ]
+        entries = list({tuple(d.items()) for d in annotation_data})
+        entries.sort()
+        annotation_data = [dict(t) for t in entries]
+        return annotation_data
 
-    with open(output_folder/site/metadata_folder/'annotation.csv', 'w') as output_csv:
-        writer = csv.DictWriter(output_csv, fieldnames=('PatientID','UID','Class','Fold','Split'))
-        writer.writeheader()
+    def write_annotation_csv(output_folder, site: str, table_data: dict) -> None:
+        with open(output_folder/site/metadata_folder/'annotation.csv', 'w') as output_csv:
+            annotation_fields = ('UID','PatientID','Age','Lesion')
+            writer = csv.DictWriter(output_csv, fieldnames=annotation_fields)
+            writer.writeheader()
+
+            annotation_data = _get_annotation_data(table_data, annotation_fields)
+            for linedata in annotation_data:
+                writer.writerow( linedata )
+
+    write_split_csv(output_folder, site, table_data)
+    write_annotation_csv(output_folder, site, table_data)
+
+def get_split(fold: int, num: int) -> str:
+    # mimic 60/20/20 split that slightly differs between folds
+    index = ( (fold + num) % num_images_per_site ) / num_images_per_site
+    if index < 0.6:
+        return 'train'
+    elif index < 0.8:
+        return 'val'
+    else:
+        return 'test'
 
 
 if __name__ == '__main__':
@@ -76,16 +92,17 @@ if __name__ == '__main__':
     for i, site in enumerate(sites):
         table_data = []
         for j in range (num_images_per_site):
-            annotation_class = j % 3
-
-            image = get_image(i, j, annotation_class)
-
+            lesion_class = j % 3
+            image = get_image(i, j, lesion_class)
             for side in ('left', 'right'):
-                id__ = f'ID_{j:03d}'
-                id_ = f'{id__}_{side}'
-                side_folder = output_folder/site/data_folder/id_
+                patientid = f'ID_{j:03d}'
+                uid = f'{patientid}_{side}'
+                side_folder = output_folder/site/data_folder/uid
                 os.mkdir(side_folder)
-                sitk.WriteImage(image, side_folder/'Sub.nii.gz')
-                table_data.append({'PatientID': id__,'UID': id_, 'Class': annotation_class})
+                sitk.WriteImage(image, side_folder/'Pre.nii.gz')
+                sitk.WriteImage(image, side_folder/'Sub_1.nii.gz')
+                sitk.WriteImage(image, side_folder/'T2.nii.gz')
+                for f in range(num_folds):
+                    table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age+i+j, 'Fold': f, 'Split': get_split(j, f)})
 
         save_table(output_folder, site, table_data)
