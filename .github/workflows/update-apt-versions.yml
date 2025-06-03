@@ -38,12 +38,13 @@ jobs:
         run: scripts/ci/update_apt_versions.sh
 
       - name: Commit updated Dockerfile if changes exist
-        if: env.NO_CHANGES == 'false'
+          echo "NO_CHANGES=false" >> $GITHUB_ENV
+
         run: |
           git commit -m "chore: update apt versions in Dockerfile_ODELIA"
 
       - name: Create Pull Request
-        if: env.NO_CHANGES == 'false'
+          echo "NO_CHANGES=false" >> $GITHUB_ENV
         uses: peter-evans/create-pull-request@v5
         with:
           commit-message: "chore: update apt versions in Dockerfile_ODELIA"
