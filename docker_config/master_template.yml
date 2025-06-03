@@ -621,7 +621,7 @@ sub_start_svr_sh: |
 docker_cln_sh: |
   #!/usr/bin/env bash
   # docker run script for FL client with proper env variable forwarding
-  
+
   # Parse command-line arguments
   while [[ "$#" -gt 0 ]]; do
       case $1 in
@@ -638,42 +638,42 @@ docker_cln_sh: |
       esac
       shift
   done
-  
+
   # Prompt for parameters if missing
   if [[ -z "$DUMMY_TRAINING" && -z "$MY_DATA_DIR" ]]; then
       read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
       : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
   fi
-  
+
   if [ -z "$MY_SCRATCH_DIR" ]; then
       read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
       : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
   fi
-  
+
   if [ -z "$GPU2USE" ]; then
       read -p "Enter the GPU index to use or 'all' (default: device=0): " user_gpu
       : ${GPU2USE:="${user_gpu:-device=0}"}
   fi
-  
+
   # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  
+
   # Setup scratch directory
   sudo mkdir -p "$MY_SCRATCH_DIR"
   sudo chown -R $(id -u):$(id -g) "$MY_SCRATCH_DIR"
   sudo chmod -R 777 "$MY_SCRATCH_DIR"
-  
+
   # Networking & Cleanup
   NETARG="--net=host"
   rm -rf ../pid.fl ../daemon_pid.fl
-  
+
   # Docker image and container name
   DOCKER_IMAGE={~~docker_image~~}
   if [ -z "$NOPULL" ]; then
       echo "Updating docker image"
       docker pull "$DOCKER_IMAGE"
   fi
-  
+
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
@@ -682,37 +682,37 @@ docker_cln_sh: |
   fi
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
   DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
-  
+
   # Common ENV vars
   ENV_VARS="--env SITE_NAME={~~client_name~~} \
             --env DATA_DIR=$MY_DATA_DIR \
             --env SCRATCH_DIR=$MY_SCRATCH_DIR \
             --env GPU_DEVICE=$GPU2USE \
-            --env INSTITUTION=ODELIA \
+            --env INSTITUTION={~~client_name~~} \
             --env MODEL=MST \
             --env TASK=binary \
             --env CONFIG=unilateral"
-  
+
   # Execution modes
   if [[ ! -z "$DUMMY_TRAINING" ]]; then
       docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
-  
+
   elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
       docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=preflight_check --env NUM_EPOCHS=1 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
-  
+
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
       docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=5 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
-  
+
   elif [[ ! -z "$START_CLIENT" ]]; then
       docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
-  
+
   elif [[ ! -z "$INTERACTIVE" ]]; then
       docker run --rm -it --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
-  
+
   else
       echo "❗ One of the following options must be passed:"
       echo "--dummy_training   minimal sanity check for Docker/GPU"
