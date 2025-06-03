@@ -8,7 +8,7 @@ import SimpleITK as sitk
 
 size = (512,512,32)
 num_images_per_site = 15
-sites = ('client_A', 'client_B')
+sites = ('temporary_vm', 'permanent_vm')  # this must match the swarm project definition
 output_folder = pathlib.Path('synthetic_dataset')
 folders = ('data_raw', 'data', 'data_unilateral', 'metadata')
 
