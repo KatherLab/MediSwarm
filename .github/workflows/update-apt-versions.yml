@@ -46,7 +46,7 @@ jobs:
         if: env.NO_CHANGES == 'false'
         uses: peter-evans/create-pull-request@v5
         with:
-          commit-message: chore: update apt versions in Dockerfile_ODELIA
+          commit-message: "chore: update apt versions in Dockerfile_ODELIA"
           branch: ci/apt-update
           title: 'chore: Update APT versions in Dockerfile'
           body: |
