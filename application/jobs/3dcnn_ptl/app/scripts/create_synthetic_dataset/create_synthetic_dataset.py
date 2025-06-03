@@ -58,6 +58,9 @@ def save_table(site: str, table_data: dict) -> None:
                 linedata['Split'] = get_split(i, j)
                 writer.writerow(linedata)
 
+    with open(output_folder/site/metadata_folder/'annotation.csv', 'w') as output_csv:
+        writer = csv.DictWriter(output_csv, fieldnames=('PatientID','UID','Class','Fold','Split'))
+        writer.writeheader()
 
 if __name__ == '__main__':
     create_folder_structure()
