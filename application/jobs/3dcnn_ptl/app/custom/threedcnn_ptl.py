@@ -48,12 +48,12 @@ def set_up_data_module(env_vars, logger, site_name: str):
         num_workers=16,
     )
 
-    # Log label distribution
-    distribution = dm.get_train_label_distribution(lambda sample: sample['label'])
-    logger.info(f"Total samples in training set: {distribution['total']}")
-    for label, pct in distribution['percentages'].items():
-        logger.info(f"Label '{label}': {pct:.2f}% of training set, Count: {distribution['counts'][label]}")
-    logger.info(f"Number of unique labels: {len(distribution['counts'])}")
+    # # Log label distribution
+    # distribution = dm.get_train_label_distribution(lambda sample: sample['label'])
+    # logger.info(f"Total samples in training set: {distribution['total']}")
+    # for label, pct in distribution['percentages'].items():
+    #     logger.info(f"Label '{label}': {pct:.2f}% of training set, Count: {distribution['counts'][label]}")
+    # logger.info(f"Number of unique labels: {len(distribution['counts'])}")
 
     # ------------ Initialize Model ------------
     loss_kwargs = {}
