@@ -88,10 +88,10 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         model_name = env_vars['model_name']
 
         model_map = {
-            'ResNet': ResNet if is_binary_task else ResNetRegression,
+            'ResNet101': ResNet if is_binary_task else ResNetRegression,
             'MST': MST if is_binary_task else MSTRegression
         }
-        MODEL = model_map.get(args.model, None)
+        MODEL = model_map.get(model_name, None)
         model = MODEL(
             in_ch=1,
             out_ch=out_ch,
