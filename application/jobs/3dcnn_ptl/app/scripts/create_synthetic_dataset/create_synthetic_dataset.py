@@ -2,27 +2,29 @@
 
 import csv
 import numpy as np
-import os, shutil
+import os
 import pathlib
+import shutil
+import sys
 import SimpleITK as sitk
 
 size = (512,512,32)
 num_images_per_site = 15
-sites = ('temporary_vm', 'permanent_vm')  # this must match the swarm project definition
-output_folder = pathlib.Path('synthetic_dataset')
+sites = ('client_A', 'client_B')  # this must match the swarm project definition
 metadata_folder = 'metadata_unilateral'
 data_folder = 'data_unilateral'
 other_unused_folders = ('data_raw', 'data')
 folders = other_unused_folders + (metadata_folder, data_folder)
 
 
-def create_folder_structure() -> None:
+def create_folder_structure(output_folder) -> None:
     shutil.rmtree(output_folder, ignore_errors=True)
     os.mkdir(output_folder)
     for i, site in enumerate(sites):
         os.mkdir(output_folder/site)
         for folder in folders:
             os.mkdir(output_folder/site/folder)
+
 
 def get_image(i: int, j:int, annotation_class: int):
     # create three different types of images depending on the class
@@ -38,7 +40,7 @@ def get_image(i: int, j:int, annotation_class: int):
     return image
 
 
-def save_table(site: str, table_data: dict) -> None:
+def save_table(output_folder, site: str, table_data: dict) -> None:
     def get_split(fold: int, num: int) -> str:
         # mimic 60/20/20 split that slightly differs between folds
         index = ( (fold + num) % num_images_per_site ) / num_images_per_site
@@ -62,8 +64,14 @@ def save_table(site: str, table_data: dict) -> None:
         writer = csv.DictWriter(output_csv, fieldnames=('PatientID','UID','Class','Fold','Split'))
         writer.writeheader()
 
+
 if __name__ == '__main__':
-    create_folder_structure()
+    if len(sys.argv) != 2:
+        print('usage: create_synthetic_dataset.py <output folder>')
+        exit(1)
+
+    output_folder = pathlib.Path(sys.argv[1])
+    create_folder_structure(output_folder)
 
     for i, site in enumerate(sites):
         table_data = []
@@ -80,4 +88,4 @@ if __name__ == '__main__':
                 sitk.WriteImage(image, side_folder/'Sub.nii.gz')
                 table_data.append({'PatientID': id__,'UID': id_, 'Class': annotation_class})
 
-        save_table(site, table_data)
+        save_table(output_folder, site, table_data)
