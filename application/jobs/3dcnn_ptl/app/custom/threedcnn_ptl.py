@@ -4,7 +4,7 @@ from collections import Counter
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
+from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
 #from model_selector import select_model
 from models import ResNet, MST, ResNetRegression, MSTRegression
@@ -103,8 +103,6 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         min_max = "max" if is_binary_task else "min"
         log_every_n_steps = 50
 
-        #wandb_logger = WandbLogger(project='ODELIA', group=site_name, name=run_name, log_model=False)
-
         '''
         early_stopping = EarlyStopping(
             monitor=to_monitor,
@@ -132,7 +130,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
             log_every_n_steps=log_every_n_steps,
             max_epochs=max_epochs,
             num_sanity_val_steps=2,
-            logger=wandb_logger
+            logger=TensorBoardLogger(save_dir=path_run_dir)
         )
 
     except Exception as e:
