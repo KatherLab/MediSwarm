@@ -10,7 +10,10 @@ size = (512,512,32)
 num_images_per_site = 15
 sites = ('temporary_vm', 'permanent_vm')  # this must match the swarm project definition
 output_folder = pathlib.Path('synthetic_dataset')
-folders = ('data_raw', 'data', 'data_unilateral', 'metadata')
+metadata_folder = 'metadata_unilateral'
+data_folder = 'data_unilateral'
+other_unused_folders = ('data_raw', 'data')
+folders = other_unused_folders + (metadata_folder, data_folder)
 
 
 def create_folder_structure() -> None:
@@ -46,7 +49,7 @@ def save_table(site: str, table_data: dict) -> None:
         else:
             return 'test'
 
-    with open(output_folder/site/'metadata'/'split.csv', 'w') as output_csv:
+    with open(output_folder/site/metadata_folder/'split.csv', 'w') as output_csv:
         writer = csv.DictWriter(output_csv, fieldnames=('PatientID','UID','Class','Fold','Split'))
         writer.writeheader()
         for i in range(5):
@@ -69,7 +72,7 @@ if __name__ == '__main__':
             for side in ('left', 'right'):
                 id__ = f'ID_{j:03d}'
                 id_ = f'{id__}_{side}'
-                side_folder = output_folder/site/'data_unilateral'/id_
+                side_folder = output_folder/site/data_folder/id_
                 os.mkdir(side_folder)
                 sitk.WriteImage(image, side_folder/'Sub.nii.gz')
                 table_data.append({'PatientID': id__,'UID': id_, 'Class': annotation_class})
