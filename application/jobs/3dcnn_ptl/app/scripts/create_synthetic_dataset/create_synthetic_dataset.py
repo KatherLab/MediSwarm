@@ -103,9 +103,9 @@ if __name__ == '__main__':
                 uid = f'{patientid}_{side}'
                 side_folder = output_folder/site/data_folder/uid
                 os.mkdir(side_folder)
-                sitk.WriteImage(image, side_folder/'Pre.nii.gz')
+                # sitk.WriteImage(image, side_folder/'Pre.nii.gz')
                 sitk.WriteImage(image, side_folder/'Sub_1.nii.gz')
-                sitk.WriteImage(image, side_folder/'T2.nii.gz')
+                # sitk.WriteImage(image, side_folder/'T2.nii.gz')
                 for f in range(num_folds):
                     table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age+i+j, 'Fold': f, 'Split': get_split(j, f)})
 
