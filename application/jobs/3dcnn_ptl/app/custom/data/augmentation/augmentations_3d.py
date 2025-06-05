@@ -19,9 +19,12 @@ class ImageOrSubjectToTensor(object):
 
 def parse_per_channel(per_channel, channels):
     if isinstance(per_channel, bool):
-        return [(ch,) for ch in range(channels)] if per_channel else [tuple(range(channels))]
-    return per_channel
-
+        if per_channel == True:
+            return [(ch,) for ch in range(channels)]
+        else:
+            return [tuple(ch for ch in range(channels))]
+    else:
+        return per_channel
 
 class ZNormalization(tio.ZNormalization):
     """Z-Normalization with support for per-channel and per-slice options, and percentile-based clipping."""
@@ -43,13 +46,13 @@ class ZNormalization(tio.ZNormalization):
         per_channel = parse_per_channel(self.per_channel, image.shape[0])
         per_slice = parse_per_channel(self.per_slice, image.shape[-1])
 
-        image.set_data(torch.cat([
+        image.set_data(
             torch.cat([
-                self._znorm(image.data[chs, ..., sl], mask[chs, ..., sl], image_name, image.path)
-                for sl in per_slice
-            ], dim=-1)
-            for chs in per_channel
-        ]))
+                torch.cat([
+                    self._znorm(image.data[chs,][:,:,:, sl,], mask[chs,][:,:,:, sl,], image_name, image.path)
+                for sl in per_slice], dim=-1)
+            for chs in per_channel ])
+        )
 
     def _znorm(self, image_data, mask, image_name, image_path):
         cutoff = torch.quantile(image_data.masked_select(mask).float(), torch.tensor(self.percentiles) / 100.0)
@@ -85,8 +88,11 @@ class CropOrPad(tio.CropOrPad):
     def _get_six_bounds_parameters(self, parameters: np.ndarray):
         result = []
         for number in parameters:
-            ini = np.random.randint(low=0, high=number + 1) if self.random_center else int(np.ceil(number / 2))
-            fin = number - ini
+            if self.random_center:
+                ini = np.random.randint(low=0, high=number+1)
+            else:
+                ini = int(np.ceil(number/2))
+            fin = number-ini
             result.extend([ini, fin])
         return tuple(result)
 
@@ -97,11 +103,12 @@ class CropOrPad(tio.CropOrPad):
 
         if padding_params is not None:
             if self.random_center:
-                padding_params = [
-                    np.random.randint(0, s + 1) if i % 2 == 0 else s - val
-                    for i, (s, val) in enumerate(zip(padding_params[::2], padding_params[1::2]))
-                    for _ in (0, 1)
-                ]
+                random_padding_params = []
+                for i in range(0, len(padding_params), 2):
+                    s = padding_params[i] + padding_params[i + 1]
+                    r = np.random.randint(0, s+1)
+                    random_padding_params.extend([r, s - r])
+                padding_params = random_padding_params
             pad = tio.Pad(padding_params, **padding_kwargs)
             subject = pad(subject)
 
