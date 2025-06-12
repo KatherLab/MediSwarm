@@ -9,10 +9,19 @@ participants:
     org: MEVIS_Test
     fed_learn_port: 8002
     admin_port: 8003
-  - name: temporary_vm
+  - name: CAM
     type: client
     org: MEVIS_Test
-  - name: permanent_vm
+  - name: MHA
+    type: client
+    org: MEVIS_Test
+  - name: RUMC
+    type: client
+    org: MEVIS_Test
+  - name: UKA
+    type: client
+    org: MEVIS_Test
+  - name: UMCU
     type: client
     org: MEVIS_Test
   - name: admin@mevis.odelia
