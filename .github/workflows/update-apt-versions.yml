@@ -2,7 +2,7 @@ name: Auto Update APT Versions
 
 on:
   schedule:
-    - cron: '0 5 * * 1'  # Every Monday at 05:00 UTC
+  - cron: '0 5 * * 0'  # Every Sunday at 05:00 UTC
   workflow_dispatch:
 
 jobs:
