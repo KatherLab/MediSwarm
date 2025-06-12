@@ -63,7 +63,7 @@ builders:
         #
         overseer_exists: false
         args:
-          sp_end_point: odeliatempvm.local:8002:8003
+          sp_end_point: odeliaswarmvm.local:8002:8003
 
   - path: nvflare.lighter.impl.cert.CertBuilder
   - path: nvflare.lighter.impl.signature.SignatureBuilder
