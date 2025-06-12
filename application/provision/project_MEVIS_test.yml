@@ -4,7 +4,7 @@ description: >
   Test setup.
 
 participants:
-  - name: odeliatempvm.local
+  - name: odeliaswarmvm.local
     type: server
     org: MEVIS_Test
     fed_learn_port: 8002
