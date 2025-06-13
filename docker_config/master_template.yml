@@ -685,8 +685,8 @@ docker_cln_sh: |
 
   # Common ENV vars
   ENV_VARS="--env SITE_NAME={~~client_name~~} \
-            --env DATA_DIR=$MY_DATA_DIR \
-            --env SCRATCH_DIR=$MY_SCRATCH_DIR \
+            --env DATA_DIR=/data \
+            --env SCRATCH_DIR=/scratch \
             --env GPU_DEVICE=$GPU2USE \
             --env INSTITUTION={~~client_name~~} \
             --env MODEL=MST \
