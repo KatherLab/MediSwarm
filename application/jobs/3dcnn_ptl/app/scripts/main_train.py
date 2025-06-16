@@ -6,7 +6,7 @@ import torch
 from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-
+import torch.multiprocessing as mp
 from odelia.data.datasets import ODELIA_Dataset3D
 from odelia.data.datamodules import DataModule
 from odelia.models import ResNet, MST, ResNetRegression, MSTRegression
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         batch_size=batch_size,
         pin_memory=True,
         weights= None, #weights,
-        num_workers=16,
+        num_workers=mp.cpu_count(),
     )
 
     # ------------ Initialize Model ------------
