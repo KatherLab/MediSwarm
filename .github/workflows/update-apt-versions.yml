@@ -2,7 +2,7 @@ name: Auto Update APT Versions
 
 on:
   schedule:
-  - cron: '0 5 * * 0'  # Every Sunday at 05:00 UTC
+    - cron: '0 5 * * 0'  # 每周日 05:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (with submodules)
         uses: actions/checkout@v3
         with:
           submodules: true
@@ -36,12 +36,22 @@ jobs:
       - name: Make update script executable
         run: chmod +x scripts/ci/update_apt_versions.sh
 
-      - name: Run apt update script
+      - name: Run APT update script
         run: scripts/ci/update_apt_versions.sh
 
-      # Removed redundant commit step
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet; then
+            echo "NO_CHANGES=true" >> $GITHUB_ENV
+            echo "No changes detected."
+          else
+            echo "NO_CHANGES=false" >> $GITHUB_ENV
+            echo "Changes detected."
+          fi
+
       - name: Create Pull Request
-          echo "NO_CHANGES=false" >> $GITHUB_ENV
+        if: env.NO_CHANGES == 'false'
         uses: peter-evans/create-pull-request@v5
         with:
           commit-message: "chore: update apt versions in Dockerfile_ODELIA"
