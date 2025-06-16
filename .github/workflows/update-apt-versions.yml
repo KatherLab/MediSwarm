@@ -2,8 +2,8 @@ name: Auto Update APT Versions
 
 on:
   schedule:
-    - cron: '0 5 * * 0'  # 每周日 05:00 UTC
-  workflow_dispatch:
+    - cron: '0 5 * * 0'  #  Runs every Sunday at 05:00 UTC
+  workflow_dispatch:      # Allows manual triggering of the workflow
 
 jobs:
   update-apt:
@@ -31,6 +31,7 @@ jobs:
 
       - name: Create and switch to apt-update branch
         run: |
+          git fetch origin
           git checkout -b ci/apt-update || git switch ci/apt-update
 
       - name: Make update script executable
@@ -39,15 +40,16 @@ jobs:
       - name: Run APT update script
         run: scripts/ci/update_apt_versions.sh
 
-      - name: Check for changes
-        id: check_changes
+      - name: Commit changes if present
+        id: commit_check
         run: |
           if git diff --quiet; then
             echo "NO_CHANGES=true" >> $GITHUB_ENV
-            echo "No changes detected."
+            echo "No changes to commit."
           else
+            git add docker_config/Dockerfile_ODELIA
+            git commit -m "chore: update apt versions based on rebuild"
             echo "NO_CHANGES=false" >> $GITHUB_ENV
-            echo "Changes detected."
           fi
 
       - name: Create Pull Request
