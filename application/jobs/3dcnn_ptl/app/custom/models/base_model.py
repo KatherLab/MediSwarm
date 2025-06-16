@@ -174,9 +174,15 @@ class BasicClassifier(BasicModel):
         return loss_val
 
     def _epoch_end(self, state):
-        for name, value in [("ACC", self.acc[state + "_"]), ("AUC_ROC", self.auc_roc[state + "_"])]:
-            self.log(f"{state}/{name}", value.compute(), batch_size=self.batch_size, on_step=False, on_epoch=True)
-            value.reset()
+        acc_value = self.acc[state + "_"].compute()
+        auc_roc_value = self.auc_roc[state + "_"].compute()
+        self.log(f"{state}/ACC", acc_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
+        self.log(f"{state}/AUC_ROC", auc_roc_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
+        # For ModelCheckpoint, also log as "val/AUC_ROC" if state == "val"
+        if state == "val":
+            self.log("val/AUC_ROC", auc_roc_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
+        self.acc[state + "_"].reset()
+        self.auc_roc[state + "_"].reset()
 
     def compute_loss(self, pred, target):
         if self.task != "multiclass":
@@ -234,7 +240,11 @@ class BasicRegression(BasicModel):
         return loss_val
 
     def _epoch_end(self, state):
-        self.log(f"{state}/MAE", self.mae[state + "_"].compute(), batch_size=self.batch_size, on_step=False, on_epoch=True)
+        mae_value = self.mae[state + "_"].compute()
+        self.log(f"{state}/MAE", mae_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
+        # For ModelCheckpoint, also log as "val/MAE" if state == "val"
+        if state == "val":
+            self.log("val/MAE", mae_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
         self.mae[state + "_"].reset()
 
     def logits2labels(self, logits):
