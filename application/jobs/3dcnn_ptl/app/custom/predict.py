@@ -9,7 +9,7 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_recall_curve, 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from data.datasets import DUKE_Dataset3D, DUKE_Dataset3D_external, DUKE_Dataset3D_collab
+from data.datasets import ODELIA_Dataset3D
 from data.datamodules import DataModule
 from utils.roc_curve import plot_roc_curve, cm2acc, cm2x
 from models import ResNet, VisionTransformer, EfficientNet, DenseNet121, UNet3D

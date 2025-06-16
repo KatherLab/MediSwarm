@@ -9,6 +9,7 @@ import seaborn as sns
 import pandas as pd
 import ast
 import torch.nn.functional as F
+import torch.multiprocessing as mp
 from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score, roc_auc_score, roc_curve
 
 from odelia.data.datasets import ODELIA_Dataset3D
@@ -114,7 +115,7 @@ if __name__ == "__main__":
     dm = DataModule(
         ds_test = ds_test,
         batch_size=batch_size,
-        num_workers=16,
+        num_workers=mp.cpu_count(),
         # pin_memory=True,
     )
 
