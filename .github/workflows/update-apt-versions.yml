@@ -50,6 +50,10 @@ jobs:
             echo "Changes detected."
           fi
 
+      - name: Push ci/apt-update to origin
+        if: env.NO_CHANGES == 'false'
+        run: git push origin ci/apt-update
+
       - name: Create Pull Request
         if: env.NO_CHANGES == 'false'
         uses: peter-evans/create-pull-request@v5
