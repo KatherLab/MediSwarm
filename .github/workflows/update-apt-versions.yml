@@ -1,0 +1,51 @@
+name: Auto Update APT Versions
+
+on:
+  schedule:
+  - cron: '0 5 * * 0'  # Every Sunday at 05:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update-apt:
+    name: Update APT Package Versions in Dockerfile
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y git
+
+      - name: Configure Git for CI
+        run: |
+          git config --global user.email "ci@github.com"
+          git config --global user.name "GitHub CI"
+
+      - name: Create and switch to apt-update branch
+        run: |
+          git checkout -b ci/apt-update || git switch ci/apt-update
+
+      - name: Make update script executable
+        run: chmod +x scripts/ci/update_apt_versions.sh
+
+      - name: Run apt update script
+        run: scripts/ci/update_apt_versions.sh
+
+      # Removed redundant commit step
+      - name: Create Pull Request
+          echo "NO_CHANGES=false" >> $GITHUB_ENV
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "chore: update apt versions in Dockerfile_ODELIA"
+          branch: ci/apt-update
+          title: "chore: Update APT versions in Dockerfile"
+          body: |
+            This PR automatically updates APT package version numbers in `Dockerfile_ODELIA`
+            based on a rebuild and inspection of installation logs.
+          base: main
