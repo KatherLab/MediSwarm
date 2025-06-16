@@ -9,6 +9,7 @@ from data.datamodules import DataModule
 #from model_selector import select_model
 from models import ResNet, MST, ResNetRegression, MSTRegression
 from env_config import load_environment_variables, load_prediction_modules, prepare_odelia_dataset, generate_run_directory
+import torch.multiprocessing as mp
 
 import os
 import logging
@@ -45,7 +46,7 @@ def set_up_data_module(env_vars, logger, site_name: str):
         batch_size=1,
         pin_memory=True,
         weights=None,
-        num_workers=16,
+        num_workers=mp.cpu_count(),
     )
 
     # # Log label distribution
