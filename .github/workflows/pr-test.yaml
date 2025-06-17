@@ -61,7 +61,7 @@ jobs:
           echo "Dummy training project prepared"
 
       - name: Run dummy training
-        continue-on-error: true
+        continue-on-error: false
         run: |
           ./runTestsInDocker.sh run_dummy_training
           echo "Dummy training finished"
@@ -69,7 +69,7 @@ jobs:
           ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for dummy training"
 
       - name: Run 3D CNN preflight check
-        continue-on-error: true
+        continue-on-error: false
         run: |
           ./runTestsInDocker.sh preflight_check
           echo "Preflight check finished"
