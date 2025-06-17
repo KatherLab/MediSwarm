@@ -67,6 +67,10 @@ def prepare_odelia_dataset(task_data_name, data_dir, site_name, split="train"):
                                 random_flip=True, random_rotate=True, random_inverse=False, noise=True)
     ds_val = ODELIA_Dataset3D(institutions=institution, split='val', binary=is_binary_task, config=config)
 
+    print(f"Total samples loaded: {len(ds_train)} (train) + {len(ds_val)} (val)")
+    print(f"Train set: {len(ds_train)}, Val set: {len(ds_val)}")
+    print(f"Labels in val: {[sample['label'] for sample in ds_val]}")
+
     return ds_train, ds_val, path_run_dir, run_name, is_binary_task
 
 
