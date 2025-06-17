@@ -28,7 +28,7 @@ jobs:
       - name: Build Docker Image & Generate Startup Kits
         run: |
           chmod +x buildDockerImageAndStartupKits.sh
-          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
+          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml --use-docker-cache
 
 
       - name: Debug workspace path
