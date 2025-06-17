@@ -43,6 +43,7 @@ cd $CWD
 docker build $DOCKER_BUILD_ARGS -t $DOCKER_IMAGE $CLEAN_SOURCE_DIR -f docker_config/Dockerfile_ODELIA
 
 echo "Docker image $DOCKER_IMAGE built successfully"
+echo "./_buildStartupKits.sh $PROJECT_FILE $VERSION"
 ./_buildStartupKits.sh $PROJECT_FILE $VERSION
 echo "Startup kits built successfully"
 
