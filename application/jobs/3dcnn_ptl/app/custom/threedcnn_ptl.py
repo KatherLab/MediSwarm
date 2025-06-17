@@ -38,6 +38,7 @@ def set_up_data_module(env_vars, logger, site_name: str):
     ds_train, ds_val, path_run_dir, run_name, is_binary_task = prepare_odelia_dataset(
         env_vars['task_data_name'], env_vars['data_dir'], site_name=site_name
     )
+    logger.info(f"Length of val dataset: {len(ds_val)}")
 
     dm = DataModule(
         ds_train=ds_train,
@@ -80,6 +81,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
     try:
         env_vars = load_environment_variables()
         data_module, path_run_dir, run_name, is_binary_task , out_ch, loss_kwargs= set_up_data_module(env_vars, logger, site_name)
+
 
         if not torch.cuda.is_available():
             raise RuntimeError("This example requires a GPU")
