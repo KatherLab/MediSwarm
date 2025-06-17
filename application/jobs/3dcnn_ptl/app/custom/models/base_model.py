@@ -181,8 +181,7 @@ class BasicClassifier(BasicModel):
         # For ModelCheckpoint, also log as "val/AUC_ROC" if state == "val"
         if state == "val":
             self.log("val/AUC_ROC", auc_roc_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
-            # print some debug information
-            print(f"Epoch {self.current_epoch} - {state} AUC_ROC: {auc_roc_value:.4f}, ACC: {acc_value:.4f}")
+        # print some debug information
         print(f"Epoch {self.current_epoch} - {state} ACC: {acc_value:.4f}, AUC_ROC: {auc_roc_value:.4f}")
         self.acc[state + "_"].reset()
         self.auc_roc[state + "_"].reset()
@@ -248,8 +247,8 @@ class BasicRegression(BasicModel):
         # For ModelCheckpoint, also log as "val/MAE" if state == "val"
         if state == "val":
             self.log("val/MAE", mae_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
-            # print some debug information
-            print(f"Epoch {self.current_epoch} - {state} MAE: {mae_value:.4f}")
+        # print some debug information
+        print(f"Epoch {self.current_epoch} - {state} MAE: {mae_value:.4f}")
         self.mae[state + "_"].reset()
 
     def logits2labels(self, logits):
