@@ -5,11 +5,11 @@ import subprocess
 from pathlib import Path
 
 def get_latest_workspace():
-    workspace_root = Path("workspace")
-    versions = sorted([p for p in workspace_root.iterdir() if "odelia" in p.name], reverse=True)
-    if not versions:
-        raise RuntimeError("No odelia version found in workspace/")
-    return versions[0]
+    root = Path.cwd()
+    candidates = list(root.rglob("odelia_0.9-dev.*_MEVIS_test"))
+    if not candidates:
+        raise RuntimeError("No workspace found matching pattern 'odelia_0.9-dev.*_MEVIS_test'")
+    return sorted(candidates, reverse=True)[0]
 
 def run_command(cmd, cwd=None):
     print(f"\n>>> Running: {' '.join(cmd)} in {cwd}")
@@ -22,6 +22,7 @@ def main():
 
     workspace_version = get_latest_workspace()
     startup_dir = workspace_version / "prod_00" / site / "startup"
+
     print(f"Using workspace: {workspace_version}")
     print(f"Startup directory: {startup_dir}")
 
