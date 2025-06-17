@@ -42,8 +42,10 @@ cd $CWD
 
 docker build $DOCKER_BUILD_ARGS -t $DOCKER_IMAGE $CLEAN_SOURCE_DIR -f docker_config/Dockerfile_ODELIA
 
-rm -rf $CLEAN_SOURCE_DIR
-
+echo "Docker image $DOCKER_IMAGE built successfully"
 ./_buildStartupKits.sh $PROJECT_FILE $VERSION
+echo "Startup kits built successfully"
+
+rm -rf $CLEAN_SOURCE_DIR
 
 echo "If you wish, manually push $DOCKER_IMAGE now"
