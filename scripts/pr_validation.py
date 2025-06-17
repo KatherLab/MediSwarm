@@ -3,6 +3,14 @@
 import os
 import subprocess
 from pathlib import Path
+import logging
+
+logging.basicConfig(level=logging.INFO)
+print("Script is running")
+
+import os
+print("PWD:", os.getcwd())
+print("Files in current dir:", os.listdir())
 
 def get_latest_workspace():
     root = Path.cwd()
