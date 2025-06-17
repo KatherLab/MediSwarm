@@ -40,4 +40,4 @@ jobs:
 
       - name: Run Dummy Training and Preflight
         run: |
-          python3 scripts/pr_validation.py
+          ./runTestsInDocker.sh
