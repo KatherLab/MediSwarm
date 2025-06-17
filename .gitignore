@@ -179,4 +179,4 @@ provision
 **/db.sqlite
 
 # Ignore provisioned files
-#/workspace/
+/workspace/
