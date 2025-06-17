@@ -28,7 +28,7 @@ prepare_dummy_trainings () {
 run_dummy_training () {
     echo "[Run] Dummy training session..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    ./docker.sh --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU all --no_pull --dummy_training
+    ./docker.sh --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU all --no_pull --dummy_training --log-driver json-file
     cd "$CWD"
 }
 
