@@ -41,9 +41,3 @@ jobs:
       - name: Run Dummy Training and Preflight
         run: |
           python3 scripts/pr_validation.py
-        env:
-          WORKSPACE_PATH: ${{ env.WORKSPACE_PATH }}
-
-      - name: Run Dummy Training and Preflight
-        run: |
-          python3 scripts/pr_validation.py
