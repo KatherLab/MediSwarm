@@ -1,6 +1,8 @@
 name: MediSwarm PR Validation
 
 on:
+  schedule:
+    - cron: '0 5 * * 0'  # Every Sunday at 05:00 UTC
   pull_request:
     branches:
       - main
@@ -17,8 +19,11 @@ jobs:
       SITE_NAME: UKA
 
     steps:
-      - name: Checkout PR Code
-        uses: actions/checkout@v4
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0  # 确保获取完整历史以支持子模块解析和合并测试
 
       - name: Build Docker Images and Startup Kits
         run: |
