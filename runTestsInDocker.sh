@@ -50,14 +50,13 @@ cleanup_dummy_trainings () {
     rm -rf "$PROJECT_DIR"
 }
 
-# 支持单步执行
 case "$1" in
     run_tests) run_tests ;;
     prepare_dummy_trainings) prepare_dummy_trainings ;;
     run_dummy_training) run_dummy_training ;;
     preflight_check) run_3dcnn_training_with_synthetic_data_preflight_check ;;
     cleanup) cleanup_dummy_trainings ;;
-    all | "")  # 默认运行全部
+    all | "")
         run_tests
         prepare_dummy_trainings
         run_dummy_training
