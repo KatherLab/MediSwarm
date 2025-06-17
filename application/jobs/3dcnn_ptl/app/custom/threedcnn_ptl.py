@@ -38,6 +38,12 @@ def set_up_data_module(env_vars, logger, site_name: str):
     ds_train, ds_val, path_run_dir, run_name, is_binary_task = prepare_odelia_dataset(
         env_vars['task_data_name'], env_vars['data_dir'], site_name=site_name
     )
+    logger.info(f"Dataset path: {ds_train}")
+    logger.info(f"Run directory: {path_run_dir}")
+    logger.info(f"Run name: {run_name}")
+    logger.info(f"Is binary task: {is_binary_task}")
+    logger.info(f"Number of classes: {len(ds_train.labels)}")
+    logger.info(f"Length of train dataset: {len(ds_train)}")
     logger.info(f"Length of val dataset: {len(ds_val)}")
 
     dm = DataModule(
