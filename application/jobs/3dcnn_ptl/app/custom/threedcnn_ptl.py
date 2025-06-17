@@ -19,7 +19,6 @@ def get_num_epochs_per_round(site_name: str) -> int:
     NUM_EPOCHS_FOR_SITE = {
         "TUD_1": 2, "TUD_2": 4, "TUD_3": 8,
         "MEVIS_1": 2, "MEVIS_2": 4,
-        "UKA": 2,
     }
     max_epochs = NUM_EPOCHS_FOR_SITE.get(site_name, 5)
     print(f"Site name: {site_name}")
