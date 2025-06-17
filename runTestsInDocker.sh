@@ -39,7 +39,6 @@ run_3dcnn_training_with_synthetic_data_preflight_check () {
     docker run --rm \
         -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
         -w /MediSwarm \
-        -u $(id -u):$(id -g)
         jefftud/odelia:$VERSION \
         /bin/bash -c "python3 application/jobs/3dcnn_ptl/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
 
