@@ -52,7 +52,7 @@ jobs:
         run: |
           ./runTestsInDocker.sh run_tests
           echo "=== [LOG CHECK] ==="
-          docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "❌ Error found in logs" || echo "No error found"
+          docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "Error found in logs" || echo "No error found"
 
       - name: Prepare dummy trainings
         continue-on-error: true
