@@ -25,9 +25,11 @@ jobs:
           submodules: true
           fetch-depth: 0  # Fetch all history for all branches
 
-      - name: Build Docker Images and Startup Kits
+      - name: Build Docker Image & Generate Startup Kits
         run: |
-          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml --use-docker-cache
+          chmod +x buildDockerImageAndStartupKits.sh
+          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
+
 
       - name: Debug workspace path
         #run: echo "Workspace path is: ${{ env.WORKSPACE_PATH }}"
