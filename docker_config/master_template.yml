@@ -621,6 +621,13 @@ sub_start_svr_sh: |
 docker_cln_sh: |
   #!/usr/bin/env bash
   # docker run script for FL client with proper env variable forwarding
+  # Auto disable TTY in non-interactive CI environments
+  if [ -t 1 ]; then
+      TTY_OPT="-it"
+  else
+      echo "[INFO] No interactive terminal detected, disabling TTY."
+      TTY_OPT=""
+  fi
 
   # Parse command-line arguments
   while [[ "$#" -gt 0 ]]; do
@@ -695,15 +702,15 @@ docker_cln_sh: |
 
   # Execution modes
   if [[ ! -z "$DUMMY_TRAINING" ]]; then
-      docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
+      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
 
   elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
-      docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=preflight_check --env NUM_EPOCHS=1 $DOCKER_IMAGE \
+      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=preflight_check --env NUM_EPOCHS=1 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
 
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
-      docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=5 $DOCKER_IMAGE \
+      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=5 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
 
   elif [[ ! -z "$START_CLIENT" ]]; then
@@ -711,7 +718,7 @@ docker_cln_sh: |
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
   elif [[ ! -z "$INTERACTIVE" ]]; then
-      docker run --rm -it --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
+      docker run --rm $TTY_OPT --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
 
   else
       echo "❗ One of the following options must be passed:"
