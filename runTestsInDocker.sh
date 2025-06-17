@@ -6,7 +6,7 @@ PROJECT_DIR=workspace/odelia_${VERSION}_dummy_project_for_testing
 CWD=`pwd`
 
 run_tests () {
-    docker run -it --rm \
+    docker run --rm \
            --shm-size=16g \
            --ipc=host \
            --ulimit memlock=-1 \
