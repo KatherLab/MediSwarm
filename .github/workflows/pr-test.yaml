@@ -30,6 +30,19 @@ jobs:
           chmod +x ./buildDockerImageAndStartupKits.sh
           ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml --use-docker-cache
 
+      - name: Debug workspace path
+        #run: echo "Workspace path is: ${{ env.WORKSPACE_PATH }}"
+        run: |
+          echo "Workspace path is: ${{ env.WORKSPACE_PATH }}"
+          echo "Current directory: $(pwd)"
+          ls -la ${{ env.WORKSPACE_PATH }}
+
+      - name: Run Dummy Training and Preflight
+        run: |
+          python3 scripts/pr_validation.py
+        env:
+          WORKSPACE_PATH: ${{ env.WORKSPACE_PATH }}
+
       - name: Run Dummy Training and Preflight
         run: |
           python3 scripts/pr_validation.py

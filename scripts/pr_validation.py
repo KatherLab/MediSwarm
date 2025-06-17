@@ -32,5 +32,12 @@ def main():
     # Run preflight check
     run_command(["./docker.sh", "--data_dir", datadir, "--scratch_dir", scratchdir, "--GPU", "device=0", "--preflight_check"], cwd=startup_dir)
 
+def get_latest_workspace():
+    path = os.environ.get("WORKSPACE_PATH")
+    if path:
+        return Path(path).resolve()
+    else:
+        raise RuntimeError("WORKSPACE_PATH not set. Did buildDockerImageAndStartupKits.sh fail?")
+
 if __name__ == "__main__":
     main()
