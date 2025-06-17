@@ -47,13 +47,6 @@ jobs:
       - name: Build Docker image and dummy startup kits
         run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
-      - name: Run Unit Tests inside Docker
-        continue-on-error: true
-        run: |
-          ./runTestsInDocker.sh run_tests
-          echo "=== [LOG CHECK] ==="
-          docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "Error found in logs" || echo "No error found"
-
       - name: Prepare dummy trainings
         continue-on-error: true
         run: |
@@ -75,6 +68,13 @@ jobs:
           echo "Preflight check finished"
           echo "=== Checking synthetic log output ==="
           ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for preflight"
+
+      - name: Run Unit Tests inside Docker
+        continue-on-error: true
+        run: |
+          ./runTestsInDocker.sh run_tests
+          echo "=== [LOG CHECK] ==="
+          docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "Error found in logs" || echo "No error found"
 
       - name: Cleanup training artifacts
         continue-on-error: true
