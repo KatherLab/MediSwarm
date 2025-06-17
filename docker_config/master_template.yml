@@ -703,7 +703,7 @@ docker_cln_sh: |
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
 
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
-      docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=5 $DOCKER_IMAGE \
+      docker run --rm -it $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=100 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
 
   elif [[ ! -z "$START_CLIENT" ]]; then
