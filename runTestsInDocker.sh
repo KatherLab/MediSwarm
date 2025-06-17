@@ -28,7 +28,7 @@ prepare_dummy_trainings () {
 run_dummy_training () {
     echo "[Run] Dummy training session..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    ./docker.sh --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU all --no_pull --dummy_training --log-driver json-file
+    ./docker.sh --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU all --no_pull --dummy_training
     cd "$CWD"
 }
 
@@ -36,7 +36,11 @@ run_3dcnn_training_with_synthetic_data_preflight_check () {
     echo "[Run] Synthetic data + 3D CNN preflight check..."
     SYNTHETIC_DATA_DIR=$(mktemp -d)
 
-    python3 application/jobs/3dcnn_ptl/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py "$SYNTHETIC_DATA_DIR"
+    docker run --rm \
+        -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
+        -w /MediSwarm \
+        jefftud/odelia:$VERSION \
+        /bin/bash -c "python3 application/jobs/3dcnn_ptl/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
 
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
     ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU all --no_pull --preflight_check
@@ -44,6 +48,7 @@ run_3dcnn_training_with_synthetic_data_preflight_check () {
 
     rm -rf "$SYNTHETIC_DATA_DIR"
 }
+
 
 cleanup_dummy_trainings () {
     echo "[Cleanup] Removing dummy workspace..."
