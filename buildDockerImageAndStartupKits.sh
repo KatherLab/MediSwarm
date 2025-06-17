@@ -47,6 +47,3 @@ rm -rf $CLEAN_SOURCE_DIR
 ./_buildStartupKits.sh $PROJECT_FILE $VERSION
 
 echo "If you wish, manually push $DOCKER_IMAGE now"
-
-latest_workspace=$(find workspace -maxdepth 1 -type d -name 'odelia_0.9-dev.*_MEVIS_test' | sort | tail -n1)
-echo "WORKSPACE_PATH=$latest_workspace" >> $GITHUB_ENV
