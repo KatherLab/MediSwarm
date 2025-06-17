@@ -24,7 +24,7 @@ num_folds = 5
 
 def create_folder_structure(output_folder) -> None:
     shutil.rmtree(output_folder, ignore_errors=True)
-    os.mkdir(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
     for i, site in enumerate(sites):
         os.mkdir(output_folder/site)
         for folder in folders:
