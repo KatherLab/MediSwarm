@@ -52,19 +52,19 @@ jobs:
         run: |
           ./runTestsInDocker.sh run_tests
           echo "=== [LOG CHECK] ==="
-          docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "❌ Error found in logs" || echo "✅ No error found"
+          docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "❌ Error found in logs" || echo "No error found"
 
       - name: Prepare dummy trainings
         continue-on-error: true
         run: |
           ./runTestsInDocker.sh prepare_dummy_trainings
-          echo "✅ Dummy training project prepared"
+          echo "Dummy training project prepared"
 
       - name: Run dummy training
         continue-on-error: true
         run: |
           ./runTestsInDocker.sh run_dummy_training
-          echo "✅ Dummy training finished"
+          echo "Dummy training finished"
           echo "=== Checking log output ==="
           ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for dummy training"
 
@@ -72,7 +72,7 @@ jobs:
         continue-on-error: true
         run: |
           ./runTestsInDocker.sh preflight_check
-          echo "✅ Preflight check finished"
+          echo "Preflight check finished"
           echo "=== Checking synthetic log output ==="
           ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for preflight"
 
@@ -80,4 +80,4 @@ jobs:
         continue-on-error: true
         run: |
           ./runTestsInDocker.sh cleanup
-          echo "✅ Cleanup finished"
+          echo "Cleanup finished"
