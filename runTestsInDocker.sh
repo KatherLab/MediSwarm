@@ -39,6 +39,7 @@ run_3dcnn_training_with_synthetic_data_preflight_check () {
     docker run --rm \
         -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
         -w /MediSwarm \
+        -u $(id -u):$(id -g)
         jefftud/odelia:$VERSION \
         /bin/bash -c "python3 application/jobs/3dcnn_ptl/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
 
@@ -46,7 +47,7 @@ run_3dcnn_training_with_synthetic_data_preflight_check () {
     ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU all --no_pull --preflight_check
     cd "$CWD"
 
-    rm -rf "$SYNTHETIC_DATA_DIR"
+    rm -rf "$SYNTHETIC_DATA_DIR" || echo "Warning: cleanup failed"
 }
 
 
