@@ -38,6 +38,23 @@ jobs:
           echo "Current directory: $(pwd)"
           ls -la ${{ env.WORKSPACE_PATH }}
 
-      - name: Run Dummy Training and Preflight
-        run: |
-          ./runTestsInDocker.sh
+      - name: Get Docker image version
+        run: ./getVersionNumber.sh
+
+      - name: Build Docker image and startup kits
+        run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
+
+      - name: Run Unit Tests inside Docker
+        run: ./runTestsInDocker.sh run_tests
+
+      - name: Prepare dummy trainings
+        run: ./runTestsInDocker.sh prepare_dummy_trainings
+
+      - name: Run dummy training
+        run: ./runTestsInDocker.sh run_dummy_training
+
+      - name: Run 3D CNN preflight check
+        run: ./runTestsInDocker.sh preflight_check
+
+      - name: Cleanup training artifacts
+        run: ./runTestsInDocker.sh cleanup
