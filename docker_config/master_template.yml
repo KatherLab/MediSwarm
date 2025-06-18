@@ -702,7 +702,7 @@ docker_cln_sh: |
             --env SCRATCH_DIR=/scratch \
             --env GPU_DEVICE=$GPU2USE \
             --env INSTITUTION={~~client_name~~} \
-            --env MODEL=MST \
+            --env MODEL_NAME=MST \
             --env TASK=ordinal \
             --env CONFIG=unilateral"
 
