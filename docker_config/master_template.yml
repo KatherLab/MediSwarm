@@ -620,7 +620,6 @@ sub_start_svr_sh: |
 
 docker_cln_sh: |
   #!/usr/bin/env bash
-  set -x
   # docker run script for FL client with proper env variable forwarding
   # Auto disable TTY in non-interactive CI environments
   if [ -t 1 ]; then
