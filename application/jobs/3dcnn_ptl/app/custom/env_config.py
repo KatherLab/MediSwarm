@@ -51,7 +51,7 @@ def prepare_dataset(task_data_name, data_dir, site_name, split="train"):
 def prepare_odelia_dataset(task_data_name, data_dir, site_name, split="train"):
     # parser removed, now read from environment
     institution = os.environ.get('INSTITUTION', 'ODELIA')
-    model = os.environ.get('MODEL', 'MST')
+    model = os.environ.get('MODEL_NAME', 'MST')
     task = os.environ.get('TASK', 'binary')
     config = os.environ.get('CONFIG', 'unilateral')
     task_type = os.environ.get('TASK', 'binary')  # 'binary' or 'ordinal'
@@ -98,4 +98,3 @@ def cal_max_epochs(preset_max_epochs, weightage):
     Currently unused.
     """
     pass  # To be implemented
-
