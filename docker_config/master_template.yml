@@ -700,6 +700,7 @@ docker_cln_sh: |
   ENV_VARS="--env SITE_NAME={~~client_name~~} \
             --env DATA_DIR=/data \
             --env SCRATCH_DIR=/scratch \
+            --env TORCH_HOME=/scratch \
             --env GPU_DEVICE=$GPU2USE \
             --env INSTITUTION={~~client_name~~} \
             --env MODEL_NAME=MST \
