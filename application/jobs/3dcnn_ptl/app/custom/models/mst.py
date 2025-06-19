@@ -44,6 +44,7 @@ class _MST(nn.Module):
             emb_ch = self.backbone.fc.in_features
             self.backbone.fc = nn.Identity()
         elif backbone_type == "dinov2":
+            torch.hub._validate_not_a_forked_repo=lambda a,b,c: True
             self.backbone = torch.hub.load('facebookresearch/dinov2', f'dinov2_vit{model_size}14')
             self.backbone.mask_token = None
             emb_ch = self.backbone.num_features
