@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torchmetrics import AUROC, Accuracy, MeanAbsoluteError
-from .utils.losses import CornLossMulti, MultiCELoss
+from .utils.losses import CornLossMulti
 
 
 class VeryBasicModel(pl.LightningModule):

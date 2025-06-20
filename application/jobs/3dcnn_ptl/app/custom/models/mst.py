@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 from einops import rearrange
-from torch.utils.checkpoint import checkpoint
 from x_transformers import Encoder
 
 from .base_model import BasicClassifier, BasicRegression

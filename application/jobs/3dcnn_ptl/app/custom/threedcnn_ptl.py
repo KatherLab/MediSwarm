@@ -1,14 +1,11 @@
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader
-from collections import Counter
 import torch
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
-#from model_selector import select_model
 from models import ResNet, MST, ResNetRegression, MSTRegression
-from env_config import load_environment_variables, load_prediction_modules, prepare_odelia_dataset, generate_run_directory
+from env_config import load_environment_variables, prepare_odelia_dataset, generate_run_directory
 import torch.multiprocessing as mp
 
 import os
