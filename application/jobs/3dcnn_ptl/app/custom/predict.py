@@ -218,6 +218,7 @@ def evaluate_results(df, path_out, last_flag, fontdict):
         logger.error(f"Error in evaluate_results function: {e}")
         raise
 
+'''
 if __name__ == "__main__":
     wouter_data_path = "/mnt/sda1/swarm-learning/wouter_data/preprocessed_re/"
     athens_data_path = "/mnt/sda1/swarm-learning/athens_data/preprocessed_athens/"
@@ -229,3 +230,4 @@ if __name__ == "__main__":
         prediction_flag='collab',
         cohort_flag='athens'
     )
+'''
