@@ -1,3 +1,4 @@
+'''
 #!/usr/bin/env python3
 
 import torch
@@ -217,6 +218,7 @@ def evaluate_results(df, path_out, last_flag, fontdict):
     except Exception as e:
         logger.error(f"Error in evaluate_results function: {e}")
         raise
+'''
 
 '''
 if __name__ == "__main__":
