@@ -1,7 +1,7 @@
 from typing import Union, Optional, Sequence
 
 import torchio as tio
-from torchio.typing import TypeRangeFloat, TypeRangeFloat, TypeTripletInt
+from torchio.typing import TypeRangeFloat, TypeTripletInt
 from torchio.transforms.transform import TypeMaskingMethod
 from torchio import Subject, Image
 
