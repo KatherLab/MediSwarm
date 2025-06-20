@@ -1,3 +1,4 @@
+'''
 #!/usr/bin/env python3
 
 import torch
@@ -9,7 +10,6 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_recall_curve, 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from data.datasets import DUKE_Dataset3D, DUKE_Dataset3D_external, DUKE_Dataset3D_collab
 from data.datamodules import DataModule
 from utils.roc_curve import plot_roc_curve, cm2acc, cm2x
 from models import ResNet, VisionTransformer, EfficientNet, DenseNet121, UNet3D
@@ -218,7 +218,9 @@ def evaluate_results(df, path_out, last_flag, fontdict):
     except Exception as e:
         logger.error(f"Error in evaluate_results function: {e}")
         raise
+'''
 
+'''
 if __name__ == "__main__":
     wouter_data_path = "/mnt/sda1/swarm-learning/wouter_data/preprocessed_re/"
     athens_data_path = "/mnt/sda1/swarm-learning/athens_data/preprocessed_athens/"
@@ -230,3 +232,4 @@ if __name__ == "__main__":
         prediction_flag='collab',
         cohort_flag='athens'
     )
+'''
