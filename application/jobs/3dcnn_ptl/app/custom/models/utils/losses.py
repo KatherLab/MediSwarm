@@ -1,3 +1,4 @@
+'''
 import torch
 import torch.nn as nn
 from coral_pytorch.losses import corn_loss
@@ -60,7 +61,7 @@ class CornLossMulti(torch.nn.Module):
 
             classes_probs.append(probs)
         return torch.stack(classes_probs, dim=1)
-
+'''
 '''
 class MultiCELoss(nn.Module):
     """

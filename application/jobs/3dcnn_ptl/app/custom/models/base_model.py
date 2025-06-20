@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from torchmetrics import AUROC, Accuracy, MeanAbsoluteError
-from .utils.losses import CornLossMulti
+from torchmetrics import AUROC, Accuracy
+# from .utils.losses import CornLossMulti
 
 
 class VeryBasicModel(pl.LightningModule):
@@ -116,45 +116,27 @@ class BasicClassifier(BasicModel):
         in_ch,
         out_ch,
         spatial_dims,
-        task="binary",
-        loss=torch.nn.BCEWithLogitsLoss,
         loss_kwargs={},
         optimizer=torch.optim.AdamW,
         optimizer_kwargs={'lr': 1e-4, 'weight_decay': 1e-2},
         lr_scheduler=None,
         lr_scheduler_kwargs={},
-        aucroc_kwargs={"task": "binary"},
-        acc_kwargs={"task": "binary"},
+        aucroc_kwargs={},
+        acc_kwargs={},
         save_hyperparameters=True
     ):
         super().__init__(optimizer, optimizer_kwargs, lr_scheduler, lr_scheduler_kwargs)
         self.in_ch = in_ch
         self.out_ch = out_ch
         self.spatial_dims = spatial_dims
-        self.task = task
 
-        if task == "binary":
-            loss = torch.nn.BCEWithLogitsLoss
-        elif task == "multiclass":
-            loss = torch.nn.CrossEntropyLoss
-        elif task in ["multilabel", 'multibinary']:
-            loss = torch.nn.BCEWithLogitsLoss
-        else:
-            raise ValueError("Unknown task and loss not provided")
+        loss = torch.nn.CrossEntropyLoss
 
         self.loss = loss(**loss_kwargs)
         self.loss_kwargs = loss_kwargs
 
-        # Adjust metrics config by task
-        if task == "binary":
-            aucroc_kwargs.update({"task": "binary"})
-            acc_kwargs.update({"task": "binary"})
-        elif task == "multiclass":
-            aucroc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
-            acc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
-        elif task in ["multilabel", 'multibinary']:
-            aucroc_kwargs.update({"task": "multilabel", 'num_labels': out_ch})
-            acc_kwargs.update({"task": "multilabel", 'num_labels': out_ch})
+        aucroc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
+        acc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
 
         self.auc_roc = nn.ModuleDict({state: AUROC(**aucroc_kwargs) for state in ["train_", "val_", "test_"]})
         self.acc = nn.ModuleDict({state: Accuracy(**acc_kwargs) for state in ["train_", "val_", "test_"]})
@@ -167,8 +149,9 @@ class BasicClassifier(BasicModel):
 
         pred = self(source)
         loss_val = self.compute_loss(pred, target)
-        self.acc[state + "_"].update(pred, target)
-        self.auc_roc[state + "_"].update(pred, target)
+        target_squeezed = torch.squeeze(target, 1)  # TODO Why is this necessary and is it the right thing to do?
+        self.acc[state + "_"].update(pred, target_squeezed)
+        self.auc_roc[state + "_"].update(pred, target_squeezed)
 
         self.log(f"{state}/loss", loss_val, batch_size=batch_size, on_step=True, on_epoch=True)
         return loss_val
@@ -187,21 +170,17 @@ class BasicClassifier(BasicModel):
         self.auc_roc[state + "_"].reset()
 
     def compute_loss(self, pred, target):
-        if self.task != "multiclass":
-            target = target.float()
-        return self.loss(pred, target)
+        target_squeezed = torch.squeeze(target, 1)  # TODO Why is this necessary and is it the right thing to do?
+        return self.loss(pred, target_squeezed)
 
     def logits2labels(self, logits):
-        if self.task == "multiclass":
-            return torch.argmax(logits, dim=1, keepdim=True)
-        return (self.logits2probabilities(logits) > 0.5).int()
+        return torch.argmax(logits, dim=1, keepdim=True)
 
     def logits2probabilities(self, logits):
-        if self.task == "multiclass":
-            return F.softmax(logits, dim=1)
-        return torch.sigmoid(logits)
+        return F.softmax(logits, dim=1)
 
 
+'''
 class BasicRegression(BasicModel):
     """Generic regression model with MAE metric and CORN/multi-class loss support."""
 
@@ -256,3 +235,4 @@ class BasicRegression(BasicModel):
 
     def logits2probabilities(self, logits):
         return self.loss_func.logits2probabilities(logits)
+'''
