@@ -8,7 +8,6 @@ from models import ResNet, MST, ResNetRegression, MSTRegression
 from env_config import load_environment_variables, prepare_odelia_dataset, generate_run_directory
 import torch.multiprocessing as mp
 
-import os
 import logging
 
 
