@@ -20,7 +20,6 @@ def load_environment_variables():
     }
 
 
-
 def load_prediction_modules(prediction_flag):
     from predict import predict
     return predict, prediction_flag
@@ -71,7 +70,6 @@ def prepare_odelia_dataset(task_data_name, data_dir, site_name, split="train"):
     #print(f"Labels in val: {[sample['label'] for sample in ds_val]}")
 
     return ds_train, ds_val, path_run_dir, run_name, is_binary_task
-
 
 
 def generate_run_directory(scratch_dir, task_data_name, model_name, local_compare_flag):
