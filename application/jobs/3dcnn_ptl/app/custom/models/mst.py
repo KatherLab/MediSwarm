@@ -30,7 +30,7 @@ class _MST(nn.Module):
         self,
         out_ch=1,
         backbone_type="dinov2",
-        model_size="s",
+        model_size=None,
         slice_fusion_type="transformer"
     ):
         super().__init__()
@@ -91,7 +91,7 @@ class _MST(nn.Module):
         x = self.linear(x[:, -1])
         return x
 
-
+'''
 class MST(BasicClassifier):
     """MST-based classifier using ViT or ResNet as backbone."""
     def __init__(
@@ -110,7 +110,7 @@ class MST(BasicClassifier):
 
     def forward(self, x):
         return self.mst(x)
-
+'''
 
 class MSTRegression(BasicRegression):
     """MST-based regression model."""

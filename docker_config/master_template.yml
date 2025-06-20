@@ -704,7 +704,6 @@ docker_cln_sh: |
             --env GPU_DEVICE=$GPU2USE \
             --env INSTITUTION={~~client_name~~} \
             --env MODEL_NAME=MST \
-            --env TASK=ordinal \
             --env CONFIG=unilateral"
 
   # Execution modes
