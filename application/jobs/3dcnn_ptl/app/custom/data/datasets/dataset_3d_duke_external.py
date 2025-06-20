@@ -1,3 +1,4 @@
+'''
 from pathlib import Path
 import pandas as pd
 from data.datasets import SimpleDataset3D
@@ -67,3 +68,4 @@ class DUKE_Dataset3D_external(SimpleDataset3D):
             list: List of relative file paths.
         """
         return [path.relative_to(path_root).name for path in Path(path_root).iterdir() if path.is_dir()]
+'''

@@ -88,8 +88,6 @@ class ODELIA_Dataset3D(data.Dataset):
         else:
             self.transform = transform
 
-
-
         # Get split
         dfs = []
         for institution in self.institutions:
@@ -108,12 +106,8 @@ class ODELIA_Dataset3D(data.Dataset):
             dfs.append(df)
         df = pd.concat(dfs).reset_index(drop=True)
 
-
-
         self.item_pointers = df.index.tolist()
         self.df = df
-
-
 
 
     def __len__(self):

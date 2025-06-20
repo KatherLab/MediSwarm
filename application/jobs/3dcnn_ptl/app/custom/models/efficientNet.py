@@ -1,3 +1,4 @@
+'''
 from .base_model import BasicClassifier
 import torch
 import torch.nn.functional as F
@@ -241,3 +242,4 @@ class EfficientNet3Db7(BasicClassifier):
         """
         pred_hor = self.model(x_in)
         return pred_hor
+'''

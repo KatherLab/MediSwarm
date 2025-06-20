@@ -61,10 +61,7 @@ class CornLossMulti(torch.nn.Module):
             classes_probs.append(probs)
         return torch.stack(classes_probs, dim=1)
 
-
-
-
-
+'''
 class MultiCELoss(nn.Module):
     """
     CrossEntropyLoss per class-label group.
@@ -149,3 +146,4 @@ class MultiBCELoss(nn.Module):
 
     def logits2probabilities(self, logits):
         return torch.sigmoid(logits)
+'''

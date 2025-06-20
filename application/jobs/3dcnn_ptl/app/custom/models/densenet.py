@@ -1,3 +1,4 @@
+'''
 from .base_model import BasicClassifier
 import monai.networks.nets as nets
 import torch
@@ -57,3 +58,4 @@ class DenseNet121(BasicClassifier):
         """
         pred_hor = self.model(x_in)
         return pred_hor
+'''

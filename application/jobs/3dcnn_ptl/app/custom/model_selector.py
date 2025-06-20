@@ -1,3 +1,4 @@
+'''
 from models import ResNet, VisionTransformer, EfficientNet, DenseNet121, UNet3D
 
 
@@ -77,4 +78,4 @@ def select_model(model_name: str):
         raise ValueError(f"Model configuration for {model_name} not found: {e}")
     except Exception as e:
         raise RuntimeError(f"Error while creating the model {model_name}: {e}")
-
+'''

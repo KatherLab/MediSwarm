@@ -1,3 +1,4 @@
+'''
 from pathlib import Path
 import torch.utils.data as data
 import torchio as tio
@@ -136,3 +137,4 @@ class SimpleDataset3D(data.Dataset):
                 raise ValueError("Unknown normalization")
         else:
             return norm
+'''

@@ -1,3 +1,4 @@
+'''
 from .base_model import BasicClassifier
 import torch
 import torch.nn as nn
@@ -126,3 +127,4 @@ class VisionTransformer3D(TimmVisionTransformer):
         embed_dim = kwargs.get("embed_dim", 768)
         patch_size = kwargs.get("patch_size", (2, 16, 16))
         self.patch_embed = PatchEmbed3D(in_chans, embed_dim, patch_size)
+'''
