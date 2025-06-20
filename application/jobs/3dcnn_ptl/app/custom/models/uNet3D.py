@@ -1,3 +1,4 @@
+'''
 from .base_model import BasicClassifier
 import monai.networks.nets as nets
 import torch
@@ -145,3 +146,4 @@ class UNet3D(BasicClassifier):
             torch.Tensor: Loss value.
         """
         return self._step(batch, batch_idx, "train", optimizer_idx)
+'''
