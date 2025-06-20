@@ -35,9 +35,8 @@ class ODELIA_Dataset3D(data.Dataset):
             path_root=None,
             institutions=None,
             fold = 0,
-            binary=True, # If True, binary labels otherwise ordinal
             labels=None, # None = all labels or  list of labels
-            config="original", # original, unilateral
+            config=None, # original, unilateral
             split= None,
             fraction=None,
             transform = None,
@@ -50,7 +49,6 @@ class ODELIA_Dataset3D(data.Dataset):
         ):
         self.path_root = Path(self.PATH_ROOT if path_root is None else path_root)
         self.split = split
-        self.binary = binary
         self.config = config
         self.class_labels = self.CLASS_LABELS[config]
         self.meta_dir = self.META_DIR[config]
@@ -126,12 +124,6 @@ class ODELIA_Dataset3D(data.Dataset):
         institution = item['Institution']
 
         target = np.stack(item[self.labels].values)
-
-        # Use only binary label (Cancer yes/no)
-        # NOTE: 0=No Lesion, 1=Benign Lesion, 2=Malignant Lesion
-        # NOTE: Duke already binary: 0=No or benign Lesion, 1=Malignant Lesion
-        if (institution not in ["DUKE", "UKA_all_new"]) and self.binary:
-            target = (target == 2).astype(int)
 
         path_folder = self.path_root/institution/self.data_dir/uid
         # img = self.load_img([path_folder/f'{name}.nii.gz' for name in [ 'Pre', 'Sub_1', 'T2']])

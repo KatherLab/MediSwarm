@@ -25,6 +25,7 @@ def load_prediction_modules(prediction_flag):
     return predict, prediction_flag
 
 
+'''
 def prepare_dataset(task_data_name, data_dir, site_name, split="train"):
     try:
         available_dirs = next(os.walk(data_dir))[1]
@@ -44,32 +45,29 @@ def prepare_dataset(task_data_name, data_dir, site_name, split="train"):
         raise ValueError("Invalid task data name specified")
 
     return dataset_class(flip=True, path_root=os.path.join(data_dir, site_name)), task_data_name
+'''
 
-
-def prepare_odelia_dataset(task_data_name, data_dir, site_name, split="train"):
+def prepare_odelia_dataset():
     # parser removed, now read from environment
     institution = os.environ.get('INSTITUTION', 'ODELIA')
     model = os.environ.get('MODEL_NAME', 'MST')
-    task = os.environ.get('TASK', 'binary')
     config = os.environ.get('CONFIG', 'unilateral')
-    task_type = os.environ.get('TASK', 'binary')  # 'binary' or 'ordinal'
-    is_binary_task = task_type == 'binary'
 
     current_time = datetime.now().strftime("%Y_%m_%d_%H%M%S")
-    run_name = f'{model}_{task}_{config}_{current_time}'
+    run_name = f'{model}_{config}_{current_time}'
     path_run_dir = Path.cwd() / 'runs' / institution / run_name
     path_run_dir.mkdir(parents=True, exist_ok=True)
 
     from data.datasets import ODELIA_Dataset3D
-    ds_train = ODELIA_Dataset3D(institutions=institution, split='train', binary=is_binary_task, config=config,
+    ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config,
                                 random_flip=True, random_rotate=True, random_inverse=False, noise=True)
-    ds_val = ODELIA_Dataset3D(institutions=institution, split='val', binary=is_binary_task, config=config)
+    ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config)
 
     print(f"Total samples loaded: {len(ds_train)} (train) + {len(ds_val)} (val)")
     print(f"Train set: {len(ds_train)}, Val set: {len(ds_val)}")
     #print(f"Labels in val: {[sample['label'] for sample in ds_val]}")
 
-    return ds_train, ds_val, path_run_dir, run_name, is_binary_task
+    return ds_train, ds_val, path_run_dir, run_name
 
 
 def generate_run_directory(scratch_dir, task_data_name, model_name, local_compare_flag):

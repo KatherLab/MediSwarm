@@ -4,7 +4,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
-from models import ResNet, MST, ResNetRegression, MSTRegression
+from models import ResNetRegression, MSTRegression
 from env_config import load_environment_variables, prepare_odelia_dataset, generate_run_directory
 import torch.multiprocessing as mp
 
@@ -28,15 +28,12 @@ def set_up_logging():
     return logger
 
 
-def set_up_data_module(env_vars, logger, site_name: str):
+def set_up_data_module(logger):
     torch.set_float32_matmul_precision('high')
-    ds_train, ds_val, path_run_dir, run_name, is_binary_task = prepare_odelia_dataset(
-        env_vars['task_data_name'], env_vars['data_dir'], site_name=site_name
-    )
+    ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset()
     logger.info(f"Dataset path: {ds_train}")
     logger.info(f"Run directory: {path_run_dir}")
     logger.info(f"Run name: {run_name}")
-    logger.info(f"Is binary task: {is_binary_task}")
     logger.info(f"Number of classes: {len(ds_train.labels)}")
     logger.info(f"Length of train dataset: {len(ds_train)}")
     logger.info(f"Length of val dataset: {len(ds_val)}")
@@ -59,14 +56,10 @@ def set_up_data_module(env_vars, logger, site_name: str):
     # logger.info(f"Number of unique labels: {len(distribution['counts'])}")
 
     # ------------ Initialize Model ------------
-    loss_kwargs = {}
-    out_ch = len(ds_train.labels)
-    if not is_binary_task:
-        out_ch = sum(ds_train.class_labels_num)
-        loss_kwargs = {'class_labels_num': ds_train.class_labels_num}
+    out_ch = sum(ds_train.class_labels_num)
+    loss_kwargs = {'class_labels_num': ds_train.class_labels_num}
 
-
-    return dm, path_run_dir, run_name, is_binary_task, out_ch, loss_kwargs
+    return dm, path_run_dir, run_name, out_ch, loss_kwargs
 
 
 def create_run_directory(env_vars):
@@ -81,8 +74,7 @@ def create_run_directory(env_vars):
 def prepare_training(logger, max_epochs: int, site_name: str):
     try:
         env_vars = load_environment_variables()
-        data_module, path_run_dir, run_name, is_binary_task , out_ch, loss_kwargs= set_up_data_module(env_vars, logger, site_name)
-
+        data_module, path_run_dir, run_name, out_ch, loss_kwargs = set_up_data_module(logger)
 
         if not torch.cuda.is_available():
             raise RuntimeError("This example requires a GPU")
@@ -91,20 +83,24 @@ def prepare_training(logger, max_epochs: int, site_name: str):
 
         model_name = env_vars['model_name']
 
-        model_map = {
-            'ResNet101': ResNet if is_binary_task else ResNetRegression,
-            'MST': MST if is_binary_task else MSTRegression
-        }
-        MODEL = model_map.get(model_name, None)
-        model = MODEL(
-            in_ch=1,
-            out_ch=out_ch,
-            loss_kwargs=loss_kwargs
-        )
+        model = None
+        if model_name in ['ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:
+            resnet_variant = int(model_name[6:])
+            model = ResNetRegression(in_ch=1,
+                                     out_ch=out_ch,
+                                     spatial_dims=3,
+                                     resnet_variant=resnet_variant,
+                                     loss_kwargs=loss_kwargs)
+        elif model_name == 'MST':
+            model =  MSTRegression(in_ch=1,
+                                   out_ch=out_ch,
+                                   spatial_dims=3,
+                                   loss_kwargs=loss_kwargs)
+
         logger.info(f"Using model: {model_name}")
 
-        to_monitor = "val/AUC_ROC" if is_binary_task else "val/MAE"
-        min_max = "max" if is_binary_task else "min"
+        to_monitor = "val/MAE"
+        min_max = "min"
         log_every_n_steps = 50
 
         '''
