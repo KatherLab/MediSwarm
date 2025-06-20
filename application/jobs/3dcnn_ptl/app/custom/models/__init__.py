@@ -6,4 +6,4 @@ from .base_model import VeryBasicModel, BasicModel, BasicClassifier, BasicRegres
 from .resnet import ResNet, ResNetRegression
 from .mst import MST, MSTRegression
 
-__all__ = ['VeryBasicModel', 'BasicModel', 'BasicClassifier', 'ResNet']
+__all__ = ['VeryBasicModel', 'BasicModel', 'BasicClassifier', 'ResNet', 'ResNetRegression', 'MST', 'MSTRegression']
