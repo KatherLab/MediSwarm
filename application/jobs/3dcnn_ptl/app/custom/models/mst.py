@@ -4,7 +4,7 @@ import torchvision.models as models
 from einops import rearrange
 from x_transformers import Encoder
 
-from .base_model import BasicClassifier, BasicRegression
+from .base_model import BasicClassifier
 
 def _get_resnet_torch(model):
     """Retrieve the specified ResNet model from torchvision."""
@@ -91,42 +91,42 @@ class _MST(nn.Module):
         x = self.linear(x[:, -1])
         return x
 
-'''
 class MST(BasicClassifier):
     """MST-based classifier using ViT or ResNet as backbone."""
     def __init__(
         self,
-        in_ch=1,
-        out_ch=1,
-        spatial_dims=3,
+        n_input_channels: int,
+        num_classes: int,
+        spatial_dims: int,
         backbone_type="dinov2",
         model_size="s",
         slice_fusion_type="transformer",
         optimizer_kwargs={'lr': 1e-6},
         **kwargs
     ):
-        super().__init__(in_ch, out_ch, spatial_dims, optimizer_kwargs=optimizer_kwargs, **kwargs)
-        self.mst = _MST(out_ch=out_ch, backbone_type=backbone_type, model_size=model_size, slice_fusion_type=slice_fusion_type)
+        super().__init__(n_input_channels, num_classes, spatial_dims, optimizer_kwargs=optimizer_kwargs, **kwargs)
+        self.mst = _MST(out_ch=num_classes, backbone_type=backbone_type, model_size=model_size, slice_fusion_type=slice_fusion_type)
 
     def forward(self, x):
         return self.mst(x)
-'''
 
+'''
 class MSTRegression(BasicRegression):
     """MST-based regression model."""
     def __init__(
         self,
-        in_ch=1,
-        out_ch=1,
-        spatial_dims=3,
+        n_input_channels: int,
+        num_classes: int,
+        spatial_dims: int,
         backbone_type="dinov2",
         model_size="s",
         slice_fusion_type="transformer",
         optimizer_kwargs={'lr': 1e-6},
         **kwargs
     ):
-        super().__init__(in_ch, out_ch, spatial_dims, optimizer_kwargs=optimizer_kwargs, **kwargs)
-        self.mst = _MST(out_ch=out_ch, backbone_type=backbone_type, model_size=model_size, slice_fusion_type=slice_fusion_type)
+        super().__init__(n_input_channels, num_classes, spatial_dims, optimizer_kwargs=optimizer_kwargs, **kwargs)
+        self.mst = _MST(out_ch=num_classes, backbone_type=backbone_type, model_size=model_size, slice_fusion_type=slice_fusion_type)
 
     def forward(self, x):
         return self.mst(x)
+'''

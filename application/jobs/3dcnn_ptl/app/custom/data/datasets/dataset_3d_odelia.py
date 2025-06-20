@@ -4,6 +4,7 @@ import torch.utils.data as data
 import torchio as tio
 import torch
 import numpy as np
+from sklearn.preprocessing import OneHotEncoder
 
 from data.augmentation.augmentations_3d import ImageOrSubjectToTensor, ZNormalization, CropOrPad
 
@@ -107,7 +108,6 @@ class ODELIA_Dataset3D(data.Dataset):
         self.item_pointers = df.index.tolist()
         self.df = df
 
-
     def __len__(self):
         return len(self.item_pointers)
 
@@ -130,7 +130,7 @@ class ODELIA_Dataset3D(data.Dataset):
         img = self.load_img(path_folder / 'Sub_1.nii.gz')
         img = self.transform(img)
 
-        return {'uid':uid, 'source': img, 'target':target}
+        return {'uid':uid, 'source': img, 'target': target}
 
 
     @classmethod
