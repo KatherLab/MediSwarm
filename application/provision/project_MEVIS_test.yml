@@ -24,6 +24,9 @@ participants:
   - name: UMCU
     type: client
     org: MEVIS_Test
+  - name: Centralized
+    type: client
+    org: MEVIS_Test
   - name: admin@mevis.odelia
     type: admin
     org: MEVIS_Test
