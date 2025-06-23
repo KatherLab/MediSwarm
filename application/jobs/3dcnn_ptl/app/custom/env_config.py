@@ -25,28 +25,6 @@ def load_prediction_modules(prediction_flag):
     return predict, prediction_flag
 
 
-'''
-def prepare_dataset(task_data_name, data_dir, site_name, split="train"):
-    try:
-        available_dirs = next(os.walk(data_dir))[1]
-    except StopIteration:
-        raise ValueError(f"No directories found under data_dir: {data_dir}")
-    if 'DUKE_ext' in available_dirs:
-        task_data_name = "DUKE_ext"
-
-    dataset_class = None
-    if task_data_name == "multi_ext":
-        from data.datasets import DUKE_Dataset3D_collab as dataset_class
-    elif task_data_name == "DUKE_ext":
-        from data.datasets import DUKE_Dataset3D_external as dataset_class
-    elif task_data_name == "DUKE":
-        from data.datasets import DUKE_Dataset3D as dataset_class
-    else:
-        raise ValueError("Invalid task data name specified")
-
-    return dataset_class(flip=True, path_root=os.path.join(data_dir, site_name)), task_data_name
-'''
-
 def prepare_odelia_dataset():
     # parser removed, now read from environment
     institution = os.environ.get('INSTITUTION', 'ODELIA')

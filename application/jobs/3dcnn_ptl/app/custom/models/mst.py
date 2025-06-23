@@ -109,24 +109,3 @@ class MST(BasicClassifier):
 
     def forward(self, x):
         return self.mst(x)
-
-'''
-class MSTRegression(BasicRegression):
-    """MST-based regression model."""
-    def __init__(
-        self,
-        n_input_channels: int,
-        num_classes: int,
-        spatial_dims: int,
-        backbone_type="dinov2",
-        model_size="s",
-        slice_fusion_type="transformer",
-        optimizer_kwargs={'lr': 1e-6},
-        **kwargs
-    ):
-        super().__init__(n_input_channels, num_classes, spatial_dims, optimizer_kwargs=optimizer_kwargs, **kwargs)
-        self.mst = _MST(out_ch=num_classes, backbone_type=backbone_type, model_size=model_size, slice_fusion_type=slice_fusion_type)
-
-    def forward(self, x):
-        return self.mst(x)
-'''
