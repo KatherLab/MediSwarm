@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torchmetrics import AUROC, Accuracy
-# from .utils.losses import CornLossMulti
 
 
 class VeryBasicModel(pl.LightningModule):
@@ -178,61 +177,3 @@ class BasicClassifier(BasicModel):
 
     def logits2probabilities(self, logits):
         return F.softmax(logits, dim=1)
-
-
-'''
-class BasicRegression(BasicModel):
-    """Generic regression model with MAE metric and CORN/multi-class loss support."""
-
-    def __init__(
-        self,
-        in_ch,
-        out_ch,
-        spatial_dims,
-        loss=CornLossMulti,
-        loss_kwargs={},
-        optimizer=torch.optim.AdamW,
-        optimizer_kwargs={'lr': 1e-4, 'weight_decay': 1e-2},
-        lr_scheduler=None,
-        lr_scheduler_kwargs={},
-        save_hyperparameters=True
-    ):
-        super().__init__(optimizer, optimizer_kwargs, lr_scheduler, lr_scheduler_kwargs)
-        self.in_ch = in_ch
-        self.out_ch = out_ch
-        self.spatial_dims = spatial_dims
-
-        self.loss_func = loss(**loss_kwargs)
-        self.loss_kwargs = loss_kwargs
-        self.mae = nn.ModuleDict({state: MeanAbsoluteError() for state in ["train_", "val_", "test_"]})
-
-    def _step(self, batch: dict, batch_idx: int, state: str, step: int):
-        source = batch['source']
-        target = batch['target']
-        batch_size = source.shape[0]
-        self.batch_size = batch_size
-
-        pred = self(source)
-        loss_val = self.loss_func(pred, target)
-        pred_labels = self.loss_func.logits2labels(pred)
-        self.mae[state + "_"].update(pred_labels, target)
-
-        self.log(f"{state}/loss", loss_val, batch_size=batch_size, on_step=True, on_epoch=True)
-        return loss_val
-
-    def _epoch_end(self, state):
-        mae_value = self.mae[state + "_"].compute()
-        self.log(f"{state}/MAE", mae_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
-        # For ModelCheckpoint, also log as "val/MAE" if state == "val"
-        if state == "val":
-            self.log("val/MAE", mae_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
-        # print some debug information
-        print(f"Epoch {self.current_epoch} - {state} MAE: {mae_value:.4f}")
-        self.mae[state + "_"].reset()
-
-    def logits2labels(self, logits):
-        return self.loss_func.logits2labels(logits)
-
-    def logits2probabilities(self, logits):
-        return self.loss_func.logits2probabilities(logits)
-'''
