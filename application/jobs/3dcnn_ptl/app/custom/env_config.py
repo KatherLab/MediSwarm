@@ -27,7 +27,7 @@ def load_prediction_modules(prediction_flag):
 
 def prepare_odelia_dataset():
     # parser removed, now read from environment
-    institution = os.environ.get('INSTITUTION', 'ODELIA')
+    institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])  # TODO think about how this should be handled
     model = os.environ.get('MODEL_NAME', 'MST')
     config = os.environ.get('CONFIG', 'unilateral')
 
