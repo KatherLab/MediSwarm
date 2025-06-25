@@ -702,7 +702,6 @@ docker_cln_sh: |
             --env SCRATCH_DIR=/scratch \
             --env TORCH_HOME=/scratch \
             --env GPU_DEVICE=$GPU2USE \
-            --env INSTITUTION={~~client_name~~} \
             --env MODEL_NAME=ResNet10 \
             --env CONFIG=unilateral"
 
