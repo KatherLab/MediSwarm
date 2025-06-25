@@ -38,6 +38,7 @@ class _MST(nn.Module):
         self.slice_fusion_type = slice_fusion_type
 
         if backbone_type == "resnet":
+            # TODO untested
             Model = _get_resnet_torch(model_size)
             self.backbone = Model(weights="DEFAULT")
             emb_ch = self.backbone.fc.in_features

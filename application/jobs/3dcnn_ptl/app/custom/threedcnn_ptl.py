@@ -84,7 +84,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         model_name = env_vars['model_name']
 
         model = None
-        if model_name in ['ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:
+        if model_name in ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:
             resnet_variant = int(model_name[6:])
             model = ResNet(n_input_channels=1,
                            num_classes=num_classes,
