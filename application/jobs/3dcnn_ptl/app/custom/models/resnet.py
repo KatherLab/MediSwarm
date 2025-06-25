@@ -8,6 +8,7 @@ class _ResNet(nn.Module):
     def __init__(self, n_input_channels: int, num_classes: int , spatial_dims: int, resnet_variant: str):
         super().__init__()
         Model = {
+            10: nets.resnet10,
             18: nets.resnet18,
             34: nets.resnet34,
             50: nets.resnet50,
