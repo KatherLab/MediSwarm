@@ -47,7 +47,7 @@ run_3dcnn_tests () {
         -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
         -w /MediSwarm \
         jefftud/odelia:$VERSION \
-        /bin/bash -c "python3 application/jobs/3dcnn_ptl/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
+        /bin/bash -c "python3 application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
 
     # run tests using synthetic data
     cd "$PROJECT_DIR/prod_00/client_A/startup/"

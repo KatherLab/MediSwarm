@@ -713,11 +713,11 @@ docker_cln_sh: |
 
   elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=preflight_check --env NUM_EPOCHS=1 $DOCKER_IMAGE \
-      /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
+      /bin/bash -c "/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/main.py"
 
   elif [[ ! -z "$LOCAL_TRAINING" ]]; then
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=100 $DOCKER_IMAGE \
-      /bin/bash -c "/MediSwarm/application/jobs/3dcnn_ptl/app/custom/main.py"
+      /bin/bash -c "/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/main.py"
 
   elif [[ ! -z "$START_CLIENT" ]]; then
       docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \

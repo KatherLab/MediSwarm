@@ -32,7 +32,7 @@ docker run -it --rm \
 Before running a swarm dummy training, first make sure the code works in non-swarm mode.
 
 ```bash
-cd application/jobs/3dcnn_ptl/app/custom/
+cd application/jobs/ODELIA_ternary_classification/app/custom/
 export TRAINING_MODE="local_training"
 export SITE_NAME=<your site name, i.e., the subfolder of $DATADIR where your data is located>
 export NUM_EPOCHS=1
@@ -45,10 +45,10 @@ cd /workspace
 The FL Simulator is a lightweight tool that uses threads to simulate multiple clients. It is useful for quick local testing and debugging. Run the following command to start the simulator:
 
 ```bash
-nvflare simulator -w /tmp/3dcnn_ptl -n 2 -t 2 application/jobs/3dcnn_ptl -c simulated_node_0,simulated_node_1
+nvflare simulator -w /tmp/ODELIA_ternary_classification -n 2 -t 2 application/jobs/ODELIA_ternary_classification -c simulated_node_0,simulated_node_1
 ```
 
-* `-w /tmp/3dcnn_ptl`: Specifies the working directory.
+* `-w /tmp/ODELIA_ternary_classification`: Specifies the working directory.
 * `-n 2`: Sets the number of clients.
 * `-t 2`: Specifies the number of threads.
 * `-c simulated_node_0,simulated_node_1`: Names the two simulated nodes.
