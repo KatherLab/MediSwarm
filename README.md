@@ -188,11 +188,11 @@ Distribute the startup kits to the clients.
 2. **Minimal PyTorch CNN example:**
    See [application/jobs/minimal_training_pytorch_cnn/README.md](application/jobs/minimal_training_pytorch_cnn/README.md)
 3. **3D CNN for classifying breast tumors:**
-   See [3dcnn_ptl/README.md](application/jobs/3dcnn_ptl/README.md)
+   See [ODELIA_ternary_classification/README.md](application/jobs/ODELIA_ternary_classification/README.md)
 
 ## Contributing Application Code
 1. Take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to work with NVFlare
-2. Take a look at application/jobs/3dcnn_ptl for a more relastic example of pytorch code that can run in the swarm
+2. Take a look at application/jobs/ODELIA_ternary_classification for a more relastic example of pytorch code that can run in the swarm
 3. Use the local tests to check if the code is swarm-ready
 4. TODO more detailed instructions
 
