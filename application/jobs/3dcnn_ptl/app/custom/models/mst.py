@@ -1,20 +1,9 @@
 import torch
 import torch.nn as nn
-import torchvision.models as models
 from einops import rearrange
 from x_transformers import Encoder
 
 from .base_model import BasicClassifier
-
-def _get_resnet_torch(model):
-    """Retrieve the specified ResNet model from torchvision."""
-    return {
-        18: models.resnet18,
-        34: models.resnet34,
-        50: models.resnet50,
-        101: models.resnet101,
-        152: models.resnet152
-    }.get(model)
 
 class TransformerEncoder(Encoder):
     """Override the default forward to match input formatting."""
@@ -37,13 +26,7 @@ class _MST(nn.Module):
         self.backbone_type = backbone_type
         self.slice_fusion_type = slice_fusion_type
 
-        if backbone_type == "resnet":
-            # TODO untested
-            Model = _get_resnet_torch(model_size)
-            self.backbone = Model(weights="DEFAULT")
-            emb_ch = self.backbone.fc.in_features
-            self.backbone.fc = nn.Identity()
-        elif backbone_type == "dinov2":
+        if backbone_type == "dinov2":
             torch.hub._validate_not_a_forked_repo=lambda a,b,c: True
             self.backbone = torch.hub.load('facebookresearch/dinov2', f'dinov2_vit{model_size}14')
             self.backbone.mask_token = None
