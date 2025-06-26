@@ -32,20 +32,27 @@ run_dummy_training () {
     cd "$CWD"
 }
 
-run_3dcnn_training_with_synthetic_data_preflight_check () {
+run_3dcnn_tests () {
     echo "[Run] Synthetic data + 3D CNN preflight check..."
     SYNTHETIC_DATA_DIR=$(mktemp -d)
 
+    # create synthetic data
     docker run --rm \
+        -u $(id -u):$(id -g) \
         -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
         -w /MediSwarm \
         jefftud/odelia:$VERSION \
         /bin/bash -c "python3 application/jobs/3dcnn_ptl/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
 
+    # run tests using synthetic data
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
+    # preflight check (standalone) and swarm simulation mode
     ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU all --no_pull --preflight_check
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU all --no_pull --run_script /MediSwarm/_run3DdcnnptlTestsInDocker.sh
+
     cd "$CWD"
 
+    # clean up synthetic data
     rm -rf "$SYNTHETIC_DATA_DIR" || echo "Warning: cleanup failed"
 }
 
@@ -59,13 +66,13 @@ case "$1" in
     run_tests) run_tests ;;
     prepare_dummy_trainings) prepare_dummy_trainings ;;
     run_dummy_training) run_dummy_training ;;
-    preflight_check) run_3dcnn_training_with_synthetic_data_preflight_check ;;
+    run_3dcnn_tests) run_3dcnn_tests ;;
     cleanup) cleanup_dummy_trainings ;;
     all | "")
         run_tests
         prepare_dummy_trainings
         run_dummy_training
-        run_3dcnn_training_with_synthetic_data_preflight_check
+        run_3dcnn_tests
         cleanup_dummy_trainings
         ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
