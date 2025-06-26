@@ -6,6 +6,10 @@ VERSION=$(./getVersionNumber.sh)
 DOCKER_IMAGE=jefftud/odelia:$VERSION
 PROJECT_DIR="workspace/odelia_${VERSION}_dummy_project_for_testing"
 CWD=$(pwd)
+if [ -z "$GPU_FOR_TESTING" ]; then
+    export GPU_FOR_TESTING="all"
+fi
+
 
 run_tests () {
     echo "[Run] Unit tests inside Docker..."
@@ -15,7 +19,7 @@ run_tests () {
            --ulimit memlock=-1 \
            --ulimit stack=67108864 \
            -v /tmp:/scratch \
-           --gpus=all \
+           --gpus="$GPU_FOR_TESTING" \
            --entrypoint=/MediSwarm/_runTestsInsideDocker.sh \
            "$DOCKER_IMAGE"
 }
@@ -29,7 +33,7 @@ prepare_dummy_trainings () {
 run_dummy_training () {
     echo "[Run] Dummy training session..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    ./docker.sh --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU all --no_pull --dummy_training
+    ./docker.sh --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --dummy_training
     cd "$CWD"
 }
 
@@ -48,8 +52,8 @@ run_3dcnn_tests () {
     # run tests using synthetic data
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
     # preflight check (standalone) and swarm simulation mode
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU all --no_pull --preflight_check
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU all --no_pull --run_script /MediSwarm/_run3DdcnnptlTestsInDocker.sh
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --preflight_check
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --run_script /MediSwarm/_run3DdcnnptlTestsInDocker.sh
 
     cd "$CWD"
 
