@@ -641,6 +641,7 @@ docker_cln_sh: |
           --local_training)  LOCAL_TRAINING="1" ;;
           --start_client)    START_CLIENT="1" ;;
           --interactive)     INTERACTIVE="1" ;;
+          --run_script)      SCRIPT_TO_RUN="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -725,6 +726,10 @@ docker_cln_sh: |
   elif [[ ! -z "$INTERACTIVE" ]]; then
       docker run --rm $TTY_OPT --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
 
+  elif [[ ! -z "$SCRIPT_TO_RUN" ]]; then
+      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS $DOCKER_IMAGE \
+      /bin/bash -c "$SCRIPT_TO_RUN"
+
   else
       echo "❗ One of the following options must be passed:"
       echo "--dummy_training   minimal sanity check for Docker/GPU"
@@ -732,6 +737,7 @@ docker_cln_sh: |
       echo "--local_training   train a local model"
       echo "--start_client     launch FL client in swarm mode"
       echo "--interactive      drop into interactive container"
+      echo "--run_script       execute script in container"
       exit 1
   fi
 
