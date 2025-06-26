@@ -70,3 +70,5 @@ RUN rm -rf /workspace/controller
 COPY . /MediSwarm
 RUN mkdir -p /fl_admin/transfer
 RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
+
+RUN chmod a+w /home
