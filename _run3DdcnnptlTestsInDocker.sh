@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 run_3dcnn_simulation_mode () {
     # both clients use the same data according to SITE_NAME, there are no separate env variables from which the code could read which client it is
     # change training configuration to run 2 rounds
