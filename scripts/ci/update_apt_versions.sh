@@ -16,34 +16,37 @@ git commit "$DOCKERFILE_PATH" -m "WIP: remove apt versions for rebuild" || echo 
 
 echo "[INFO] Rebuilding Docker image and capturing logs..."
 if ! ./buildDockerImageAndStartupKits.sh -p "$PROJECT_YML" 2>&1 | tee "$LOG_PATH"; then
-    echo "[ERROR] Docker build failed. Aborting update."
-    exit 1
+    echo "[ERROR] Docker build failed. Proceeding to clean invalid versions..."
 fi
 
 echo "[INFO] Re-adding updated APT version pins to Dockerfile..."
 scripts/dev_utils/dockerfile_update_addAptVersionNumbers.py "$DOCKERFILE_PATH" "$LOG_PATH"
-rm "$LOG_PATH"
 
-# Optional: validate if the versions exist in apt repository
-echo "[INFO] Validating all pinned versions..."
-while IFS= read -r line; do
-    if [[ $line =~ ([a-z0-9\-]+)=([a-zA-Z0-9:~.+-]+) ]]; then
-        pkg="${BASH_REMATCH[1]}"
-        ver="${BASH_REMATCH[2]}"
-        echo -n "Checking $pkg=$ver... "
-        if ! apt-cache madison "$pkg" | grep -q "$ver"; then
-            echo "[MISSING]"
-            sed -i "s|$pkg=$ver|$pkg|" "$DOCKERFILE_PATH"
-        else
-            echo "OK"
-        fi
+echo "[INFO] Validating all pinned versions, removing invalid ones..."
+has_invalid_versions=0
+while IFS= read -r match; do
+    pkg="$(echo "$match" | cut -d= -f1)"
+    ver="$(echo "$match" | cut -d= -f2)"
+    echo -n "Checking $pkg=$ver... "
+    if ! apt-cache madison "$pkg" | grep -q "$ver"; then
+        echo "NOT FOUND – removing pin"
+        sed -i "s|\b$pkg=$ver\b|$pkg|" "$DOCKERFILE_PATH"
+        has_invalid_versions=1
+    else
+        echo "OK"
     fi
 done < <(grep -oP '\b[a-z0-9\.\-]+=[a-zA-Z0-9:~.+-]+\b' "$DOCKERFILE_PATH")
 
-# Check if there are changes to commit
+rm "$LOG_PATH"
+
 if git diff --quiet; then
-  echo "[INFO] No changes to apt versions found. Skipping commit."
+  if [[ "$has_invalid_versions" -eq 1 ]]; then
+    echo "[INFO] Pinned versions were removed. Committing fallback without version locks..."
+    git commit "$DOCKERFILE_PATH" --amend -m "fix: remove obsolete apt version pins"
+  else
+    echo "[INFO] No changes to apt versions found. Skipping commit."
+  fi
 else
   echo "[INFO] Committing updated apt versions..."
-  git commit "$DOCKERFILE_PATH" --amend -m "chore: update apt versions based on rebuild" || echo "[INFO] Nothing to amend. Skipping."
+  git commit "$DOCKERFILE_PATH" --amend -m "chore: update apt versions based on rebuild"
 fi
