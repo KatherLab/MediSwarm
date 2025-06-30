@@ -39,17 +39,6 @@ jobs:
       - name: Run APT update script
         run: scripts/ci/update_apt_versions.sh
 
-      - name: Check for changes
-        id: check_changes
-        run: |
-          if git diff --quiet; then
-            echo "NO_CHANGES=true" >> $GITHUB_ENV
-            echo "No changes detected."
-          else
-            echo "NO_CHANGES=false" >> $GITHUB_ENV
-            echo "Changes detected."
-          fi
-
       - name: Push ci/apt-update to origin
         if: env.NO_CHANGES == 'false'
         run: git push origin ci/apt-update --force
