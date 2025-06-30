@@ -1,67 +1,49 @@
-name: Auto Update APT Versions
+#!/usr/bin/env bash
 
-on:
-  schedule:
-    - cron: '0 5 * * 0'  # Every Sunday at 05:00 UTC
-  workflow_dispatch:
+set -e
 
-jobs:
-  update-apt:
-    name: Update APT Package Versions in Dockerfile
-    runs-on: ubuntu-latest
+DOCKERFILE_PATH="docker_config/Dockerfile_ODELIA"
+LOG_PATH="out.txt"
+PROJECT_YML="tests/provision/dummy_project_for_testing.yml"
 
-    steps:
-      - name: Checkout repository (with submodules)
-        uses: actions/checkout@v3
-        with:
-          submodules: true
+echo "[INFO] Removing APT version pins from Dockerfile..."
+scripts/dev_utils/dockerfile_update_removeVersionApt.py "$DOCKERFILE_PATH"
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
+echo "[INFO] Committing temporarily without version constraints..."
+git config user.email "ci@github.com"
+git config user.name "GitHub CI"
+git commit "$DOCKERFILE_PATH" -m "WIP: remove apt versions for rebuild" || echo "[INFO] No version pin removal change to commit."
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y git apt-utils
+echo "[INFO] Rebuilding Docker image and capturing logs..."
+if ! ./buildDockerImageAndStartupKits.sh -p "$PROJECT_YML" 2>&1 | tee "$LOG_PATH"; then
+    echo "[ERROR] Docker build failed. Aborting update."
+    exit 1
+fi
 
-      - name: Configure Git for CI
-        run: |
-          git config --global user.email "ci@github.com"
-          git config --global user.name "GitHub CI"
+echo "[INFO] Re-adding updated APT version pins to Dockerfile..."
+scripts/dev_utils/dockerfile_update_addAptVersionNumbers.py "$DOCKERFILE_PATH" "$LOG_PATH"
+rm "$LOG_PATH"
 
-      - name: Create and switch to apt-update branch
-        run: |
-          git checkout -b ci/apt-update || git switch ci/apt-update
+# Optional: validate if the versions exist in apt repository
+echo "[INFO] Validating all pinned versions..."
+while IFS= read -r line; do
+    if [[ $line =~ ([a-z0-9\-]+)=([a-zA-Z0-9:~.+-]+) ]]; then
+        pkg="${BASH_REMATCH[1]}"
+        ver="${BASH_REMATCH[2]}"
+        echo -n "Checking $pkg=$ver... "
+        if ! apt-cache madison "$pkg" | grep -q "$ver"; then
+            echo "[MISSING]"
+            sed -i "s|$pkg=$ver|$pkg|" "$DOCKERFILE_PATH"
+        else
+            echo "OK"
+        fi
+    fi
+done < <(grep -oP '\b[a-z0-9\.\-]+=[a-zA-Z0-9:~.+-]+\b' "$DOCKERFILE_PATH")
 
-      - name: Make update script executable
-        run: chmod +x scripts/ci/update_apt_versions.sh
-
-      - name: Run APT update script
-        run: scripts/ci/update_apt_versions.sh
-
-      - name: Check for changes
-        id: check_changes
-        run: |
-          if git diff --quiet; then
-            echo "NO_CHANGES=true" >> $GITHUB_ENV
-            echo "No changes detected."
-          else
-            echo "NO_CHANGES=false" >> $GITHUB_ENV
-            echo "Changes detected."
-          fi
-
-      - name: Push ci/apt-update to origin
-        if: env.NO_CHANGES == 'false'
-        run: git push origin ci/apt-update --force
-
-      - name: Create Pull Request
-        if: env.NO_CHANGES == 'false'
-        uses: peter-evans/create-pull-request@v5
-        with:
-          commit-message: "chore: update apt versions in Dockerfile_ODELIA"
-          branch: ci/apt-update
-          title: "chore: Update APT versions in Dockerfile"
-          body: |
-            This PR automatically updates APT package version numbers in `Dockerfile_ODELIA`
-            based on a rebuild and inspection of installation logs.
-          base: main
+# Check if there are changes to commit
+if git diff --quiet; then
+  echo "[INFO] No changes to apt versions found. Skipping commit."
+else
+  echo "[INFO] Committing updated apt versions..."
+  git commit "$DOCKERFILE_PATH" --amend -m "chore: update apt versions based on rebuild" || echo "[INFO] Nothing to amend. Skipping."
+fi
