@@ -16,11 +16,12 @@ git commit "$DOCKERFILE_PATH" -m "WIP: remove apt versions for rebuild" || echo 
 
 echo "[INFO] Rebuilding Docker image and capturing logs..."
 if ! ./buildDockerImageAndStartupKits.sh -p "$PROJECT_YML" 2>&1 | tee "$LOG_PATH"; then
-    echo "[ERROR] Docker build failed. Proceeding to clean invalid versions..."
+    echo "[WARNING] Docker build failed. Proceeding to clean invalid versions..."
 fi
 
 echo "[INFO] Re-adding updated APT version pins to Dockerfile..."
 scripts/dev_utils/dockerfile_update_addAptVersionNumbers.py "$DOCKERFILE_PATH" "$LOG_PATH"
+rm "$LOG_PATH"
 
 echo "[INFO] Validating all pinned versions, removing invalid ones..."
 has_invalid_versions=0
@@ -37,16 +38,11 @@ while IFS= read -r match; do
     fi
 done < <(grep -oP '\b[a-z0-9\.\-]+=[a-zA-Z0-9:~.+-]+\b' "$DOCKERFILE_PATH")
 
-rm "$LOG_PATH"
-
 if git diff --quiet; then
-  if [[ "$has_invalid_versions" -eq 1 ]]; then
-    echo "[INFO] Pinned versions were removed. Committing fallback without version locks..."
-    git commit "$DOCKERFILE_PATH" -m "fix: remove obsolete apt version pins"
-  else
-    echo "[INFO] No changes to apt versions found. Skipping commit."
-  fi
+  echo "[INFO] No changes to apt versions found. Skipping commit."
+  echo "NO_CHANGES=true" >> "$GITHUB_ENV"
 else
   echo "[INFO] Committing updated apt versions..."
   git commit "$DOCKERFILE_PATH" -m "chore: update apt versions based on rebuild"
+  echo "NO_CHANGES=false" >> "$GITHUB_ENV"
 fi
