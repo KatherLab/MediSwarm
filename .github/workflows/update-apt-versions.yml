@@ -1,19 +1,20 @@
-name: Update APT Versions
+name: Auto Update APT Versions
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 4 * * 1'  # 每周一凌晨4点运行
+    - cron: '0 5 * * 0'  # Every Sunday at 05:00 UTC
+  workflow_dispatch:
 
 jobs:
   update-apt:
+    name: Update APT Package Versions in Dockerfile
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          submodules: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -25,18 +26,21 @@ jobs:
 
       - name: Configure Git for CI
         run: |
-          git config user.email "ci@github.com"
-          git config user.name "GitHub CI"
+          git config --global user.email "ci@github.com"
+          git config --global user.name "GitHub CI"
 
-      - name: Create or switch to update branch
+      - name: Create and switch to apt-update branch
         run: |
-          git fetch origin
-          git checkout -B ci/apt-update origin/main
+          git checkout -b ci/apt-update || git switch ci/apt-update
+
+      - name: Make update script executable
+        run: chmod +x scripts/ci/update_apt_versions.sh
 
       - name: Run APT update script
-        run: bash scripts/ci/update_apt_versions.sh
+        run: scripts/ci/update_apt_versions.sh
 
       - name: Check for changes
+        id: check_changes
         run: |
           if git diff --quiet; then
             echo "NO_CHANGES=true" >> $GITHUB_ENV
@@ -46,18 +50,18 @@ jobs:
             echo "Changes detected."
           fi
 
-      - name: Push changes
+      - name: Push ci/apt-update to origin
         if: env.NO_CHANGES == 'false'
-        run: git push origin ci/apt-update --force
+        run: git push origin ci/apt-update
 
       - name: Create Pull Request
         if: env.NO_CHANGES == 'false'
         uses: peter-evans/create-pull-request@v5
         with:
-          title: "chore(ci): Update APT pinned versions"
-          body: |
-            This PR updates pinned APT package versions based on latest available versions after a rebuild.
-          commit-message: "chore: update apt versions based on rebuild"
+          commit-message: "chore: update apt versions in Dockerfile_ODELIA"
           branch: ci/apt-update
-          delete-branch: false
+          title: "chore: Update APT versions in Dockerfile"
+          body: |
+            This PR automatically updates APT package version numbers in Dockerfile_ODELIA
+            based on a rebuild and inspection of installation logs.
           base: main
