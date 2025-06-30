@@ -37,7 +37,7 @@ jobs:
       - name: Build Docker image for real project (MEVIS)
         run: |
           chmod +x buildDockerImageAndStartupKits.sh
-          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml --use-docker-cache
+          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
 
       - name: Show workspace path for MEVIS project
         run: |
