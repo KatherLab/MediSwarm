@@ -42,11 +42,11 @@ rm "$LOG_PATH"
 if git diff --quiet; then
   if [[ "$has_invalid_versions" -eq 1 ]]; then
     echo "[INFO] Pinned versions were removed. Committing fallback without version locks..."
-    git commit "$DOCKERFILE_PATH" --amend -m "fix: remove obsolete apt version pins"
+    git commit "$DOCKERFILE_PATH" -m "fix: remove obsolete apt version pins"
   else
     echo "[INFO] No changes to apt versions found. Skipping commit."
   fi
 else
   echo "[INFO] Committing updated apt versions..."
-  git commit "$DOCKERFILE_PATH" --amend -m "chore: update apt versions based on rebuild"
+  git commit "$DOCKERFILE_PATH" -m "chore: update apt versions based on rebuild"
 fi
