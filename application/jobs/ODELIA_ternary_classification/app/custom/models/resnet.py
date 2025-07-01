@@ -5,7 +5,7 @@ from einops import rearrange
 
 class _ResNet(nn.Module):
     """Wrapper for MONAI ResNet models supporting 3D/2D input."""
-    def __init__(self, n_input_channels: int, num_classes: int , spatial_dims: int, resnet_variant: str):
+    def __init__(self, n_input_channels: int, num_classes: int , spatial_dims: int, resnet_variant: int):
         super().__init__()
         Model = {
             10: nets.resnet10,
@@ -26,7 +26,7 @@ class _ResNet(nn.Module):
 
 class ResNet(BasicClassifier):
     """ResNet-based classifier using MONAI backbones."""
-    def __init__(self, n_input_channels: int, num_classes: int , spatial_dims :int, resnet_variant: str, **kwargs):
+    def __init__(self, n_input_channels: int, num_classes: int , spatial_dims :int, resnet_variant: int, **kwargs):
         super().__init__(n_input_channels, num_classes, spatial_dims, **kwargs)
         self.model = _ResNet(n_input_channels, num_classes, spatial_dims, resnet_variant)
 
