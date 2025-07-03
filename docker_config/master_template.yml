@@ -703,7 +703,7 @@ docker_cln_sh: |
             --env SCRATCH_DIR=/scratch \
             --env TORCH_HOME=/scratch \
             --env GPU_DEVICE=$GPU2USE \
-            --env MODEL_NAME=ResNet10 \
+            --env MODEL_NAME=MST \
             --env CONFIG=unilateral"
 
   # Execution modes
