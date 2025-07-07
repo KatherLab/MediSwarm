@@ -736,8 +736,8 @@ docker_cln_sh: |
       echo "--preflight_check  verify data access & local training"
       echo "--local_training   train a local model"
       echo "--start_client     launch FL client in swarm mode"
-      echo "--interactive      drop into interactive container"
-      echo "--run_script       execute script in container"
+      echo "--interactive      drop into interactive container (for debugging)"
+      echo "--run_script       execute script in container (for testing)"
       exit 1
   fi
 
