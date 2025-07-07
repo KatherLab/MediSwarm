@@ -115,6 +115,7 @@ export CONFIG=original
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --start_client
    ```
+   If you have multiple GPUs and 0 is busy, use a different one.
 
 3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
    ```bash
