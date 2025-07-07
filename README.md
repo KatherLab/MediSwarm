@@ -231,7 +231,7 @@ using some credentials chosen for the swarm admin account.
 
 Access the dashboard in a web browser at `https://localhost:8443` log in with these credentials, and configure the project:
 1. enter project short name, name, description
-2. enter docker download link: jefftud/nvflare-pt-dev:3dcnn
+2. enter docker download link: jefftud/odelia:<version string>
 3. if needed, enter dates
 4. click save
 5. Server Configuration > Server (DNS name): <DNS name of server>
