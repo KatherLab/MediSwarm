@@ -75,7 +75,8 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check
    ```
-   * Training time depends on the size of the local dataset
+   * Training time depends on the size of the local dataset.
+   * This will download pre-trained model weights if used in the training, if not already cached locally
 
 ## Configurable Parameters for docker.sh
 
