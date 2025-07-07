@@ -40,6 +40,9 @@ jobs:
       - name: Run APT update script
         run: scripts/ci/update_apt_versions.sh
 
+      - name: Show git diff for debugging
+        run: git diff
+
       - name: Push ci/apt-update to origin
         if: env.NO_CHANGES == 'false'
         run: git push origin ci/apt-update --force
