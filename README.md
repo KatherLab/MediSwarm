@@ -90,7 +90,6 @@ When launching the client using `./docker.sh`, the following environment variabl
 | `GPU_DEVICE`         | `device=0`     | GPU identifier to use inside the container (or `all`)                      |
 | `MODEL`              | `MST`          | Model architecture, choices: `MST`, `ResNet`                               |
 | `INSTITUTION`        | `ODELIA`       | Institution name, used to group experiment logs                            |
-| `TASK`               | `binary`       | Task type, choices: `binary`, `ordinal`                                    |
 | `CONFIG`             | `unilateral`   | Configuration schema for dataset (e.g. label scheme)                       |
 | `NUM_EPOCHS`         | `1` (test mode)| Number of training epochs (used in preflight/local training)               |
 | `TRAINING_MODE`      | derived        | Internal use. Automatically set based on flags like `--start_client`       |
