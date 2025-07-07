@@ -3,7 +3,7 @@
 set -e
 
 DOCKERFILE_PATH="docker_config/Dockerfile_ODELIA"
-LOG_PATH="out.txt"
+LOG_PATH=$(mktemp)
 PROJECT_YML="tests/provision/dummy_project_for_testing.yml"
 
 echo "[INFO] Removing APT version pins from Dockerfile..."
