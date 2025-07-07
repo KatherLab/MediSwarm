@@ -8,6 +8,9 @@ on:
       - main
       - dev
 
+permissions:
+  contents: read
+
 jobs:
   validate-swarm:
     runs-on: self-hosted
