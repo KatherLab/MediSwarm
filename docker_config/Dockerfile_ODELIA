@@ -54,18 +54,21 @@ RUN python3 -m pip cache purge
 
 # install ODELIA fork of NVFlare from local source
 WORKDIR /workspace/
-COPY ./docker_config/NVFlare /workspace/nvflare
+COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
 ## use startup kit template in the dashboard
-COPY ./docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
+COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
 RUN python3 -m pip install /workspace/nvflare
 RUN rm -rf /workspace/nvflare
 
 # Install the ODELIA controller package from local source
-COPY ./controller /workspace/controller
+COPY ./MediSwarm/controller /workspace/controller
 RUN python3 -m pip install /workspace/controller
 RUN rm -rf /workspace/controller
 
 # Copy the source code for local training and deploying to the swarm
-COPY . /MediSwarm
+COPY ./MediSwarm /MediSwarm
 RUN mkdir -p /fl_admin/transfer
 RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
+
+# Copy pre-trained model weights to image
+COPY ./torch_home_cache /torch_home
