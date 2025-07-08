@@ -30,8 +30,9 @@ DOCKER_IMAGE=jefftud/odelia:$VERSION
 # prepare clean version of source code repository clone for building Docker image
 CWD=`pwd`
 CLEAN_SOURCE_DIR=`mktemp -d`
-cp -r . $CLEAN_SOURCE_DIR/
-cd $CLEAN_SOURCE_DIR
+mkdir $CLEAN_SOURCE_DIR/MediSwarm
+cp -r . $CLEAN_SOURCE_DIR/MediSwarm/
+cd $CLEAN_SOURCE_DIR/MediSwarm
 git clean -x -q -f .
 cd docker_config/NVFlare
 git clean -x -q -f .
@@ -39,6 +40,9 @@ cd ../..
 rm .git -rf
 chmod a+rX . -R
 cd $CWD
+
+cp -r ./docker_config/torch_home_cache $CLEAN_SOURCE_DIR/torch_home_cache
+chmod a+rX $CLEAN_SOURCE_DIR/torch_home_cache -R
 
 docker build $DOCKER_BUILD_ARGS -t $DOCKER_IMAGE $CLEAN_SOURCE_DIR -f docker_config/Dockerfile_ODELIA
 
