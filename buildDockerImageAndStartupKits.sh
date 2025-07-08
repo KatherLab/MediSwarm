@@ -27,7 +27,9 @@ fi
 VERSION=`./getVersionNumber.sh`
 DOCKER_IMAGE=jefftud/odelia:$VERSION
 
+
 # prepare clean version of source code repository clone for building Docker image
+
 CWD=`pwd`
 CLEAN_SOURCE_DIR=`mktemp -d`
 mkdir $CLEAN_SOURCE_DIR/MediSwarm
@@ -41,8 +43,30 @@ rm .git -rf
 chmod a+rX . -R
 cd $CWD
 
-cp -r ./docker_config/torch_home_cache $CLEAN_SOURCE_DIR/torch_home_cache
+
+# prepare pre-trained model weights for being included in Docker image
+
+MODEL_WEIGHTS_FILE='docker_config/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth'
+MODEL_LICENSE_FILE='docker_config/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE'
+if [[ ! -f $MODEL_WEIGHTS_FILE || ! -f $MODEL_LICENSE_FILE ]]; then
+    read -p "Pre-trained model not available. Build the image without them? " -n 1 -r
+    if [[ ! $REPLY = ^[Yy]$ ]]; then
+        BUILT_WITHOUT_PRETRAINED_WEIGHTS=1
+        mkdir $CLEAN_SOURCE_DIR/torch_home_cache
+    else
+        exit 1
+    fi
+else
+    if echo 2e405cee1bad14912278296d4f42e993 $MODEL_WEIGHTS_FILE | md5sum --check - && echo 153d2db1c329326a2d9f881317ea942e $MODEL_LICENSE_FILE | md5sum --check -; then
+        cp -r ./docker_config/torch_home_cache $CLEAN_SOURCE_DIR/torch_home_cache
+    else
+        exit 1
+    fi
+fi
 chmod a+rX $CLEAN_SOURCE_DIR/torch_home_cache -R
+
+
+# build and print follow-up steps
 
 docker build $DOCKER_BUILD_ARGS -t $DOCKER_IMAGE $CLEAN_SOURCE_DIR -f docker_config/Dockerfile_ODELIA
 
@@ -53,4 +77,8 @@ echo "Startup kits built successfully"
 
 rm -rf $CLEAN_SOURCE_DIR
 
-echo "If you wish, manually push $DOCKER_IMAGE now"
+if [ -z BUILT_WITHOUT_PRETRAINED_WEIGHTS ]; then
+    echo "If you wish, manually push $DOCKER_IMAGE now"
+else
+    echo "Now run a dummy training to download the pretrained model weights, export them to docker_config/torch_home_cache/hub, and re-build the image"
+fi
