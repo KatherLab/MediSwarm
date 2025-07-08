@@ -8,7 +8,7 @@ docker image list
 
 echo "The following Docker images are old ODELIA docker images:"
 
-echo $OLD_ODELIA_DOCKER_IMAGES
+echo "$OLD_ODELIA_DOCKER_IMAGES"
 
 read -p "Delete these Docker images, unless they have additional tags? (y/n): " answer
 
