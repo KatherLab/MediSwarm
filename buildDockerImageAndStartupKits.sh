@@ -49,19 +49,20 @@ cd $CWD
 MODEL_WEIGHTS_FILE='docker_config/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth'
 MODEL_LICENSE_FILE='docker_config/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE'
 if [[ ! -f $MODEL_WEIGHTS_FILE || ! -f $MODEL_LICENSE_FILE ]]; then
-    read -p "Pre-trained model not available. Build the image without them? " -n 1 -r
-    if [[ ! $REPLY = ^[Yy]$ ]]; then
-        BUILT_WITHOUT_PRETRAINED_WEIGHTS=1
-        mkdir $CLEAN_SOURCE_DIR/torch_home_cache
-    else
-        exit 1
-    fi
+    echo "Pre-trained model not available. Attempting download"
+    HUBDIR=$(dirname $(dirname $MODEL_LICENSE_FILE))
+    mkdir -p $(dirname $MODEL_WEIGHTS_FILE)
+    wget https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth -O $MODEL_WEIGHTS_FILE
+    wget https://github.com/facebookresearch/dinov2/archive/refs/heads/main.zip -O /tmp/dinov2.zip
+    unzip /tmp/dinov2.zip -d $HUBDIR
+    mv $HUBDIR/dinov2-main $HUBDIR/$(basename $(dirname $MODEL_LICENSE_FILE))
+    touch $HUBDIR/trusted_list
+fi
+
+if echo 2e405cee1bad14912278296d4f42e993 $MODEL_WEIGHTS_FILE | md5sum --check - && echo 153d2db1c329326a2d9f881317ea942e $MODEL_LICENSE_FILE | md5sum --check -; then
+    cp -r ./docker_config/torch_home_cache $CLEAN_SOURCE_DIR/torch_home_cache
 else
-    if echo 2e405cee1bad14912278296d4f42e993 $MODEL_WEIGHTS_FILE | md5sum --check - && echo 153d2db1c329326a2d9f881317ea942e $MODEL_LICENSE_FILE | md5sum --check -; then
-        cp -r ./docker_config/torch_home_cache $CLEAN_SOURCE_DIR/torch_home_cache
-    else
-        exit 1
-    fi
+    exit 1
 fi
 chmod a+rX $CLEAN_SOURCE_DIR/torch_home_cache -R
 
@@ -77,8 +78,4 @@ echo "Startup kits built successfully"
 
 rm -rf $CLEAN_SOURCE_DIR
 
-if [ -z BUILT_WITHOUT_PRETRAINED_WEIGHTS ]; then
-    echo "If you wish, manually push $DOCKER_IMAGE now"
-else
-    echo "Now run a dummy training to download the pretrained model weights, export them to docker_config/torch_home_cache/hub, and re-build the image"
-fi
+echo "If you wish, manually push $DOCKER_IMAGE now"
