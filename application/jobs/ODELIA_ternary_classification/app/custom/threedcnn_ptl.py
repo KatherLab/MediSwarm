@@ -122,6 +122,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         trainer = Trainer(
             accelerator='gpu',
             accumulate_grad_batches=1,
+            precision='16-mixed',
             default_root_dir=str(path_run_dir),
             callbacks=[checkpointing],
             enable_checkpointing=True,
