@@ -67,7 +67,7 @@ jobs:
       - name: Run 3D CNN preflight check
         continue-on-error: false
         run: |
-          ./runTestsInDocker.sh preflight_check
+          ./runTestsInDocker.sh run_3dcnn_tests
           echo "Preflight check finished"
           echo "=== Checking synthetic log output ==="
           ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for preflight"
