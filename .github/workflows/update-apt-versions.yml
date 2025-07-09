@@ -2,7 +2,6 @@ name: Auto Update APT Versions
 
 on:
   schedule:
-    # Every day at 05:00 UTC
     - cron: '0 5 * * *'
   workflow_dispatch:
 
@@ -30,10 +29,6 @@ jobs:
           git config --global user.email "ci@github.com"
           git config --global user.name "GitHub CI"
 
-      - name: Create and switch to apt-update branch
-        run: |
-          git checkout -b ci/apt-update || git switch ci/apt-update
-
       - name: Make update script executable
         run: chmod +x scripts/ci/update_apt_versions.sh
 
@@ -43,18 +38,22 @@ jobs:
       - name: Show git diff for debugging
         run: git diff
 
-      - name: Push ci/apt-update to origin
-        if: env.NO_CHANGES == 'false'
-        run: git push origin ci/apt-update --force
-
       - name: Create Pull Request
         if: env.NO_CHANGES == 'false'
+        id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
           commit-message: "chore: update apt versions in Dockerfile_ODELIA"
           branch: ci/apt-update
+          branch-suffix: timestamp
           title: "chore: Update APT versions in Dockerfile"
           body: |
             This PR automatically updates APT package version numbers in `Dockerfile_ODELIA`
             based on a rebuild and inspection of installation logs.
           base: main
+          delete-branch: false
+
+      - name: Print created PR URL
+        if: env.NO_CHANGES == 'false'
+        run: |
+          echo "Created PR: ${{ steps.cpr.outputs.pull-request-url }}"
