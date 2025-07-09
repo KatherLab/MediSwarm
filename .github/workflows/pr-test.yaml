@@ -64,13 +64,13 @@ jobs:
           echo "=== Checking log output ==="
           ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for dummy training"
 
-      - name: Run 3D CNN preflight check
+      - name: Run 3D CNN tests
         continue-on-error: false
         run: |
           ./runTestsInDocker.sh run_3dcnn_tests
-          echo "Preflight check finished"
+          echo "3D CNN tests check finished"
           echo "=== Checking synthetic log output ==="
-          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for preflight"
+          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for 3D CNN tests"
 
       - name: Run Unit Tests inside Docker
         continue-on-error: true
