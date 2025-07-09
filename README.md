@@ -44,11 +44,11 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 # Usage for Swarm Participants
 ## Setup
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
-2. Clone the repository and connect the client node to the VPN as described above.
+2. Clone the repository and connect the client node to the VPN as described above. TODO is cloning the repository necessary for swarm participants?
 3. TODO anything else?
 
 ## Prepare Dataset
-1. TODO which data is expected in which folder structure + table structure
+1. see Step 3: Prepare Data in (this document)[application/jobs/ODELIA_ternary_classification/app/scripts/README.md]
 
 ## Prepare Training Participation
 1. Extract startup kit provided by swarm operator
@@ -56,7 +56,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 ## Run Pre-Flight Check
 1. Directories
    ```bash
-   export SITE_NAME=<the name of your site>  # TODO should be defined above, also needed for dataset location
+   export SITE_NAME=<name of your site>  # TODO should be defined above, also needed for dataset location
    export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data is stored>
    export SCRATCHDIR=<path to where the training can store temporary files>
    ```
@@ -76,23 +76,24 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check
    ```
    * Training time depends on the size of the local dataset.
-   * This will download pre-trained model weights if used in the training, if not already cached locally
 
 ## Configurable Parameters for docker.sh
+
+TODO consider what should be described and recommended as configurable here, given that the goal of the startup kits is to ensure everyone runs the same training
 
 When launching the client using `./docker.sh`, the following environment variables are automatically passed into the container. You can override them to customize training behavior:
 
 | Environment Variable | Default        | Description                                                                 |
 |----------------------|----------------|-----------------------------------------------------------------------------|
-| `SITE_NAME`          | *from flag*    | Name of your local site, e.g. `TUD_1`, passed via `--start_client`         |
-| `DATA_DIR`           | *from flag*    | Path to the host folder that contains your local data                      |
-| `SCRATCH_DIR`        | *from flag*    | Path for saving training outputs and temporary files                       |
-| `GPU_DEVICE`         | `device=0`     | GPU identifier to use inside the container (or `all`)                      |
-| `MODEL`              | `MST`          | Model architecture, choices: `MST`, `ResNet`                               |
-| `INSTITUTION`        | `ODELIA`       | Institution name, used to group experiment logs                            |
-| `CONFIG`             | `unilateral`   | Configuration schema for dataset (e.g. label scheme)                       |
-| `NUM_EPOCHS`         | `1` (test mode)| Number of training epochs (used in preflight/local training)               |
-| `TRAINING_MODE`      | derived        | Internal use. Automatically set based on flags like `--start_client`       |
+| `SITE_NAME`          | *from flag*    | Name of your local site, e.g. `TUD_1`, passed via `--start_client`          |
+| `DATA_DIR`           | *from flag*    | Path to the host folder that contains your local data                       |
+| `SCRATCH_DIR`        | *from flag*    | Path for saving training outputs and temporary files                        |
+| `GPU_DEVICE`         | `device=0`     | GPU identifier to use inside the container (or `all`)                       |
+| `MODEL`              | `MST`          | Model architecture, choices: `MST`, `ResNet`                                |
+| `INSTITUTION`        | `ODELIA`       | Institution name, used to group experiment logs                             |
+| `CONFIG`             | `unilateral`   | Configuration schema for dataset (e.g. label scheme)                        |
+| `NUM_EPOCHS`         | `1` (test mode)| Number of training epochs (used in preflight/local training)                |
+| `TRAINING_MODE`      | derived        | Internal use. Automatically set based on flags like `--start_client`        |
 
 These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or exporting before run:
 
@@ -101,8 +102,6 @@ export MODEL=ResNet
 export CONFIG=original
 ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=1 --start_client
 ```
-
----
 
 ## Start Swarm Node
 
@@ -117,7 +116,7 @@ export CONFIG=original
    ```
    If you have multiple GPUs and 0 is busy, use a different one.
 
-3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
+3. Console output is captured in `nohup.out`, which may have been created with limited permissions in the container, so make it readable if necessary:
    ```bash
    sudo chmod a+r nohup.out
    ```
@@ -125,15 +124,17 @@ export CONFIG=original
 4. Output files:
    - **Training logs and checkpoints** are saved under:
      ```
-     $SCRATCHDIR/runs/INSTITUTION/MODEL_TASK_CONFIG_TIMESTAMP/
+     $SCRATCHDIR/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/
      ```
    - **Best checkpoint** usually saved as `best.ckpt` or `last.ckpt`
    - **Prediction results**, if enabled, will appear in subfolders of the same directory
-   - **TensorBoard or WandB logs**, if activated, are stored in their respective folders inside the run directory
+   - **TensorBoard logs**, if activated, are stored in their respective folders inside the run directory
+   - TODO what is enabled/activated should be hard-coded, adapt accordingly
 
 5. (Optional) You can verify that the container is running properly:
    ```bash
    docker ps  # Check if odelia_swarm_client_$SITE_NAME is listed
+   nvidia-smi  # Check if the GPU is busy training (it will be idling while waiting for model transfer)
    tail -f nohup.out  # Follow training log
    ```
 
@@ -177,6 +178,7 @@ You should see
 3. output of a successful proof-of-concept run run with two nodes
 4. output of a set of startup kits being generated
 5. output of a dummy training run using one of the startup kits
+6. TODO update this to what the tests output now
 
 Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`.
 
