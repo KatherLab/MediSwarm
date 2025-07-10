@@ -92,10 +92,10 @@ def prepare_training(logger, max_epochs: int, site_name: str):
                            resnet_variant=resnet_variant,
                            loss_kwargs=loss_kwargs)
         elif model_name == 'MST':
-            model =  MST(n_input_channels=1,
-                         num_classes=num_classes,
-                         spatial_dims=3,
-                         loss_kwargs=loss_kwargs)
+            model = MST(n_input_channels=1,
+                        num_classes=num_classes,
+                        spatial_dims=3,
+                        loss_kwargs=loss_kwargs)
 
         logger.info(f"Using model: {model_name}")
 
