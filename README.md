@@ -3,8 +3,8 @@
 An open-source platform advancing medical AI via privacy-preserving swarm learning, based on NVFlare and developed with
 the ODELIA consortium.
 
-[![PR Tests]([pr-test.yaml](.github/workflows/pr-test.yaml))
-[![Docker Build]([update-apt-versions.yml](.github/workflows/update-apt-versions.yml))
+[![PR Tests](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml)
+[![Build](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml)
 
 ## Quick Start for Your Role
 
