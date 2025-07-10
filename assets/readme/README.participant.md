@@ -138,7 +138,7 @@ For any issues, contact your Swarm Operator or check with `docker ps`, `nvidia-s
    ```
 2. Start local training
    ```bash
-   /docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --local_training
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --local_training
    ```
     * TODO update when handling of the number of epochs has been implemented
 3. Output files
