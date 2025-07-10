@@ -69,3 +69,6 @@ RUN rm -rf /workspace/controller
 COPY ./MediSwarm /MediSwarm
 RUN mkdir -p /fl_admin/transfer
 RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
+
+# Copy pre-trained model weights to image
+COPY ./torch_home_cache /torch_home
