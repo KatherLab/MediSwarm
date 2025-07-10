@@ -36,13 +36,14 @@ while IFS= read -r match; do
     pkg="$(echo "$match" | cut -d= -f1)"
     ver="$(echo "$match" | cut -d= -f2)"
     echo -n "Checking $pkg=$ver... "
-    if ! dpkg -l "$pkg" | grep -q "$ver"; then
+    if ! dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null | grep -q "$ver"; then
         echo "NOT FOUND – removing pin"
         sed -i "s|\b$pkg=$ver\b|$pkg|" "$DOCKERFILE_PATH"
         has_invalid_versions=1
     else
         echo "OK"
     fi
+
 done < <(grep -oP '\b[a-z0-9\.\-]+=[a-zA-Z0-9:~.+-]+\b' "$DOCKERFILE_PATH")
 
 git fetch origin main
