@@ -14,12 +14,17 @@ git config user.name "GitHub CI"
 git commit "$DOCKERFILE_PATH" -m "WIP: remove apt versions for rebuild" || echo "[INFO] No version pin removal change to commit."
 
 echo "[INFO] Rebuilding Docker image and capturing logs..."
-./buildDockerImageAndStartupKits.sh -p "$PROJECT_YML" 2>&1 | tee "$LOG_PATH"
-exit_code=${PIPESTATUS[0]}
-if [ "$exit_code" -ne 0 ]; then
-  echo "Build failed with exit code $exit_code"
-  exit "$exit_code"
+if ! ./buildDockerImageAndStartupKits.sh -p "$PROJECT_YML" > "$LOG_PATH" 2>&1; then
+  echo "Build failed. Output:"
+  cat "$LOG_PATH"
+  exit 1
 fi
+
+echo "[DEBUG] First 20 lines of build log:"
+head -n 20 "$LOG_PATH"
+
+echo "[DEBUG] Checking for apt install commands:"
+grep "apt install" "$LOG_PATH" || echo "[WARN] No apt install command found in log!"
 
 echo "[INFO] Re-adding updated APT version pins to Dockerfile..."
 scripts/dev_utils/dockerfile_update_addAptVersionNumbers.py "$DOCKERFILE_PATH" "$LOG_PATH"
