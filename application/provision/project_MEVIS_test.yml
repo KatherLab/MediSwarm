@@ -4,15 +4,27 @@ description: >
   Test setup.
 
 participants:
-  - name: odeliatempvm.local
+  - name: odeliaswarmvm.local
     type: server
     org: MEVIS_Test
     fed_learn_port: 8002
     admin_port: 8003
-  - name: temporary_vm
+  - name: CAM
     type: client
     org: MEVIS_Test
-  - name: permanent_vm
+  - name: MHA
+    type: client
+    org: MEVIS_Test
+  - name: RUMC
+    type: client
+    org: MEVIS_Test
+  - name: UKA
+    type: client
+    org: MEVIS_Test
+  - name: UMCU
+    type: client
+    org: MEVIS_Test
+  - name: Centralized
     type: client
     org: MEVIS_Test
   - name: admin@mevis.odelia
@@ -54,7 +66,7 @@ builders:
         #
         overseer_exists: false
         args:
-          sp_end_point: odeliatempvm.local:8002:8003
+          sp_end_point: odeliaswarmvm.local:8002:8003
 
   - path: nvflare.lighter.impl.cert.CertBuilder
   - path: nvflare.lighter.impl.signature.SignatureBuilder
