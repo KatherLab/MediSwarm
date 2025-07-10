@@ -58,7 +58,7 @@ Distribute the startup kits to the clients.
 
 1. Take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to
    work with NVFlare
-2. Take a look at application/jobs/ODELIA_ternary_classification for a more relastic example of pytorch code that can
+2. Take a look at application/jobs/ODELIA_ternary_classification for a more realistic example of pytorch code that can
    run in the swarm
 3. Use the local tests to check if the code is swarm-ready
 4. TODO more detailed instructions
