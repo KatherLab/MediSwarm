@@ -11,7 +11,7 @@ This guide is for data scientists and medical research sites participating in a 
 ## Setup
 
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
-2. Clone the repository and connect the client node to the VPN as described above. TODO is cloning the repository
+2. Clone the repository and connect the client node to the VPN as described in the VPN setup section below. TODO is cloning the repository
    necessary for swarm participants?
 3. TODO anything else?
 
