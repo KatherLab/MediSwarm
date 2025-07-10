@@ -57,3 +57,6 @@ jobs:
         if: env.NO_CHANGES == 'false'
         run: |
           echo "Created PR: ${{ steps.cpr.outputs.pull-request-url }}"
+
+      - name: Show final Dockerfile diff
+        run: cat docker_config/Dockerfile_ODELIA
