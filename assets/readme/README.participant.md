@@ -56,6 +56,20 @@ This guide is for data scientists and medical research sites participating in a 
    ```
     * Training time depends on the size of the local dataset.
 
+### (Optional) Run Local Training
+
+1. From the directory where you unpacked the startup kit
+   ```bash
+   cd $SITE_NAME/startup
+   ```
+2. Start local training
+   ```bash
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training
+   ```
+    * TODO update when handling of the number of epochs has been implemented
+3. Output files
+    * TODO describe
+
 ### Start Swarm Node
 
 #### VPN
@@ -93,26 +107,11 @@ This guide is for data scientists and medical research sites participating in a 
 
 5. (Optional) You can verify that the container is running properly:
    ```bash
-   docker ps  # Check if odelia_swarm_client_$SITE_NAME is listed
-   nvidia-smi  # Check if the GPU is busy training (it will be idling while waiting for model transfer)
+   docker ps          # Check if odelia_swarm_client_$SITE_NAME is listed
+   nvidia-smi         # Check if the GPU is busy training (it will be idling while waiting for model transfer)
    tail -f nohup.out  # Follow training log
    ```
-
-For any issues, contact your Swarm Operator or check with `docker ps`, `nvidia-smi`, and `tail -f nohup.out`.
-
-### (Optional) Run Local Training
-
-1. From the directory where you unpacked the startup kit
-   ```bash
-   cd $SITE_NAME/startup
-   ```
-2. Start local training
-   ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU all --local_training
-   ```
-    * TODO update when handling of the number of epochs has been implemented
-3. Output files
-    * TODO describe
+For any issues, check if the commands above point to problems and contact your Swarm Operator.
 
 ### Configurable Parameters for docker.sh
 
