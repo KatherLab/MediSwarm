@@ -81,11 +81,11 @@ class VeryBasicModel(pl.LightningModule):
 
 class BasicModel(VeryBasicModel):
     def __init__(
-        self,
-        optimizer=torch.optim.AdamW,
-        optimizer_kwargs=None,
-        lr_scheduler=None,
-        lr_scheduler_kwargs=None,
+            self,
+            optimizer=torch.optim.AdamW,
+            optimizer_kwargs=None,
+            lr_scheduler=None,
+            lr_scheduler_kwargs=None,
     ):
         super().__init__()
         self.optimizer = optimizer
@@ -104,18 +104,18 @@ class BasicModel(VeryBasicModel):
 
 class BasicClassifier(BasicModel):
     def __init__(
-        self,
-        in_ch: int,
-        out_ch: int,
-        spatial_dims: int,
-        loss=torch.nn.CrossEntropyLoss,
-        loss_kwargs=None,
-        optimizer=torch.optim.AdamW,
-        optimizer_kwargs=None,
-        lr_scheduler=None,
-        lr_scheduler_kwargs=None,
-        aucroc_kwargs=None,
-        acc_kwargs=None,
+            self,
+            in_ch: int,
+            out_ch: int,
+            spatial_dims: int,
+            loss=torch.nn.CrossEntropyLoss,
+            loss_kwargs=None,
+            optimizer=torch.optim.AdamW,
+            optimizer_kwargs=None,
+            lr_scheduler=None,
+            lr_scheduler_kwargs=None,
+            aucroc_kwargs=None,
+            acc_kwargs=None,
     ):
         super().__init__(optimizer, optimizer_kwargs, lr_scheduler, lr_scheduler_kwargs)
 

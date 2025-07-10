@@ -84,12 +84,12 @@ class BasicModel(VeryBasicModel):
     """Extension of VeryBasicModel that includes optimizer and scheduler configuration."""
 
     def __init__(
-        self,
-        optimizer=torch.optim.Adam,
-        optimizer_kwargs={'lr': 1e-3, 'weight_decay': 1e-2},
-        lr_scheduler=None,
-        lr_scheduler_kwargs={},
-        save_hyperparameters=True
+            self,
+            optimizer=torch.optim.Adam,
+            optimizer_kwargs={'lr': 1e-3, 'weight_decay': 1e-2},
+            lr_scheduler=None,
+            lr_scheduler_kwargs={},
+            save_hyperparameters=True
     ):
         super().__init__(save_hyperparameters=save_hyperparameters)
         if save_hyperparameters:
@@ -111,18 +111,18 @@ class BasicClassifier(BasicModel):
     """Generic classifier with dynamic metric and loss configuration based on task type."""
 
     def __init__(
-        self,
-        in_ch,
-        out_ch,
-        spatial_dims,
-        loss_kwargs={},
-        optimizer=torch.optim.AdamW,
-        optimizer_kwargs={'lr': 1e-4, 'weight_decay': 1e-2},
-        lr_scheduler=None,
-        lr_scheduler_kwargs={},
-        aucroc_kwargs={},
-        acc_kwargs={},
-        save_hyperparameters=True
+            self,
+            in_ch,
+            out_ch,
+            spatial_dims,
+            loss_kwargs={},
+            optimizer=torch.optim.AdamW,
+            optimizer_kwargs={'lr': 1e-4, 'weight_decay': 1e-2},
+            lr_scheduler=None,
+            lr_scheduler_kwargs={},
+            aucroc_kwargs={},
+            acc_kwargs={},
+            save_hyperparameters=True
     ):
         super().__init__(optimizer, optimizer_kwargs, lr_scheduler, lr_scheduler_kwargs)
         self.in_ch = in_ch

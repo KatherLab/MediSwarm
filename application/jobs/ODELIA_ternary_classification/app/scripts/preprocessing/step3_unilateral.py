@@ -10,16 +10,16 @@ def crop_breast_height(image, margin_top=10):
     "Crop height to 256 and try to cover breast based on intensity localization"
     # threshold = int(image.data.float().quantile(0.9))
     threshold = int(np.quantile(image.data.float(), 0.9))
-    foreground = image.data>threshold
+    foreground = image.data > threshold
     fg_rows = foreground[0].sum(axis=(0, 2))
-    top = min(max(512-int(torch.argwhere(fg_rows).max()) - margin_top, 0), 256)
-    bottom = 256-top
-    return  tio.Crop((0,0, bottom, top, 0, 0))
+    top = min(max(512 - int(torch.argwhere(fg_rows).max()) - margin_top, 0), 256)
+    bottom = 256 - top
+    return tio.Crop((0, 0, bottom, top, 0, 0))
 
 
 def preprocess(path_dir):
     # -------- Settings --------------
-    ref_img = tio.ScalarImage(path_dir/'Pre.nii.gz')
+    ref_img = tio.ScalarImage(path_dir / 'Pre.nii.gz')
     ref_img = tio.ToCanonical()(ref_img)
 
     # Spacing
@@ -29,9 +29,9 @@ def preprocess(path_dir):
     # Crop
     target_shape = (512, 512, 32)
 
-    padding_constant = ref_img.data.min().item() # Ugly workaround: padding_mode='minimum' calculates the minimum per axis, not globally
+    padding_constant = ref_img.data.min().item()  # Ugly workaround: padding_mode='minimum' calculates the minimum per axis, not globally
     transform = tio.Compose([
-        tio.Resample(ref_img), # Resample to reference image to ensure that origin, direction, etc, fit
+        tio.Resample(ref_img),  # Resample to reference image to ensure that origin, direction, etc, fit
         tio.CropOrPad(target_shape, padding_mode=padding_constant),
     ])
     crop_height = crop_breast_height(transform(ref_img))
@@ -39,7 +39,6 @@ def preprocess(path_dir):
         'right': tio.Crop((256, 0, 0, 0, 0, 0)),
         'left': tio.Crop((0, 256, 0, 0, 0, 0)),
     }
-
 
     for n, path_img in enumerate(path_dir.glob('*.nii.gz')):
         # Read image
@@ -59,24 +58,24 @@ def preprocess(path_dir):
         # Split left and right side
         for side in ['left', 'right']:
             # Create output directory
-            path_out_dir = path_root_out_data/f"{path_dir.relative_to(path_root_in_data)}_{side}"
+            path_out_dir = path_root_out_data / f"{path_dir.relative_to(path_root_in_data)}_{side}"
             path_out_dir.mkdir(exist_ok=True, parents=True)
 
             # Crop left/right side
             img_side = split_side[side](img)
 
             # Save
-            img_side.save(path_out_dir/path_img.name)
+            img_side.save(path_out_dir / path_img.name)
+
 
 if __name__ == "__main__":
-    for dataset in ['DUKE', ]: # 'CAM', 'MHA', 'RSH', 'RUMC', 'UKA', 'UMCU', 'DUKE'
+    for dataset in ['DUKE', ]:  # 'CAM', 'MHA', 'RSH', 'RUMC', 'UKA', 'UMCU', 'DUKE'
 
-        path_root = Path('/home/gustav/Documents/datasets/ODELIA/')/dataset
-        path_root_in_data = path_root/'data'
+        path_root = Path('/home/gustav/Documents/datasets/ODELIA/') / dataset
+        path_root_in_data = path_root / 'data'
 
-        path_root_out_data =  path_root/'data_unilateral'
+        path_root_out_data = path_root / 'data_unilateral'
         path_root_out_data.mkdir(parents=True, exist_ok=True)
-
 
         path_patients = list(path_root_in_data.iterdir())  # Convert the iterator to a list
 
@@ -88,4 +87,3 @@ if __name__ == "__main__":
         # Option 2: Single-CPU
         # for path_dir in tqdm(path_patients):
         #     preprocess(path_dir)
-

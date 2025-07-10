@@ -9,8 +9,10 @@ logging.basicConfig(level=logging.INFO)
 print("Script is running")
 
 import os
+
 print("PWD:", os.getcwd())
 print("Files in current dir:", os.listdir())
+
 
 def get_latest_workspace():
     root = Path.cwd()
@@ -19,9 +21,11 @@ def get_latest_workspace():
         raise RuntimeError("No workspace found matching pattern 'odelia_0.9-dev.*_MEVIS_test'")
     return sorted(candidates, reverse=True)[0]
 
+
 def run_command(cmd, cwd=None):
     print(f"\n>>> Running: {' '.join(cmd)} in {cwd}")
     subprocess.run(cmd, cwd=cwd, check=True)
+
 
 def main():
     site = os.environ.get("SITE_NAME", "UKA")
@@ -38,8 +42,9 @@ def main():
     run_command(["./docker.sh", "--scratch_dir", scratchdir, "--GPU", "device=0", "--dummy_training"], cwd=startup_dir)
 
     # Run preflight check
-    run_command(["./docker.sh", "--data_dir", datadir, "--scratch_dir", scratchdir, "--GPU", "device=0", "--preflight_check"], cwd=startup_dir)
-
+    run_command(
+        ["./docker.sh", "--data_dir", datadir, "--scratch_dir", scratchdir, "--GPU", "device=0", "--preflight_check"],
+        cwd=startup_dir)
 
 
 if __name__ == "__main__":

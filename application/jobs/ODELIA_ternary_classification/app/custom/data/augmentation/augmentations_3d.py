@@ -8,8 +8,10 @@ from torchio import Subject, Image
 import torch
 import numpy as np
 
+
 class ImageOrSubjectToTensor(object):
     """Converts a torchio Image or Subject to a tensor format by swapping axes."""
+
     def __call__(self, input: Union[Image, Subject]):
         if isinstance(input, Subject):
             return {key: val.data.swapaxes(1, -1) if isinstance(val, Image) else val for key, val in input.items()}
@@ -26,15 +28,17 @@ def parse_per_channel(per_channel, channels):
     else:
         return per_channel
 
+
 class ZNormalization(tio.ZNormalization):
     """Z-Normalization with support for per-channel and per-slice options, and percentile-based clipping."""
+
     def __init__(
-        self,
-        percentiles: TypeRangeFloat = (0, 100),
-        per_channel=True,
-        per_slice=False,
-        masking_method: TypeMaskingMethod = None,
-        **kwargs
+            self,
+            percentiles: TypeRangeFloat = (0, 100),
+            per_channel=True,
+            per_slice=False,
+            masking_method: TypeMaskingMethod = None,
+            **kwargs
     ):
         super().__init__(masking_method=masking_method, **kwargs)
         self.percentiles = percentiles
@@ -49,9 +53,9 @@ class ZNormalization(tio.ZNormalization):
         image.set_data(
             torch.cat([
                 torch.cat([
-                    self._znorm(image.data[chs,][:,:,:, sl,], mask[chs,][:,:,:, sl,], image_name, image.path)
-                for sl in per_slice], dim=-1)
-            for chs in per_channel ])
+                    self._znorm(image.data[chs,][:, :, :, sl, ], mask[chs,][:, :, :, sl, ], image_name, image.path)
+                    for sl in per_slice], dim=-1)
+                for chs in per_channel])
         )
 
     def _znorm(self, image_data, mask, image_name, image_path):
@@ -67,14 +71,15 @@ class ZNormalization(tio.ZNormalization):
 
 class CropOrPad(tio.CropOrPad):
     """Crop or pad a subject with optional random center logic for padding."""
+
     def __init__(
-        self,
-        target_shape: Union[int, TypeTripletInt, None] = None,
-        padding_mode: Union[str, float] = 0,
-        mask_name: Optional[str] = None,
-        labels: Optional[Sequence[int]] = None,
-        random_center=False,
-        **kwargs
+            self,
+            target_shape: Union[int, TypeTripletInt, None] = None,
+            padding_mode: Union[str, float] = 0,
+            mask_name: Optional[str] = None,
+            labels: Optional[Sequence[int]] = None,
+            random_center=False,
+            **kwargs
     ):
         super().__init__(
             target_shape=target_shape,
@@ -89,10 +94,10 @@ class CropOrPad(tio.CropOrPad):
         result = []
         for number in parameters:
             if self.random_center:
-                ini = np.random.randint(low=0, high=number+1)
+                ini = np.random.randint(low=0, high=number + 1)
             else:
-                ini = int(np.ceil(number/2))
-            fin = number-ini
+                ini = int(np.ceil(number / 2))
+            fin = number - ini
             result.extend([ini, fin])
         return tuple(result)
 
@@ -106,7 +111,7 @@ class CropOrPad(tio.CropOrPad):
                 random_padding_params = []
                 for i in range(0, len(padding_params), 2):
                     s = padding_params[i] + padding_params[i + 1]
-                    r = np.random.randint(0, s+1)
+                    r = np.random.randint(0, s + 1)
                     random_padding_params.extend([r, s - r])
                 padding_params = random_padding_params
             pad = tio.Pad(padding_params, **padding_kwargs)

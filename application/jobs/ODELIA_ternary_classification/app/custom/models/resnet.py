@@ -3,9 +3,11 @@ import monai.networks.nets as nets
 import torch.nn as nn
 from einops import rearrange
 
+
 class _ResNet(nn.Module):
     """Wrapper for MONAI ResNet models supporting 3D/2D input."""
-    def __init__(self, n_input_channels: int, num_classes: int , spatial_dims: int, resnet_variant: int):
+
+    def __init__(self, n_input_channels: int, num_classes: int, spatial_dims: int, resnet_variant: int):
         super().__init__()
         Model = {
             10: nets.resnet10,
@@ -19,8 +21,9 @@ class _ResNet(nn.Module):
             raise ValueError(f"Unsupported ResNet model number: {resnet_variant}")
 
         self.model = Model(n_input_channels=n_input_channels, spatial_dims=spatial_dims, num_classes=num_classes,
-                           feed_forward=False, bias_downsample = False, pretrained=True)
-        self.model.fc = nn.Linear(512, num_classes)  # TODO can we get the number of channels from the ResNet rather than using a hard-coded value only confirmed to work with ResNet 10 and 18?
+                           feed_forward=False, bias_downsample=False, pretrained=True)
+        self.model.fc = nn.Linear(512,
+                                  num_classes)  # TODO can we get the number of channels from the ResNet rather than using a hard-coded value only confirmed to work with ResNet 10 and 18?
 
     def forward(self, x):
         return self.model(x)
@@ -28,12 +31,14 @@ class _ResNet(nn.Module):
 
 class ResNet(BasicClassifier):
     """ResNet-based classifier using MONAI backbones."""
-    def __init__(self, n_input_channels: int, num_classes: int , spatial_dims :int, resnet_variant: int, **kwargs):
+
+    def __init__(self, n_input_channels: int, num_classes: int, spatial_dims: int, resnet_variant: int, **kwargs):
         super().__init__(n_input_channels, num_classes, spatial_dims, **kwargs)
         self.model = _ResNet(n_input_channels, num_classes, spatial_dims, resnet_variant)
 
     def forward(self, x):
         return self.model(x)
+
 
 '''
 class ResNetRegression(BasicRegression):

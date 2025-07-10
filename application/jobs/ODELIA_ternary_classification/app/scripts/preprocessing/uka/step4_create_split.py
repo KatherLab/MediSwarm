@@ -5,18 +5,17 @@ import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 
 path_root = Path('/home/gustav/Documents/datasets/ODELIA/')
-path_root_dataset = path_root/'UKA_all'
-path_root_metadata = path_root_dataset/'metadata'
+path_root_dataset = path_root / 'UKA_all'
+path_root_metadata = path_root_dataset / 'metadata'
 
-
-df = pd.read_excel(path_root_metadata/'annotation_regex.xlsx')
-assert len(df[df.duplicated(subset='UID', keep=False)])==0, "Duplicates exist"
+df = pd.read_excel(path_root_metadata / 'annotation_regex.xlsx')
+assert len(df[df.duplicated(subset='UID', keep=False)]) == 0, "Duplicates exist"
 
 df['DCISoderKarzinom'] = df[df.columns[-1]] | df[df.columns[-2]]
 print(f"Text available for {len(df)} cases")
 
 # Include only examinations were MR image is available
-uids = [path.name for path in (path_root_dataset/'data_unilateral').iterdir()]
+uids = [path.name for path in (path_root_dataset / 'data_unilateral').iterdir()]
 print(f"Image available for {len(uids)} cases")
 
 # Merge
@@ -28,7 +27,7 @@ for label in df.columns[6:]:
     print(label)
     df = df.reset_index(drop=True)
     splits = []
-    sgkf = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=0) # StratifiedGroupKFold
+    sgkf = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=0)  # StratifiedGroupKFold
     sgkf2 = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=0)
     for fold_i, (train_val_idx, test_idx) in enumerate(sgkf.split(df['UID'], df[label], groups=df['PNR'])):
         df_split = df.copy()
@@ -42,5 +41,4 @@ for label in df.columns[6:]:
         splits.append(df_split)
     df_splits = pd.concat(splits)
 
-
-    df_splits.to_csv(path_root_metadata/f'split_regex_{label}.csv', index=False)
+    df_splits.to_csv(path_root_metadata / f'split_regex_{label}.csv', index=False)

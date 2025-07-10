@@ -7,19 +7,20 @@ from torch.utils.data.sampler import WeightedRandomSampler, RandomSampler
 
 class DataModule(pl.LightningDataModule):
     """Flexible LightningDataModule with weighted or random sampling support."""
+
     def __init__(
-        self,
-        ds_train: object = None,
-        ds_val: object = None,
-        ds_test: object = None,
-        batch_size: int = 1,
-        batch_size_val: int = None,
-        batch_size_test: int = None,
-        num_train_samples: int = None,
-        num_workers: int = mp.cpu_count(),
-        seed: int = 0,
-        pin_memory: bool = False,
-        weights: list = None
+            self,
+            ds_train: object = None,
+            ds_val: object = None,
+            ds_test: object = None,
+            batch_size: int = 1,
+            batch_size_val: int = None,
+            batch_size_test: int = None,
+            num_train_samples: int = None,
+            num_workers: int = mp.cpu_count(),
+            seed: int = 0,
+            pin_memory: bool = False,
+            weights: list = None
     ):
         super().__init__()
         self.hyperparameters = {**locals()}
