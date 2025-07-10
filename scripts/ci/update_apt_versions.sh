@@ -45,9 +45,9 @@ while IFS= read -r match; do
     fi
 done < <(grep -oP '\b[a-z0-9\.\-]+=[a-zA-Z0-9:~.+-]+\b' "$DOCKERFILE_PATH")
 
-git fetch origin main
-if git diff --quiet origin/main..HEAD; then
-  echo "NO_CHANGES=true" >> "$GITHUB_ENV"
-else
-  echo "NO_CHANGES=false" >> "$GITHUB_ENV"
-fi
+#git fetch origin main
+#if git diff --quiet origin/main..HEAD; then
+#  echo "NO_CHANGES=true" >> "$GITHUB_ENV"
+#else
+#  echo "NO_CHANGES=false" >> "$GITHUB_ENV"
+#fi
