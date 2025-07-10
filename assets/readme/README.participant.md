@@ -35,7 +35,7 @@ This guide is for data scientists and medical research sites participating in a 
 
 1. Directories
    ```bash
-   export SITE_NAME=<name of your site>  # TODO should be defined above, also needed for dataset location
+   export SITE_NAME=<name of your site>  # this should end in `_1`, e.g., `UKA_1`, unless you participate with multiple nodes
    export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data is stored>
    export SCRATCHDIR=<path to where the training can store temporary files>
    ```
