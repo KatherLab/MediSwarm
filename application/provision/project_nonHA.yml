@@ -1,5 +1,5 @@
 api_version: 3
-name: 3dcnn_ptl_nonHA
+name: ODELIA_ternary_classification_nonHA
 description: >
   NVIDIA FLARE project YAML file for configuring a federated learning environment without High Availability (HA).
   focused on 3D convolutional neural networks (3D CNNs) using PyTorch Lightning (PTL).

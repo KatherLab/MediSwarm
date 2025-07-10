@@ -1,0 +1,86 @@
+name: MediSwarm PR Validation
+
+on:
+  schedule:
+    - cron: '0 5 * * 0'
+  pull_request:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  validate-swarm:
+    runs-on: self-hosted
+    timeout-minutes: 45
+
+    env:
+      DATADIR: /mnt/swarm_alpha/Odelia_challange/ODELIA_Challenge_unilateral/
+      SCRATCHDIR: /mnt/scratch
+      SITE_NAME: UKA
+      PYTHONUNBUFFERED: 1
+
+
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Get Docker image version
+        id: get_version
+        run: |
+          VERSION=$(./getVersionNumber.sh)
+          echo "VERSION=$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image for real project (MEVIS)
+        run: |
+          chmod +x buildDockerImageAndStartupKits.sh
+          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
+
+      - name: Show workspace path for MEVIS project
+        run: |
+          echo "WORKSPACE_PATH: ${{ env.WORKSPACE_PATH }}"
+          find workspace -maxdepth 1 -type d -name "odelia_*_MEVIS_test" || echo "No workspace found"
+
+      - name: Build Docker image and dummy startup kits
+        run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
+
+      - name: Prepare dummy trainings
+        continue-on-error: true
+        run: |
+          ./runTestsInDocker.sh prepare_dummy_trainings
+          echo "Dummy training project prepared"
+
+      - name: Run dummy training
+        continue-on-error: false
+        run: |
+          ./runTestsInDocker.sh run_dummy_training
+          echo "Dummy training finished"
+          echo "=== Checking log output ==="
+          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for dummy training"
+
+      - name: Run 3D CNN tests
+        continue-on-error: false
+        run: |
+          ./runTestsInDocker.sh run_3dcnn_tests
+          echo "3D CNN tests check finished"
+          echo "=== Checking synthetic log output ==="
+          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for 3D CNN tests"
+
+      - name: Run Unit Tests inside Docker
+        continue-on-error: true
+        run: |
+          ./runTestsInDocker.sh run_tests
+          echo "=== [LOG CHECK] ==="
+          docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "Error found in logs" || echo "No error found"
+
+      - name: Cleanup training artifacts
+        continue-on-error: true
+        run: |
+          ./runTestsInDocker.sh cleanup
+          echo "Cleanup finished"
