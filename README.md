@@ -44,10 +44,12 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 # Usage for Swarm Participants
 ## Setup
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
-2. Clone the repository and connect the client node to the VPN as described above. TODO is cloning the repository necessary for swarm participants?
+2. Clone the repository and connect the client node to the VPN as described above. TODO is cloning the repository
+   necessary for swarm participants?
 3. TODO anything else?
 
 ## Prepare Dataset
+
 1. see Step 3: Prepare Data in (this document)[application/jobs/ODELIA_ternary_classification/app/scripts/README.md]
 
 ## Prepare Training Participation
@@ -79,23 +81,26 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 
 ## Configurable Parameters for docker.sh
 
-TODO consider what should be described and recommended as configurable here, given that the goal of the startup kits is to ensure everyone runs the same training
+TODO consider what should be described and recommended as configurable here, given that the goal of the startup kits is
+to ensure everyone runs the same training
 
-When launching the client using `./docker.sh`, the following environment variables are automatically passed into the container. You can override them to customize training behavior:
+When launching the client using `./docker.sh`, the following environment variables are automatically passed into the
+container. You can override them to customize training behavior:
 
-| Environment Variable | Default        | Description                                                                 |
-|----------------------|----------------|-----------------------------------------------------------------------------|
-| `SITE_NAME`          | *from flag*    | Name of your local site, e.g. `TUD_1`, passed via `--start_client`          |
-| `DATA_DIR`           | *from flag*    | Path to the host folder that contains your local data                       |
-| `SCRATCH_DIR`        | *from flag*    | Path for saving training outputs and temporary files                        |
-| `GPU_DEVICE`         | `device=0`     | GPU identifier to use inside the container (or `all`)                       |
-| `MODEL`              | `MST`          | Model architecture, choices: `MST`, `ResNet`                                |
-| `INSTITUTION`        | `ODELIA`       | Institution name, used to group experiment logs                             |
-| `CONFIG`             | `unilateral`   | Configuration schema for dataset (e.g. label scheme)                        |
-| `NUM_EPOCHS`         | `1` (test mode)| Number of training epochs (used in preflight/local training)                |
-| `TRAINING_MODE`      | derived        | Internal use. Automatically set based on flags like `--start_client`        |
+| Environment Variable | Default         | Description                                                          |
+|----------------------|-----------------|----------------------------------------------------------------------|
+| `SITE_NAME`          | *from flag*     | Name of your local site, e.g. `TUD_1`, passed via `--start_client`   |
+| `DATA_DIR`           | *from flag*     | Path to the host folder that contains your local data                |
+| `SCRATCH_DIR`        | *from flag*     | Path for saving training outputs and temporary files                 |
+| `GPU_DEVICE`         | `device=0`      | GPU identifier to use inside the container (or `all`)                |
+| `MODEL`              | `MST`           | Model architecture, choices: `MST`, `ResNet`                         |
+| `INSTITUTION`        | `ODELIA`        | Institution name, used to group experiment logs                      |
+| `CONFIG`             | `unilateral`    | Configuration schema for dataset (e.g. label scheme)                 |
+| `NUM_EPOCHS`         | `1` (test mode) | Number of training epochs (used in preflight/local training)         |
+| `TRAINING_MODE`      | derived         | Internal use. Automatically set based on flags like `--start_client` |
 
-These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or exporting before run:
+These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or
+exporting before run:
 
 ```bash
 export MODEL=ResNet
@@ -116,7 +121,8 @@ export CONFIG=original
    ```
    If you have multiple GPUs and 0 is busy, use a different one.
 
-3. Console output is captured in `nohup.out`, which may have been created with limited permissions in the container, so make it readable if necessary:
+3. Console output is captured in `nohup.out`, which may have been created with limited permissions in the container, so
+   make it readable if necessary:
    ```bash
    sudo chmod a+r nohup.out
    ```
@@ -195,7 +201,8 @@ Distribute the startup kits to the clients.
 
 ## Contributing Application Code
 1. Take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to work with NVFlare
-2. Take a look at application/jobs/ODELIA_ternary_classification for a more relastic example of pytorch code that can run in the swarm
+2. Take a look at application/jobs/ODELIA_ternary_classification for a more relastic example of pytorch code that can
+   run in the swarm
 3. Use the local tests to check if the code is swarm-ready
 4. TODO more detailed instructions
 
