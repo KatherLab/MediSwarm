@@ -1,46 +1,46 @@
-name: Auto Update APT Versions
+name: Auto Update APT Versions (Self-hosted)
 
 on:
   schedule:
-    - cron: '0 5 * * *'
+    # run eveyday at 04:00 UTC
+    - cron: '0 4 * * *'
   workflow_dispatch:
 
 jobs:
   update-apt:
-    name: Update APT Package Versions in Dockerfile
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository (with submodules)
         uses: actions/checkout@v3
         with:
           submodules: true
+          fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y git apt-utils
-
-      - name: Configure Git for CI
+      - name: Set up Git
         run: |
           git config --global user.email "ci@github.com"
           git config --global user.name "GitHub CI"
 
-      - name: Make update script executable
-        run: chmod +x scripts/ci/update_apt_versions.sh
+      - name: Create and switch to apt-update branch
+        run: |
+          git checkout -b ci/apt-update || git switch ci/apt-update
 
       - name: Run APT update script
-        run: scripts/ci/update_apt_versions.sh
+        run: |
+          chmod +x scripts/ci/update_apt_versions.sh
+          scripts/ci/update_apt_versions.sh
 
       - name: Show git diff for debugging
-        run: git diff
+        run: git diff || true
+
+      - name: Push apt-update branch
+        if: env.NO_CHANGES == 'false'
+        run: git push origin ci/apt-update --force
 
       - name: Create Pull Request
         if: env.NO_CHANGES == 'false'
-        id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
           commit-message: "chore: update apt versions in Dockerfile_ODELIA"
@@ -52,11 +52,3 @@ jobs:
             based on a rebuild and inspection of installation logs.
           base: main
           delete-branch: false
-
-      - name: Print created PR URL
-        if: env.NO_CHANGES == 'false'
-        run: |
-          echo "Created PR: ${{ steps.cpr.outputs.pull-request-url }}"
-
-      - name: Show final Dockerfile diff
-        run: cat docker_config/Dockerfile_ODELIA
