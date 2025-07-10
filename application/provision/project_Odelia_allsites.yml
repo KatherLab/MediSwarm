@@ -1,35 +1,58 @@
 api_version: 3
-name: odelia___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___MEVIS_test
-description: >
-  Test setup.
+name: odelia___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___allsites_test
+description: Odelia TUD server all collaborators clients on Odelia challenge dataset provision http based yaml file
 
 participants:
-  - name: odeliaswarmvm.local
+  # change example.com to the FQDN of the server
+  - name: dl3.tud.de
     type: server
-    org: MEVIS_Test
+    org: TUD
     fed_learn_port: 8002
     admin_port: 8003
-  - name: CAM
+  - name: TUD_1
     type: client
-    org: MEVIS_Test
-  - name: MHA
+    org: TUD
+  - name: TUD_2
     type: client
-    org: MEVIS_Test
-  - name: RUMC
+    org: TUD
+    # Specifying listening_host will enable the creation of one pair of
+    # certificate/private key for this client, allowing the client to function
+    # as a server for 3rd-party integration.
+    # The value must be a hostname that the external trainer can reach via the network.
+    # listening_host: site-1-lh
+  - name: MEVIS_1
     type: client
-    org: MEVIS_Test
-  - name: UKA
+    org: MEVIS
+  - name: MEVIS_2
     type: client
-    org: MEVIS_Test
-  - name: UMCU
+    org: MEVIS
+  - name: UKA_1
     type: client
-    org: MEVIS_Test
-  - name: Centralized
+    org: UKA
+  - name: CAM_1
     type: client
-    org: MEVIS_Test
-  - name: admin@mevis.odelia
+    org: Cambridge
+  - name: VHIO_1
+    type: client
+    org: VHIO
+  - name: MHA_1
+    type: client
+    org: MHA
+  - name: RSH_1
+    type: client
+    org: RSH
+  - name: USZ_1
+    type: client
+    org: USZ
+  - name: UMCU_1
+    type: client
+    org: UMCU
+  - name: RUMC_1
+    type: client
+    org: RUMC
+  - name: jiefu.zhu@tu-dresden.de
     type: admin
-    org: MEVIS_Test
+    org: TUD
     role: project_admin
 
 # The same methods in all builders are called in their order defined in builders section
@@ -44,7 +67,7 @@ builders:
       config_folder: config
 
       # scheme for communication driver (currently supporting the default, grpc, only).
-      scheme: grpc
+      scheme: http
 
       # app_validator is used to verify if uploaded app has proper structures
       # if not set, no app_validator is included in fed_server.json
@@ -63,10 +86,10 @@ builders:
         #   tool will fill role, name and other local parameters automatically.
         # if overseer_exists is false, args in this section will be used and the sp_end_point
         # must match the server defined above in the format of SERVER_NAME:FL_PORT:ADMIN_PORT
-        #
+        # 
         overseer_exists: false
         args:
-          sp_end_point: odeliaswarmvm.local:8002:8003
+          sp_end_point: dl3.tud.de:8002:8003
 
   - path: nvflare.lighter.impl.cert.CertBuilder
   - path: nvflare.lighter.impl.signature.SignatureBuilder
