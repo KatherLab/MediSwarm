@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 OUTPUT_FOLDER=workspace/`grep "^name: " $1 | sed 's/name: //'`
 TARGET_FOLDER=`ls -d $OUTPUT_FOLDER/prod_* | tail -n 1`
 LONG_VERSION=$2
