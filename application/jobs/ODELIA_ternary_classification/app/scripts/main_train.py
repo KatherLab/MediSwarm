@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from datetime import datetime
 
@@ -12,17 +11,17 @@ from odelia.data.datamodules import DataModule
 from odelia.models import ResNet, MST, ResNetRegression, MSTRegression
 import argparse
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--institution', default='ODELIA', type=str)
     parser.add_argument('--model', type=str, default='MST', choices=['ResNet', 'MST'])
-    parser.add_argument('--task', type=str, default="binary", choices=['binary', 'ordinal']) # binary: malignant lesion yes/no, ordinal: no lesion, benign, malignant
+    parser.add_argument('--task', type=str, default="binary", choices=['binary',
+                                                                       'ordinal'])  # binary: malignant lesion yes/no, ordinal: no lesion, benign, malignant
     parser.add_argument('--config', type=str, default="unilateral", choices=['original', 'unilateral'])
     args = parser.parse_args()
     binary = args.task == 'binary'
 
-    #------------ Settings/Defaults ----------------
+    # ------------ Settings/Defaults ----------------
     current_time = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     run_name = f'{args.model}_{args.task}_{args.config}_{current_time}'
     path_run_dir = Path.cwd() / 'runs' / args.institution / run_name
@@ -32,7 +31,7 @@ if __name__ == "__main__":
 
     # ------------ Load Data ----------------
     ds_train = ODELIA_Dataset3D(institutions=args.institution, split='train', binary=binary, config=args.config,
-                                 random_flip=True, random_rotate=True, random_inverse=False, noise=True)
+                                random_flip=True, random_rotate=True, random_inverse=False, noise=True)
     ds_val = ODELIA_Dataset3D(institutions=args.institution, split='val', binary=binary, config=args.config)
 
     samples = len(ds_train) + len(ds_val)
@@ -50,7 +49,7 @@ if __name__ == "__main__":
         ds_test=ds_val,
         batch_size=batch_size,
         pin_memory=True,
-        weights= None, #weights,
+        weights=None,  # weights,
         num_workers=mp.cpu_count(),
     )
 
@@ -59,38 +58,36 @@ if __name__ == "__main__":
     out_ch = len(ds_train.labels)
     if not binary:
         out_ch = sum(ds_train.class_labels_num)
-        loss_kwargs={'class_labels_num': ds_train.class_labels_num}
+        loss_kwargs = {'class_labels_num': ds_train.class_labels_num}
 
     model_map = {
-        'ResNet': ResNet if binary else  ResNetRegression,
+        'ResNet': ResNet if binary else ResNetRegression,
         'MST': MST if binary else MSTRegression
     }
     MODEL = model_map.get(args.model, None)
     model = MODEL(
-        in_ch = 1,
+        in_ch=1,
         out_ch=out_ch,
         loss_kwargs=loss_kwargs
     )
 
-
     # Load pretrained model
     # model = ResNet.load_from_checkpoint('runs/DUKE/2024_11_14_132823/epoch=41-step=17514.ckpt')
 
-
     # -------------- Training Initialization ---------------
-    to_monitor = "val/AUC_ROC"  if binary else "val/MAE"
+    to_monitor = "val/AUC_ROC" if binary else "val/MAE"
     min_max = "max" if binary else "min"
     log_every_n_steps = 50
     logger = WandbLogger(project='ODELIA', group=args.institution, name=run_name, log_model=False)
 
     early_stopping = EarlyStopping(
         monitor=to_monitor,
-        min_delta=0.0, # minimum change in the monitored quantity to qualify as an improvement
-        patience=25, # number of checks with no improvement
+        min_delta=0.0,  # minimum change in the monitored quantity to qualify as an improvement
+        patience=25,  # number of checks with no improvement
         mode=min_max
     )
     checkpointing = ModelCheckpoint(
-        dirpath=str(path_run_dir), # dirpath
+        dirpath=str(path_run_dir),  # dirpath
         monitor=to_monitor,
         # every_n_train_steps=log_every_n_steps,
         save_last=True,
@@ -115,5 +112,3 @@ if __name__ == "__main__":
 
     # ------------- Save path to best model -------------
     model.save_best_checkpoint(path_run_dir, checkpointing.best_model_path)
-
-

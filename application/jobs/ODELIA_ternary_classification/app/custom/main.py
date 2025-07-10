@@ -13,7 +13,6 @@ TM_PREFLIGHT_CHECK = "preflight_check"
 TM_LOCAL_TRAINING = "local_training"
 TM_SWARM = "swarm"
 
-
 if not TRAINING_MODE:
     raise ValueError("TRAINING_MODE environment variable must be set")
 

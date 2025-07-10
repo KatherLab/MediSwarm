@@ -43,7 +43,7 @@ def prepare_odelia_dataset():
 
     print(f"Total samples loaded: {len(ds_train)} (train) + {len(ds_val)} (val)")
     print(f"Train set: {len(ds_train)}, Val set: {len(ds_val)}")
-    #print(f"Labels in val: {[sample['label'] for sample in ds_val]}")
+    # print(f"Labels in val: {[sample['label'] for sample in ds_val]}")
 
     return ds_train, ds_val, path_run_dir, run_name
 
@@ -54,6 +54,7 @@ def generate_run_directory(scratch_dir, task_data_name, model_name, local_compar
     if not os.path.exists(scratch_dir):
         os.makedirs(scratch_dir)
     return os.path.join(scratch_dir, f"{current_time}_{task_data_name}_{model_name}_{mode}")
+
 
 # TODO: Implement dynamic weightage calculation based on actual dataset size
 def cal_weightage(train_size):
