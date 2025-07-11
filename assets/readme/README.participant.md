@@ -21,11 +21,55 @@ This guide is for data scientists and medical research sites participating in a 
     3. If you have a command line interface(CLI), follow this guide to connect to the
        VPN: [VPN setup guide(CLI).md](../VPN%20setup%20guide%28CLI%29.md)
     4. You may want to clone this repository or selectively download VPN-related scripts for this purpose.
-3. TODO anything else?
 
 ## Prepare Dataset
 
-1. see Step 3: Prepare Data in [README.md](../../application/jobs/ODELIA_ternary_classification/app/scripts/README.md)
+The dataset must be in the following format.
+
+### Folder Structure
+
+    ```bash
+    <name of your site>
+    ├── data_unilateral
+    │   ├── ID_001_left
+    │   │   └── Sub_1.nii.gz
+    │   ├── ID_001_right
+    │   │   └── Sub_1.nii.gz
+    │   ├── ID_002_left
+    │   │   └── Sub_1.nii.gz
+    │   ├── ID_002_right
+    │   │   └── Sub_1.nii.gz
+    │   └── ...
+    └── metadata_unilateral
+        ├── annotation.csv
+        └── split.csv
+    ```
+
+* The name of your site should usually end in `_1`, e.g., `UKA_1`, unless you participate with multiple nodes.
+* `ID_001`, `ID_002` need to be unique identifiers in your dataset, not specifically of this format
+* You might have additional images in the folder like `Pre.nii.gz`, `Post_1.nii.gz`, `Post_2.nii.gz`, `T2.nii.gz`, and you might have additional folders like `data_raw`, `data`, `metadata` etc. These will be ignored and should not cause problems.
+* If you clone the repository, you will find a script that generates a synthetic dataset as an example.
+
+### Table Format
+
+#### Annotation
+
+* `split.csv` defines the class labels
+* The file contains the columns `UID`, `PatientID`, `Age`, `Lesion`
+    * `UID` is the identifier used in the folder name, e.g., `ID_001_left`.
+    * `PatientID` is the identifier of the patient, in this case, `ID_001`.
+    * `Age` is the age of the patient at the time of the scan in days.
+    * `Lesion` is 0 for no lesion, 1 for benign lesion, and 2 for malicious lesion.
+
+#### Split
+
+* `split.csv` defines the training/validation/test split.
+* These splits are hard-coded rather than randomized during training in order to have consistent and documented splits.
+* The file contains the columns `UID`, `Split`, and `Fold`.
+    * `UID` is the identifier used in the folder name, e.g., `ID_001_left`.
+    * `Split` is either `train`, `val`, or `test`. The test set is currently ignored.
+    * `Fold` is the 0-based index of the fold (for a potential cross-validation).
+
 
 ## Prepare Training Participation
 
@@ -35,8 +79,8 @@ This guide is for data scientists and medical research sites participating in a 
 
 1. Directories
    ```bash
-   export SITE_NAME=<name of your site>  # this should end in `_1`, e.g., `UKA_1`, unless you participate with multiple nodes
-   export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data is stored>
+   export SITE_NAME=<name of your site>
+   export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data in the structure described above is stored>
    export SCRATCHDIR=<path to where the training can store temporary files>
    ```
 2. From the directory where you unpacked the startup kit,
@@ -68,7 +112,7 @@ This guide is for data scientists and medical research sites participating in a 
    ```
     * TODO update when handling of the number of epochs has been implemented
 3. Output files
-    * TODO describe
+    * Same as for the swarm training (see below).
 
 ### Start Swarm Node
 
@@ -101,9 +145,8 @@ This guide is for data scientists and medical research sites participating in a 
       $SCRATCHDIR/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/
       ```
     - **Best checkpoint** usually saved as `best.ckpt` or `last.ckpt`
-    - **Prediction results**, if enabled, will appear in subfolders of the same directory
-    - **TensorBoard logs**, if activated, are stored in their respective folders inside the run directory
-    - TODO what is enabled/activated should be hard-coded, adapt accordingly
+    - TODO describe prediction results once implemented
+    - **TensorBoard logs** are stored in their respective folders inside the run directory
 
 5. (Optional) You can verify that the container is running properly:
    ```bash
@@ -112,32 +155,3 @@ This guide is for data scientists and medical research sites participating in a 
    tail -f nohup.out  # Follow training log
    ```
 For any issues, check if the commands above point to problems and contact your Swarm Operator.
-
-### Configurable Parameters for docker.sh
-
-TODO consider what should be described and recommended as configurable here, given that the goal of the startup kits is
-to ensure everyone runs the same training
-
-When launching the client using `./docker.sh`, the following environment variables are automatically passed into the
-container. You can override them to customize training behavior:
-
-| Environment Variable | Default         | Description                                                          |
-|----------------------|-----------------|----------------------------------------------------------------------|
-| `SITE_NAME`          | *from flag*     | Name of your local site, e.g. `TUD_1`, passed via `--start_client`   |
-| `DATA_DIR`           | *from flag*     | Path to the host folder that contains your local data                |
-| `SCRATCH_DIR`        | *from flag*     | Path for saving training outputs and temporary files                 |
-| `GPU_DEVICE`         | `device=0`      | GPU identifier to use inside the container (or `all`)                |
-| `MODEL`              | `MST`           | Model architecture, choices: `MST`, `ResNet`                         |
-| `INSTITUTION`        | `ODELIA`        | Institution name, used to group experiment logs                      |
-| `CONFIG`             | `unilateral`    | Configuration schema for dataset (e.g. label scheme)                 |
-| `NUM_EPOCHS`         | `1` (test mode) | Number of training epochs (used in preflight/local training)         |
-| `TRAINING_MODE`      | derived         | Internal use. Automatically set based on flags like `--start_client` |
-
-These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or
-exporting before run:
-
-```bash
-export MODEL=ResNet
-export CONFIG=original
-./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=1 --start_client
-```
