@@ -44,11 +44,13 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 # Usage for Swarm Participants
 ## Setup
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
-2. Clone the repository and connect the client node to the VPN as described above.
+2. Clone the repository and connect the client node to the VPN as described above. TODO is cloning the repository
+   necessary for swarm participants?
 3. TODO anything else?
 
 ## Prepare Dataset
-1. TODO which data is expected in which folder structure + table structure
+
+1. see Step 3: Prepare Data in (this document)[application/jobs/ODELIA_ternary_classification/app/scripts/README.md]
 
 ## Prepare Training Participation
 1. Extract startup kit provided by swarm operator
@@ -56,7 +58,7 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
 ## Run Pre-Flight Check
 1. Directories
    ```bash
-   export SITE_NAME=<the name of your site>  # TODO should be defined above, also needed for dataset location
+   export SITE_NAME=<name of your site>  # TODO should be defined above, also needed for dataset location
    export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data is stored>
    export SCRATCHDIR=<path to where the training can store temporary files>
    ```
@@ -82,23 +84,72 @@ A VPN is necessary so that the swarm nodes can communicate with each other secur
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check
    ```
-   * Training time depends on the size of the local dataset
+   * Training time depends on the size of the local dataset.
+
+## Configurable Parameters for docker.sh
+
+TODO consider what should be described and recommended as configurable here, given that the goal of the startup kits is
+to ensure everyone runs the same training
+
+When launching the client using `./docker.sh`, the following environment variables are automatically passed into the
+container. You can override them to customize training behavior:
+
+| Environment Variable | Default         | Description                                                          |
+|----------------------|-----------------|----------------------------------------------------------------------|
+| `SITE_NAME`          | *from flag*     | Name of your local site, e.g. `TUD_1`, passed via `--start_client`   |
+| `DATA_DIR`           | *from flag*     | Path to the host folder that contains your local data                |
+| `SCRATCH_DIR`        | *from flag*     | Path for saving training outputs and temporary files                 |
+| `GPU_DEVICE`         | `device=0`      | GPU identifier to use inside the container (or `all`)                |
+| `MODEL`              | `MST`           | Model architecture, choices: `MST`, `ResNet`                         |
+| `INSTITUTION`        | `ODELIA`        | Institution name, used to group experiment logs                      |
+| `CONFIG`             | `unilateral`    | Configuration schema for dataset (e.g. label scheme)                 |
+| `NUM_EPOCHS`         | `1` (test mode) | Number of training epochs (used in preflight/local training)         |
+| `TRAINING_MODE`      | derived         | Internal use. Automatically set based on flags like `--start_client` |
+
+These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or
+exporting before run:
+
+```bash
+export MODEL=ResNet
+export CONFIG=original
+./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=1 --start_client
+```
 
 ## Start Swarm Node
-1. From the directory where you unpacked the startup kit
+
+1. From the directory where you unpacked the startup kit:
    ```bash
-   cd $SITE_NAME/startup  # skip this if you just ran the pre-flight check
+   cd $SITE_NAME/startup  # Skip this if you just ran the pre-flight check
    ```
-2. Start the client
+
+2. Start the client:
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --start_client
    ```
-3. Console output is captured in `nohup.out`, which may have been created by the root user in the container, so make it readable:
+   If you have multiple GPUs and 0 is busy, use a different one.
+
+3. Console output is captured in `nohup.out`, which may have been created with limited permissions in the container, so
+   make it readable if necessary:
    ```bash
    sudo chmod a+r nohup.out
    ```
-4. Output files
-   * TODO describe
+
+4. Output files:
+   - **Training logs and checkpoints** are saved under:
+     ```
+     $SCRATCHDIR/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/
+     ```
+   - **Best checkpoint** usually saved as `best.ckpt` or `last.ckpt`
+   - **Prediction results**, if enabled, will appear in subfolders of the same directory
+   - **TensorBoard logs**, if activated, are stored in their respective folders inside the run directory
+   - TODO what is enabled/activated should be hard-coded, adapt accordingly
+
+5. (Optional) You can verify that the container is running properly:
+   ```bash
+   docker ps  # Check if odelia_swarm_client_$SITE_NAME is listed
+   nvidia-smi  # Check if the GPU is busy training (it will be idling while waiting for model transfer)
+   tail -f nohup.out  # Follow training log
+   ```
 
 ## Run Local Training
 1. From the directory where you unpacked the startup kit
@@ -140,6 +191,7 @@ You should see
 3. output of a successful proof-of-concept run run with two nodes
 4. output of a set of startup kits being generated
 5. output of a dummy training run using one of the startup kits
+6. TODO update this to what the tests output now
 
 Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`.
 
@@ -152,11 +204,12 @@ Distribute the startup kits to the clients.
 2. **Minimal PyTorch CNN example:**
    See [application/jobs/minimal_training_pytorch_cnn/README.md](application/jobs/minimal_training_pytorch_cnn/README.md)
 3. **3D CNN for classifying breast tumors:**
-   See [3dcnn_ptl/README.md](application/jobs/3dcnn_ptl/README.md)
+   See [ODELIA_ternary_classification/README.md](application/jobs/ODELIA_ternary_classification/README.md)
 
 ## Contributing Application Code
 1. Take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to work with NVFlare
-2. Take a look at application/jobs/3dcnn_ptl for a more relastic example of pytorch code that can run in the swarm
+2. Take a look at application/jobs/ODELIA_ternary_classification for a more relastic example of pytorch code that can
+   run in the swarm
 3. Use the local tests to check if the code is swarm-ready
 4. TODO more detailed instructions
 
@@ -195,7 +248,7 @@ using some credentials chosen for the swarm admin account.
 
 Access the dashboard in a web browser at `https://localhost:8443` log in with these credentials, and configure the project:
 1. enter project short name, name, description
-2. enter docker download link: jefftud/nvflare-pt-dev:3dcnn
+2. enter docker download link: jefftud/odelia:<version string>
 3. if needed, enter dates
 4. click save
 5. Server Configuration > Server (DNS name): <DNS name of server>
