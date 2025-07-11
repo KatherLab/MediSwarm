@@ -25,7 +25,7 @@ run_minimal_example_standalone () {
     ./main.py
 }
 
-run_minimal_example_simluation_mode() {
+run_minimal_example_simulation_mode() {
     cd /MediSwarm
     export TRAINING_MODE="swarm"
     nvflare simulator -w /tmp/minimal_training_pytorch_cnn -n 2 -t 2 application/jobs/minimal_training_pytorch_cnn -c simulated_node_0,simulated_node_1 | tee /scratch/minimal_training_pytorch_cnn_sim.log
