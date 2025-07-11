@@ -45,6 +45,37 @@ Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`.
 
 Distribute the startup kits to the clients.
 
+## Running the Startup Kits
+
+See [README.participant.md](./README.participant.md).
+
+### Configurable Parameters for docker.sh
+
+* The `docker.sh` script run by the swarm participants passes the following environment variables into the container automatically.
+* You can override them to customize training behavior.
+* Only do this for testing and debugging purposes! The startup kits are designed to ensure that all sites run the same training code, manipulating `docker.sh` might break this.
+
+| Environment Variable | Default         | Description                                                          |
+|----------------------|-----------------|----------------------------------------------------------------------|
+| `SITE_NAME`          | *from flag*     | Name of your local site, e.g. `TUD_1`, passed via `--start_client`   |
+| `DATA_DIR`           | *from flag*     | Path to the host folder that contains your local data                |
+| `SCRATCH_DIR`        | *from flag*     | Path for saving training outputs and temporary files                 |
+| `GPU_DEVICE`         | `device=0`      | GPU identifier to use inside the container (or `all`)                |
+| `MODEL`              | `MST`           | Model architecture, choices: `MST`, `ResNet`                         |
+| `INSTITUTION`        | `ODELIA`        | Institution name, used to group experiment logs                      |
+| `CONFIG`             | `unilateral`    | Configuration schema for dataset (e.g. label scheme)                 |
+| `NUM_EPOCHS`         | `1` (test mode) | Number of training epochs (used in preflight/local training)         |
+| `TRAINING_MODE`      | derived         | Internal use. Automatically set based on flags like `--start_client` |
+
+These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or exporting before run:
+
+```bash
+export MODEL=ResNet
+export CONFIG=original
+./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=1 --start_client
+```
+
+
 ## Running the Application
 
 1. **CIFAR-10 example:**
@@ -62,4 +93,3 @@ Distribute the startup kits to the clients.
    run in the swarm
 3. Use the local tests to check if the code is swarm-ready
 4. TODO more detailed instructions
-
