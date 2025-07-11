@@ -25,13 +25,13 @@
 ## Step 2: Prepare Data ([DUKE](https://sites.duke.edu/mazurowski/resources/breast-cancer-mri-dataset/))
 
 * Specify the path to the parent folder as `path_root=...` and `dataset=DUKE` in the following scripts
-* Run  [scripts/preprocessing/duke/step1_dicom2nifti.py](scripts/preprocessing/duke/step1_dicom2nifti.py) - It will
+* Run  [step1_dicom2nifti.py](preprocessing/duke/step1_dicom2nifti.py) - It will
   store DICOM files as NIFTI files in a new folder `data`
-* Run [scripts/preprocessing/step2_compute_sub.py](scripts/preprocessing/step2_compute_sub.py) - computes the
+* Run [scripts/preprocessing/step2_compute_sub.py](preprocessing/step2_compute_sub.py) - computes the
   subtraction image
-* Run [scripts/preprocessing/step3_unilateral.py](scripts/preprocessing/step3_unilateral.py) - splits breasts into left
+* Run [scripts/preprocessing/step3_unilateral.py](preprocessing/step3_unilateral.py) - splits breasts into left
   and right side and resamples to uniform shape. The result is stored in a new folder `data_unilateral`
-* Run [scripts/preprocessing/duke/step4_create_split.py](scripts/preprocessing/duke/step4_create_split.py) - creates a
+* Run [scripts/preprocessing/duke/step4_create_split.py](preprocessing/duke/step4_create_split.py) - creates a
   stratified five-fold split and stores the result in `metadata/split.csv`
 
 <br>
@@ -43,22 +43,19 @@
 * Create a folder `metadata` with the following file inside:
     * Challenge: `annotation.xlsx`
     * Local Training: `ODELIA annotation scheme-2.0.xlsx`
-* Overwrite [scripts/preprocessing/odelia/step1_dicom2nifti.py](scripts/preprocessing/odelia/step1_dicom2nifti.py). It
+* Overwrite [scripts/preprocessing/odelia/step1_dicom2nifti.py](preprocessing/odelia/step1_dicom2nifti.py). It
   should create a subfolder `data` and subfolders with files named as `T2.nii.gz`, `Pre.nii.gz`, `Post_1.nii.gz`,
   `Post_2.nii.gz`, etc.
   The subfolder should be labeled as follows:
     * Challenge: Folders must have the same name as the entries in the `ID` column of the `annotation.xlsx` file.
     * Local Training: Folders must have the same name as the entries in the `StudyInstanceUID` column of the
       `ODELIA annotation scheme-2.0.xlsx` file.
-* Run [scripts/preprocessing/step2_compute_sub.py](scripts/preprocessing/step2_compute_sub.py) - computes the
+* Run [scripts/preprocessing/step2_compute_sub.py](preprocessing/step2_compute_sub.py) - computes the
   subtraction image
-* Run [scripts/preprocessing/step3_unilateral.py](scripts/preprocessing/step3_unilateral.py) - splits breasts into left
+* Run [scripts/preprocessing/step3_unilateral.py](preprocessing/step3_unilateral.py) - splits breasts into left
   and right side and resamples to uniform shape. The result is stored in a new folder `data_unilateral`
 * To create a five-fold stratified split and store the result in `metadata/split.csv`, run the following script:
-    *
-    Challenge:  [scripts/preprocessing/odelia/step4_create_split_challenge.py](scripts/preprocessing/odelia/step4_create_split_challenge.py)
-    * Local
-      Training: [scripts/preprocessing/odelia/step4_create_split.py](scripts/preprocessing/odelia/step4_create_split.py)
+  * Local Training: [scripts/preprocessing/odelia/step4_create_split.py](preprocessing/odelia/step4_create_split.py)
 
 * The final folder structure should look like:
     ```bash
@@ -83,10 +80,11 @@
 
 ## Step 4: Run Training
 
-* Specify path to downloaded folder as `PATH_ROOT=` in [dataset_3d_odelia.py](odelia/data/datasets/dataset_3d_odelia.py)
-* Run Script: [scripts/main_train.py --institution DUKE](scripts/main_train.py)
+* Specify path to downloaded folder as `PATH_ROOT=`
+  in [dataset_3d_odelia.py](../custom/data/datasets/dataset_3d_odelia.py)
+* Run Script: [main_train.py](main_train.py)
 
 ## Step 5: Predict & Evaluate Performance
 
-* Run Script: [scripts/main_predict.py](scripts/main_predict.py)
+* Run Script: [main_predict.py](main_predict.py)
 * Set `path_run` to root directory of latest model
