@@ -26,6 +26,9 @@ participants:
   - name: MEVIS_2
     type: client
     org: MEVIS
+  - name: MEVIS_3
+    type: client
+    org: MEVIS
   - name: UKA_1
     type: client
     org: UKA
