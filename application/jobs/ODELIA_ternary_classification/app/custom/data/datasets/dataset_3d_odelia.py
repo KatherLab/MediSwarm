@@ -62,8 +62,7 @@ class ODELIA_Dataset3D(data.Dataset):
             institutions = [institutions]
         self.institutions = institutions
 
-        flip_axes = (0, 1) if config == "original" else (0, 1,
-                                                         2)  # Do not flip horizontal axis 2, otherwise labels incorrect
+        flip_axes = (0, 1) if config == "original" else (0, 1, 2)  # Do not flip horizontal axis 2, otherwise labels incorrect
         if transform is None:
             self.transform = tio.Compose([
                 tio.ToCanonical() if config == "original" else tio.Lambda(lambda x: x),
