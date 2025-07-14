@@ -89,28 +89,30 @@ The dataset must be in the following format.
    ```
 3. Verify that your Docker/GPU setup is working
    ```bash
-   ./docker.sh --scratch_dir $SCRATCHDIR --GPU device=0 --dummy_training
+   ./docker.sh --scratch_dir $SCRATCHDIR --GPU device=0 --dummy_training 2>&1 | tee dummy_training_console_output.txt
    ```
     * This will pull the Docker image, which might take a while.
     * If you have multiple GPUs and 0 is busy, use a different one.
     * The “training” itself should take less than minute and does not yield a meaningful classification performance.
 4. Verify that your local data can be accessed and the model can be trained locally
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check  2>&1 | tee preflight_check_console_output.txt
    ```
     * Training time depends on the size of the local dataset.
 
-### (Optional) Run Local Training
+### Run Local Training
 
-1. From the directory where you unpacked the startup kit
+To have a baseline for swarm training, train the same model in a comparable way on the local data only.
+
+1. From the directory where you unpacked the startup kit (unless you just ran the pre-flight check)
    ```bash
    cd $SITE_NAME/startup
    ```
 2. Start local training
    ```bash
-   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training
+   ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training  2>&1 | tee local_training_console_output.txt
    ```
-    * TODO update when handling of the number of epochs has been implemented
+    * This currently runs 100 epochs (somewhat comparable to 20 rounds with 5 epochs each in the swarm case).
 3. Output files
     * Same as for the swarm training (see below).
 
