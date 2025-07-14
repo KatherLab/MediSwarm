@@ -31,10 +31,11 @@ def set_up_logging():
 def set_up_data_module(logger):
     torch.set_float32_matmul_precision('high')
     ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset()
+    num_classes = sum(ds_train.class_labels_num)
     logger.info(f"Dataset path: {ds_train}")
     logger.info(f"Run directory: {path_run_dir}")
     logger.info(f"Run name: {run_name}")
-    logger.info(f"Number of classes: {len(ds_train.labels)}")
+    logger.info(f"Number of classes: {num_classes}")
     logger.info(f"Length of train dataset: {len(ds_train)}")
     logger.info(f"Length of val dataset: {len(ds_val)}")
 
@@ -56,7 +57,6 @@ def set_up_data_module(logger):
     # logger.info(f"Number of unique labels: {len(distribution['counts'])}")
 
     # ------------ Initialize Model ------------
-    num_classes = sum(ds_train.class_labels_num)
     loss_kwargs = {}
 
     return dm, path_run_dir, run_name, num_classes, loss_kwargs
