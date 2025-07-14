@@ -56,7 +56,6 @@ def set_up_data_module(logger):
     #     logger.info(f"Label '{label}': {pct:.2f}% of training set, Count: {distribution['counts'][label]}")
     # logger.info(f"Number of unique labels: {len(distribution['counts'])}")
 
-    # ------------ Initialize Model ------------
     loss_kwargs = {}
 
     return dm, path_run_dir, run_name, num_classes, loss_kwargs
