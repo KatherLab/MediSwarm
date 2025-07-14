@@ -35,7 +35,7 @@ def set_up_data_module(logger):
     logger.info(f"Dataset path: {ds_train}")
     logger.info(f"Run directory: {path_run_dir}")
     logger.info(f"Run name: {run_name}")
-    logger.info(f"Number of classes: {num_classes}")
+    # logger.info(f"Number of classes: {num_classes}")  # number of possible classes, not number of classes present, thus misleading
     logger.info(f"Length of train dataset: {len(ds_train)}")
     logger.info(f"Length of val dataset: {len(ds_val)}")
 
