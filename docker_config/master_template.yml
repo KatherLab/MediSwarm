@@ -785,7 +785,8 @@ docker_svr_sh: |
   elif [ ! -z "$LIST_LICENSES" ]; then
       docker run -it --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
-      /bin/bash -c "pip-licenses -s -u --order=license"
+      /bin/bash -c "pip-licenses -s -u --order=license && distro2sbom -s --format json"
+      echo "TODO license for pre-trained weights"
   elif [ ! -z "$INTERACTIVE" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
@@ -794,7 +795,7 @@ docker_svr_sh: |
   else
       echo "One of the following options must be passed:"
       echo "--start_server     start the swarm learning server"
-      echo "--list_licenses    list licenses of installed python packages"
+      echo "--list_licenses    list licenses of installed packages"
       echo "--interactive      start the container with an interactive shell (for debugging purposes)"
   fi
 
