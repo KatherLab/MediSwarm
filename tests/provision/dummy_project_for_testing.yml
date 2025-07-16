@@ -28,7 +28,7 @@ builders:
   - path: nvflare.lighter.impl.static_file.StaticFileBuilder
     args:
       config_folder: config
-      scheme: grpc
+      scheme: http
       docker_image: jefftud/odelia:__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__
       overseer_agent:
         path: nvflare.ha.dummy_overseer_agent.DummyOverseerAgent
