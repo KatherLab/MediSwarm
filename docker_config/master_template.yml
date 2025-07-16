@@ -640,6 +640,7 @@ docker_cln_sh: |
           --preflight_check) PREFLIGHT_CHECK="1" ;;
           --local_training)  LOCAL_TRAINING="1" ;;
           --start_client)    START_CLIENT="1" ;;
+          --list_licenses)   LIST_LICENSES="1";;
           --interactive)     INTERACTIVE="1" ;;
           --run_script)      SCRIPT_TO_RUN="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
@@ -648,7 +649,7 @@ docker_cln_sh: |
   done
 
   # Prompt for parameters if missing
-  if [[ -z "$DUMMY_TRAINING" && -z "$MY_DATA_DIR" ]]; then
+  if [[ -z "$DUMMY_TRAINING" && -z "$LIST_LICENSES" && -z "$MY_DATA_DIR" ]]; then
       read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
       : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
   fi
@@ -723,6 +724,11 @@ docker_cln_sh: |
       docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
+  elif [ ! -z "$LIST_LICENSES" ]; then
+      docker run -it --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
+      /bin/bash -c "pip-licenses -s -u --order=license && distro2sbom -s --format json"
+      echo "TODO license for pre-trained weights"
+
   elif [[ ! -z "$INTERACTIVE" ]]; then
       docker run --rm $TTY_OPT --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
 
@@ -736,6 +742,7 @@ docker_cln_sh: |
       echo "--preflight_check  verify data access & local training"
       echo "--local_training   train a local model"
       echo "--start_client     launch FL client in swarm mode"
+      echo "--list_licenses    list licenses of installed packages"
       echo "--interactive      drop into interactive container (for debugging)"
       echo "--run_script       execute script in container (for testing)"
       exit 1
