@@ -67,18 +67,38 @@ cleanup_dummy_trainings () {
     rm -rf "$PROJECT_DIR"
 }
 
+check_license_listings () {
+    cd "$CWD"/"$PROJECT_DIR/prod_00/admin@test.odelia/startup"
+    if ! $( ./docker.sh --no_pull --list_licenses 2>&1 | grep -q MIT ); then
+        echo "could not list licenses from admin startup kit"
+        exit 1
+    fi
+    cd "$CWD"/"$PROJECT_DIR/prod_00/server.local/startup/"
+    if ! $( ./docker.sh --no_pull --list_licenses 2>&1 | grep -q MIT ); then
+        echo "could not list licenses from server startup kit"
+        exit 1
+    fi
+    cd "$CWD"/"$PROJECT_DIR/prod_00/client_A/startup/"
+    if ! $( ./docker.sh --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --list_licenses 2>&1 | grep -q MIT ); then
+        echo "could not list licenses from client startup kit"
+        exit 1
+    fi
+}
+
 case "$1" in
     run_tests) run_tests ;;
     prepare_dummy_trainings) prepare_dummy_trainings ;;
     run_dummy_training) run_dummy_training ;;
     run_3dcnn_tests) run_3dcnn_tests ;;
     cleanup) cleanup_dummy_trainings ;;
+    check_license_listings) check_license_listings;;
     all | "")
         run_tests
         prepare_dummy_trainings
         run_dummy_training
         run_3dcnn_tests
         cleanup_dummy_trainings
+        check_license_listings
         ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
 esac
