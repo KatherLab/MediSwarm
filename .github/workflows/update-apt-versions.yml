@@ -1,9 +1,5 @@
 name: Auto Update APT Versions (Self-hosted)
 
-permissions:
-  contents: read
-  pull-requests: write
-
 on:
   schedule:
     # run eveyday at 04:00 UTC
@@ -30,12 +26,11 @@ jobs:
       - name: Create and switch to apt-update branch
         run: |
           git checkout -b ci/apt-update || git switch ci/apt-update
-
       - name: Run APT update script
+
         run: |
           chmod +x scripts/ci/update_apt_versions.sh
           scripts/ci/update_apt_versions.sh
-
       - name: Show git diff for debugging
         run: git diff || true
 
