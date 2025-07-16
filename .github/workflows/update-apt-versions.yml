@@ -26,16 +26,13 @@ jobs:
         run: |
           git config --global user.email "ci@github.com"
           git config --global user.name "GitHub CI"
-
       - name: Create and switch to apt-update branch
         run: |
           git checkout -b ci/apt-update || git switch ci/apt-update
-
       - name: Run APT update script
         run: |
           chmod +x scripts/ci/update_apt_versions.sh
           scripts/ci/update_apt_versions.sh
-
       - name: Show git diff for debugging
         run: git diff || true
 
