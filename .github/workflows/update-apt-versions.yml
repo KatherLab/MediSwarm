@@ -1,5 +1,9 @@
 name: Auto Update APT Versions (Self-hosted)
 
+permissions:
+  contents: read
+  pull-requests: write
+
 on:
   schedule:
     # run eveyday at 04:00 UTC
@@ -8,6 +12,7 @@ on:
 
 jobs:
   update-apt:
+    if: github.ref == 'refs/heads/ci/apt-update'
     runs-on: self-hosted
     timeout-minutes: 60
 
@@ -23,10 +28,6 @@ jobs:
           git config --global user.email "ci@github.com"
           git config --global user.name "GitHub CI"
 
-      - name: Create and switch to apt-update branch
-        run: |
-          git checkout -b ci/apt-update || git switch ci/apt-update
-
       - name: Run APT update script
         run: |
           chmod +x scripts/ci/update_apt_versions.sh
@@ -35,7 +36,7 @@ jobs:
       - name: Show git diff for debugging
         run: git diff || true
 
-      - name: Push apt-update branch
+      - name: Push updated branch
         if: env.NO_CHANGES == 'false'
         run: git push origin ci/apt-update --force
 
