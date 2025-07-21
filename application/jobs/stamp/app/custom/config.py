@@ -3,7 +3,8 @@ from pathlib import Path
 
 import torch
 from pydantic import BaseModel, ConfigDict, Field
-from stamp.types import PandasLabel
+
+from modeling.types import PandasLabel
 
 
 class TrainConfig(BaseModel):

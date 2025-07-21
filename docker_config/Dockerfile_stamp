@@ -1,58 +1,53 @@
-# Base image with Python 3.11 (CUDA-enabled PyTorch image)
-ARG PYTORCH_IMAGE=pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime
+# ----------- Base Image with Python 3.11 + CUDA 12.1 -----------
+ARG PYTORCH_IMAGE=pytorch/pytorch:2.2.2-cuda12.1-cudnn8-devel
 FROM ${PYTORCH_IMAGE}
 
-# ------------------ Metadata ------------------
-ARG NVF_VERSION=2.4.1
-ENV NVF_BRANCH=${NVF_VERSION}
-ENV PYTHON_VERSION=3.11
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH="/workspace/STAMP/.venv/bin:$PATH"
-ENV HF_HOME=/workspace/.hf_cache
+# ----------- Metadata & Environment Variables -----------
+ENV DEBIAN_FRONTEND=noninteractive \
+    CUDA_HOME=/usr/local/cuda \
+    HF_HOME=/workspace/.hf_cache \
+    PATH="/workspace/STAMP/.venv/bin:$PATH"
 
-# ------------------ System Dependencies ------------------
+# ----------- System Dependencies -----------
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3.11-dev python3-pip \
     git curl wget unzip ca-certificates build-essential \
-    libglib2.0-dev libgl1 libglx-mesa0 libglib2.0-0 \
-    openslide-tools libgl1-mesa-glx \
-    python3.11 python3.11-venv python3.11-dev \
-    && rm -rf /var/lib/apt/lists/*
+    openslide-tools libgl1 libglx-mesa0 libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
 
-# ------------------ Set Default Python ------------------
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
-    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+# ----------- Install uv -----------
+RUN pip install uv
 
-# ------------------ Install uv ------------------
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --yes
-
-# ------------------ NVFlare Installation ------------------
+# ----------- Clone STAMP and Install via uv.lock -----------
 WORKDIR /workspace/
-COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
-COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
-RUN python -m pip install /workspace/nvflare && rm -rf /workspace/nvflare
+RUN git clone https://github.com/KatherLab/STAMP.git
+COPY docker_config/pyproject.toml docker_config/uv.lock /workspace/STAMP/
 
-# ------------------ MediSwarm Controller Installation ------------------
-COPY ./MediSwarm/controller /workspace/controller
-RUN python -m pip install /workspace/controller && rm -rf /workspace/controller
-
-# ------------------ STAMP Installation ------------------
-RUN git clone https://github.com/KatherLab/STAMP.git /workspace/STAMP
 WORKDIR /workspace/STAMP
-RUN /root/.cargo/bin/uv venv && \
-    /root/.cargo/bin/uv pip install --upgrade pip && \
-    /root/.cargo/bin/uv sync --all-extras
+RUN uv venv && uv pip install --upgrade pip && uv sync --all-extras
 
-# ------------------ Expose stamp as CLI globally ------------------
+# ----------- Expose STAMP CLI globally -----------
 RUN ln -s /workspace/STAMP/.venv/bin/stamp /usr/local/bin/stamp
 
-# ------------------ HuggingFace CLI ------------------
-RUN /workspace/STAMP/.venv/bin/pip install huggingface_hub && \
-    /workspace/STAMP/.venv/bin/huggingface-cli login --help || true
+# ----------- HuggingFace CLI (Optional) -----------
+RUN huggingface-cli login --help || true
 
-# ------------------ MediSwarm Source + Link ------------------
-COPY ./MediSwarm /MediSwarm
+# ----------- Install NVFlare -----------
+COPY ./docker_config/NVFlare /workspace/nvflare
+COPY ./docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
+RUN /usr/bin/python3.11 -m pip install /workspace/nvflare && rm -rf /workspace/nvflare
+
+# ----------- Install MediSwarm Controller -----------
+COPY ./controller /workspace/controller
+RUN /usr/bin/python3.11 -m pip install /workspace/controller && rm -rf /workspace/controller
+
+# ----------- Copy MediSwarm Source and Link -----------
+#COPY ./MediSwarm /MediSwarm originally
+COPY ./ /MediSwarm
 RUN mkdir -p /fl_admin/transfer && ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 
-# ------------------ Default Workdir ------------------
+# ----------- Set Default Workdir -----------
 WORKDIR /workspace/
+
+#docker build -f docker_config/Dockerfile_stamp -t stamp-image .
+#docker run --rm -it stamp-image:latest-image bash

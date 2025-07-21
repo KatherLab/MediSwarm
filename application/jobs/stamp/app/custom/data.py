@@ -14,7 +14,10 @@ import stamp
 import torch
 from jaxtyping import Bool, Float
 from packaging.version import Version
-from stamp.types import (
+from torch import Tensor
+from torch.utils.data import DataLoader, Dataset
+
+from modeling.types import (
     Bags,
     BagSize,
     BagSizes,
@@ -30,8 +33,6 @@ from stamp.types import (
     SlideMPP,
     TilePixels,
 )
-from torch import Tensor
-from torch.utils.data import DataLoader, Dataset
 
 _logger = logging.getLogger("stamp")
 

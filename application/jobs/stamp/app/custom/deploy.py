@@ -17,7 +17,8 @@ from stamp.modeling.data import (
     slide_to_patient_from_slide_table_,
 )
 from stamp.modeling.lightning_model import LitVisionTransformer
-from stamp.types import GroundTruth, PandasLabel, PatientId
+
+from modeling.types import GroundTruth, PandasLabel, PatientId
 
 __all__ = ["deploy_categorical_model_"]
 

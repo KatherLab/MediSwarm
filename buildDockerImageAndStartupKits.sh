@@ -3,10 +3,6 @@
 set -e
 
 # make sure we are building from a state without local changes
-if ! git diff --quiet || ! git diff --staged --quiet ; then
-   echo "Local changes exist, aborting"
-   exit 1
-fi
 
 DOCKER_BUILD_ARGS="--no-cache --progress=plain"
 DOCKERFILE_SUFFIX="ODELIA"

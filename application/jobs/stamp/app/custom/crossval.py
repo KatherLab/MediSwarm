@@ -7,23 +7,24 @@ import numpy as np
 from lightning.pytorch.accelerators.accelerator import Accelerator
 from pydantic import BaseModel
 from sklearn.model_selection import StratifiedKFold
-from stamp.modeling.data import (
+
+from data import (
     PatientData,
     filter_complete_patient_data_,
     patient_to_ground_truth_from_clini_table_,
     slide_to_patient_from_slide_table_,
 )
-from stamp.modeling.deploy import _predict, _to_prediction_df
-from stamp.modeling.lightning_model import LitVisionTransformer
-from stamp.modeling.train import setup_model_for_training, train_model_
-from stamp.modeling.transforms import VaryPrecisionTransform
-from stamp.types import (
+from deploy import _predict, _to_prediction_df
+from main import setup_model_for_training, train_model_
+from modeling.lightning_model import LitVisionTransformer
+from modeling.types import (
     Category,
     FeaturePath,
     GroundTruth,
     PandasLabel,
     PatientId,
 )
+from transforms import VaryPrecisionTransform
 
 __author__ = "Marko van Treeck"
 __copyright__ = "Copyright (C) 2024 Marko van Treeck"
