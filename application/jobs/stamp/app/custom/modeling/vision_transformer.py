@@ -6,10 +6,10 @@ from collections.abc import Iterable
 from typing import assert_never, cast
 
 import torch
+from alibi import MultiHeadALiBi
 from beartype import beartype
 from einops import repeat
 from jaxtyping import Bool, Float, jaxtyped
-from stamp.modeling.alibi import MultiHeadALiBi
 from torch import Tensor, nn
 
 

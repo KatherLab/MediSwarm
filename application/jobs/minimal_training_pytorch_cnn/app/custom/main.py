@@ -2,14 +2,14 @@
 
 import os
 
-import nvflare.client.lightning as flare
 import nvflare.client as flare_util
+import nvflare.client.lightning as flare
 import torch
 
 import minimal_training
 
 TRAINING_MODE = os.getenv("TRAINING_MODE")
-
+TRAINING_MODE = "swarm"
 if TRAINING_MODE == "swarm":
     flare_util.init()
     SITE_NAME=flare.get_site_name()
@@ -34,7 +34,17 @@ def main():
             logger.info(f"Site name: {SITE_NAME}")
 
             while flare.is_running():
+                logger.info('Waiting for input model from server...')
                 input_model = flare.receive()
+
+                if input_model is not None:
+                    logger.info("==== Swarm model received ====")
+                    logger.info(
+                        f"input_model.params.keys() = {list(input_model.params.keys())[:10]} ... total = {len(input_model.params)}")
+                    logger.info(
+                        f"model.state_dict().keys() = {list(model.state_dict().keys())[:10]} ... total = {len(model.state_dict())}")
+
+
                 logger.info(f"Current round: {input_model.current_round}")
 
                 minimal_training.validate_and_train(logger, data_module, model, trainer)
