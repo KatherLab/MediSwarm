@@ -21,8 +21,8 @@ class _ResNet(nn.Module):
             raise ValueError(f"Unsupported ResNet model number: {resnet_variant}")
 
         self.model = Model(n_input_channels=n_input_channels, spatial_dims=spatial_dims, num_classes=num_classes,
-                           feed_forward=False, shortcut_type='A', bias_downsample=True, pretrained=True)
-        self.model.fc = nn.Linear(512,
+                           feed_forward=False, shortcut_type='B', bias_downsample=False, pretrained=True)
+        self.model.fc = nn.Linear(2048,
                                   num_classes)  # TODO can we get the number of channels from the ResNet rather than using a hard-coded value only confirmed to work with ResNet 10 and 18?
 
     def forward(self, x):
