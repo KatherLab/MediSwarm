@@ -33,7 +33,7 @@ DOCKER_IMAGE=jefftud/odelia:$VERSION
 CWD=`pwd`
 CLEAN_SOURCE_DIR=`mktemp -d`
 mkdir $CLEAN_SOURCE_DIR/MediSwarm
-cp -r . $CLEAN_SOURCE_DIR/MediSwarm/
+rsync -ax workspace . $CLEAN_SOURCE_DIR/MediSwarm/
 cd $CLEAN_SOURCE_DIR/MediSwarm
 git clean -x -q -f .
 cd docker_config/NVFlare
