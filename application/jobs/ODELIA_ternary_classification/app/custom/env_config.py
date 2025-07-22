@@ -16,7 +16,8 @@ def load_environment_variables():
         'use_adaptive_sync': os.environ.get('USE_ADAPTIVE_SYNC', 'False').lower() == 'true',
         'sync_frequency': int(os.environ.get('SYNC_FREQUENCY', 1024)),
         'model_name': os.environ.get('MODEL_NAME', 'ResNet101'),
-        'prediction_flag': os.environ.get('PREDICT_FLAG', 'ext')
+        'prediction_flag': os.environ.get('PREDICT_FLAG', 'ext'),
+        'mediswarm_version': os.environ.get('MEDISWARM_VERSION', 'unset'),
     }
 
 
