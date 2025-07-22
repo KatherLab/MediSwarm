@@ -41,6 +41,7 @@ git clean -x -q -f .
 cd ../..
 rm .git -rf
 chmod a+rX . -R
+sed -i 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__#'$VERSION'#' docker_config/master_template.yml
 cd $CWD
 
 
