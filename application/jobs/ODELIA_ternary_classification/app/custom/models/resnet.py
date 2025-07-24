@@ -20,10 +20,37 @@ class _ResNet(nn.Module):
         if Model is None:
             raise ValueError(f"Unsupported ResNet model number: {resnet_variant}")
 
+        shortcut_type = {
+            10: 'B',
+            18: 'A',
+            34: 'A',
+            50: 'B',
+            101: 'B',
+            152: 'B',
+        }.get(resnet_variant)
+
+        bias_downsample = {
+            10: False,
+            18: True,
+            34: True,
+            50: False,
+            101: False,
+            152: False,
+        }.get(resnet_variant)
+
+        num_channels = {
+            10: 512,
+            18: 512,
+            34: 512,
+            50: 2048,
+            101: 2048,
+            152: 2048,
+        }.get(resnet_variant)
+
         self.model = Model(n_input_channels=n_input_channels, spatial_dims=spatial_dims, num_classes=num_classes,
-                           feed_forward=False, bias_downsample=False, pretrained=True)
-        self.model.fc = nn.Linear(512,
-                                  num_classes)  # TODO can we get the number of channels from the ResNet rather than using a hard-coded value only confirmed to work with ResNet 10 and 18?
+                           feed_forward=False, shortcut_type=shortcut_type, bias_downsample=bias_downsample, pretrained=True)
+        self.model.fc = nn.Linear(num_channels,
+                                  num_classes)
 
     def forward(self, x):
         return self.model(x)
