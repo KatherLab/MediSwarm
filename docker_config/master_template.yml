@@ -694,9 +694,8 @@ docker_cln_sh: |
             --env DATA_DIR=/data \
             --env SCRATCH_DIR=/scratch \
             --env TORCH_HOME=/torch_home \
-            --env HF_HOME=/huggingface_home \
             --env GPU_DEVICE=$GPU2USE \
-            --env MODEL_NAME=ResNet152 \
+            --env MODEL_NAME=MST \
             --env CONFIG=unilateral \
             --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__"
 
