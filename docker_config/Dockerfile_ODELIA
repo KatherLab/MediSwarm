@@ -72,5 +72,3 @@ RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 
 # Copy pre-trained model weights to image
 COPY ./torch_home_cache /torch_home
-RUN mkdir /huggingface_home
-RUN chmod a+rwx /huggingface_home
