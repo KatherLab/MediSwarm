@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, subprocess
+import os
 
 import nvflare.client.lightning as flare
 import nvflare.client as flare_util
