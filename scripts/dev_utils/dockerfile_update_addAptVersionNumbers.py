@@ -35,6 +35,11 @@ def add_apt_versions(dockerfile: str, versions: dict) -> str:
             for package, version in versions.items():
                 outline = outline.replace(f' {package} ', f' {package}={version} ')
                 outline = re.sub(f' {package}$', f' {package}={version}', outline)
+            parts = outline.split()
+            if len(parts) > 3:
+                header = " ".join(parts[:3])
+                pkgs = parts[3:]
+                outline = header + " \\\n    " + " \\\n    ".join(pkgs)
             outlines.append(outline)
         else:
             outlines.append(line)
