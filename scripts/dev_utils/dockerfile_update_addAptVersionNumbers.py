@@ -12,14 +12,14 @@ def save_file(contents: str, filename: str) -> None:
         outfile.write(contents)
 
 
-def parse_apt_versions(installlog: str) -> str:
+def parse_apt_versions(installlog: str) -> dict:
     versions = {}
     for line in installlog.splitlines():
-        if re.match('.*Get:[0-9]* http.*', line):
-            blocks = line.split(' ')
-            if len(blocks) > 9:
-                package = blocks[6]
-                version = blocks[8]
+        if "Get:" in line:
+            match = re.search(r' ([a-zA-Z0-9\-\+\.]+)[/\s]([^\s]+) ', line)
+            if match:
+                package = match.group(1)
+                version = match.group(2)
                 if package in versions and versions[package] != version:
                     print(f'Conflicting versions of {package} found: {versions[package]} and {version} found, using the latter.')
                 versions[package] = version
