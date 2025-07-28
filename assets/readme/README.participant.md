@@ -87,7 +87,7 @@ The dataset must be in the following format.
    ```bash
    cd $SITE_NAME/startup
    ```
-3. Check that the code contained in the startup kit is the expected code: Use
+3. (Optional) Check that the code contained in the startup kit is the expected code: Use
    ```bash
    ./docker.sh --scratch_dir $SCRATCHDIR --extract_mediswarm_code
    ```
