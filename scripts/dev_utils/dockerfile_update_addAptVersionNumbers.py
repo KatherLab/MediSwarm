@@ -14,16 +14,17 @@ def save_file(contents: str, filename: str) -> None:
 
 def parse_apt_versions(installlog: str) -> dict:
     versions = {}
+    pattern = re.compile(r'Get:.*? ([a-z0-9\-\+\.]+)(?:/[^ ]*)? ([0-9a-zA-Z\:\~\.\+\-]+) ')
     for line in installlog.splitlines():
-        if "Get:" in line:
-            match = re.search(r' ([a-zA-Z0-9\-\+\.]+)[/\s]([^\s]+) ', line)
-            if match:
-                package = match.group(1)
-                version = match.group(2)
-                if package in versions and versions[package] != version:
-                    print(f'Conflicting versions of {package} found: {versions[package]} and {version} found, using the latter.')
-                versions[package] = version
+        match = pattern.search(line)
+        if match:
+            package = match.group(1)
+            version = match.group(2)
+            if package in versions and versions[package] != version:
+                print(f'Conflicting versions of {package} found: {versions[package]} and {version} found, using the latter.')
+            versions[package] = version
     return versions
+
 
 
 def add_apt_versions(dockerfile: str, versions: dict) -> str:
