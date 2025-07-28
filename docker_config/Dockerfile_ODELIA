@@ -14,6 +14,7 @@ RUN apt update
 
 RUN apt install \
     \
+    \
     -y \
     apt=2.4.14 \
     apt-utils=2.4.14 \
@@ -21,6 +22,7 @@ RUN apt install \
 
 # Update versions of installed packages
 RUN apt install \
+    \
     \
     -y \
     base-files=12ubuntu4.7 \
@@ -65,6 +67,7 @@ RUN apt install \
 
 # Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
 RUN apt install \
+    \
     \
     -y \
     apt-transport-https=2.4.14 \
@@ -121,6 +124,7 @@ RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings
 
 # Install docker-ce docker-ce-cli containerd.io and dependencies at fixed versions
 RUN apt install \
+    \
     \
     -y \
     apparmor=3.0.4-2ubuntu2.4 \
