@@ -17,6 +17,11 @@ def remove_apt_versions(dockerfile: str) -> str:
     for line in dockerfile.splitlines():
         if line.startswith('RUN apt install'):
             out_line = re.sub('=[^ ]*', '', line)
+            parts = out_line.split()
+            if len(parts) > 3:
+                header = " ".join(parts[:3])
+                pkgs = parts[3:]
+                out_line = header + " \\\n    " + " \\\n    ".join(pkgs)
             output.append(out_line)
         else:
             output.append(line)
