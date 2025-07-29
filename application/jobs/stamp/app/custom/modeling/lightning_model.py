@@ -55,88 +55,63 @@ class LitVisionTransformer(lightning.LightningModule):
         **metadata: Additional metadata to store with the model.
     """
 
+    supported_features = ["tile"]
+
     def __init__(
             self,
             *,
+            categories: Sequence[Category],
+            category_weights: Float[Tensor, "category_weight"],  # noqa: F821
+            dim_input: int,
             dim_model: int,
             dim_feedforward: int,
             n_heads: int,
             n_layers: int,
             dropout: float,
+            # Experimental features
+            # TODO remove default values for stamp 3; they're only here for backwards compatibility
+            use_alibi: bool = False,
+            # Metadata used by other parts of stamp, but not by the model itself
+            ground_truth_label: PandasLabel,
+            train_patients: Iterable[PatientId],
+            valid_patients: Iterable[PatientId],
+            # Other metadata
             **metadata,
     ) -> None:
         super().__init__()
 
-        self.dim_model = dim_model
-        self.dim_feedforward = dim_feedforward
-        self.n_heads = n_heads
-        self.n_layers = n_layers
-        self.dropout = dropout
-        self.metadata = metadata
-
-        # Parameters to be set later
-        self.categories = None
-        self.category_weights = None
-        self.ground_truth_label = None
-        self.train_patients = None
-        self.valid_patients = None
-        self.use_alibi = False
-        self.dim_input = None
-
-        # Optional external metadata
-        self.clini_table = None
-        self.slide_table = None
-        self.feature_dir = None
-
-        self.vision_transformer = None
-        self.valid_auroc = None
-
-    def set(
-            self,
-            *,
-            categories: Sequence[Category],
-            category_weights: Float[Tensor, "category_weight"],
-            dim_input: int,
-            use_alibi: bool = False,
-            ground_truth_label: PandasLabel,
-            train_patients: Iterable[PatientId],
-            valid_patients: Iterable[PatientId],
-            clini_table=None,
-            slide_table=None,
-            feature_dir=None,
-    ):
         if len(categories) != len(category_weights):
-            raise ValueError("the number of category weights must match the number of categories!")
+            raise ValueError(
+                "the number of category weights has to match the number of categories!"
+            )
 
-        self.categories = np.array(categories)
-        self.category_weights = category_weights
-        self.dim_input = dim_input
-        self.use_alibi = use_alibi
-        self.ground_truth_label = ground_truth_label
-        self.train_patients = train_patients
-        self.valid_patients = valid_patients
-
-        self.clini_table = clini_table
-        self.slide_table = slide_table
-        self.feature_dir = feature_dir
-        # Initialize model and AUROC after all info is available
         self.vision_transformer = VisionTransformer(
             dim_output=len(categories),
             dim_input=dim_input,
-            dim_model=self.dim_model,
-            n_layers=self.n_layers,
-            n_heads=self.n_heads,
-            dim_feedforward=self.dim_feedforward,
-            dropout=self.dropout,
+            dim_model=dim_model,
+            n_layers=n_layers,
+            n_heads=n_heads,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
             use_alibi=use_alibi,
         )
         self.class_weights = category_weights
         self.valid_auroc = MulticlassAUROC(len(categories))
-        self.save_hyperparameters(ignore=["vision_transformer", "valid_auroc"])
 
-    def forward(self, bags: Bags) -> Float[Tensor, "batch logit"]:
-        if self.vision_transformer is None:
-            raise RuntimeError("Model not initialized. Call `.set()` first.")
+        # Used during deployment
+        self.ground_truth_label = ground_truth_label
+        self.categories = np.array(categories)
+        self.train_patients = train_patients
+        self.valid_patients = valid_patients
+
+        _ = metadata  # unused, but saved in model
+
+        self.save_hyperparameters()
+
+    def forward(
+            self,
+            bags: Bags,
+    ) -> Float[Tensor, "batch logit"]:
         return self.vision_transformer(bags)
 
     def _step(

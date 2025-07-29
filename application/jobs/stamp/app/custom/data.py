@@ -10,10 +10,8 @@ from typing import BinaryIO, Generic, TextIO, TypeAlias, cast
 import h5py
 import numpy as np
 import pandas as pd
-import stamp
 import torch
 from jaxtyping import Bool, Float
-from packaging.version import Version
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 
@@ -229,13 +227,6 @@ def get_coords(feature_h5: h5py.File) -> CoordsInfo:
         tile_size_um = Microns(256.0)
         tile_size_px = TilePixels(224)
         coords_um = coords / 224 * 256
-
-    if (version_str := feature_h5.attrs.get("stamp_version")) and (
-            extraction_version := Version(version_str)
-    ) > Version(stamp.__version__):
-        raise RuntimeError(
-            f"features were extracted with a newer version of stamp, please update your stamp to at least version {extraction_version}."
-        )
 
     if not tile_size_px and "tile_size_px" in feature_h5.attrs:
         tile_size_px = TilePixels(int(feature_h5.attrs["tile_size_px"]))  # pyright: ignore[reportArgumentType]
