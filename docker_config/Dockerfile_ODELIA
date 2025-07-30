@@ -12,15 +12,13 @@ ENV PYTHON_VERSION=3.10.14
 # Install updates of installed packages
 RUN apt update
 
-RUN apt install \
-    -y \
+RUN apt install -y \
     apt=2.4.14 \
     apt-utils=2.4.14 \
     libapt-pkg6.0=2.4.14
 
 # Update versions of installed packages
-RUN apt install \
-    -y \
+RUN apt install -y \
     base-files=12ubuntu4.7 \
     bash=5.1-6ubuntu1.1 \
     bsdutils=1:2.37.2-4ubuntu3.4 \
@@ -62,8 +60,7 @@ RUN apt install \
     util-linux=2.37.2-4ubuntu3.4
 
 # Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
-RUN apt install \
-    -y \
+RUN apt install -y \
     apt-transport-https=2.4.14 \
     curl=7.81.0-1ubuntu1.20 \
     dirmngr=2.2.27-3ubuntu2.4 \
@@ -117,8 +114,7 @@ RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings
     && apt update
 
 # Install docker-ce docker-ce-cli containerd.io and dependencies at fixed versions
-RUN apt install \
-    -y \
+RUN apt install -y \
     apparmor=3.0.4-2ubuntu2.4 \
     containerd.io=1.7.27-1 \
     dbus-user-session=1.12.20-2ubuntu4.1 \
