@@ -13,10 +13,6 @@ ENV PYTHON_VERSION=3.10.14
 RUN apt update
 
 RUN apt install \
-    \
-    \
-    \
-    \
     -y \
     apt=2.4.14 \
     apt-utils=2.4.14 \
@@ -24,10 +20,6 @@ RUN apt install \
 
 # Update versions of installed packages
 RUN apt install \
-    \
-    \
-    \
-    \
     -y \
     base-files=12ubuntu4.7 \
     bash=5.1-6ubuntu1.1 \
@@ -71,10 +63,6 @@ RUN apt install \
 
 # Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
 RUN apt install \
-    \
-    \
-    \
-    \
     -y \
     apt-transport-https=2.4.14 \
     curl=7.81.0-1ubuntu1.20 \
@@ -130,10 +118,6 @@ RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings
 
 # Install docker-ce docker-ce-cli containerd.io and dependencies at fixed versions
 RUN apt install \
-    \
-    \
-    \
-    \
     -y \
     apparmor=3.0.4-2ubuntu2.4 \
     containerd.io=1.7.27-1 \
@@ -348,14 +332,12 @@ WORKDIR /workspace/
 COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
 ## use startup kit template in the dashboard
 COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
-RUN python3 -m pip install \
-    /workspace/nvflare
+RUN python3 -m pip install /workspace/nvflare
 RUN rm -rf /workspace/nvflare
 
 # Install the ODELIA controller package from local source
 COPY ./MediSwarm/controller /workspace/controller
-RUN python3 -m pip install \
-    /workspace/controller
+RUN python3 -m pip install  /workspace/controller
 RUN rm -rf /workspace/controller
 
 # Copy the source code for local training and deploying to the swarm
