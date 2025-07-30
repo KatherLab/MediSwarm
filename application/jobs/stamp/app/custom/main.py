@@ -574,7 +574,7 @@ def main():
         num_workers=15,
         # Training parameters
         batch_size=64,
-        max_epochs=1,  # 64
+        max_epochs=64,  # 64
         patience=16,
         accelerator="gpu",
         # Experimental features
