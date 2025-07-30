@@ -53,7 +53,7 @@ RUN apt install -y \
     libtasn1-6=4.18.0-4ubuntu0.1 \
     libudev1=249.11-0ubuntu3.16 \
     libuuid1=2.37.2-4ubuntu3.4 \
-    linux-libc-dev=5.15.0-144.157 \
+    linux-libc-dev=5.15.0-151.161 \
     logsave=1.46.5-2ubuntu1.2 \
     mount=2.37.2-4ubuntu3.4 \
     openssl=3.0.2-0ubuntu1.19 \
@@ -93,7 +93,7 @@ RUN apt install -y \
     libsasl2-2=2.1.27+dfsg2-3ubuntu1.2 \
     libsasl2-modules-db=2.1.27+dfsg2-3ubuntu1.2 \
     libsasl2-modules=2.1.27+dfsg2-3ubuntu1.2 \
-    libsqlite3-0=3.37.2-2ubuntu0.4 \
+    libsqlite3-0=3.37.2-2ubuntu0.5 \
     libssh-4=0.9.6-2ubuntu0.22.04.4 \
     lsb-release=11.1.0ubuntu4 \
     media-types=7.0.0 \
@@ -120,11 +120,11 @@ RUN apt install -y \
     dbus-user-session=1.12.20-2ubuntu4.1 \
     dbus=1.12.20-2ubuntu4.1 \
     dmsetup=2:1.02.175-2.1ubuntu5 \
-    docker-buildx-plugin=0.25.0-1~ubuntu.22.04~jammy \
-    docker-ce-cli=5:28.3.2-1~ubuntu.22.04~jammy \
-    docker-ce-rootless-extras=5:28.3.2-1~ubuntu.22.04~jammy \
-    docker-ce=5:28.3.2-1~ubuntu.22.04~jammy \
-    docker-compose-plugin=2.38.2-1~ubuntu.22.04~jammy \
+    docker-buildx-plugin=0.26.1-1~ubuntu.22.04~jammy \
+    docker-ce-cli=5:28.3.3-1~ubuntu.22.04~jammy \
+    docker-ce-rootless-extras=5:28.3.3-1~ubuntu.22.04~jammy \
+    docker-ce=5:28.3.3-1~ubuntu.22.04~jammy \
+    docker-compose-plugin=2.39.1-1~ubuntu.22.04~jammy \
     gir1.2-glib-2.0=1.72.0-1 \
     git-man=1:2.34.1-1ubuntu1.15 \
     git=1:2.34.1-1ubuntu1.15 \
@@ -159,7 +159,7 @@ RUN apt install -y \
     libnftnl11=1.2.1-1build1 \
     libnss-systemd=249.11-0ubuntu3.16 \
     libpam-systemd=249.11-0ubuntu3.16 \
-    libperl5.34=5.34.0-3ubuntu1.4 \
+    libperl5.34=5.34.0-3ubuntu1.5 \
     libslirp0=4.6.1-1build1 \
     libx11-6=2:1.7.5-1ubuntu0.3 \
     libx11-data=2:1.7.5-1ubuntu0.3 \
@@ -174,9 +174,9 @@ RUN apt install -y \
     networkd-dispatcher=2.1-2ubuntu0.22.04.2 \
     openssh-client=1:8.9p1-3ubuntu0.13 \
     patch=2.7.6-7build2 \
-    perl-base=5.34.0-3ubuntu1.4 \
-    perl-modules-5.34=5.34.0-3ubuntu1.4 \
-    perl=5.34.0-3ubuntu1.4 \
+    perl-base=5.34.0-3ubuntu1.5 \
+    perl-modules-5.34=5.34.0-3ubuntu1.5 \
+    perl=5.34.0-3ubuntu1.5 \
     pigz=2.6-1 \
     python3-dbus=1.2.18-3build1 \
     python3-gi=3.42.1-0ubuntu1 \
