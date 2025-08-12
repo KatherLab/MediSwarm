@@ -157,3 +157,9 @@ To have a baseline for swarm training, train the same model in a comparable way 
    tail -f nohup.out  # Follow training log
    ```
 For any issues, check if the commands above point to problems and contact your Swarm Operator.
+
+## Troubleshooting
+
+* Image files need to have the correct file name including capitalization
+* The directories listed as identifiers in the tables `annotation.csv` and `split.csv` should all be present, only those directories should be present
+* The tables should not have additional or duplicate columns, entries need to have the correct captitalization
