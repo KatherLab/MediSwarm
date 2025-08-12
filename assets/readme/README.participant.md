@@ -54,7 +54,7 @@ The dataset must be in the following format.
 
 #### Annotation
 
-* `split.csv` defines the class labels
+* `annotation.csv` defines the class labels
 * The file contains the columns `UID`, `PatientID`, `Age`, `Lesion`
     * `UID` is the identifier used in the folder name, e.g., `ID_001_left`.
     * `PatientID` is the identifier of the patient, in this case, `ID_001`.
