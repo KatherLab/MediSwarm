@@ -79,13 +79,13 @@ For further troubleshooting, refer to the VPN Connect Guide on the GoodAccess su
 
 ## Step 6: Troubleshooting — Disconnecting Existing VPN Connections
 
-Some users have experienced that connecting to GoodAccess **disconnects an existing VPN connection**.  
-This may happen because OpenVPN is configured to redirect all network traffic through the GoodAccess tunnel, which overrides your local or other VPN routes.
+Some users have experienced that connecting to GoodAccess **disconnects an existing VPN or ssh connection**.
+This may happen because OpenVPN is configured to redirect all network traffic through the GoodAccess tunnel, which overrides your local or other VPN routes and may make the machine inaccessible in its local network.
 
 If this occurs, you can prevent the redirection by starting OpenVPN with:
 ```sh
 openvpn --config <your_config>.ovpn --pull-filter ignore redirect-gateway
 ```
-This tells the OpenVPN client **not** to override your default gateway, allowing your other VPN connection to remain active.
+This tells the OpenVPN client **not** to override your default gateway, allowing your other VPN or ssh connection to remain active.
 
-> **Note:** This behavior was reported by Aitor after certain OpenVPN updates. The above command has been effective in resolving the issue.
+> **Note:** This behavior was observed by Aitor and Ole after certain OpenVPN updates. The above command has been effective in resolving the issue.
