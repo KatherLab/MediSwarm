@@ -59,6 +59,7 @@ The dataset must be in the following format.
     * `UID` is the identifier used in the folder name, e.g., `ID_001_left`.
     * `PatientID` is the identifier of the patient, in this case, `ID_001`.
     * `Age` is the age of the patient at the time of the scan in days.
+       This columns is ignored for our current technical tests and exists only for compatibility with the ODELIA challenge data format. Please ignore discrepancies if age is listed in other units than days.
     * `Lesion` is 0 for no lesion, 1 for benign lesion, and 2 for malicious lesion.
 
 #### Split
@@ -69,7 +70,6 @@ The dataset must be in the following format.
     * `UID` is the identifier used in the folder name, e.g., `ID_001_left`.
     * `Split` is either `train`, `val`, or `test`. The test set is currently ignored.
     * `Fold` is the 0-based index of the fold (for a potential cross-validation).
-
 
 ## Prepare Training Participation
 
