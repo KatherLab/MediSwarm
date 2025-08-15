@@ -16,6 +16,7 @@ VERSION=$(./getVersionNumber.sh)
 DOCKER_IMAGE=jefftud/odelia:$VERSION
 PROJECT_DIR="workspace/odelia_${VERSION}_dummy_project_for_testing"
 SYNTHETIC_DATA_DIR=$(mktemp -d)
+SCRATCH_DIR=$(mktemp -d)
 CWD=$(pwd)
 
 check_files_on_github () {
@@ -36,22 +37,23 @@ create_synthetic_data () {
         /bin/bash -c "python3 application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
 }
 
-cleanup_synthetic_data () {
+cleanup_temporary_data () {
     rm -rf "$SYNTHETIC_DATA_DIR"
+    rm -rf "$SCRATCH_DIR"
 }
 
 start_server_and_clients () {
-    cd $PROJECT_DIR/prod_00
+    cd "$PROJECT_DIR"/prod_00
     cd server.local/startup
     ./docker.sh --no_pull --start_server
     cd ../..
     sleep 10
 
     cd client_A/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /data/MEVISTwoNodeSwarm/scratch --GPU device=$GPU_FOR_TESTING --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --start_client
     cd ../..
     cd client_B/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /data/MEVISTwoNodeSwarm/scratch --GPU device=$GPU_FOR_TESTING --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU device=$GPU_FOR_TESTING --start_client
     sleep 5
 
     cd "$CWD"
@@ -62,26 +64,29 @@ kill_server_and_clients () {
 }
 
 run_docker_gpu_preflight_check () {
-    echo "TODO run dummy training locally"
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --dummy_training --no_pull 2>&1 | tee dummy_training_console_output.txt
+    echo "TODO check output in dummy_training_console_output.txt"
+    cd "$CWD"
 }
 
 run_data_access_preflight_check () {
-    echo "TODO run data access preflight check locally"
-}
-
-check_output_of_preflight_checks () {
-    echo "TODO check output of preflight checks"
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --preflight_check --no_pull 2>&1 | tee preflight_check_console_output.txt
+    echo "TODO check output in preflight_check_console_output.txt"
+    cd ../..
+    cd ../..
 }
 
 run_dummy_training_in_swarm () {
-    cd $PROJECT_DIR/prod_00
+    cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
     ../../../../../_testsOutsideDocker_submitDummyTraining.exp
     docker kill fladmin
     sleep 60
-}
 
-check_output_of_dummy_training () {
     echo "TODO check output of dummy training"
 }
 
@@ -94,16 +99,14 @@ run_tests () {
 
     run_docker_gpu_preflight_check
     run_data_access_preflight_check
-    check_output_of_preflight_checks
 
     start_server_and_clients
 
     run_dummy_training_in_swarm
-    check_output_of_dummy_training
 
     kill_server_and_clients
 
-    cleanup_synthetic_data
+    cleanup_temporary_data
 }
 
 run_tests
