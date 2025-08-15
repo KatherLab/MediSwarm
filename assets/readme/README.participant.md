@@ -163,3 +163,4 @@ For any issues, check if the commands above point to problems and contact your S
 * Image files need to have the correct file name including capitalization
 * The directories listed as identifiers in the tables `annotation.csv` and `split.csv` should all be present, only those directories should be present
 * The tables should not have additional or duplicate columns, entries need to have the correct captitalization
+* Image and table folders and files need to be present in the folders specified via `--data_dir`. Symlinks to other locations do not work, they are not available in the Docker mount.
