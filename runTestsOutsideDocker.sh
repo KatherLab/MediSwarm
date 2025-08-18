@@ -147,8 +147,46 @@ run_dummy_training_in_swarm () {
     ../../../../../_testsOutsideDocker_submitDummyTraining.exp
     docker kill fladmin
     sleep 60
+    cd "$CWD"
 
-    echo "TODO check output of dummy training"
+    cd "$PROJECT_DIR"/prod_00/server.local/startup
+    CONSOLE_OUTPUT=nohup.out
+    for EXPECTED_OUTPUT in 'Total clients: 2' 'updated status of client client_A on round 4' 'updated status of client client_B on round 4' 'all_done=True' 'Server runner finished.';
+    do
+        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            echo "Expected output $EXPECTED_OUTPUT found"
+        else
+            echo "Expected output $EXPECTED_OUTPUT missing"
+            exit 1
+        fi
+    done
+    cd "$CWD"
+
+    cd "$PROJECT_DIR"/prod_00/client_A/startup
+    CONSOLE_OUTPUT=nohup.out
+    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' 'Epoch 9: 100%' ;
+    do
+        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            echo "Expected output $EXPECTED_OUTPUT found"
+        else
+            echo "Expected output $EXPECTED_OUTPUT missing"
+            exit 1
+        fi
+    done
+    cd "$CWD"
+
+    cd "$PROJECT_DIR"/prod_00/client_A/
+    FILES_PRESENT=$(find . -type f -name "*.*")
+    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
+    do
+        if echo "$FILES_PRESENT" | grep -q "$EXPECTED_FILE" ; then
+            echo "Expected file $EXPECTED_FILE found"
+        else
+            echo "Expected file $EXPECTED_FILE missing"
+            exit 1
+        fi
+    done
+    cd "$CWD"
 }
 
 run_tests () {
@@ -162,9 +200,7 @@ run_tests () {
     run_data_access_preflight_check
 
     start_server_and_clients
-
     run_dummy_training_in_swarm
-
     kill_server_and_clients
 
     cleanup_temporary_data
