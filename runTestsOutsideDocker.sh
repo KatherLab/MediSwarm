@@ -20,7 +20,24 @@ SCRATCH_DIR=$(mktemp -d)
 CWD=$(pwd)
 
 check_files_on_github () {
-    echo "TODO check files/documentation on github"
+    CONTENT=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/LICENSE)
+    if echo "$CONTENT" | grep -q "MIT License" ; then
+        echo "Downloaded and verified license from github"
+    else
+        echo "Could not download and verify license"
+        exit 1
+    fi
+
+    CONTENT=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/README.md)
+    for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
+    do
+        if echo "$CONTENT" | grep -q "$ROLE" ; then
+            echo "Instructions for $ROLE found"
+        else
+            echo "Instructions for role $ROLE missing"
+            exit 1
+        fi
+    done
 }
 
 check_startup_kits () {
@@ -28,7 +45,6 @@ check_startup_kits () {
 }
 
 create_synthetic_data () {
-    # create synthetic data
     docker run --rm \
         -u $(id -u):$(id -g) \
         -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
