@@ -112,18 +112,33 @@ kill_server_and_clients () {
 run_docker_gpu_preflight_check () {
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --dummy_training --no_pull 2>&1 | tee dummy_training_console_output.txt
-    echo "TODO check output in dummy_training_console_output.txt"
+    CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
+    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT"
+
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT"; then
+        echo "Expected output of Docker/GPU preflight check found"
+    else
+        echo "Missing expected output of Docker/GPU preflight check"
+        exit 1
+    fi
+
     cd "$CWD"
 }
 
 run_data_access_preflight_check () {
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --preflight_check --no_pull 2>&1 | tee preflight_check_console_output.txt
-    echo "TODO check output in preflight_check_console_output.txt"
-    cd ../..
-    cd ../..
+    CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+
+    if grep -q "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && grep -q "Epoch 0: 100%" "$CONSOLE_OUTPUT"; then
+        echo "Expected output of Docker/GPU preflight check found"
+    else
+        echo "Missing expected output of Docker/GPU preflight check"
+        exit 1
+    fi
+
+    cd "$CWD"
 }
 
 run_dummy_training_in_swarm () {
