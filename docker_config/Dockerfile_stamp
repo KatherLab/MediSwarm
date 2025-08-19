@@ -50,4 +50,4 @@ RUN mkdir -p /fl_admin/transfer && ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 WORKDIR /workspace/
 
 #docker build -f docker_config/Dockerfile_stamp -t stamp-image .
-#docker run --rm -it stamp-image:latest-image bash
+#docker run --rm -it stamp-image:latest bash
