@@ -78,6 +78,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         if not torch.cuda.is_available():
             raise RuntimeError("This example requires a GPU")
 
+        logger.info(f"Running code version {env_vars['mediswarm_version']}")
         logger.info(f"Using GPU for training")
 
         model_name = env_vars['model_name']
