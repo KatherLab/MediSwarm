@@ -34,18 +34,20 @@ fi
 
 # prepare clean version of source code repository clone for building Docker image
 
-CWD=$(pwd)
-CLEAN_SOURCE_DIR=$(mktemp -d)
-mkdir -p "$CLEAN_SOURCE_DIR/MediSwarm"
-cp -r . "$CLEAN_SOURCE_DIR/MediSwarm/"
-cd "$CLEAN_SOURCE_DIR/MediSwarm"
+CWD=`pwd`
+CLEAN_SOURCE_DIR=`mktemp -d`
+mkdir $CLEAN_SOURCE_DIR/MediSwarm
+rsync -ax --exclude workspace . $CLEAN_SOURCE_DIR/MediSwarm/
+cd $CLEAN_SOURCE_DIR/MediSwarm
 git clean -x -q -f .
 cd docker_config/NVFlare
 git clean -x -q -f .
 cd ../..
 rm -rf .git
 chmod a+rX . -R
-cd "$CWD"
+sed -i 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__#'$VERSION'#' docker_config/master_template.yml
+cd $CWD
+
 
 # prepare pre-trained model weights for being included in Docker image
 
