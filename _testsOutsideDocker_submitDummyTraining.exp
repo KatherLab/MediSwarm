@@ -1,6 +1,6 @@
 #!/usr/bin/env expect
 
-spawn ./docker.sh
+spawn ./docker.sh --no_pull
 expect "User Name: "
 send "admin@test.odelia\r"
 expect "> "
