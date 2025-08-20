@@ -13,7 +13,8 @@ if [ -z "$GPU_FOR_TESTING" ]; then
 fi
 
 VERSION=$(./getVersionNumber.sh)
-DOCKER_IMAGE=jefftud/odelia:$VERSION
+GENERATED_DOCKER_IMAGE=jefftud/odelia:$VERSION
+EXPECTED_DOCKER_IMAGE=localhost:5000/$GENERATED_DOCKER_IMAGE  # must match what is specified in the project.yml
 PROJECT_DIR="workspace/odelia_${VERSION}_dummy_project_for_testing"
 SYNTHETIC_DATA_DIR=$(mktemp -d)
 SCRATCH_DIR=$(mktemp -d)
@@ -74,12 +75,20 @@ create_second_startup_kit () {
     done
 }
 
+push_image_to_local_docker_registry () {
+    docker run -d -p 5000:5000 --rm --name registry registry:3
+    docker tag $GENERATED_DOCKER_IMAGE $EXPECTED_DOCKER_IMAGE
+    docker push $EXPECTED_DOCKER_IMAGE
+    docker rmi $EXPECTED_DOCKER_IMAGE  # so that pulling later has an effect
+    docker pull $EXPECTED_DOCKER_IMAGE
+}
+
 create_synthetic_data () {
     docker run --rm \
         -u $(id -u):$(id -g) \
         -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
         -w /MediSwarm \
-        jefftud/odelia:$VERSION \
+        $GENERATED_DOCKER_IMAGE \
         /bin/bash -c "python3 application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
 }
 
@@ -88,18 +97,23 @@ cleanup_temporary_data () {
     rm -rf "$SCRATCH_DIR"
 }
 
+cleanup_local_docker_registry () {
+    docker rmi $EXPECTED_DOCKER_IMAGE
+    docker kill registry
+}
+
 start_server_and_clients () {
     cd "$PROJECT_DIR"/prod_00
     cd server.local/startup
-    ./docker.sh --no_pull --start_server
+    ./docker.sh --start_server
     cd ../..
     sleep 10
 
     cd client_A/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --start_client
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --start_client
     cd ../..
     cd client_B/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU device=$GPU_FOR_TESTING --start_client
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU device=$GPU_FOR_TESTING --start_client
     sleep 5
 
     cd "$CWD"
@@ -113,7 +127,7 @@ run_docker_gpu_preflight_check () {
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
     CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
-    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT"
+    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --dummy_training 2>&1 | tee "$CONSOLE_OUTPUT"
 
     if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT"; then
         echo "Expected output of Docker/GPU preflight check found"
@@ -129,7 +143,7 @@ run_data_access_preflight_check () {
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
     CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --preflight_check 2>&1 | tee $CONSOLE_OUTPUT
 
     if grep -q "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && grep -q "Epoch 0: 100%" "$CONSOLE_OUTPUT"; then
         echo "Expected output of Docker/GPU preflight check found"
@@ -194,6 +208,8 @@ run_tests () {
 
     create_second_startup_kit
 
+    push_image_to_local_docker_registry
+
     create_synthetic_data
 
     run_docker_gpu_preflight_check
@@ -204,6 +220,7 @@ run_tests () {
     kill_server_and_clients
 
     cleanup_temporary_data
+    cleanup_local_docker_registry
 }
 
 run_tests
