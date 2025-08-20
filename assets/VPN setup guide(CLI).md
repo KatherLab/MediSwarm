@@ -72,8 +72,20 @@ sh envsetup_scripts/setup_vpntunnel.sh
 
 The `.ovpn` file assigned to you by TUD is required for re-establishing the connection.
 
-For further troubleshooting, refer to the **VPN Connect Guide**.
+For further troubleshooting, refer to the VPN Connect Guide on the GoodAccess support page:
+[GoodAccess VPN Connect Guide](https://support.goodaccess.com/configuration-guides/linux)
 
----
 
-This guide ensures a smooth setup and reconnection process for GoodAccess VPN via CLI.
+
+## Step 6: Troubleshooting — Disconnecting Existing VPN Connections
+
+Some users have experienced that connecting to GoodAccess **disconnects an existing VPN or ssh connection**.
+This may happen because OpenVPN is configured to redirect all network traffic through the GoodAccess tunnel, which overrides your local or other VPN routes and may make the machine inaccessible in its local network.
+
+If this occurs, you can prevent the redirection by starting OpenVPN with:
+```sh
+openvpn --config <your_config>.ovpn --pull-filter ignore redirect-gateway
+```
+This tells the OpenVPN client **not** to override your default gateway, allowing your other VPN or ssh connection to remain active.
+
+> **Note:** This behavior was observed by Aitor and Ole after certain OpenVPN updates. The above command has been effective in resolving the issue.
