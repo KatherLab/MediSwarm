@@ -79,7 +79,7 @@ create_synthetic_data () {
         -u $(id -u):$(id -g) \
         -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
         -w /MediSwarm \
-        jefftud/odelia:$VERSION \
+        $DOCKER_IMAGE \
         /bin/bash -c "python3 application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
 }
 
