@@ -69,17 +69,20 @@ cleanup_dummy_trainings () {
 
 check_license_listings () {
     cd "$CWD"/"$PROJECT_DIR/prod_00/admin@test.odelia/startup"
-    if ! $( ./docker.sh --no_pull --list_licenses 2>&1 | grep -q MIT ); then
+    ADMIN_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
+    if ! $( echo $ADMIN_LICENSES | grep -q MIT ) || ! $( echo $ADMIN_LICENSES | grep -q "model weights" ); then
         echo "could not list licenses from admin startup kit"
         exit 1
     fi
     cd "$CWD"/"$PROJECT_DIR/prod_00/server.local/startup/"
-    if ! $( ./docker.sh --no_pull --list_licenses 2>&1 | grep -q MIT ); then
+    SERVER_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
+    if ! $( echo $SERVER_LICENSES | grep -q MIT ) || ! $( echo $SERVER_LICENSES | grep -q "model weights" ); then
         echo "could not list licenses from server startup kit"
         exit 1
     fi
     cd "$CWD"/"$PROJECT_DIR/prod_00/client_A/startup/"
-    if ! $( ./docker.sh --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --list_licenses 2>&1 | grep -q MIT ); then
+    CLIENT_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
+    if ! $( echo $CLIENT_LICENSES | grep -q MIT ) || ! $( echo $CLIENT_LICENSES | grep -q "model weights" ); then
         echo "could not list licenses from client startup kit"
         exit 1
     fi
