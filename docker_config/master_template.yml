@@ -719,8 +719,7 @@ docker_cln_sh: |
 
   elif [ ! -z "$LIST_LICENSES" ]; then
       docker run -it --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
-      /bin/bash -c "pip-licenses -s -u --order=license && distro2sbom -s --format json"
-      echo "TODO license for pre-trained weights"
+      /bin/bash -c "pip-licenses -s -u --order=license && distro2sbom -s --format json && grep 'DINOv2 code and model weights are released under' /torch_home/hub/facebookresearch_dinov2_main/README.md"
 
   elif [[ ! -z "$INTERACTIVE" ]]; then
       docker run --rm $TTY_OPT --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
@@ -785,8 +784,7 @@ docker_svr_sh: |
   elif [ ! -z "$LIST_LICENSES" ]; then
       docker run -it --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
-      /bin/bash -c "pip-licenses -s -u --order=license && distro2sbom -s --format json"
-      echo "TODO license for pre-trained weights"
+      /bin/bash -c "pip-licenses -s -u --order=license && distro2sbom -s --format json && grep 'DINOv2 code and model weights are released under' /torch_home/hub/facebookresearch_dinov2_main/README.md"
   elif [ ! -z "$INTERACTIVE" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
@@ -824,8 +822,7 @@ docker_adm_sh: |
 
   if [ ! -z "$LIST_LICENSES" ]; then
       docker run -it --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
-      /bin/bash -c "pip-licenses -s -u --order=license && distro2sbom -s --format json"
-      echo "TODO license for pre-trained weights"
+      /bin/bash -c "pip-licenses -s -u --order=license && distro2sbom -s --format json && grep 'DINOv2 code and model weights are released under' /torch_home/hub/facebookresearch_dinov2_main/README.md"
       exit 0
   fi
 
