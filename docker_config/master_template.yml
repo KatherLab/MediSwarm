@@ -654,12 +654,12 @@ docker_cln_sh: |
       : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
   fi
 
-  if [ -z "$MY_SCRATCH_DIR" ]; then
+  if [[ -z "$MY_SCRATCH_DIR" && -z "$LIST_LICENSES" ]]; then
       read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
       : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
   fi
 
-  if [ -z "$GPU2USE" ]; then
+  if [[ -z "$GPU2USE" && -z "$LIST_LICENSES" ]]; then
       read -p "Enter the GPU index to use or 'all' (default: device=0): " user_gpu
       : ${GPU2USE:="${user_gpu:-device=0}"}
   fi
@@ -667,8 +667,10 @@ docker_cln_sh: |
   # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-  mkdir -p "$MY_SCRATCH_DIR"
-  chmod -R 777 "$MY_SCRATCH_DIR"
+  if [ ! -z "$MY_SCRATCH_DIR" ]; then
+      mkdir -p "$MY_SCRATCH_DIR"
+      chmod -R 777 "$MY_SCRATCH_DIR"
+  fi
 
   # Networking & Cleanup
   NETARG="--net=host"
