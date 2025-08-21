@@ -1,0 +1,53 @@
+# ----------- Base Image with Python 3.11 + CUDA 12.1 -----------
+ARG PYTORCH_IMAGE=pytorch/pytorch:2.2.2-cuda12.1-cudnn8-devel
+FROM ${PYTORCH_IMAGE}
+
+# ----------- Metadata & Environment Variables -----------
+ENV DEBIAN_FRONTEND=noninteractive \
+    CUDA_HOME=/usr/local/cuda \
+    HF_HOME=/workspace/.hf_cache \
+    PATH="/workspace/STAMP/.venv/bin:$PATH"
+
+# ----------- System Dependencies -----------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3.11-dev python3-pip \
+    git curl wget unzip ca-certificates build-essential \
+    openslide-tools libgl1 libglx-mesa0 libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
+
+# ----------- Install uv -----------
+RUN pip install uv
+
+# ----------- Clone STAMP and Install via uv.lock -----------
+WORKDIR /workspace/
+RUN git clone https://github.com/KatherLab/STAMP.git
+COPY docker_config/pyproject.toml docker_config/uv.lock /workspace/STAMP/
+
+WORKDIR /workspace/STAMP
+RUN uv venv && uv pip install --upgrade pip && uv sync --all-extras
+
+# ----------- Expose STAMP CLI globally -----------
+RUN ln -s /workspace/STAMP/.venv/bin/stamp /usr/local/bin/stamp
+
+# ----------- HuggingFace CLI (Optional) -----------
+RUN huggingface-cli login --help || true
+
+# ----------- Install NVFlare -----------
+COPY ./docker_config/NVFlare /workspace/nvflare
+COPY ./docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
+RUN /usr/bin/python3.11 -m pip install /workspace/nvflare && rm -rf /workspace/nvflare
+
+# ----------- Install MediSwarm Controller -----------
+COPY ./controller /workspace/controller
+RUN /usr/bin/python3.11 -m pip install /workspace/controller && rm -rf /workspace/controller
+
+# ----------- Copy MediSwarm Source and Link -----------
+#COPY ./MediSwarm /MediSwarm originally
+COPY ./ /MediSwarm
+RUN mkdir -p /fl_admin/transfer && ln -s /MediSwarm /fl_admin/transfer/MediSwarm
+
+# ----------- Set Default Workdir -----------
+WORKDIR /workspace/
+
+#docker build -f docker_config/Dockerfile_stamp -t stamp-image .
+#docker run --rm -it stamp-image:latest bash
