@@ -144,7 +144,7 @@ RUN apt install -y \
     libgdbm-compat4=1.23-1 \
     libgdbm6=1.23-1 \
     libgirepository-1.0-1=1.72.0-1 \
-    libglib2.0-0=2.72.4-0ubuntu2.6\
+    libglib2.0-0=2.72.4-0ubuntu2.6 \
     libglib2.0-data=2.72.4-0ubuntu2.6 \
     libicu70=70.1-2 \
     libip4tc2=1.8.7-1ubuntu5.2 \
