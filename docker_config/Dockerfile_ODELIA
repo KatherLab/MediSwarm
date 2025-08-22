@@ -86,8 +86,8 @@ RUN apt install -y \
     libnpth0=1.6-3build2 \
     libpsl5=0.21.0-1.2build2 \
     libpython3-stdlib=3.10.6-1~22.04.1 \
-    libpython3.10-minimal=3.10.12-1~22.04.10 \
-    libpython3.10-stdlib=3.10.12-1~22.04.10 \
+    libpython3.10-minimal=3.10.12-1~22.04.11 \
+    libpython3.10-stdlib=3.10.12-1~22.04.11 \
     libreadline8=8.1.2-1 \
     librtmp1=2.4+20151223.gitfa8646d.1-2build4 \
     libsasl2-2=2.1.27+dfsg2-3ubuntu1.2 \
@@ -100,8 +100,8 @@ RUN apt install -y \
     pinentry-curses=1.1.1-1build2 \
     publicsuffix=20211207.1025-1 \
     python3-minimal=3.10.6-1~22.04.1 \
-    python3.10-minimal=3.10.12-1~22.04.10 \
-    python3.10=3.10.12-1~22.04.10 \
+    python3.10-minimal=3.10.12-1~22.04.11 \
+    python3.10=3.10.12-1~22.04.11 \
     python3=3.10.6-1~22.04.1 \
     readline-common=8.1.2-1 \
     unzip=6.0-26ubuntu3.2 \
