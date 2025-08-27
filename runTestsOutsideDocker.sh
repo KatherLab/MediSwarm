@@ -2,57 +2,7 @@
 
 set -e
 
-if ! grep -q "127.0.0.1 server.local" /etc/hosts; then
-    echo "/etc/hosts needs to contain the following line, please add it."
-    echo "127.0.0.1 server.local localhost"
-    exit 1
-fi
 
-if [ -z "$GPU_FOR_TESTING" ]; then
-    export GPU_FOR_TESTING="all"
-fi
-
-VERSION=$(./getVersionNumber.sh)
-DOCKER_IMAGE=jefftud/odelia:$VERSION
-PROJECT_DIR="workspace/odelia_${VERSION}_dummy_project_for_testing"
-SYNTHETIC_DATA_DIR=$(mktemp -d)
-SCRATCH_DIR=$(mktemp -d)
-CWD=$(pwd)
-PROJECT_FILE="tests/provision/dummy_project_for_testing.yml"
-
-
-create_second_startup_kit () {
-    if [ ! -d "$PROJECT_DIR"/prod_00 ]; then
-        echo '"$PROJECT_DIR"/prod_00 does not exist, please generate the startup kit first'
-        exit 1
-    fi
-    if [ -d "$PROJECT_DIR"/prod_01 ]; then
-        echo '"$PROJECT_DIR"/prod_01 exists, please remove it'
-        exit 1
-    fi
-    ./_buildStartupKits.sh $PROJECT_FILE $VERSION
-
-    for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
-    do
-        if [ -f "$PROJECT_DIR/prod_01/client_A/startup/$FILE" ] ; then
-            echo "$FILE found"
-        else
-            echo "$FILE missing"
-            exit 1
-        fi
-    done
-
-    ZIP_CONTENT=$(unzip -tv "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip")
-    for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
-    do
-        if echo "$ZIP_CONTENT" | grep -q "$FILE" ; then
-            echo "$FILE found in zip"
-        else
-            echo "$FILE missing in zip"
-            exit 1
-        fi
-    done
-}
 
 create_synthetic_data () {
     docker run --rm \
