@@ -10,9 +10,8 @@ if [ -z "$GPU_FOR_TESTING" ]; then
     export GPU_FOR_TESTING="all"
 fi
 
-
-run_tests () {
-    echo "[Run] Unit tests inside Docker..."
+_run_test_in_docker() {
+    echo "[Run] " $1 " inside Docker ..."
     docker run --rm \
            --shm-size=16g \
            --ipc=host \
@@ -20,8 +19,19 @@ run_tests () {
            --ulimit stack=67108864 \
            -v /tmp:/scratch \
            --gpus="$GPU_FOR_TESTING" \
-           --entrypoint=/MediSwarm/_runTestsInsideDocker.sh \
+           --entrypoint=/MediSwarm/$1 \
            "$DOCKER_IMAGE"
+}
+
+
+run_tests () {
+    _run_test_in_docker tests/integration_tests/_run_controller_unit_tests_with_coverage.sh
+    _run_test_in_docker tests/integration_tests/_run_minimal_example_standalone.sh
+    _run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh
+    _run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh
+
+    # uncomment the following line to also run NVFlare's unit tests (takes about 2 minutes and will install python packages in the container)
+    # run_test_in_docker tests/integration_tests/_run_nvflare_unit_tests.sh
 }
 
 prepare_dummy_trainings () {
