@@ -100,6 +100,17 @@ create_startup_kits_and_check_contained_files () {
     done
 }
 
+create_synthetic_data () {
+    echo "[Prepare] Synthetic data ..."
+    docker run --rm \
+        -u $(id -u):$(id -g) \
+        -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
+        -w /MediSwarm \
+        $DOCKER_IMAGE \
+        /bin/bash -c "python3 application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
+}
+
+
 run_dummy_training () {
     echo "[Run] Dummy training session..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
@@ -108,16 +119,7 @@ run_dummy_training () {
 }
 
 run_3dcnn_tests () {
-    echo "[Run] Synthetic data + 3D CNN preflight check..."
-    SYNTHETIC_DATA_DIR=$(mktemp -d)
-
-    # create synthetic data
-    docker run --rm \
-        -u $(id -u):$(id -g) \
-        -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
-        -w /MediSwarm \
-        jefftud/odelia:$VERSION \
-        /bin/bash -c "python3 application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
+    echo "[Run] 3D CNN preflight check..."
 
     # run tests using synthetic data
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
@@ -141,6 +143,7 @@ case "$1" in
     check_files_on_github) check_files_on_github ;;
     run_tests) run_tests ;;
     create_startup_kits) create_startup_kits_and_check_contained_files ;;
+    create_synthetic_data) create_synthetic_data ;;
     run_dummy_training) run_dummy_training ;;
     run_3dcnn_tests) run_3dcnn_tests ;;
     cleanup) cleanup_dummy_trainings ;;
@@ -148,6 +151,7 @@ case "$1" in
         check_files_on_github
         run_tests
         create_startup_kits_and_check_contained_files
+        create_synthetic_data
         run_dummy_training
         run_3dcnn_tests
         cleanup_dummy_trainings
