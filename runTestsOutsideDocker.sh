@@ -20,26 +20,6 @@ SCRATCH_DIR=$(mktemp -d)
 CWD=$(pwd)
 PROJECT_FILE="tests/provision/dummy_project_for_testing.yml"
 
-check_files_on_github () {
-    CONTENT=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/LICENSE)
-    if echo "$CONTENT" | grep -q "MIT License" ; then
-        echo "Downloaded and verified license from github"
-    else
-        echo "Could not download and verify license"
-        exit 1
-    fi
-
-    CONTENT=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/README.md)
-    for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
-    do
-        if echo "$CONTENT" | grep -q "$ROLE" ; then
-            echo "Instructions for $ROLE found"
-        else
-            echo "Instructions for role $ROLE missing"
-            exit 1
-        fi
-    done
-}
 
 create_second_startup_kit () {
     if [ ! -d "$PROJECT_DIR"/prod_00 ]; then
@@ -190,8 +170,6 @@ run_dummy_training_in_swarm () {
 }
 
 run_tests () {
-    check_files_on_github
-
     create_second_startup_kit
 
     create_synthetic_data

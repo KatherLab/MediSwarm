@@ -10,8 +10,31 @@ if [ -z "$GPU_FOR_TESTING" ]; then
     export GPU_FOR_TESTING="all"
 fi
 
+check_files_on_github () {
+    echo "[Run] Test whether expected content is available on github"
+
+    CONTENT=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/LICENSE)
+    if echo "$CONTENT" | grep -q "MIT License" ; then
+        echo "Downloaded and verified license from github"
+    else
+        echo "Could not download and verify license"
+        exit 1
+    fi
+
+    CONTENT=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/README.md)
+    for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
+    do
+        if echo "$CONTENT" | grep -q "$ROLE" ; then
+            echo "Instructions for $ROLE found"
+        else
+            echo "Instructions for role $ROLE missing"
+            exit 1
+        fi
+    done
+}
+
 _run_test_in_docker() {
-    echo "[Run] " $1 " inside Docker ..."
+    echo "[Run]" $1 "inside Docker ..."
     docker run --rm \
            --shm-size=16g \
            --ipc=host \
@@ -22,7 +45,6 @@ _run_test_in_docker() {
            --entrypoint=/MediSwarm/$1 \
            "$DOCKER_IMAGE"
 }
-
 
 run_tests () {
     _run_test_in_docker tests/integration_tests/_run_controller_unit_tests_with_coverage.sh
@@ -78,12 +100,14 @@ cleanup_dummy_trainings () {
 }
 
 case "$1" in
+    check_files_on_github) check_files_on_github ;;
     run_tests) run_tests ;;
     prepare_dummy_trainings) prepare_dummy_trainings ;;
     run_dummy_training) run_dummy_training ;;
     run_3dcnn_tests) run_3dcnn_tests ;;
     cleanup) cleanup_dummy_trainings ;;
     all | "")
+        check_files_on_github
         run_tests
         prepare_dummy_trainings
         run_dummy_training
