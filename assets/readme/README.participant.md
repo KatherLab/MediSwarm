@@ -160,8 +160,9 @@ For any issues, check if the commands above point to problems and contact your S
 
 ## Troubleshooting
 
+* Folders where files are located need to have the correct name
 * Image files need to have the correct file name including capitalization
-* The directories listed as identifiers in the tables `annotation.csv` and `split.csv` should all be present, only those directories should be present
+* The directories listed as identifiers in the tables `annotation.csv` and `split.csv` should all be present and named correctly (including capitalization), only those directories should be present
 * The tables should not have additional or duplicate columns, entries need to have the correct captitalization
 * Image and table folders and files need to be present in the folders specified via `--data_dir`. Symlinks to other locations do not work, they are not available in the Docker mount.
 * The correct startup kit needs to be used. `SSLCertVerificationError` or `authentication failed` may indicate an incorrect startup kit incompatible with the current experiment.
