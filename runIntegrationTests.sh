@@ -50,7 +50,7 @@ _run_test_in_docker() {
            "$DOCKER_IMAGE"
 }
 
-run_tests () {
+run_local_tests () {
     _run_test_in_docker tests/integration_tests/_run_controller_unit_tests_with_coverage.sh
     _run_test_in_docker tests/integration_tests/_run_minimal_example_standalone.sh
     _run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh
@@ -141,7 +141,7 @@ cleanup_dummy_trainings () {
 
 case "$1" in
     check_files_on_github) check_files_on_github ;;
-    run_tests) run_tests ;;
+    run_local_tests) run_local_tests ;;
     create_startup_kits) create_startup_kits_and_check_contained_files ;;
     create_synthetic_data) create_synthetic_data ;;
     run_dummy_training) run_dummy_training ;;
@@ -149,7 +149,7 @@ case "$1" in
     cleanup) cleanup_dummy_trainings ;;
     all | "")
         check_files_on_github
-        run_tests
+        run_local_tests
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_dummy_training
