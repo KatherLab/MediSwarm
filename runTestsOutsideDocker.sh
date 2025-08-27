@@ -3,13 +3,6 @@
 set -e
 
 
-
-
-cleanup_temporary_data () {
-    rm -rf "$SYNTHETIC_DATA_DIR"
-    rm -rf "$SCRATCH_DIR"
-}
-
 start_server_and_clients () {
     cd "$PROJECT_DIR"/prod_00
     cd server.local/startup
