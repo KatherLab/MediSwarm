@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+run_nvflare_unit_tests () {
+    cd /MediSwarm/docker_config/NVFlare
+    ./runtest.sh -c -r
+    coverage report -m
+    cd ..
+}
+
+run_nvflare_unit_tests
