@@ -5,10 +5,14 @@ set -e
 VERSION=$(./getVersionNumber.sh)
 DOCKER_IMAGE=jefftud/odelia:$VERSION
 PROJECT_DIR="workspace/odelia_${VERSION}_dummy_project_for_testing"
+SYNTHETIC_DATA_DIR=$(mktemp -d)
+SCRATCH_DIR=$(mktemp -d)
 CWD=$(pwd)
+PROJECT_FILE="tests/provision/dummy_project_for_testing.yml"
 if [ -z "$GPU_FOR_TESTING" ]; then
     export GPU_FOR_TESTING="all"
 fi
+
 
 check_files_on_github () {
     echo "[Run] Test whether expected content is available on github"
@@ -56,10 +60,44 @@ run_tests () {
     # run_test_in_docker tests/integration_tests/_run_nvflare_unit_tests.sh
 }
 
-prepare_dummy_trainings () {
-    echo "[Prepare] Startup kits for dummy project..."
-    rm -rf "$PROJECT_DIR"
-    ./_buildStartupKits.sh tests/provision/dummy_project_for_testing.yml "$VERSION"
+create_startup_kits_and_check_contained_files () {
+    echo "[Prepare] Startup kits for dummy project ..."
+
+    if ! grep -q "127.0.0.1 server.local" /etc/hosts; then
+        echo "/etc/hosts needs to contain the following line, please add it."
+        echo "127.0.0.1 server.local localhost"
+        exit 1
+    fi
+
+    if [ ! -d "$PROJECT_DIR"/prod_00 ]; then
+        ./_buildStartupKits.sh $PROJECT_FILE $VERSION
+    fi
+    if [ -d "$PROJECT_DIR"/prod_01 ]; then
+        echo '"$PROJECT_DIR"/prod_01 exists, please remove/rename it'
+        exit 1
+    fi
+    ./_buildStartupKits.sh $PROJECT_FILE $VERSION
+
+    for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
+    do
+        if [ -f "$PROJECT_DIR/prod_01/client_A/startup/$FILE" ] ; then
+            echo "$FILE found"
+        else
+            echo "$FILE missing"
+            exit 1
+        fi
+    done
+
+    ZIP_CONTENT=$(unzip -tv "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip")
+    for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
+    do
+        if echo "$ZIP_CONTENT" | grep -q "$FILE" ; then
+            echo "$FILE found in zip"
+        else
+            echo "$FILE missing in zip"
+            exit 1
+        fi
+    done
 }
 
 run_dummy_training () {
@@ -102,14 +140,14 @@ cleanup_dummy_trainings () {
 case "$1" in
     check_files_on_github) check_files_on_github ;;
     run_tests) run_tests ;;
-    prepare_dummy_trainings) prepare_dummy_trainings ;;
+    create_startup_kits) create_startup_kits_and_check_contained_files ;;
     run_dummy_training) run_dummy_training ;;
     run_3dcnn_tests) run_3dcnn_tests ;;
     cleanup) cleanup_dummy_trainings ;;
     all | "")
         check_files_on_github
         run_tests
-        prepare_dummy_trainings
+        create_startup_kits_and_check_contained_files
         run_dummy_training
         run_3dcnn_tests
         cleanup_dummy_trainings
