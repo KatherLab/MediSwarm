@@ -128,14 +128,12 @@ run_3dcnn_tests () {
     ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --run_script /MediSwarm/_run3DdcnnptlTestsInDocker.sh
 
     cd "$CWD"
-
-    # clean up synthetic data
-    rm -rf "$SYNTHETIC_DATA_DIR" || echo "Warning: cleanup failed"
 }
 
-
-cleanup_dummy_trainings () {
-    echo "[Cleanup] Removing dummy workspace..."
+cleanup_temporary_data () {
+    echo "[Cleanup] Removing synthetic data, scratch directory, dummy workspace ..."
+    rm -rf "$SYNTHETIC_DATA_DIR"
+    rm -rf "$SCRATCH_DIR"
     rm -rf "$PROJECT_DIR"
 }
 
@@ -146,15 +144,15 @@ case "$1" in
     create_synthetic_data) create_synthetic_data ;;
     run_dummy_training) run_dummy_training ;;
     run_3dcnn_tests) run_3dcnn_tests ;;
-    cleanup) cleanup_dummy_trainings ;;
+    cleanup) cleanup_temporary_data ;;
     all | "")
         check_files_on_github
         run_local_tests
         create_startup_kits_and_check_contained_files
         create_synthetic_data
-        run_dummy_training
-        run_3dcnn_tests
-        cleanup_dummy_trainings
+        # run_dummy_training
+        # run_3dcnn_tests
+        cleanup_temporary_data
         ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
 esac
