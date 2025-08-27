@@ -4,14 +4,6 @@ set -e
 
 
 
-create_synthetic_data () {
-    docker run --rm \
-        -u $(id -u):$(id -g) \
-        -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
-        -w /MediSwarm \
-        $DOCKER_IMAGE \
-        /bin/bash -c "python3 application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
-}
 
 cleanup_temporary_data () {
     rm -rf "$SYNTHETIC_DATA_DIR"
@@ -120,10 +112,6 @@ run_dummy_training_in_swarm () {
 }
 
 run_tests () {
-    create_second_startup_kit
-
-    create_synthetic_data
-
     run_docker_gpu_preflight_check
     run_data_access_preflight_check
 
