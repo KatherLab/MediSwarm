@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 run_minimal_example_simulation_mode () {
     # run simulation mode for minimal example
     cd /MediSwarm
