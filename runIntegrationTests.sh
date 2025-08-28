@@ -150,7 +150,11 @@ run_data_access_preflight_check () {
     cd "$CWD"
 }
 
-# TODO     ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --run_script /MediSwarm/_run3DdcnnptlTestsInDocker.sh
+run_simulation_mode_in_docker () {
+    # requires having built a startup kit and synthetic dataset
+    echo "[Run] Simulation mode of 3DCNN training in Docker"
+    _run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh
+}
 
 cleanup_temporary_data () {
     echo "[Cleanup] Removing synthetic data, scratch directory, dummy workspace ..."
@@ -190,6 +194,13 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_data_access_preflight_check
+        cleanup_temporary_data
+        ;;
+
+    run_simulation_mode_in_docker)
+        create_startup_kits_and_check_contained_files
+        create_synthetic_data
+        run_simulation_mode_in_docker
         cleanup_temporary_data
         ;;
 
