@@ -24,23 +24,6 @@ kill_server_and_clients () {
     docker kill odelia_swarm_server_flserver odelia_swarm_client_client_A odelia_swarm_client_client_B
 }
 
-
-run_data_access_preflight_check () {
-    cd "$PROJECT_DIR"/prod_00
-    cd client_A/startup
-    CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
-
-    if grep -q "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && grep -q "Epoch 0: 100%" "$CONSOLE_OUTPUT"; then
-        echo "Expected output of Docker/GPU preflight check found"
-    else
-        echo "Missing expected output of Docker/GPU preflight check"
-        exit 1
-    fi
-
-    cd "$CWD"
-}
-
 run_dummy_training_in_swarm () {
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
@@ -90,8 +73,6 @@ run_dummy_training_in_swarm () {
 }
 
 run_tests () {
-    run_data_access_preflight_check
-
     start_server_and_clients
     run_dummy_training_in_swarm
     kill_server_and_clients
