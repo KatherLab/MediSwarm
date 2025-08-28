@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 run_minimal_example_standalone () {
     # run standalone version of minimal example
     cd /MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/
