@@ -128,17 +128,25 @@ run_docker_gpu_preflight_check () {
     cd "$CWD"
 }
 
-run_3dcnn_tests () {
-    echo "[Run] 3D CNN preflight check..."
+run_data_access_preflight_check () {
+    # requires having built a startup kit and synthetic dataset
+    echo "[Run] Data access preflight check..."
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    # run tests using synthetic data
-    cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    # preflight check (standalone) and swarm simulation mode
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --preflight_check
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --run_script /MediSwarm/_run3DdcnnptlTestsInDocker.sh
+    if grep -q "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && grep -q "Epoch 0: 100%" "$CONSOLE_OUTPUT"; then
+        echo "Expected output of Docker/GPU preflight check found"
+    else
+        echo "Missing expected output of Docker/GPU preflight check"
+        exit 1
+    fi
 
     cd "$CWD"
 }
+
+# TODO     ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --run_script /MediSwarm/_run3DdcnnptlTestsInDocker.sh
 
 cleanup_temporary_data () {
     echo "[Cleanup] Removing synthetic data, scratch directory, dummy workspace ..."
@@ -161,7 +169,7 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_docker_gpu_preflight_check
-        # run_3dcnn_tests
+        run_data_access_preflight_check
         cleanup_temporary_data
         ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
