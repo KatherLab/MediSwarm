@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 run_minimal_example_proof_of_concept_mode () {
     # run proof-of-concept mode for minimal example
     cd /MediSwarm

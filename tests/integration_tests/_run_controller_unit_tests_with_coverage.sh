@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 run_controller_unit_tests_with_coverage () {
     # run unit tests of ODELIA swarm learning and report coverage
     export MPLCONFIGDIR=/tmp
