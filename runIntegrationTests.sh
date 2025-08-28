@@ -111,10 +111,20 @@ create_synthetic_data () {
 }
 
 
-run_dummy_training () {
-    echo "[Run] Dummy training session..."
+run_docker_gpu_preflight_check () {
+    # requires having built a startup kit
+    echo "[Run] Docker/GPU preflight check (local dummy training via startup kit) ..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    ./docker.sh --data_dir /tmp/ --scratch_dir /tmp/scratch --GPU "$GPU_FOR_TESTING" --no_pull --dummy_training
+    CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
+    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT"
+
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT"; then
+        echo "Expected output of Docker/GPU preflight check found"
+    else
+        echo "Missing expected output of Docker/GPU preflight check"
+        exit 1
+    fi
+
     cd "$CWD"
 }
 
@@ -142,7 +152,7 @@ case "$1" in
     run_local_tests) run_local_tests ;;
     create_startup_kits) create_startup_kits_and_check_contained_files ;;
     create_synthetic_data) create_synthetic_data ;;
-    run_dummy_training) run_dummy_training ;;
+    run_docker_gpu_preflight_check) run_docker_gpu_preflight_check ;;
     run_3dcnn_tests) run_3dcnn_tests ;;
     cleanup) cleanup_temporary_data ;;
     all | "")
@@ -150,9 +160,12 @@ case "$1" in
         run_local_tests
         create_startup_kits_and_check_contained_files
         create_synthetic_data
-        # run_dummy_training
+        run_docker_gpu_preflight_check
         # run_3dcnn_tests
         cleanup_temporary_data
         ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
 esac
+
+# TODO adapt ./assets/readme/README.developer.md
+# TODO adapt .github/workflows/pr-test.yaml

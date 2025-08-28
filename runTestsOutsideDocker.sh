@@ -24,21 +24,6 @@ kill_server_and_clients () {
     docker kill odelia_swarm_server_flserver odelia_swarm_client_client_A odelia_swarm_client_client_B
 }
 
-run_docker_gpu_preflight_check () {
-    cd "$PROJECT_DIR"/prod_00
-    cd client_A/startup
-    CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
-    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT"
-
-    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT"; then
-        echo "Expected output of Docker/GPU preflight check found"
-    else
-        echo "Missing expected output of Docker/GPU preflight check"
-        exit 1
-    fi
-
-    cd "$CWD"
-}
 
 run_data_access_preflight_check () {
     cd "$PROJECT_DIR"/prod_00
@@ -105,7 +90,6 @@ run_dummy_training_in_swarm () {
 }
 
 run_tests () {
-    run_docker_gpu_preflight_check
     run_data_access_preflight_check
 
     start_server_and_clients
