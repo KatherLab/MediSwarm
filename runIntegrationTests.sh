@@ -51,9 +51,13 @@ _run_test_in_docker() {
 }
 
 run_local_tests () {
+    echo "[Run] Controller unit tests"
     _run_test_in_docker tests/integration_tests/_run_controller_unit_tests_with_coverage.sh
+    echo "[Run] Minimal example, standalone"
     _run_test_in_docker tests/integration_tests/_run_minimal_example_standalone.sh
+    echo "[Run] Minimal example, simulation mode"
     _run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh
+    echo "[Run] Minimal example, proof-of-concept mode"
     _run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh
 
     # uncomment the following line to also run NVFlare's unit tests (takes about 2 minutes and will install python packages in the container)
@@ -156,13 +160,39 @@ cleanup_temporary_data () {
 }
 
 case "$1" in
-    check_files_on_github) check_files_on_github ;;
-    run_local_tests) run_local_tests ;;
-    create_startup_kits) create_startup_kits_and_check_contained_files ;;
-    create_synthetic_data) create_synthetic_data ;;
-    run_docker_gpu_preflight_check) run_docker_gpu_preflight_check ;;
-    run_3dcnn_tests) run_3dcnn_tests ;;
-    cleanup) cleanup_temporary_data ;;
+    check_files_on_github)
+        check_files_on_github
+        cleanup_temporary_data
+        ;;
+
+    run_local_tests)
+        run_local_tests
+        cleanup_temporary_data
+        ;;
+
+    create_startup_kits)
+        create_startup_kits_and_check_contained_files
+        cleanup_temporary_data
+        ;;
+
+    create_synthetic_data)
+        create_synthetic_data
+        cleanup_temporary_data
+        ;;
+
+    run_docker_gpu_preflight_check)
+        create_startup_kits_and_check_contained_files
+        run_docker_gpu_preflight_check
+        cleanup_temporary_data
+        ;;
+
+    run_data_access_preflight_check)
+        create_startup_kits_and_check_contained_files
+        create_synthetic_data
+        run_data_access_preflight_check
+        cleanup_temporary_data
+        ;;
+
     all | "")
         check_files_on_github
         run_local_tests
