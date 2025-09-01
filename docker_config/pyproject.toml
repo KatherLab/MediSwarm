@@ -1,0 +1,142 @@
+[project]
+name = "stamp"
+version = "2.2.0"
+authors = [
+    { name = "Omar El Nahhas", email = "omar.el_nahhas@tu-dresden.de" },
+    { name = "Marko van Treeck", email = "markovantreeck@gmail.com" },
+    { name = "Georg Wölflein", email = "georgw7777@gmail.com" },
+    { name = "Tim Lenz", email = "tim.lenz@tu-dresden.de" },
+    { name = "Laura Žigutytė", email = "laura.zigutyte@tu-dresden.de" },
+    { name = "Cornelius Kummer", email = "cornelius.kummer@tu-dresden.de" },
+    { name = "Juan Pablo Ricapito", email = "juan_pablo.ricapito@tu-dresden.de" }
+]
+description = "A protocol for Solid Tumor Associative Modeling in Pathology"
+readme = "README.md"
+requires-python = ">=3.11"
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "beartype>=0.19.0",
+    "einops>=0.8.0",
+    "h5py>=3.12.1",
+    "jaxtyping>=0.2.36",
+    "lightning>=2.4.0",
+    "matplotlib>=3.9.2",
+    "numpy>=2.2.2",
+    "opencv-python>=4.10.0.84",
+    "openpyxl>=3.1.5",
+    "openslide-bin>=4.0.0.6",
+    "openslide-python>=1.4.1",
+    "packaging>=24.2",
+    "pandas>=2.2.3",
+    "pillow>=11.1.0",
+    "pydantic>=2.10.3",
+    "pyyaml>=6.0.2",
+    "scikit-learn>=1.5.2",
+    "scipy>=1.15.1",
+    "torch>=2.5.1",
+    "torchmetrics>=1.6.0",
+    "torchvision>=0.20.1",
+    "tqdm>=4.66.6",
+    "timm>=0.9.11",
+]
+
+[project.optional-dependencies]
+conch = [
+    "huggingface-hub>=0.26.2",
+    "conch @ git+https://github.com/Mahmoodlab/CONCH.git@02d6ac59cc20874bff0f581de258c2b257f69a84",
+]
+conch1_5 = [
+    "transformers>=4.45.2",
+    "einops-exts==0.0.4",
+]
+ctranspath = [
+    "gdown>=5.2.0",
+]
+chief_ctranspath = [
+    "gdown>=5.2.0",
+    "torch>=2.0.0"
+]
+gigapath = [
+    "gigapath @ git+https://github.com/EzicStar/prov-gigapath.git@d4cf55321df37aaf867e24a31c61bcf490a296eb"
+]
+uni = [
+    "huggingface-hub>=0.26.2",
+    "uni @ git+https://github.com/mahmoodlab/UNI.git",
+]
+virchow2 = [
+    "huggingface-hub>=0.27.1",
+    "torch>=2.0.0",
+]
+cobra = [
+    "jinja2>=3.1.4",
+    "cobra @ git+https://github.com/KatherLab/COBRA.git@f1a576e1133330ffc2d1df6ee110701921c7b7c9",
+]
+prism = [
+    "sacremoses==0.1.1",
+    "environs==11.0.0",
+]
+madeleine = [
+    "madeleine @ git+https://github.com/mahmoodlab/MADELEINE.git@de7c85acc2bdad352e6df8eee5694f8b6f288012"
+]
+musk = [
+    "musk @ git+https://github.com/lilab-stanford/MUSK.git@e1699c27687f44bbf6d4adfcbb2abe89795d347f",
+]
+plip = [
+    "transformers>=4.45.2"
+]
+
+# Blanket target
+all = ["stamp[conch,ctranspath,uni,virchow2,chief_ctranspath,conch1_5,prism,madeleine,musk,plip]"]
+
+[project.scripts]
+"stamp" = "stamp.__main__:main"
+
+[project.urls]
+"Homepage" = "https://github.com/KatherLab/STAMP"
+"Bug Tracker" = "https://github.com/KatherLab/STAMP/issues"
+
+[dependency-groups]
+dev = [
+    "huggingface-hub>=0.27.1",
+    "ipykernel>=6.29.5",
+    "pyright>=1.1.389,!=1.1.391",
+    "pytest>=8.3.4",
+    "ruff>=0.8.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# To allow referencing git repos in dependencies
+allow-direct-references = true
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.ruff]
+lint.ignore = ["F722"] # https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
+
+[[tool.uv.dependency-metadata]]
+name = "uni"
+version = "v0.1.0"
+requires-dist = [
+    "torch>=2.0.1",
+    "torchvision",
+    "timm>=0.9.8",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "tqdm",
+    "transformers",
+    "xformers; sys_platform != 'darwin'"  # xformers is not supported on macOS
+]
