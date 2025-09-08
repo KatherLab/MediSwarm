@@ -37,6 +37,7 @@ check_files_on_github () {
     done
 }
 
+
 _run_test_in_docker() {
     echo "[Run]" $1 "inside Docker ..."
     docker run --rm \
@@ -49,6 +50,7 @@ _run_test_in_docker() {
            --entrypoint=/MediSwarm/$1 \
            "$DOCKER_IMAGE"
 }
+
 
 run_local_tests () {
     echo "[Run] Controller unit tests"
@@ -64,8 +66,9 @@ run_local_tests () {
     # run_test_in_docker tests/integration_tests/_run_nvflare_unit_tests.sh
 }
 
+
 create_startup_kits_and_check_contained_files () {
-    echo "[Prepare] Startup kits for dummy project ..."
+    echo "[Prepare] Startup kits for test project ..."
 
     if ! grep -q "127.0.0.1 server.local" /etc/hosts; then
         echo "/etc/hosts needs to contain the following line, please add it."
@@ -104,6 +107,7 @@ create_startup_kits_and_check_contained_files () {
     done
 }
 
+
 create_synthetic_data () {
     echo "[Prepare] Synthetic data ..."
     docker run --rm \
@@ -132,6 +136,7 @@ run_docker_gpu_preflight_check () {
     cd "$CWD"
 }
 
+
 run_data_access_preflight_check () {
     # requires having built a startup kit and synthetic dataset
     echo "[Run] Data access preflight check..."
@@ -150,11 +155,85 @@ run_data_access_preflight_check () {
     cd "$CWD"
 }
 
+
 run_simulation_mode_in_docker () {
     # requires having built a startup kit and synthetic dataset
     echo "[Run] Simulation mode of 3DCNN training in Docker"
     _run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh
 }
+
+
+start_server_and_clients () {
+    cd "$PROJECT_DIR"/prod_00
+    cd server.local/startup
+    ./docker.sh --no_pull --start_server
+    cd ../..
+    sleep 10
+
+    cd client_A/startup
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --start_client
+    cd ../..
+    cd client_B/startup
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU device=$GPU_FOR_TESTING --start_client
+    sleep 5
+
+    cd "$CWD"
+}
+
+
+run_dummy_training_in_swarm () {
+    cd "$PROJECT_DIR"/prod_00
+    cd admin@test.odelia/startup
+    "$CWD"/_testsOutsideDocker_submitDummyTraining.exp
+    docker kill fladmin
+    sleep 60
+    cd "$CWD"
+
+    cd "$PROJECT_DIR"/prod_00/server.local/startup
+    CONSOLE_OUTPUT=nohup.out
+    for EXPECTED_OUTPUT in 'Total clients: 2' 'updated status of client client_A on round 4' 'updated status of client client_B on round 4' 'all_done=True' 'Server runner finished.';
+    do
+        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            echo "Expected output $EXPECTED_OUTPUT found"
+        else
+            echo "Expected output $EXPECTED_OUTPUT missing"
+            exit 1
+        fi
+    done
+    cd "$CWD"
+
+    cd "$PROJECT_DIR"/prod_00/client_A/startup
+    CONSOLE_OUTPUT=nohup.out
+    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' 'Epoch 9: 100%' ;
+    do
+        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            echo "Expected output $EXPECTED_OUTPUT found"
+        else
+            echo "Expected output $EXPECTED_OUTPUT missing"
+            exit 1
+        fi
+    done
+    cd "$CWD"
+
+    cd "$PROJECT_DIR"/prod_00/client_A/
+    FILES_PRESENT=$(find . -type f -name "*.*")
+    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
+    do
+        if echo "$FILES_PRESENT" | grep -q "$EXPECTED_FILE" ; then
+            echo "Expected file $EXPECTED_FILE found"
+        else
+            echo "Expected file $EXPECTED_FILE missing"
+            exit 1
+        fi
+    done
+    cd "$CWD"
+}
+
+
+kill_server_and_clients () {
+    docker kill odelia_swarm_server_flserver odelia_swarm_client_client_A odelia_swarm_client_client_B
+}
+
 
 cleanup_temporary_data () {
     echo "[Cleanup] Removing synthetic data, scratch directory, dummy workspace ..."
@@ -162,6 +241,7 @@ cleanup_temporary_data () {
     rm -rf "$SCRATCH_DIR"
     rm -rf "$PROJECT_DIR"
 }
+
 
 case "$1" in
     check_files_on_github)
@@ -201,6 +281,15 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_simulation_mode_in_docker
+        cleanup_temporary_data
+        ;;
+
+    run_dummy_training_in_swarm)
+        create_startup_kits_and_check_contained_files
+        create_synthetic_data
+        start_server_and_clients
+        run_dummy_training_in_swarm
+        kill_server_and_clients
         cleanup_temporary_data
         ;;
 
