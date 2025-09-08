@@ -295,6 +295,9 @@ case "$1" in
         create_synthetic_data
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
+        start_server_and_clients
+        run_dummy_training_in_swarm
+        kill_server_and_clients
         cleanup_temporary_data
         ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
