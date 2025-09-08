@@ -63,6 +63,7 @@ run_local_tests () {
     _run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh
 
     # uncomment the following line to also run NVFlare's unit tests (takes about 2 minutes and will install python packages in the container)
+    # echo "[Run] NVFlare unit tests"
     # run_test_in_docker tests/integration_tests/_run_nvflare_unit_tests.sh
 }
 
@@ -164,6 +165,8 @@ run_simulation_mode_in_docker () {
 
 
 start_server_and_clients () {
+    echo "[Run] Start server and client Docker containers ..."
+
     cd "$PROJECT_DIR"/prod_00
     cd server.local/startup
     ./docker.sh --no_pull --start_server
@@ -182,6 +185,8 @@ start_server_and_clients () {
 
 
 run_dummy_training_in_swarm () {
+    echo "[Run] Dummy training in swarm ..."
+
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
     "$CWD"/_testsOutsideDocker_submitDummyTraining.exp
@@ -231,6 +236,7 @@ run_dummy_training_in_swarm () {
 
 
 kill_server_and_clients () {
+    echo "[Cleanup] Kill server and client Docker containers ..."
     docker kill odelia_swarm_server_flserver odelia_swarm_client_client_A odelia_swarm_client_client_B
 }
 
