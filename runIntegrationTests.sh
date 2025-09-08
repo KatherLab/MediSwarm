@@ -259,11 +259,6 @@ case "$1" in
         cleanup_temporary_data
         ;;
 
-    create_synthetic_data)
-        create_synthetic_data
-        cleanup_temporary_data
-        ;;
-
     run_docker_gpu_preflight_check)
         create_startup_kits_and_check_contained_files
         run_docker_gpu_preflight_check
