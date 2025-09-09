@@ -4,7 +4,7 @@ description: >
   Test setup.
 
 participants:
-  - name: server.local
+  - name: localhost
     type: server
     org: Test_Org
     fed_learn_port: 8002
@@ -34,7 +34,7 @@ builders:
         path: nvflare.ha.dummy_overseer_agent.DummyOverseerAgent
         overseer_exists: false
         args:
-          sp_end_point: server.local:8002:8003
+          sp_end_point: localhost:8002:8003
 
   - path: nvflare.lighter.impl.cert.CertBuilder
   - path: nvflare.lighter.impl.signature.SignatureBuilder
