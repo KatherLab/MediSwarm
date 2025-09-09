@@ -45,6 +45,8 @@ _run_test_in_docker() {
            --ipc=host \
            --ulimit memlock=-1 \
            --ulimit stack=67108864 \
+           -u $(id -u):$(id -g) \
+           -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
            -v "$SYNTHETIC_DATA_DIR":/data \
            -v "$SCRATCH_DIR":/scratch \
            --gpus="$GPU_FOR_TESTING" \
@@ -117,11 +119,12 @@ create_startup_kits_and_check_contained_files () {
 create_synthetic_data () {
     echo "[Prepare] Synthetic data ..."
     docker run --rm \
-        -u $(id -u):$(id -g) \
-        -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
-        -w /MediSwarm \
-        $DOCKER_IMAGE \
-        /bin/bash -c "python3 application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
+           -u $(id -u):$(id -g) \
+           -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+           -v "$SYNTHETIC_DATA_DIR":/synthetic_data \
+           -w /MediSwarm \
+           $DOCKER_IMAGE \
+           /bin/bash -c "python3 application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py /synthetic_data"
 }
 
 
