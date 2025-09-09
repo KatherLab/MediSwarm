@@ -82,12 +82,6 @@ run_nvflare_unit_tests(){
 create_startup_kits_and_check_contained_files () {
     echo "[Prepare] Startup kits for test project ..."
 
-    if ! grep -q "127.0.0.1 server.local" /etc/hosts; then
-        echo "/etc/hosts needs to contain the following line, please add it."
-        echo "127.0.0.1 server.local"
-        exit 1
-    fi
-
     if [ ! -d "$PROJECT_DIR"/prod_00 ]; then
         ./_buildStartupKits.sh $PROJECT_FILE $VERSION
     fi
@@ -177,6 +171,12 @@ run_3dcnn_simulation_mode () {
 
 start_server_and_clients () {
     echo "[Run] Start server and client Docker containers ..."
+
+    if ! grep -q "127.0.0.1 server.local" /etc/hosts; then
+        echo "/etc/hosts needs to contain the following line, please add it."
+        echo "127.0.0.1 server.local"
+        exit 1
+    fi
 
     cd "$PROJECT_DIR"/prod_00
     cd server.local/startup
