@@ -26,7 +26,7 @@ fi
 
 VERSION=`./getVersionNumber.sh`
 DOCKER_IMAGE=jefftud/odelia:$VERSION
-
+CONTAINER_VERSION_ID=`git rev-parse --short HEAD`
 
 # prepare clean version of source code repository clone for building Docker image
 
@@ -42,6 +42,8 @@ cd ../..
 rm .git -rf
 chmod a+rX . -R
 sed -i 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__#'$VERSION'#' docker_config/master_template.yml
+sed -i 's#__REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__#'$CONTAINER_VERSION_ID'#' docker_config/master_template.yml
+
 cd $CWD
 
 
