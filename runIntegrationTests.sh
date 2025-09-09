@@ -175,14 +175,8 @@ run_3dcnn_simulation_mode () {
 start_server_and_clients () {
     echo "[Run] Start server and client Docker containers ..."
 
-    if ! grep -q "127.0.0.1 server.local" /etc/hosts; then
-        echo "/etc/hosts needs to contain the following line, please add it."
-        echo "127.0.0.1 server.local"
-        exit 1
-    fi
-
     cd "$PROJECT_DIR"/prod_00
-    cd server.local/startup
+    cd localhost/startup
     ./docker.sh --no_pull --start_server
     cd ../..
     sleep 10
@@ -208,7 +202,7 @@ run_dummy_training_in_swarm () {
     sleep 60
     cd "$CWD"
 
-    cd "$PROJECT_DIR"/prod_00/server.local/startup
+    cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT=nohup.out
     for EXPECTED_OUTPUT in 'Total clients: 2' 'updated status of client client_A on round 4' 'updated status of client client_B on round 4' 'all_done=True' 'Server runner finished.';
     do
