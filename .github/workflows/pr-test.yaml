@@ -50,7 +50,52 @@ jobs:
       - name: Build Docker image and dummy startup kits
         run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
-      - name: Run integration tests
+      - name: Run integration test (check_files_on_github)
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh
+          ./runIntegrationTests.sh check_files_on_github
+
+      - name: Run integration test (run_unit_tests_controller)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_unit_tests_controller
+
+      - name: Run integration test (run_dummy_training_standalone)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_dummy_training_standalone
+
+      - name: Run integration test (run_dummy_training_simulation_mode)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_dummy_training_simulation_mode
+
+      - name: Run integration test (run_dummy_training_poc_mode)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_dummy_training_poc_mode
+
+      - name: Run integration test (run_3dcnn_simulation_mode)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_3dcnn_simulation_mode
+
+      - name: Run integration test (create_startup_kits)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh create_startup_kits
+
+      - name: Run integration test (run_docker_gpu_preflight_check)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_docker_gpu_preflight_check
+
+      - name: Run integration test (run_data_access_preflight_check)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_data_access_preflight_check
+
+      - name: Run integration test (run_dummy_training_in_swarm)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_dummy_training_in_swarm
