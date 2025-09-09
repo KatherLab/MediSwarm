@@ -313,10 +313,9 @@ case "$1" in
     *) echo "Unknown argument: $1"; exit 1 ;;
 esac
 
-# TODO adapt ./assets/readme/README.developer.md
 # TODO adapt .github/workflows/pr-test.yaml
 
-# The following does not work yet. It should be included in "all" and in .github/workflows/pr-test.yaml once it works.
+# The following does not work yet. It should be included in "all", in ./assets/readme/README.developer.md and in .github/workflows/pr-test.yaml once it works.
 #
 # run_simulation_mode_in_docker () {
 #     # requires having built a startup kit and synthetic dataset
