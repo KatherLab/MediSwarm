@@ -680,7 +680,7 @@ docker_cln_sh: |
       docker pull "$DOCKER_IMAGE"
   fi
 
-  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__
+  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
   if [[ ! -z "$MY_DATA_DIR" ]]; then
@@ -697,7 +697,7 @@ docker_cln_sh: |
             --env GPU_DEVICE=$GPU2USE \
             --env MODEL_NAME=MST \
             --env CONFIG=unilateral \
-            --env MEDISWARM_VERSION=__REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
+            --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__
 
   # Execution modes
   if [[ ! -z "$DUMMY_TRAINING" ]]; then
