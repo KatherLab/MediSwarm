@@ -52,19 +52,29 @@ _run_test_in_docker() {
 }
 
 
-run_local_tests () {
+run_unit_tests_controller(){
     echo "[Run] Controller unit tests"
     _run_test_in_docker tests/integration_tests/_run_controller_unit_tests_with_coverage.sh
+}
+
+run_dummy_training_standalone(){
     echo "[Run] Minimal example, standalone"
     _run_test_in_docker tests/integration_tests/_run_minimal_example_standalone.sh
+}
+
+run_dummy_training_simulation_mode(){
     echo "[Run] Minimal example, simulation mode"
     _run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh
+}
+
+run_dummy_training_poc_mode(){
     echo "[Run] Minimal example, proof-of-concept mode"
     _run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh
+}
 
-    # uncomment the following line to also run NVFlare's unit tests (takes about 2 minutes and will install python packages in the container)
-    # echo "[Run] NVFlare unit tests"
-    # run_test_in_docker tests/integration_tests/_run_nvflare_unit_tests.sh
+run_nvflare_unit_tests(){
+    echo "[Run] NVFlare unit tests"
+    _run_test_in_docker tests/unit_tests/_run_nvflare_unit_tests.sh
 }
 
 
@@ -249,7 +259,11 @@ case "$1" in
         ;;
 
     run_local_tests)
-        run_local_tests
+        run_unit_tests_controller
+        run_dummy_training_standalone
+        run_dummy_training_simulation_mode
+        run_dummy_training_poc_mode
+        run_nvflare_unit_tests
         cleanup_temporary_data
         ;;
 
@@ -282,7 +296,11 @@ case "$1" in
 
     all | "")
         check_files_on_github
-        run_local_tests
+        run_unit_tests_controller
+        run_dummy_training_standalone
+        run_dummy_training_simulation_mode
+        run_dummy_training_poc_mode
+        run_nvflare_unit_tests
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_docker_gpu_preflight_check
