@@ -45,7 +45,8 @@ _run_test_in_docker() {
            --ipc=host \
            --ulimit memlock=-1 \
            --ulimit stack=67108864 \
-           -v /tmp:/scratch \
+           -v "$SYNTHETIC_DATA_DIR":/data \
+           -v "$SCRATCH_DIR":/scratch \
            --gpus="$GPU_FOR_TESTING" \
            --entrypoint=/MediSwarm/$1 \
            "$DOCKER_IMAGE"
@@ -83,7 +84,7 @@ create_startup_kits_and_check_contained_files () {
 
     if ! grep -q "127.0.0.1 server.local" /etc/hosts; then
         echo "/etc/hosts needs to contain the following line, please add it."
-        echo "127.0.0.1 server.local localhost"
+        echo "127.0.0.1 server.local"
         exit 1
     fi
 
@@ -164,6 +165,13 @@ run_data_access_preflight_check () {
     fi
 
     cd "$CWD"
+}
+
+
+run_3dcnn_simulation_mode () {
+    # requires having built a startup kit and synthetic dataset
+    echo "[Run] Simulation mode of 3DCNN training in Docker"
+    _run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh
 }
 
 
@@ -272,6 +280,13 @@ case "$1" in
         cleanup_temporary_data
         ;;
 
+    run_3dcnn_simulation_mode)
+        create_startup_kits_and_check_contained_files
+        create_synthetic_data
+        run_3dcnn_simulation_mode
+        cleanup_temporary_data
+        ;;
+
     run_docker_gpu_preflight_check)
         create_startup_kits_and_check_contained_files
         run_docker_gpu_preflight_check
@@ -301,8 +316,9 @@ case "$1" in
         run_dummy_training_simulation_mode
         run_dummy_training_poc_mode
         # run_nvflare_unit_tests  # uncomment to enable NVFlare unit tests
-        create_startup_kits_and_check_contained_files
         create_synthetic_data
+        run_3dcnn_simulation_mode
+        create_startup_kits_and_check_contained_files
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
         start_server_and_clients
@@ -314,17 +330,4 @@ case "$1" in
 esac
 
 # TODO
-# The following does not work yet. It should be included in "all", in ./assets/readme/README.developer.md and in .github/workflows/pr-test.yaml once it works.
-#
-# run_simulation_mode_in_docker () {
-#     # requires having built a startup kit and synthetic dataset
-#     echo "[Run] Simulation mode of 3DCNN training in Docker"
-#     _run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh
-# }
-#
-#     run_simulation_mode_in_docker)
-#         create_startup_kits_and_check_contained_files
-#         create_synthetic_data
-#         run_simulation_mode_in_docker
-#         cleanup_temporary_data
-#         ;;
+# Once the 3D CNN simulation mode works, it should be mentioned in ./assets/readme/README.developer.md.
