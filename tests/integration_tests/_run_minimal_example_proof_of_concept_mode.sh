@@ -4,6 +4,7 @@ set -e
 
 run_minimal_example_proof_of_concept_mode () {
     # run proof-of-concept mode for minimal example
+    mkdir -p ~/.nvflare
     cd /MediSwarm
     export TRAINING_MODE="swarm"
     nvflare poc prepare -c poc_client_0 poc_client_1
