@@ -266,23 +266,34 @@ case "$1" in
         cleanup_temporary_data
         ;;
 
-    run_local_tests)
+    run_unit_tests_controller)
         run_unit_tests_controller
-        run_dummy_training_standalone
-        run_dummy_training_simulation_mode
-        run_dummy_training_poc_mode
-        # run_nvflare_unit_tests  # uncomment to enable NVFlare unit tests
         cleanup_temporary_data
         ;;
 
-    create_startup_kits)
-        create_startup_kits_and_check_contained_files
+    run_dummy_training_standalone)
+        run_dummy_training_standalone
+        cleanup_temporary_data
+        ;;
+
+    run_dummy_training_simulation_mode)
+        run_dummy_training_simulation_mode
+        cleanup_temporary_data
+        ;;
+
+    run_dummy_training_poc_mode)
+        run_dummy_training_poc_mode
         cleanup_temporary_data
         ;;
 
     run_3dcnn_simulation_mode)
         create_synthetic_data
         run_3dcnn_simulation_mode
+        cleanup_temporary_data
+        ;;
+
+    create_startup_kits)
+        create_startup_kits_and_check_contained_files
         cleanup_temporary_data
         ;;
 
