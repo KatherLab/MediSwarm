@@ -192,7 +192,7 @@ run_dummy_training_in_swarm () {
 
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
-    "$CWD"/_testsOutsideDocker_submitDummyTraining.exp
+    "$CWD"/tests/integration_tests/_submitDummyTraining.exp
     docker kill fladmin
     sleep 60
     cd "$CWD"
