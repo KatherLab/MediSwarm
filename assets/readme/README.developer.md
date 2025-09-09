@@ -24,10 +24,10 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
    kits, running local trainings in the startup kit), you can manually push the image to DockerHub, provided you have
    the necessary rights. Make sure you are not re-using a version number for this purpose.
 
-## Running Local Tests
+## Running Tests
 
    ```bash
-   ./runTestsInDocker.sh
+   ./runIntegrationTests.sh
    ```
 
 You should see
@@ -36,10 +36,11 @@ You should see
 2. output of a successful simulation run with two nodes
 3. output of a successful proof-of-concept run run with two nodes
 4. output of a set of startup kits being generated
-5. output of a dummy training run using one of the startup kits
-6. TODO update this to what the tests output now
+5. output of a Docker/GPU preflight check using one of the startup kits
+6. output of a data access preflight check using one of the startup kits
+7. output of a dummy training run in a swarm consisting of one server and two client nodes
 
-Optionally, uncomment running NVFlare unit tests in `_runTestsInsideDocker.sh`.
+Optionally, uncomment running NVFlare unit tests.
 
 ## Distributing Startup Kits
 
@@ -93,3 +94,7 @@ export CONFIG=original
    run in the swarm
 3. Use the local tests to check if the code is swarm-ready
 4. TODO more detailed instructions
+
+## Continuous Integration
+
+Tests to be executed after pushing to github are defined in `.github/workflows/pr-test.yaml`.
