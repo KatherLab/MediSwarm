@@ -157,13 +157,6 @@ run_data_access_preflight_check () {
 }
 
 
-run_simulation_mode_in_docker () {
-    # requires having built a startup kit and synthetic dataset
-    echo "[Run] Simulation mode of 3DCNN training in Docker"
-    _run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh
-}
-
-
 start_server_and_clients () {
     echo "[Run] Start server and client Docker containers ..."
 
@@ -278,13 +271,6 @@ case "$1" in
         cleanup_temporary_data
         ;;
 
-    run_simulation_mode_in_docker)
-        create_startup_kits_and_check_contained_files
-        create_synthetic_data
-        run_simulation_mode_in_docker
-        cleanup_temporary_data
-        ;;
-
     run_dummy_training_in_swarm)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
@@ -311,3 +297,18 @@ esac
 
 # TODO adapt ./assets/readme/README.developer.md
 # TODO adapt .github/workflows/pr-test.yaml
+
+# The following does not work yet. It should be included in "all" and in .github/workflows/pr-test.yaml once it works.
+#
+# run_simulation_mode_in_docker () {
+#     # requires having built a startup kit and synthetic dataset
+#     echo "[Run] Simulation mode of 3DCNN training in Docker"
+#     _run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh
+# }
+#
+#     run_simulation_mode_in_docker)
+#         create_startup_kits_and_check_contained_files
+#         create_synthetic_data
+#         run_simulation_mode_in_docker
+#         cleanup_temporary_data
+#         ;;
