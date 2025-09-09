@@ -50,27 +50,10 @@ jobs:
       - name: Build Docker image and dummy startup kits
         run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
-      - name: Prepare dummy trainings
-        continue-on-error: true
-        run: |
-          ./runTestsInDocker.sh prepare_dummy_trainings
-          echo "Dummy training project prepared"
-
-      - name: Run dummy training
+      - name: Run integration tests
         continue-on-error: false
         run: |
-          ./runTestsInDocker.sh run_dummy_training
-          echo "Dummy training finished"
-          echo "=== Checking log output ==="
-          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for dummy training"
-
-      - name: Run 3D CNN tests
-        continue-on-error: false
-        run: |
-          ./runTestsInDocker.sh run_3dcnn_tests
-          echo "3D CNN tests check finished"
-          echo "=== Checking synthetic log output ==="
-          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for 3D CNN tests"
+          ./runIntegrationTests.sh
 
       - name: Run Unit Tests inside Docker
         continue-on-error: true
@@ -78,9 +61,3 @@ jobs:
           ./runTestsInDocker.sh run_tests
           echo "=== [LOG CHECK] ==="
           docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "Error found in logs" || echo "No error found"
-
-      - name: Cleanup training artifacts
-        continue-on-error: true
-        run: |
-          ./runTestsInDocker.sh cleanup
-          echo "Cleanup finished"
