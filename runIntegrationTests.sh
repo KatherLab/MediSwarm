@@ -281,7 +281,6 @@ case "$1" in
         ;;
 
     run_3dcnn_simulation_mode)
-        create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_3dcnn_simulation_mode
         cleanup_temporary_data
