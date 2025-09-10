@@ -3,6 +3,7 @@
 set -e
 
 VERSION=$(./getVersionNumber.sh)
+CONTAINER_VERSION_SUFFIX=$(git rev-parse --short HEAD)
 DOCKER_IMAGE=jefftud/odelia:$VERSION
 PROJECT_DIR="workspace/odelia_${VERSION}_dummy_project_for_testing"
 SYNTHETIC_DATA_DIR=$(mktemp -d)
@@ -198,7 +199,7 @@ run_dummy_training_in_swarm () {
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
     "$CWD"/tests/integration_tests/_submitDummyTraining.exp
-    docker kill fladmin
+    docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
     sleep 60
     cd "$CWD"
 
@@ -255,7 +256,7 @@ run_dummy_training_in_swarm () {
 
 kill_server_and_clients () {
     echo "[Cleanup] Kill server and client Docker containers ..."
-    docker kill odelia_swarm_server_flserver odelia_swarm_client_client_A odelia_swarm_client_client_B
+    docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_B_$CONTAINER_VERSION_SUFFIX
 }
 
 
