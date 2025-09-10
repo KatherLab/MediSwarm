@@ -697,7 +697,7 @@ docker_cln_sh: |
             --env GPU_DEVICE=$GPU2USE \
             --env MODEL_NAME=MST \
             --env CONFIG=unilateral \
-            --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__
+            --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__"
 
   # Execution modes
   if [[ ! -z "$DUMMY_TRAINING" ]]; then
