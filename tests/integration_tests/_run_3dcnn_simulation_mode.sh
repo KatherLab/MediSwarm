@@ -17,6 +17,7 @@ run_3dcnn_simulation_mode () {
     export MODEL_NAME=MST
     export CONFIG=unilateral
     nvflare simulator -w /tmp/ODELIA_ternary_classification -n 2 -t 2 ${TMPDIR}/ODELIA_ternary_classification -c client_A,client_B
+    rm -rf ${TMPDIR}
 }
 
 run_3dcnn_simulation_mode
