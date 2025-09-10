@@ -69,8 +69,6 @@ check_files_on_github () {
             exit 1
         fi
     done
-
-
 }
 
 
@@ -380,6 +378,3 @@ case "$1" in
         ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
 esac
-
-# TODO
-# Once the 3D CNN simulation mode works, it should be mentioned in ./assets/readme/README.developer.md.
