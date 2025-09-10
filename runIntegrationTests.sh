@@ -18,24 +18,59 @@ fi
 check_files_on_github () {
     echo "[Run] Test whether expected content is available on github"
 
-    CONTENT=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/LICENSE)
-    if echo "$CONTENT" | grep -q "MIT License" ; then
+    LICENSE_ON_GITHUB=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/LICENSE)
+    if echo "$LICENSE_ON_GITHUB" | grep -q "MIT License" ; then
         echo "Downloaded and verified license from github"
     else
         echo "Could not download and verify license"
         exit 1
     fi
 
-    CONTENT=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/README.md)
+    MAIN_README=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/README.md)
     for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
     do
-        if echo "$CONTENT" | grep -q "$ROLE" ; then
+        if echo "$MAIN_README" | grep -qie "$ROLE" ; then
             echo "Instructions for $ROLE found"
         else
             echo "Instructions for role $ROLE missing"
             exit 1
         fi
     done
+
+    PARTICIPANT_README=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/assets/readme/README.participant.md)
+    for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node';
+    do
+        if echo "$PARTICIPANT_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
+            echo "Instructions on $EXPECTED_KEYWORDS found"
+        else
+            echo "Instructions on $EXPECTED_KEYWORDS missing"
+            exit 1
+        fi
+    done
+
+    SWARM_OPERATOR_README=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/assets/readme/README.operator.md)
+    for EXPECTED_KEYWORDS in 'Create Startup Kits' 'Starting a Swarm Training';
+    do
+        if echo "$SWARM_OPERATOR_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
+            echo "Instructions on $EXPECTED_KEYWORDS found"
+        else
+            echo "Instructions on $EXPECTED_KEYWORDS missing"
+            exit 1
+        fi
+    done
+
+    APC_DEVELOPER_README=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/assets/readme/README.developer.md)
+    for EXPECTED_KEYWORDS in 'Contributing Application Code';
+    do
+        if echo "$APC_DEVELOPER_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
+            echo "Instructions on $EXPECTED_KEYWORDS found"
+        else
+            echo "Instructions on $EXPECTED_KEYWORDS missing"
+            exit 1
+        fi
+    done
+
+
 }
 
 
@@ -271,7 +306,6 @@ cleanup_temporary_data () {
 case "$1" in
     check_files_on_github)
         check_files_on_github
-        cleanup_temporary_data
         ;;
 
     run_unit_tests_controller)
