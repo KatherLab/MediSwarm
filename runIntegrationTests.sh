@@ -186,7 +186,7 @@ start_server_and_clients () {
     cd ../..
     cd client_B/startup
     ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU device=$GPU_FOR_TESTING --start_client
-    sleep 5
+    sleep 8
 
     cd "$CWD"
 }
