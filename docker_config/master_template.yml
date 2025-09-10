@@ -814,7 +814,7 @@ docker_adm_sh: |
   CONTAINER_NAME=odelia_swarm_admin___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
-  docker run --rm -it --name=fladmin -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE /bin/bash -c "./fl_admin.sh"
+  docker run --rm -it --name=$CONTAINER_NAME -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE /bin/bash -c "./fl_admin.sh"
 
 compose_yaml: |
   services:
