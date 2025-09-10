@@ -239,6 +239,15 @@ run_dummy_training_in_swarm () {
             exit 1
         fi
     done
+
+    actualsize=$(wc -c <*/app_client_A/best_FL_global_model.pt)
+    if [ $actualsize -le 1048576 ]; then
+        echo "Checkpoint file size OK"
+    else
+        echo "Checkpoint too large: " $actualsize
+        exit 1
+    fi
+
     cd "$CWD"
 }
 
