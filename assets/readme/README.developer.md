@@ -33,12 +33,13 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 You should see
 
 1. several expected errors and warnings printed from unit tests that should succeed overall, and a coverage report
-2. output of a successful simulation run with two nodes
-3. output of a successful proof-of-concept run run with two nodes
-4. output of a set of startup kits being generated
-5. output of a Docker/GPU preflight check using one of the startup kits
-6. output of a data access preflight check using one of the startup kits
-7. output of a dummy training run in a swarm consisting of one server and two client nodes
+2. output of a successful simulation run of a dummy training with two nodes
+3. output of a successful proof-of-concept run of a dummy training with two nodes
+4. output of a successful simulation run of a 3D CNN training using synthetic data with two nodes
+5. output of a set of startup kits being generated
+6. output of a Docker/GPU preflight check using one of the startup kits
+7. output of a data access preflight check using one of the startup kits
+8. output of a dummy training run in a swarm consisting of one server and two client nodes
 
 Optionally, uncomment running NVFlare unit tests.
 
