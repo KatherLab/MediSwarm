@@ -50,37 +50,52 @@ jobs:
       - name: Build Docker image and dummy startup kits
         run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
-      - name: Prepare dummy trainings
-        continue-on-error: true
-        run: |
-          ./runTestsInDocker.sh prepare_dummy_trainings
-          echo "Dummy training project prepared"
-
-      - name: Run dummy training
+      - name: Run integration test (check_files_on_github)
         continue-on-error: false
         run: |
-          ./runTestsInDocker.sh run_dummy_training
-          echo "Dummy training finished"
-          echo "=== Checking log output ==="
-          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for dummy training"
+          ./runIntegrationTests.sh check_files_on_github
 
-      - name: Run 3D CNN tests
+      - name: Run integration test (run_unit_tests_controller)
         continue-on-error: false
         run: |
-          ./runTestsInDocker.sh run_3dcnn_tests
-          echo "3D CNN tests check finished"
-          echo "=== Checking synthetic log output ==="
-          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for 3D CNN tests"
+          ./runIntegrationTests.sh run_unit_tests_controller
 
-      - name: Run Unit Tests inside Docker
-        continue-on-error: true
+      - name: Run integration test (run_dummy_training_standalone)
+        continue-on-error: false
         run: |
-          ./runTestsInDocker.sh run_tests
-          echo "=== [LOG CHECK] ==="
-          docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "Error found in logs" || echo "No error found"
+          ./runIntegrationTests.sh run_dummy_training_standalone
 
-      - name: Cleanup training artifacts
-        continue-on-error: true
+      - name: Run integration test (run_dummy_training_simulation_mode)
+        continue-on-error: false
         run: |
-          ./runTestsInDocker.sh cleanup
-          echo "Cleanup finished"
+          ./runIntegrationTests.sh run_dummy_training_simulation_mode
+
+      - name: Run integration test (run_dummy_training_poc_mode)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_dummy_training_poc_mode
+
+      - name: Run integration test (run_3dcnn_simulation_mode)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_3dcnn_simulation_mode
+
+      - name: Run integration test (create_startup_kits)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh create_startup_kits
+
+      - name: Run integration test (run_docker_gpu_preflight_check)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_docker_gpu_preflight_check
+
+      - name: Run integration test (run_data_access_preflight_check)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_data_access_preflight_check
+
+      - name: Run integration test (run_dummy_training_in_swarm)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_dummy_training_in_swarm
