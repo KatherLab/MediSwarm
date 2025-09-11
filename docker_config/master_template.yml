@@ -667,16 +667,8 @@ docker_cln_sh: |
   # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-  if [ -t 1 ]; then
-      # Local only
-      sudo mkdir -p "$MY_SCRATCH_DIR"
-      sudo chown -R $(id -u):$(id -g) "$MY_SCRATCH_DIR"
-      sudo chmod -R 777 "$MY_SCRATCH_DIR"
-  else
-      mkdir -p "$MY_SCRATCH_DIR"
-      chmod -R 777 "$MY_SCRATCH_DIR"
-  fi
-
+  mkdir -p "$MY_SCRATCH_DIR"
+  chmod -R 777 "$MY_SCRATCH_DIR"
 
   # Networking & Cleanup
   NETARG="--net=host"
@@ -708,7 +700,8 @@ docker_cln_sh: |
             --env TORCH_HOME=/torch_home \
             --env GPU_DEVICE=$GPU2USE \
             --env MODEL_NAME=MST \
-            --env CONFIG=unilateral"
+            --env CONFIG=unilateral \
+            --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__"
 
   # Execution modes
   if [[ ! -z "$DUMMY_TRAINING" ]]; then
