@@ -54,11 +54,12 @@ The dataset must be in the following format.
 
 #### Annotation
 
-* `split.csv` defines the class labels
+* `annotation.csv` defines the class labels
 * The file contains the columns `UID`, `PatientID`, `Age`, `Lesion`
     * `UID` is the identifier used in the folder name, e.g., `ID_001_left`.
     * `PatientID` is the identifier of the patient, in this case, `ID_001`.
     * `Age` is the age of the patient at the time of the scan in days.
+       This columns is ignored for our current technical tests and exists only for compatibility with the ODELIA challenge data format. Please ignore discrepancies if age is listed in other units than days.
     * `Lesion` is 0 for no lesion, 1 for benign lesion, and 2 for malicious lesion.
 
 #### Split
@@ -69,7 +70,6 @@ The dataset must be in the following format.
     * `UID` is the identifier used in the folder name, e.g., `ID_001_left`.
     * `Split` is either `train`, `val`, or `test`. The test set is currently ignored.
     * `Fold` is the 0-based index of the fold (for a potential cross-validation).
-
 
 ## Prepare Training Participation
 
@@ -164,3 +164,10 @@ To have a baseline for swarm training, train the same model in a comparable way 
    tail -f nohup.out  # Follow training log
    ```
 For any issues, check if the commands above point to problems and contact your Swarm Operator.
+
+## Troubleshooting
+
+* Image files need to have the correct file name including capitalization
+* The directories listed as identifiers in the tables `annotation.csv` and `split.csv` should all be present, only those directories should be present
+* The tables should not have additional or duplicate columns, entries need to have the correct captitalization
+* Image and table folders and files need to be present in the folders specified via `--data_dir`. Symlinks to other locations do not work, they are not available in the Docker mount.
