@@ -312,13 +312,20 @@ RUN python3 -m pip install \
     typing-inspection==0.4.1 \
     xxhash==3.5.0
 
-# Install packages needed for testing and for listing licenses of installed packages
+# Install packages needed for testing
 RUN python3 -m pip install \
     coverage==7.8.2 \
     mock==5.2.0
+# Install packages needed for listing licenses of installed pip packages
 RUN python3 -m pip install \
     pip-licenses==5.0.0 \
     prettytable==3.16.0
+# Install packages needed for creating SBOM of apt packages
+RUN python3 -m pip install \
+    defusedxml==0.7.1 \
+    distro2sbom==0.6.0 \
+    lib4sbom==0.8.4 \
+    semantic-version==2.10.0
 
 # Clean up pip cache
 RUN python3 -m pip cache purge
