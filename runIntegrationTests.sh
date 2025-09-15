@@ -69,6 +69,17 @@ check_files_on_github () {
             exit 1
         fi
     done
+
+    DUMMY_TRAINING_APC=$(curl -L https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py)
+    for EXPECTED_KEYWORDS in 'python3';
+    do
+        if echo "$DUMMY_TRAINING_APC" | grep -qie "$EXPECTED_KEYWORDS" ; then
+            echo "Dummy Training ApC: $EXPECTED_KEYWORDS found"
+        else
+            echo "Dummy Training ApC: $EXPECTED_KEYWORDS missing"
+            exit 1
+        fi
+    done
 }
 
 
