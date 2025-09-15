@@ -252,7 +252,7 @@ run_dummy_training_in_swarm () {
 
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT=nohup.out
-    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' 'Epoch 9: 100%' ;
+    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' 'Epoch 9: 100%' 'val/AUC_ROC';
     do
         if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
@@ -262,6 +262,16 @@ run_dummy_training_in_swarm () {
         fi
     done
     cd "$CWD"
+
+    for EXPECTED_OUTPUT in 'validation metric .* from client' 'aggregating [0-9]* update(s) at round [0-9]*';
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$PROJECT_DIR"/prod_00/client_?/startup/nohup.out; then
+            echo "Expected output $EXPECTED_OUTPUT found"
+        else
+            echo "Expected output $EXPECTED_OUTPUT missing"
+            exit 1
+        fi
+    done
 
     cd "$PROJECT_DIR"/prod_00/client_A/
     FILES_PRESENT=$(find . -type f -name "*.*")
