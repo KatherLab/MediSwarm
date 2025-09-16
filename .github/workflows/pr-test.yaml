@@ -85,6 +85,11 @@ jobs:
         run: |
           ./runIntegrationTests.sh create_startup_kits
 
+      - name: Run license listing test (run_list_licenses)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_list_licenses
+
       - name: Run integration test (run_docker_gpu_preflight_check)
         continue-on-error: false
         run: |
