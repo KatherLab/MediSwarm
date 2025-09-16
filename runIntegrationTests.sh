@@ -173,6 +173,25 @@ create_synthetic_data () {
 }
 
 
+run_list_licenses () {
+    cd "$PROJECT_DIR"/prod_00
+    cd localhost/startup
+    LICENSES_LISTED=$(./docker.sh --list_licenses --no_pull)
+
+    for EXPECTED_KEYWORDS in 'scikit-learn' 'torch' 'nvflare_mediswarm' 'BSD License' 'MIT License';
+    do
+        if echo "$LICENSES_LISTED" | grep -qie "$EXPECTED_KEYWORDS" ; then
+            echo "Instructions on $EXPECTED_KEYWORDS found"
+        else
+            echo "Instructions on $EXPECTED_KEYWORDS missing"
+            exit 1
+        fi
+    done
+
+    cd "$CWD"
+}
+
+
 run_docker_gpu_preflight_check () {
     # requires having built a startup kit
     echo "[Run] Docker/GPU preflight check (local dummy training via startup kit) ..."
@@ -355,6 +374,12 @@ case "$1" in
 
     create_startup_kits)
         create_startup_kits_and_check_contained_files
+        cleanup_temporary_data
+        ;;
+
+    run_list_licenses)
+        create_startup_kits_and_check_contained_files
+        run_list_licenses
         cleanup_temporary_data
         ;;
 
