@@ -50,7 +50,7 @@ jobs:
       - name: Build Docker image and dummy startup kits
         run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
-      - name: Run integration test: check documentation on github
+      - name: Run integration test checking documentation on github
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh check_files_on_github
@@ -80,22 +80,22 @@ jobs:
         run: |
           ./runIntegrationTests.sh run_3dcnn_simulation_mode
 
-      - name: Run integration test: creating startup kits
+      - name: Run integration test creating startup kits
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh create_startup_kits
 
-      - name: Run intergration test: listing licenses
+      - name: Run intergration test listing licenses
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_list_licenses
 
-      - name: Run integration test: Docker/GPU preflight check
+      - name: Run integration test Docker GPU preflight check
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_docker_gpu_preflight_check
 
-      - name: Run integration test: Data access preflight check
+      - name: Run integration test Data access preflight check
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_data_access_preflight_check
