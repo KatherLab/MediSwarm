@@ -776,7 +776,7 @@ docker_svr_sh: |
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
   elif [ ! -z "$LIST_LICENSES" ]; then
-      docker run -it --rm --name=$CONTAINER_NAME \
+      docker run --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
       /bin/bash -c "pip-licenses -s -u --order=license"
   elif [ ! -z "$INTERACTIVE" ]; then
