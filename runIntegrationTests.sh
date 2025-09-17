@@ -4,7 +4,7 @@ set -e
 
 VERSION=$(./getVersionNumber.sh)
 CONTAINER_VERSION_SUFFIX=$(git rev-parse --short HEAD)
-DOCKER_IMAGE=jefftud/odelia:$VERSION
+DOCKER_IMAGE=localhost:5000/odelia:$VERSION
 PROJECT_DIR="workspace/odelia_${VERSION}_dummy_project_for_testing"
 SYNTHETIC_DATA_DIR=$(mktemp -d)
 SCRATCH_DIR=$(mktemp -d)
@@ -130,13 +130,13 @@ create_startup_kits_and_check_contained_files () {
     echo "[Prepare] Startup kits for test project ..."
 
     if [ ! -d "$PROJECT_DIR"/prod_00 ]; then
-        ./_buildStartupKits.sh $PROJECT_FILE $VERSION
+        ./_buildStartupKits.sh $PROJECT_FILE $VERSION $DOCKER_IMAGE
     fi
     if [ -d "$PROJECT_DIR"/prod_01 ]; then
-        echo '"$PROJECT_DIR"/prod_01 exists, please remove/rename it'
+        echo '$PROJECT_DIR/prod_01 exists, please remove/rename it'
         exit 1
     fi
-    ./_buildStartupKits.sh $PROJECT_FILE $VERSION
+    ./_buildStartupKits.sh $PROJECT_FILE $VERSION $DOCKER_IMAGE
 
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
@@ -253,6 +253,35 @@ start_server_and_clients () {
     sleep 8
 
     cd "$CWD"
+}
+
+
+start_registry_docker_and_push () {
+    docker run -d --rm -p 5000:5000 --name local_test_registry_$CONTAINER_VERSION_SUFFIX registry:3
+    sleep 3
+    docker push localhost:5000/odelia:$VERSION
+}
+
+
+run_container_with_pulling () {
+    docker rmi localhost:5000/odelia:$VERSION
+    cd "$PROJECT_DIR"/prod_00
+    cd localhost/startup
+    OUTPUT=$(./docker.sh --list_licenses)
+
+    if echo "$OUTPUT" | grep -qie "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" ; then
+        echo "Image pulled successfully"
+    else
+        echo "Instructions on $EXPECTED_KEYWORDS missing"
+        exit 1
+    fi
+
+    cd "$CWD"
+}
+
+
+kill_registry_docker () {
+    docker kill local_test_registry_$CONTAINER_VERSION_SUFFIX
 }
 
 
@@ -396,6 +425,13 @@ case "$1" in
         cleanup_temporary_data
         ;;
 
+    push_pull_image)
+        create_startup_kits_and_check_contained_files
+        start_registry_docker_and_push
+        run_container_with_pulling
+        kill_registry_docker
+        ;;
+
     run_dummy_training_in_swarm)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
@@ -416,6 +452,9 @@ case "$1" in
         create_synthetic_data
         run_3dcnn_simulation_mode
         create_startup_kits_and_check_contained_files
+        start_registry_docker_and_push
+        run_container_with_pulling
+        kill_registry_docker
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
         start_server_and_clients
@@ -423,5 +462,6 @@ case "$1" in
         kill_server_and_clients
         cleanup_temporary_data
         ;;
+
     *) echo "Unknown argument: $1"; exit 1 ;;
 esac
