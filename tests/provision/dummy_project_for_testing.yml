@@ -29,7 +29,7 @@ builders:
     args:
       config_folder: config
       scheme: http
-      docker_image: jefftud/odelia:__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__
+      docker_image: localhost:5000/odelia:__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__
       overseer_agent:
         path: nvflare.ha.dummy_overseer_agent.DummyOverseerAgent
         overseer_exists: false
