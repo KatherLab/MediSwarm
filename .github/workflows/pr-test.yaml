@@ -99,3 +99,8 @@ jobs:
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_data_access_preflight_check
+
+      - name: Run integration test (push_pull_image)
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh push_pull_image
