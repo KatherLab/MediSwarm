@@ -430,6 +430,7 @@ case "$1" in
         start_registry_docker_and_push
         run_container_with_pulling
         kill_registry_docker
+        # TODO add to CI if we want this (takes several minutes)
         ;;
 
     run_dummy_training_in_swarm)
