@@ -50,52 +50,52 @@ jobs:
       - name: Build Docker image and dummy startup kits
         run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
-      - name: Run integration test (check_files_on_github)
+      - name: Run integration test: check documentation on github
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh check_files_on_github
 
-      - name: Run integration test (run_unit_tests_controller)
+      - name: Run controller unit tests
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_unit_tests_controller
 
-      - name: Run integration test (run_dummy_training_standalone)
+      - name: Run dummy training standalone
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_dummy_training_standalone
 
-      - name: Run integration test (run_dummy_training_simulation_mode)
+      - name: Run dummy training in simulation mode
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_dummy_training_simulation_mode
 
-      - name: Run integration test (run_dummy_training_poc_mode)
+      - name: Run dummy training in proof-of-concept mode
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_dummy_training_poc_mode
 
-      - name: Run integration test (run_3dcnn_simulation_mode)
+      - name: Run 3DCNN training in simulation mode
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_3dcnn_simulation_mode
 
-      - name: Run integration test (create_startup_kits)
+      - name: Run integration test: creating startup kits
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh create_startup_kits
 
-      - name: Run license listing test (run_list_licenses)
+      - name: Run intergration test: listing licenses
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_list_licenses
 
-      - name: Run integration test (run_docker_gpu_preflight_check)
+      - name: Run integration test: Docker/GPU preflight check
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_docker_gpu_preflight_check
 
-      - name: Run integration test (run_data_access_preflight_check)
+      - name: Run integration test: Data access preflight check
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_data_access_preflight_check
