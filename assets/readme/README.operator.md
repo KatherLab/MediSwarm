@@ -29,6 +29,8 @@ For example, add the following line (replace `<IP>` with the server's actual IP 
 4. Deploy startup kits to the respective server/client operators
 5. Push the Docker image to the registry
 
+TODO describe what needs to be done for productive VPN credentials (that must remain a local resource and not be committed)
+
 ### Via the Dashboard (not recommended)
 
 Build the Docker image as described above.
