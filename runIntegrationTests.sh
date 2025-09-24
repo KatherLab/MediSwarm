@@ -239,8 +239,6 @@ run_3dcnn_simulation_mode () {
 start_testing_vpn () {
     echo "[Prepare] Start local VPN server for testing ..."
 
-    # TODO make sure (at suitable locatin in scripts) that VPN container is built and that VPN certificates exist
-
     cp -r tests/local_vpn "$PROJECT_DIR"/prod_00/
     chmod a+rX "$PROJECT_DIR"/prod_00/local_vpn -R
     cd "$PROJECT_DIR"/prod_00/local_vpn
