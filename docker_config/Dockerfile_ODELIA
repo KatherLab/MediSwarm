@@ -343,3 +343,6 @@ RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 
 # Copy pre-trained model weights to image
 COPY ./torch_home_cache /torch_home
+
+# allow creating home directory for local user inside container if needed
+RUN chmod a+rwx /home
