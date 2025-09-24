@@ -175,7 +175,7 @@ create_synthetic_data () {
 
 run_list_licenses () {
     cd "$PROJECT_DIR"/prod_00
-    cd localhost/startup
+    cd testserver.local/startup
     LICENSES_LISTED=$(./docker.sh --list_licenses --no_pull)
 
     for EXPECTED_KEYWORDS in 'scikit-learn' 'torch' 'nvflare_mediswarm' 'BSD License' 'MIT License';
@@ -236,11 +236,30 @@ run_3dcnn_simulation_mode () {
 }
 
 
+start_testing_vpn () {
+    echo "[Prepare] Start local VPN server for testing ..."
+
+    # TODO make sure (at suitable locatin in scripts) that VPN container is built and that VPN certificates exist
+
+    cp -r tests/local_vpn "$PROJECT_DIR"/prod_00/
+    chmod a+rX "$PROJECT_DIR"/prod_00/local_vpn -R
+    cd "$PROJECT_DIR"/prod_00/local_vpn
+    ./run_docker_openvpnserver.sh
+    cd "$CWD"
+}
+
+
+kill_testing_vpn () {
+    echo "[Cleanup] Kill local VPN server Docker container ..."
+    docker kill odelia_testing_openvpnserver
+}
+
+
 start_server_and_clients () {
     echo "[Run] Start server and client Docker containers ..."
 
     cd "$PROJECT_DIR"/prod_00
-    cd localhost/startup
+    cd testserver.local/startup
     ./docker.sh --no_pull --start_server
     cd ../..
     sleep 10
@@ -266,7 +285,7 @@ start_registry_docker_and_push () {
 run_container_with_pulling () {
     docker rmi localhost:5000/odelia:$VERSION
     cd "$PROJECT_DIR"/prod_00
-    cd localhost/startup
+    cd testserver.local/startup
     OUTPUT=$(./docker.sh --list_licenses)
 
     if echo "$OUTPUT" | grep -qie "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" ; then
@@ -290,7 +309,7 @@ verify_wrong_client_does_not_connect () {
 
     cp -r "$PROJECT_DIR"/prod_01 "$PROJECT_DIR"/prod_wrong_client
     cd "$PROJECT_DIR"/prod_wrong_client
-    cd localhost/startup
+    cd testserver.local/startup
     ./docker.sh --no_pull --start_server
     cd ../..
     sleep 10
@@ -306,7 +325,7 @@ verify_wrong_client_does_not_connect () {
 
     sleep 20
 
-    CONSOLE_OUTPUT_SERVER=localhost/startup/nohup.out
+    CONSOLE_OUTPUT_SERVER=testserver.local/startup/nohup.out
     CONSOLE_OUTPUT_CLIENT=client_A/startup/nohup.out
 
     if grep -q "Total clients: 1" $CONSOLE_OUTPUT_SERVER; then
@@ -340,7 +359,7 @@ run_dummy_training_in_swarm () {
     sleep 60
     cd "$CWD"
 
-    cd "$PROJECT_DIR"/prod_00/localhost/startup
+    cd "$PROJECT_DIR"/prod_00/testserver.local/startup
     CONSOLE_OUTPUT=nohup.out
     for EXPECTED_OUTPUT in 'Total clients: 2' 'updated status of client client_A on round 4' 'updated status of client client_B on round 4' 'all_done=True' 'Server runner finished.' \
                            'Start to the run Job: [0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' 'updated status of client client_B on round 4';
@@ -489,9 +508,11 @@ case "$1" in
     run_dummy_training_in_swarm)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
+        start_testing_vpn
         start_server_and_clients
         run_dummy_training_in_swarm
         kill_server_and_clients
+        kill_testing_vpn
         cleanup_temporary_data
         # TODO add to CI if we want this (currently not working)
         ;;
@@ -511,7 +532,9 @@ case "$1" in
         kill_registry_docker
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
+        start_testing_vpn
         start_server_and_clients
+        kill_testing_vpn
         verify_wrong_client_does_not_connect
         run_dummy_training_in_swarm
         kill_server_and_clients
