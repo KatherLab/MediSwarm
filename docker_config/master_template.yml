@@ -667,7 +667,7 @@ docker_cln_sh: |
   # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-  if [ ! -z "$MY_SCRATCH_DIR" ]; then
+  if [[ ! -z "$MY_SCRATCH_DIR" ]]; then
       mkdir -p "$MY_SCRATCH_DIR"
       chmod -R 777 "$MY_SCRATCH_DIR"
   fi
@@ -678,7 +678,7 @@ docker_cln_sh: |
 
   # Docker image and container name
   DOCKER_IMAGE={~~docker_image~~}
-  if [ -z "$NOPULL" ]; then
+  if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull "$DOCKER_IMAGE"
   fi
@@ -719,7 +719,7 @@ docker_cln_sh: |
       docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
-  elif [ ! -z "$LIST_LICENSES" ]; then
+  elif [[ ! -z "$LIST_LICENSES" ]]; then
       docker run -it --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
 
@@ -767,7 +767,7 @@ docker_svr_sh: |
   #NETARG="-p {~~admin_port~~}:{~~admin_port~~} -p {~~fed_learn_port~~}:{~~fed_learn_port~~}"
 
   DOCKER_IMAGE={~~docker_image~~}
-  if [ -z "$NOPULL" ]; then
+  if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
   fi
@@ -778,16 +778,16 @@ docker_svr_sh: |
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
-  if [ ! -z "$START_SERVER" ]; then
+  if [[ ! -z "$START_SERVER" ]]; then
       docker run -d -t --rm --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
-  elif [ ! -z "$LIST_LICENSES" ]; then
+  elif [[ ! -z "$LIST_LICENSES" ]]; then
       docker run -it --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
-  elif [ ! -z "$INTERACTIVE" ]; then
+  elif [[ ! -z "$INTERACTIVE" ]]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
@@ -816,13 +816,13 @@ docker_adm_sh: |
   NETARG="--net=host"
 
   DOCKER_IMAGE={~~docker_image~~}
-  if [ -z "$NOPULL" ]; then
+  if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
   fi
   CONTAINER_NAME=odelia_swarm_admin
 
-  if [ ! -z "$LIST_LICENSES" ]; then
+  if [[ ! -z "$LIST_LICENSES" ]]; then
       docker run -it --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
       exit 0
