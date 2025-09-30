@@ -9,7 +9,7 @@ This guide is for data scientists and medical research sites participating in a 
 - Software: Docker, OpenVPN, Git
 
 ## Setup
-
+0. Add this line to your `/etc/hosts`: `172.24.4.65 dl3.tud.de dl3`
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
 2. Set up the VPN. A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose,
     1. Install OpenVPN
