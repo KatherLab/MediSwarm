@@ -4,6 +4,7 @@ set -e
 DOCKERFILE_PATH="docker_config/Dockerfile_ODELIA"
 LOG_PATH=$(mktemp)
 PROJECT_YML="tests/provision/dummy_project_for_testing.yml"
+VPN_TEST_CREDENTIALS="tests/local_vpn/client_configs/"
 
 echo "[INFO] Removing APT version pins from Dockerfile..."
 scripts/dev_utils/dockerfile_update_removeVersionApt.py "$DOCKERFILE_PATH"
@@ -14,7 +15,7 @@ git config user.name "GitHub CI"
 git commit "$DOCKERFILE_PATH" -m "WIP: remove apt versions for rebuild" || echo "[INFO] No version pin removal change to commit."
 
 echo "[INFO] Rebuilding Docker image and capturing logs..."
-if ! ./buildDockerImageAndStartupKits.sh -p "$PROJECT_YML" > "$LOG_PATH" 2>&1; then
+if ! ./buildDockerImageAndStartupKits.sh -p "$PROJECT_YML" -c "$VPN_TEST_CREDENTIALS" > "$LOG_PATH" 2>&1; then
   echo "Build failed. Output:"
   cat "$LOG_PATH"
   exit 1
