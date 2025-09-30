@@ -24,7 +24,7 @@ RUN apt install -y \
     bsdutils=1:2.37.2-4ubuntu3.4 \
     ca-certificates=20240203~22.04.1 \
     coreutils=8.32-4.1ubuntu1.2 \
-    dpkg=1.21.1ubuntu2.3 \
+    dpkg=1.21.1ubuntu2.6 \
     e2fsprogs=1.46.5-2ubuntu1.2 \
     gpgv=2.2.27-3ubuntu2.4 \
     libblkid1=2.37.2-4ubuntu3.4 \
@@ -192,15 +192,14 @@ RUN apt install -y \
 # openvpn iputils-ping net-tools sudo and dependencies at fixed versions
 # TODO remove tools only needed for debugging
 RUN apt install -y \
-    libelf1=0.186-1ubuntu0.1 \
-    libbpf0=1:0.5.0-1ubuntu22.04.1 \
-    libcap2-bin=1:2.44-1ubuntu0.22.04.2 \
     iproute2=5.15.0-1ubuntu2 \
     iputils-ping=3:20211215-1ubuntu0.1 \
     libatm1=1:2.5.1-4build2 \
+    libbpf0=1:0.5.0-1ubuntu22.04.1 \
+    libcap2-bin=1:2.44-1ubuntu0.22.04.2 \
+    libelf1=0.186-1ubuntu0.1 \
+    liblzo2-2=2.10-2build3 \
     libpam-cap=1:2.44-1ubuntu0.22.04.2 \
-    sudo=1.9.9-1ubuntu2.5 \
-    liblzo2-2=2.10-2build3  \
     libpkcs11-helper1=1.28-1ubuntu0.22.04.1 \
     net-tools=1.60+git20181103.0eebece-1ubuntu5.4 \
     openvpn=2.5.11-0ubuntu0.22.04.1
