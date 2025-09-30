@@ -13,14 +13,15 @@ DOCKER_BUILD_ARGS="--no-cache --progress=plain";
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -p)                  PROJECT_FILE="$2"; shift ;;
+        -c)                  VPN_CREDENTIALS_DIR="$2"; shift ;;
         --use-docker-cache)  DOCKER_BUILD_ARGS="";;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
 done
 
-if [ -z "$PROJECT_FILE" ]; then
-    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [--use-docker-cache]"
+if [[ -z "$PROJECT_FILE" || -z "$VPN_CREDENTIALS_DIR" ]]; then
+    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> -c <VPN credentials directory> [--use-docker-cache]"
     exit 1
 fi
 
@@ -77,8 +78,8 @@ docker build $DOCKER_BUILD_ARGS -t $CONTAINER_NAME $CLEAN_SOURCE_DIR -f docker_c
 
 echo "Docker image $CONTAINER_NAME built successfully"
 echo "./_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME"
-PATH_FOR_VPN_CREDENTIALS="../../../tests/local_vpn/client_configs"  # TODO make configurable
-./_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME $PATH_FOR_VPN_CREDENTIALS
+VPN_CREDENTIALS_DIR=$(realpath $VPN_CREDENTIALS_DIR)
+./_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME $VPN_CREDENTIALS_DIR
 echo "Startup kits built successfully"
 
 rm -rf $CLEAN_SOURCE_DIR
