@@ -77,7 +77,8 @@ docker build $DOCKER_BUILD_ARGS -t $CONTAINER_NAME $CLEAN_SOURCE_DIR -f docker_c
 
 echo "Docker image $CONTAINER_NAME built successfully"
 echo "./_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME"
-./_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME
+PATH_FOR_VPN_CREDENTIALS="../../../tests/local_vpn/client_configs"  # TODO make configurable
+./_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME $PATH_FOR_VPN_CREDENTIALS
 echo "Startup kits built successfully"
 
 rm -rf $CLEAN_SOURCE_DIR
