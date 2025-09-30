@@ -696,7 +696,10 @@ docker_cln_sh: |
   # TODO check if admin rights are needed and make sure output files are readable and deletable by non-root users on the host
 
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
-  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE"
+  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
+  if [[ ! -z "$ODELIA_ADDITIONAL_DOCKER_OPTIONS" ]]; then
+      DOCKER_OPTIONS_A+=" ${ODELIA_ADDITIONAL_DOCKER_OPTIONS}"
+  fi
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
   if [[ ! -z "$MY_DATA_DIR" ]]; then
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"

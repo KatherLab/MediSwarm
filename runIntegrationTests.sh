@@ -255,7 +255,7 @@ kill_testing_vpn () {
 
 start_server_and_clients () {
     echo "[Run] Start server and client Docker containers ..."
-
+    export ODELIA_ADDITIONAL_DOCKER_OPTIONS="--add-host testserver.local:10.8.0.4"
     cd "$PROJECT_DIR"/prod_00
     cd testserver.local/startup
     ./docker.sh --no_pull --start_server
