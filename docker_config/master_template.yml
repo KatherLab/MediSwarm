@@ -335,8 +335,6 @@ authz_def: |
 fl_admin_sh: |
   #!/usr/bin/env bash
 
-  # TODO add name and IP address for productive server
-  echo "10.8.0.4 testserver.local" >> /etc/hosts
   openvpn ./vpn_client.ovpn >> nohup_vpn.out 2>&1 &
 
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
@@ -373,8 +371,6 @@ start_ovsr_sh: |
 start_cln_sh: |
   #!/usr/bin/env bash
 
-  # TODO add name and IP address for productive server
-  echo "10.8.0.4 testserver.local" >> /etc/hosts
   openvpn ./vpn_client.ovpn >> nohup_vpn.out 2>&1 &
 
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
@@ -693,10 +689,9 @@ docker_cln_sh: |
       docker pull "$DOCKER_IMAGE"
   fi
 
-  # TODO check if admin rights are needed and make sure output files are readable and deletable by non-root users on the host
-
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
+  DOCKER_OPTIONS_A+=" --add-host dl3.tud.de:72.24.4.65 --add-host dl3:72.24.4.65"
   if [[ ! -z "$ODELIA_ADDITIONAL_DOCKER_OPTIONS" ]]; then
       DOCKER_OPTIONS_A+=" ${ODELIA_ADDITIONAL_DOCKER_OPTIONS}"
   fi
@@ -788,10 +783,16 @@ docker_svr_sh: |
 
   rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
 
+  ADDITIONAL_DOCKER_OPTIONS=" --add-host dl3.tud.de:72.24.4.65 --add-host dl3:72.24.4.65"
+  if [[ ! -z "$ODELIA_ADDITIONAL_DOCKER_OPTIONS" ]]; then
+      ADDITIONAL_DOCKER_OPTIONS+=" ${ODELIA_ADDITIONAL_DOCKER_OPTIONS}"
+  fi
+
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
   if [ ! -z "$START_SERVER" ]; then
       docker run -d -t --rm --name=$CONTAINER_NAME \
+      ${ADDITIONAL_DOCKER_OPTIONS} \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
@@ -801,6 +802,7 @@ docker_svr_sh: |
       /bin/bash -c "pip-licenses -s -u --order=license"
   elif [ ! -z "$INTERACTIVE" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
+      ${ADDITIONAL_DOCKER_OPTIONS} \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "/bin/bash"
@@ -835,8 +837,17 @@ docker_adm_sh: |
   fi
   CONTAINER_NAME=odelia_swarm_admin___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
+  ADDITIONAL_DOCKER_OPTIONS=" --add-host dl3.tud.de:72.24.4.65 --add-host dl3:72.24.4.65"
+  if [[ ! -z "$ODELIA_ADDITIONAL_DOCKER_OPTIONS" ]]; then
+      ADDITIONAL_DOCKER_OPTIONS+=" ${ODELIA_ADDITIONAL_DOCKER_OPTIONS}"
+  fi
+
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
-  docker run --rm -it --name=$CONTAINER_NAME -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE /bin/bash -c "./fl_admin.sh"
+  docker run --rm -it --name=$CONTAINER_NAME \
+      ${ADDITIONAL_DOCKER_OPTIONS} \
+      -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ \
+      -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "./fl_admin.sh"
 
 compose_yaml: |
   services:
