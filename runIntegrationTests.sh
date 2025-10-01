@@ -174,21 +174,25 @@ create_synthetic_data () {
 
 
 run_list_licenses () {
-    cd "$PROJECT_DIR"/prod_00
-    cd localhost/startup
-    LICENSES_LISTED=$(./docker.sh --list_licenses --no_pull)
-
-    for EXPECTED_KEYWORDS in 'scikit-learn' 'torch' 'nvflare_mediswarm' 'BSD License' 'MIT License';
-    do
-        if echo "$LICENSES_LISTED" | grep -qie "$EXPECTED_KEYWORDS" ; then
-            echo "Instructions on $EXPECTED_KEYWORDS found"
-        else
-            echo "Instructions on $EXPECTED_KEYWORDS missing"
-            exit 1
-        fi
-    done
-
+    cd "$CWD"/"$PROJECT_DIR/prod_00/admin@test.odelia/startup"
+    ADMIN_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
+    SERVER_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
+    cd "$CWD"/"$PROJECT_DIR/prod_00/client_A/startup/"
+    CLIENT_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
     cd "$CWD"
+
+    for license_output in "$ADMIN_LICENSES" "$SERVER_LICENSES" "$CLIENT_LICENSES";
+    do
+        for expected_keywords in 'scikit-learn' 'torch' 'nvflare_mediswarm' 'BSD License' 'MIT License' 'model weights';
+        do
+            if echo "$license_output" | grep -qie "$expected_keywords" ; then
+                echo "License check: $expected_keywords found"
+            else
+                echo "License check: $expected_keywords missing"
+                exit 1
+            fi
+        done
+    done
 }
 
 
