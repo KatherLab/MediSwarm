@@ -9,7 +9,7 @@ This guide is for data scientists and medical research sites participating in a 
 - Software: Docker, OpenVPN, Git
 
 ## Setup
-
+0. Add this line to your `/etc/hosts`: `172.24.4.65 dl3.tud.de dl3`
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
 2. Set up the VPN. A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose,
     1. Install OpenVPN
@@ -73,7 +73,7 @@ The dataset must be in the following format.
 
 ## Prepare Training Participation
 
-1. Extract startup kit provided by swarm operator
+1. Extract the startup kit provided by swarm operator for the current experiment.
 
 ### Local Testing on Your Data
 
@@ -160,7 +160,9 @@ For any issues, check if the commands above point to problems and contact your S
 
 ## Troubleshooting
 
+* Folders where files are located need to have the correct name
 * Image files need to have the correct file name including capitalization
-* The directories listed as identifiers in the tables `annotation.csv` and `split.csv` should all be present, only those directories should be present
+* The directories listed as identifiers in the tables `annotation.csv` and `split.csv` should all be present and named correctly (including capitalization), only those directories should be present
 * The tables should not have additional or duplicate columns, entries need to have the correct captitalization
 * Image and table folders and files need to be present in the folders specified via `--data_dir`. Symlinks to other locations do not work, they are not available in the Docker mount.
+* The correct startup kit needs to be used. `SSLCertVerificationError` or `authentication failed` may indicate an incorrect startup kit incompatible with the current experiment.
