@@ -39,7 +39,7 @@ jobs:
       - name: Build Docker image and startup kits for test project
         run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml -c tests/local_vpn/client_configs
 
-      - name: Show workspace path for MEVIS project
+      - name: Show workspace path for test project
         run: |
           echo "WORKSPACE_PATH: ${{ env.WORKSPACE_PATH }}"
           find workspace -maxdepth 1 -type d -name "odelia_*_dummy_project_for_testing" || echo "No workspace found"
