@@ -120,7 +120,7 @@ RUN apt install -y \
     dbus-user-session=1.12.20-2ubuntu4.1 \
     dbus=1.12.20-2ubuntu4.1 \
     dmsetup=2:1.02.175-2.1ubuntu5 \
-    docker-buildx-plugin=0.28.0-0~ubuntu.22.04~jammy \
+    docker-buildx-plugin=0.29.0-0~ubuntu.22.04~jammy \
     docker-ce-cli=5:28.4.0-1~ubuntu.22.04~jammy \
     docker-ce-rootless-extras=5:28.4.0-1~ubuntu.22.04~jammy \
     docker-ce=5:28.4.0-1~ubuntu.22.04~jammy \
