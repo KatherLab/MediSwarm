@@ -334,6 +334,9 @@ authz_def: |
 
 fl_admin_sh: |
   #!/usr/bin/env bash
+
+  openvpn ./vpn_client.ovpn >> nohup_vpn.out 2>&1 &
+
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   python3 -m nvflare.fuel.hci.tools.admin -m $DIR/.. -s fed_admin.json
 
@@ -367,6 +370,9 @@ start_ovsr_sh: |
 
 start_cln_sh: |
   #!/usr/bin/env bash
+
+  openvpn ./vpn_client.ovpn >> nohup_vpn.out 2>&1 &
+
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   all_arguments="${@}"
   doCloud=false
@@ -392,6 +398,9 @@ start_cln_sh: |
 
 start_svr_sh: |
   #!/usr/bin/env bash
+
+  openvpn ./vpn_client.ovpn >> nohup_vpn.out 2>&1 &
+
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   all_arguments="${@}"
   doCloud=false
@@ -670,7 +679,7 @@ docker_cln_sh: |
   chmod -R 777 "$MY_SCRATCH_DIR"
 
   # Networking & Cleanup
-  NETARG="--net=host"
+  NETARG="--cap-add=NET_ADMIN --device /dev/net/tun"
   rm -rf ../pid.fl ../daemon_pid.fl
 
   # Docker image and container name
@@ -680,8 +689,12 @@ docker_cln_sh: |
       docker pull "$DOCKER_IMAGE"
   fi
 
-  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
+  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
+  DOCKER_OPTIONS_A+=" --add-host dl3.tud.de:72.24.4.65 --add-host dl3:72.24.4.65"
+  if [[ ! -z "$ODELIA_ADDITIONAL_DOCKER_OPTIONS" ]]; then
+      DOCKER_OPTIONS_A+=" ${ODELIA_ADDITIONAL_DOCKER_OPTIONS}"
+  fi
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
   if [[ ! -z "$MY_DATA_DIR" ]]; then
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
@@ -754,9 +767,11 @@ docker_svr_sh: |
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
   # to use host network, use line below
-  NETARG="--net=host"
+  NETARG="--cap-add=NET_ADMIN --device /dev/net/tun"
   # or to expose specific ports, use line below
   #NETARG="-p {~~admin_port~~}:{~~admin_port~~} -p {~~fed_learn_port~~}:{~~fed_learn_port~~}"
+
+  # TODO check if admin rights are needed and make sure output files are readable and deletable by non-root users on the host
 
   DOCKER_IMAGE={~~docker_image~~}
   if [ -z "$NOPULL" ]; then
@@ -764,23 +779,30 @@ docker_svr_sh: |
       docker pull $DOCKER_IMAGE
   fi
   svr_name="${SVR_NAME:-flserver}"
-  CONTAINER_NAME=odelia_swarm_server_$svr_name
+  CONTAINER_NAME=odelia_swarm_server_${svr_name}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
   rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
+
+  ADDITIONAL_DOCKER_OPTIONS=" --add-host dl3.tud.de:72.24.4.65 --add-host dl3:72.24.4.65"
+  if [[ ! -z "$ODELIA_ADDITIONAL_DOCKER_OPTIONS" ]]; then
+      ADDITIONAL_DOCKER_OPTIONS+=" ${ODELIA_ADDITIONAL_DOCKER_OPTIONS}"
+  fi
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
   if [ ! -z "$START_SERVER" ]; then
       docker run -d -t --rm --name=$CONTAINER_NAME \
+      ${ADDITIONAL_DOCKER_OPTIONS} \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
   elif [ ! -z "$LIST_LICENSES" ]; then
-      docker run -it --rm --name=$CONTAINER_NAME \
+      docker run --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
       /bin/bash -c "pip-licenses -s -u --order=license"
   elif [ ! -z "$INTERACTIVE" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
+      ${ADDITIONAL_DOCKER_OPTIONS} \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "/bin/bash"
@@ -804,17 +826,28 @@ docker_adm_sh: |
 
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   # To use host network
-  NETARG="--net=host"
+  NETARG="--cap-add=NET_ADMIN --device /dev/net/tun"
+
+  # TODO check if admin rights are needed and make sure output files are readable and deletable by non-root users on the host
 
   DOCKER_IMAGE={~~docker_image~~}
   if [ -z "$NOPULL" ]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
   fi
-  CONTAINER_NAME=odelia_swarm_admin
+  CONTAINER_NAME=odelia_swarm_admin___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
+
+  ADDITIONAL_DOCKER_OPTIONS=" --add-host dl3.tud.de:72.24.4.65 --add-host dl3:72.24.4.65"
+  if [[ ! -z "$ODELIA_ADDITIONAL_DOCKER_OPTIONS" ]]; then
+      ADDITIONAL_DOCKER_OPTIONS+=" ${ODELIA_ADDITIONAL_DOCKER_OPTIONS}"
+  fi
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
-  docker run --rm -it --name=fladmin -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE /bin/bash -c "./fl_admin.sh"
+  docker run --rm -it --name=$CONTAINER_NAME \
+      ${ADDITIONAL_DOCKER_OPTIONS} \
+      -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ \
+      -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE \
+      /bin/bash -c "./fl_admin.sh"
 
 compose_yaml: |
   services:
