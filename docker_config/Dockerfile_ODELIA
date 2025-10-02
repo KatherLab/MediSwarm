@@ -48,15 +48,15 @@ RUN apt install -y \
     libseccomp2=2.5.3-2ubuntu3~22.04.1 \
     libsmartcols1=2.37.2-4ubuntu3.4 \
     libss2=1.46.5-2ubuntu1.2 \
-    libssl3=3.0.2-0ubuntu1.19 \
+    libssl3=3.0.2-0ubuntu1.20 \
     libsystemd0=249.11-0ubuntu3.16 \
     libtasn1-6=4.18.0-4ubuntu0.1 \
     libudev1=249.11-0ubuntu3.16 \
     libuuid1=2.37.2-4ubuntu3.4 \
-    linux-libc-dev=5.15.0-156.166 \
+    linux-libc-dev=5.15.0-157.167 \
     logsave=1.46.5-2ubuntu1.2 \
     mount=2.37.2-4ubuntu3.4 \
-    openssl=3.0.2-0ubuntu1.19 \
+    openssl=3.0.2-0ubuntu1.20 \
     util-linux=2.37.2-4ubuntu3.4
 
 # Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
@@ -120,7 +120,7 @@ RUN apt install -y \
     dbus-user-session=1.12.20-2ubuntu4.1 \
     dbus=1.12.20-2ubuntu4.1 \
     dmsetup=2:1.02.175-2.1ubuntu5 \
-    docker-buildx-plugin=0.28.0-0~ubuntu.22.04~jammy \
+    docker-buildx-plugin=0.29.0-0~ubuntu.22.04~jammy \
     docker-ce-cli=5:28.4.0-1~ubuntu.22.04~jammy \
     docker-ce-rootless-extras=5:28.4.0-1~ubuntu.22.04~jammy \
     docker-ce=5:28.4.0-1~ubuntu.22.04~jammy \
