@@ -22,7 +22,6 @@ jobs:
       SITE_NAME: UKA
       PYTHONUNBUFFERED: 1
 
-
     steps:
       - name: Checkout repository (with submodules)
         uses: actions/checkout@v3
@@ -37,18 +36,13 @@ jobs:
           echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build Docker image for real project (MEVIS)
-        run: |
-          chmod +x buildDockerImageAndStartupKits.sh
-          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
+      - name: Build Docker image and startup kits for test project
+        run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml -c tests/local_vpn/client_configs
 
       - name: Show workspace path for MEVIS project
         run: |
           echo "WORKSPACE_PATH: ${{ env.WORKSPACE_PATH }}"
-          find workspace -maxdepth 1 -type d -name "odelia_*_MEVIS_test" || echo "No workspace found"
-
-      - name: Build Docker image and dummy startup kits
-        run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
+          find workspace -maxdepth 1 -type d -name "odelia_*_dummy_project_for_testing" || echo "No workspace found"
 
       - name: Run integration test checking documentation on github
         continue-on-error: false
