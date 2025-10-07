@@ -176,6 +176,7 @@ create_synthetic_data () {
 run_list_licenses () {
     cd "$CWD"/"$PROJECT_DIR/prod_00/admin@test.odelia/startup"
     ADMIN_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
+    cd "$CWD"/"$PROJECT_DIR/prod_00/localhost/startup/"
     SERVER_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
     cd "$CWD"/"$PROJECT_DIR/prod_00/client_A/startup/"
     CLIENT_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
