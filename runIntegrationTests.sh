@@ -174,12 +174,13 @@ create_synthetic_data () {
 
 
 run_list_licenses () {
+    # the output has mixed line endings, remove CRs
     cd "$CWD"/"$PROJECT_DIR/prod_00/admin@test.odelia/startup"
-    ADMIN_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
+    ADMIN_LICENSES=$( ./docker.sh --no_pull --list_licenses  | sed 's/\r//g' )
     cd "$CWD"/"$PROJECT_DIR/prod_00/localhost/startup/"
-    SERVER_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
+    SERVER_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
     cd "$CWD"/"$PROJECT_DIR/prod_00/client_A/startup/"
-    CLIENT_LICENSES=$( ./docker.sh --no_pull --list_licenses 2>&1  )
+    CLIENT_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
     cd "$CWD"
 
     for license_output in "$ADMIN_LICENSES" "$SERVER_LICENSES" "$CLIENT_LICENSES";
