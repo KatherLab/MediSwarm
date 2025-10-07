@@ -720,7 +720,7 @@ docker_cln_sh: |
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
   elif [[ ! -z "$LIST_LICENSES" ]]; then
-      docker run -it --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
+      docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
 
   elif [[ ! -z "$INTERACTIVE" ]]; then
@@ -784,7 +784,7 @@ docker_svr_sh: |
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
   elif [[ ! -z "$LIST_LICENSES" ]]; then
-      docker run -it --rm --name=$CONTAINER_NAME \
+      docker run --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
   elif [[ ! -z "$INTERACTIVE" ]]; then
@@ -823,7 +823,7 @@ docker_adm_sh: |
   CONTAINER_NAME=odelia_swarm_admin___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
   if [[ ! -z "$LIST_LICENSES" ]]; then
-      docker run -it --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
+      docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
       exit 0
   fi
