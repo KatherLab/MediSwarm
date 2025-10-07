@@ -124,7 +124,7 @@ RUN apt install -y \
     docker-ce-cli=5:28.5.0-1~ubuntu.22.04~jammy \
     docker-ce-rootless-extras=5:28.5.0-1~ubuntu.22.04~jammy \
     docker-ce=5:28.5.0-1~ubuntu.22.04~jammy \
-    docker-compose-plugin=2.39.4-0~ubuntu.22.04~jammy \
+    docker-compose-plugin=2.40.0-1~ubuntu.22.04~jammy \
     gir1.2-glib-2.0=1.72.0-1 \
     git-man=1:2.34.1-1ubuntu1.15 \
     git=1:2.34.1-1ubuntu1.15 \
