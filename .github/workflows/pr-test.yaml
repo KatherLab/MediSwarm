@@ -17,9 +17,6 @@ jobs:
     timeout-minutes: 45
 
     env:
-      DATADIR: /mnt/sda1/Odelia_challange/ODELIA_Challenge_unilateral/
-      SCRATCHDIR: /mnt/scratch
-      SITE_NAME: UKA
       PYTHONUNBUFFERED: 1
 
 
