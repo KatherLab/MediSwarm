@@ -116,7 +116,7 @@ RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings
 # Install docker-ce docker-ce-cli containerd.io and dependencies at fixed versions
 RUN apt install -y \
     apparmor=3.0.4-2ubuntu2.4 \
-    containerd.io=1.7.28-0~ubuntu.22.04~jammy \
+    containerd.io=1.7.28-1~ubuntu.22.04~jammy \
     dbus-user-session=1.12.20-2ubuntu4.1 \
     dbus=1.12.20-2ubuntu4.1 \
     dmsetup=2:1.02.175-2.1ubuntu5 \
