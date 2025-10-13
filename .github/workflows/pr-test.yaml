@@ -22,7 +22,6 @@ jobs:
       SITE_NAME: UKA
       PYTHONUNBUFFERED: 1
 
-
     steps:
       - name: Checkout repository (with submodules)
         uses: actions/checkout@v3
@@ -37,50 +36,60 @@ jobs:
           echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build Docker image for real project (MEVIS)
-        run: |
-          chmod +x buildDockerImageAndStartupKits.sh
-          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
+      - name: Build Docker image and startup kits for test project
+        run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml -c tests/local_vpn/client_configs
 
-      - name: Show workspace path for MEVIS project
+      - name: Show workspace path for test project
         run: |
           echo "WORKSPACE_PATH: ${{ env.WORKSPACE_PATH }}"
-          find workspace -maxdepth 1 -type d -name "odelia_*_MEVIS_test" || echo "No workspace found"
+          find workspace -maxdepth 1 -type d -name "odelia_*_dummy_project_for_testing" || echo "No workspace found"
 
-      - name: Build Docker image and dummy startup kits
-        run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
-
-      - name: Prepare dummy trainings
-        continue-on-error: true
-        run: |
-          ./runTestsInDocker.sh prepare_dummy_trainings
-          echo "Dummy training project prepared"
-
-      - name: Run dummy training
+      - name: Run integration test checking documentation on github
         continue-on-error: false
         run: |
-          ./runTestsInDocker.sh run_dummy_training
-          echo "Dummy training finished"
-          echo "=== Checking log output ==="
-          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for dummy training"
+          ./runIntegrationTests.sh check_files_on_github
 
-      - name: Run 3D CNN tests
+      - name: Run controller unit tests
         continue-on-error: false
         run: |
-          ./runTestsInDocker.sh run_3dcnn_tests
-          echo "3D CNN tests check finished"
-          echo "=== Checking synthetic log output ==="
-          ls -lh workspace/*/prod_00/client_A/logs || echo "No logs found for 3D CNN tests"
+          ./runIntegrationTests.sh run_unit_tests_controller
 
-      - name: Run Unit Tests inside Docker
-        continue-on-error: true
+      - name: Run dummy training standalone
+        continue-on-error: false
         run: |
-          ./runTestsInDocker.sh run_tests
-          echo "=== [LOG CHECK] ==="
-          docker logs $(docker ps -a -q --latest) | grep -i "error" && echo "Error found in logs" || echo "No error found"
+          ./runIntegrationTests.sh run_dummy_training_standalone
 
-      - name: Cleanup training artifacts
-        continue-on-error: true
+      - name: Run dummy training in simulation mode
+        continue-on-error: false
         run: |
-          ./runTestsInDocker.sh cleanup
-          echo "Cleanup finished"
+          ./runIntegrationTests.sh run_dummy_training_simulation_mode
+
+      - name: Run dummy training in proof-of-concept mode
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_dummy_training_poc_mode
+
+      - name: Run 3DCNN training in simulation mode
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_3dcnn_simulation_mode
+
+      - name: Run integration test creating startup kits
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh create_startup_kits
+
+      - name: Run intergration test listing licenses
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_list_licenses
+
+      - name: Run integration test Docker GPU preflight check
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_docker_gpu_preflight_check
+
+      - name: Run integration test Data access preflight check
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_data_access_preflight_check

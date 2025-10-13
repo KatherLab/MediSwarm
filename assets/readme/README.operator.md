@@ -19,16 +19,24 @@ For example, add the following line (replace `<IP>` with the server's actual IP 
 <IP>    dl3.tud.de dl3
 ```
 
+TODO describe this in participant REAME if needed
+
 ## Create Startup Kits
 
 ### Via Script (recommended)
 
 1. Use, e.g., the file `application/provision/project_MEVIS_test.yml`, adapt as needed (network protocol etc.)
-2. Call `buildStartupKits.sh /path/to/project_configuration.yml` to build the startup kits
+2. Call `buildDockerImageAndStartupKits.sh -p /path/to/project_configuration.yml -c /path/to/directory/with/VPN/credentials` to build the Docker image and the startup kits
+  - swarm nodes (admin, server, clients) are configured in `project_configuration.yml`
+  - the directory with VPN credentials should contain one `.ovpn` file per node
+  - use `-c tests/local_vpn/client_configs/` to build startup kits for the integration tests
 3. Startup kits are generated to `workspace/<name configured in the .yml>/prod_00/`
-4. Deploy startup kits to the respective server/clients
+4. Deploy startup kits to the respective server/client operators
+5. Push the Docker image to the registry
 
 ### Via the Dashboard (not recommended)
+
+Build the Docker image as described above.
 
 ```bash
 docker run -d --rm \
@@ -69,14 +77,14 @@ Access the dashboard at `https://localhost:8443` log in with the admin credentia
 2. Client Sites > approve client sites
 3. Project Home > freeze project
 
-## Download startup kits
+#### Download startup kits
 
 After setting up the project admin configuration, server and clients can download their startup kits. Store the
 passwords somewhere, they are only displayed once (or you can download them again).
 
 ## Starting a Swarm Training
 
-1. Connect the *server* host to the VPN as described above.
+1. Connect the *server* host to the VPN as described above. (TODO update documentation, this step is not needed if the Docker container handles the VPN connection.)
 2. Start the *server* startup kit using the respective `startup/docker.sh` script with the option to start the server
 3. Provide the *client* startup kits to the swarm participants (be aware that email providers or other channels may
    prevent encrypted archives)
