@@ -680,7 +680,7 @@ docker_cln_sh: |
       docker pull "$DOCKER_IMAGE"
   fi
 
-  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}
+  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
   if [[ ! -z "$MY_DATA_DIR" ]]; then
@@ -764,7 +764,7 @@ docker_svr_sh: |
       docker pull $DOCKER_IMAGE
   fi
   svr_name="${SVR_NAME:-flserver}"
-  CONTAINER_NAME=odelia_swarm_server_$svr_name
+  CONTAINER_NAME=odelia_swarm_server_${svr_name}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
   rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
 
@@ -776,7 +776,7 @@ docker_svr_sh: |
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
   elif [ ! -z "$LIST_LICENSES" ]; then
-      docker run -it --rm --name=$CONTAINER_NAME \
+      docker run --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
       /bin/bash -c "pip-licenses -s -u --order=license"
   elif [ ! -z "$INTERACTIVE" ]; then
@@ -811,10 +811,10 @@ docker_adm_sh: |
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
   fi
-  CONTAINER_NAME=odelia_swarm_admin
+  CONTAINER_NAME=odelia_swarm_admin___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
-  docker run --rm -it --name=fladmin -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE /bin/bash -c "./fl_admin.sh"
+  docker run --rm -it --name=$CONTAINER_NAME -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE /bin/bash -c "./fl_admin.sh"
 
 compose_yaml: |
   services:
