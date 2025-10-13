@@ -24,11 +24,14 @@ For example, add the following line (replace `<IP>` with the server's actual IP 
 ### Via Script (recommended)
 
 1. Use, e.g., the file `application/provision/project_MEVIS_test.yml`, adapt as needed (network protocol etc.)
-2. Call `buildStartupKits.sh /path/to/project_configuration.yml` to build the startup kits
+2. Call `buildDockerImageAndStartupKits.sh -p /path/to/project_configuration.yml` to build the Docker image and the startup kits
 3. Startup kits are generated to `workspace/<name configured in the .yml>/prod_00/`
-4. Deploy startup kits to the respective server/clients
+4. Deploy startup kits to the respective server/client operators
+5. Push the Docker image to the registry
 
 ### Via the Dashboard (not recommended)
+
+Build the Docker image as described above.
 
 ```bash
 docker run -d --rm \
@@ -69,7 +72,7 @@ Access the dashboard at `https://localhost:8443` log in with the admin credentia
 2. Client Sites > approve client sites
 3. Project Home > freeze project
 
-## Download startup kits
+#### Download startup kits
 
 After setting up the project admin configuration, server and clients can download their startup kits. Store the
 passwords somewhere, they are only displayed once (or you can download them again).
