@@ -198,7 +198,7 @@ RUN python3 -m pip uninstall -y conda conda-package-handling conda_index
 # Install specific versions of pip and setuptools
 RUN python3 -m pip install \
     -U \
-    pip==25.1.1 \
+    pip==25.2 \
     setuptools==80.8.0
 
 # Install dependencies of NVFlare at fixed versions
@@ -343,3 +343,6 @@ RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 
 # Copy pre-trained model weights to image
 COPY ./torch_home_cache /torch_home
+
+# allow creating home directory for local user inside container if needed
+RUN chmod a+rwx /home
