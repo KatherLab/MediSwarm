@@ -264,8 +264,8 @@ start_clients () {
 }
 
 start_server_and_clients () {
-    start_server()
-    start_clients()
+    start_server
+    start_clients
 }
 
 
