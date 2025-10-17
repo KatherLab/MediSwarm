@@ -26,6 +26,11 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 
 ## Running Tests
 
+* If you have multiple GPUs, use `GPU_FOR_TESTING="device=0" (or another device)
+* If you have a sliced multiple GPUs, use `GPU_FOR_TESTING="device=0:0" (or another slice)
+* Otherwise, leave this environment variable unset to use all GPUs.
+* To run only specific tests, look at the options at the end of the script.
+
    ```bash
    ./runIntegrationTests.sh
    ```
