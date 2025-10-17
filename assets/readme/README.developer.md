@@ -48,8 +48,6 @@ You should see
 9. output of an outdated client startup kit failing to connect to the server
 10. output of a dummy training run in a swarm consisting of one server and two client nodes
 
-Optionally, uncomment running NVFlare unit tests.
-
 ## Distributing Startup Kits
 
 Distribute the startup kits to the clients.
