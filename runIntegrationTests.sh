@@ -524,8 +524,8 @@ case "$1" in
         kill_registry_docker
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
-        start_server_and_clients
         verify_wrong_client_does_not_connect
+        start_server_and_clients
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
