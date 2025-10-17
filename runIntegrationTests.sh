@@ -236,8 +236,8 @@ run_3dcnn_simulation_mode () {
 }
 
 
-start_server_and_clients () {
-    echo "[Run] Start server and client Docker containers ..."
+start_server () {
+    echo "[Run] Start server Docker container ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd localhost/startup
@@ -245,6 +245,14 @@ start_server_and_clients () {
     cd ../..
     sleep 10
 
+    cd "$CWD"
+}
+
+
+start_clients () {
+    echo "[Run] Start client Docker containers ..."
+
+    cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
     ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
@@ -253,6 +261,11 @@ start_server_and_clients () {
     sleep 8
 
     cd "$CWD"
+}
+
+start_server_and_clients () {
+    start_server()
+    start_clients()
 }
 
 
