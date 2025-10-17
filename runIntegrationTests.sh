@@ -337,6 +337,7 @@ verify_wrong_client_does_not_connect () {
     fi
 
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX
+    sleep 3
     rm -rf "$PROJECT_DIR"/prod_wrong_client
 
     cd "$CWD"
