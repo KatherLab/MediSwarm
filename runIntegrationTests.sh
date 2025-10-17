@@ -507,7 +507,6 @@ case "$1" in
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
-        # TODO add to CI if we want this (currently not working)
         ;;
 
     all | "")
