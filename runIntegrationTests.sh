@@ -235,7 +235,8 @@ run_data_access_preflight_check () {
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
     CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    # also check that it finishes the single round within one minute
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
     if grep -q "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && grep -q "Epoch 0: 100%" "$CONSOLE_OUTPUT"; then
         echo "Expected output of Docker/GPU preflight check found"
