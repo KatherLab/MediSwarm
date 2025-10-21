@@ -107,6 +107,24 @@ run_unit_tests_controller(){
 
 run_dummy_training_standalone(){
     echo "[Run] Minimal example, standalone"
+    OUTPUT_WITHOUT_GPU=$(docker run --rm \
+                             --shm-size=16g \
+                             --ipc=host \
+                             --ulimit memlock=-1 \
+                             --ulimit stack=67108864 \
+                             -u $(id -u):$(id -g) \
+                             -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+                             -v "$SYNTHETIC_DATA_DIR":/data \
+                             -v "$SCRATCH_DIR":/scratch \
+                             --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
+                             "$DOCKER_IMAGE" 2>&1 || echo "")
+    if echo "$OUTPUT_WITHOUT_GPU" | grep -q "RuntimeError: This example does not work without GPU" ; then
+        echo "Verified that minimal example requires GPU"
+    else
+        echo "Failed to verify that minimal example requires GPU"
+        exit 1
+    fi
+
     _run_test_in_docker tests/integration_tests/_run_minimal_example_standalone.sh
 }
 
