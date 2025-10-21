@@ -377,7 +377,13 @@ run_dummy_training_in_swarm () {
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT=nohup.out
     for EXPECTED_OUTPUT in 'Total clients: 2' 'updated status of client client_A on round 4' 'updated status of client client_B on round 4' 'all_done=True' 'Server runner finished.' \
-                           'Start to the run Job: [0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' 'updated status of client client_B on round 4';
+                           'Start to the run Job: [0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' 'updated status of client client_B on round 4' \
+                           '.*SwarmServerController - INFO - .*updated status of client client_B on round 3: .* action=start_learn_task, all_done=False' \
+                           '.*SwarmServerController - INFO - .*updated status of client client_B on round 3: .* action=finished_learn_task, all_done=False' \
+                           '.*ClientManager - INFO - Client: New client client_A.* joined.*' \
+                           '.*ClientManager - INFO - Client: New client client_B.* joined.*' \
+                           '.*ClientManager - INFO - Client: New client client_.* joined. Sent token: .*  Total clients: 1' \
+                           '.*ClientManager - INFO - Client: New client client_.* joined. Sent token: .*  Total clients: 2';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
