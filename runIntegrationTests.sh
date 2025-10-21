@@ -396,9 +396,19 @@ run_dummy_training_in_swarm () {
 
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT=nohup.out
-    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' 'Epoch 9: 100%' 'val/AUC_ROC';
+    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' \
+                           'Epoch 9: 100%' \
+                           'val/AUC_ROC' \
+                           'validation metric .* from client' \
+                           'aggregating [0-9]* update(s) at round [0-9]*' \
+                           'FederatedClient - INFO - Successfully registered client:client_A for project' \
+                           'FederatedClient - INFO - Got engine after .* seconds' \
+                           'FederatedClient - INFO - Got the new primary SP:' \
+                           'SwarmClientController - INFO - .*: accepted learn request from client_.' \
+                           'Gatherer - INFO - .*: Contribution from client_. ACCEPTED by the aggregator at round .' \
+                           "SwarmClientController - INFO - .*: Broadcasting learn task of round . to ['client_A', 'client_B']; aggr client is client_."
     do
-        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
         else
             echo "Expected output $EXPECTED_OUTPUT missing"
@@ -406,16 +416,6 @@ run_dummy_training_in_swarm () {
         fi
     done
     cd "$CWD"
-
-    for EXPECTED_OUTPUT in 'validation metric .* from client' 'aggregating [0-9]* update(s) at round [0-9]*';
-    do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$PROJECT_DIR"/prod_00/client_?/startup/nohup.out; then
-            echo "Expected output $EXPECTED_OUTPUT found"
-        else
-            echo "Expected output $EXPECTED_OUTPUT missing"
-            exit 1
-        fi
-    done
 
     cd "$PROJECT_DIR"/prod_00/client_A/
     FILES_PRESENT=$(find . -type f -name "*.*")
