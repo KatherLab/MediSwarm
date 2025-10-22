@@ -26,6 +26,11 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 
 ## Running Tests
 
+* If you have multiple GPUs, use `GPU_FOR_TESTING="device=0" (or another device)
+* If you have a sliced multiple GPUs, use `GPU_FOR_TESTING="device=0:0" (or another slice)
+* Otherwise, leave this environment variable unset to use all GPUs.
+* To run only specific tests, look at the options at the end of the script.
+
    ```bash
    ./runIntegrationTests.sh
    ```
@@ -37,11 +42,11 @@ You should see
 3. output of a successful proof-of-concept run of a dummy training with two nodes
 4. output of a successful simulation run of a 3D CNN training using synthetic data with two nodes
 5. output of a set of startup kits being generated
-6. output of a Docker/GPU preflight check using one of the startup kits
-7. output of a data access preflight check using one of the startup kits
-8. output of a dummy training run in a swarm consisting of one server and two client nodes
-
-Optionally, uncomment running NVFlare unit tests.
+6. output of pushing the Docker image to a local registry and pulling it from there (takes several minutes)
+7. output of a Docker/GPU preflight check using one of the startup kits
+8. output of a data access preflight check using one of the startup kits
+9. output of an outdated client startup kit failing to connect to the server
+10. output of a dummy training run in a swarm consisting of one server and two client nodes
 
 ## Distributing Startup Kits
 
