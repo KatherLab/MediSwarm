@@ -96,3 +96,8 @@ jobs:
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_data_access_preflight_check
+
+      - name: Run dummy training in swarm
+        continue-on-error: false
+        run: |
+          ./runIntegrationTests.sh run_dummy_training_in_swarm
