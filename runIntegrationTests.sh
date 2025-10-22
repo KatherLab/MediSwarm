@@ -197,7 +197,7 @@ run_docker_gpu_preflight_check () {
     echo "[Run] Docker/GPU preflight check (local dummy training via startup kit) ..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
     CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
-    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT"
+    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT"
 
     if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT"; then
         echo "Expected output of Docker/GPU preflight check found"
@@ -216,7 +216,7 @@ run_data_access_preflight_check () {
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
     CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
     if grep -q "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && grep -q "Epoch 0: 100%" "$CONSOLE_OUTPUT"; then
         echo "Expected output of Docker/GPU preflight check found"
@@ -236,8 +236,8 @@ run_3dcnn_simulation_mode () {
 }
 
 
-start_server_and_clients () {
-    echo "[Run] Start server and client Docker containers ..."
+start_server () {
+    echo "[Run] Start server Docker container ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd localhost/startup
@@ -245,14 +245,27 @@ start_server_and_clients () {
     cd ../..
     sleep 10
 
+    cd "$CWD"
+}
+
+
+start_clients () {
+    echo "[Run] Start client Docker containers ..."
+
+    cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
     cd client_B/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU device=$GPU_FOR_TESTING --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --start_client
     sleep 8
 
     cd "$CWD"
+}
+
+start_server_and_clients () {
+    start_server
+    start_clients
 }
 
 
@@ -301,7 +314,7 @@ verify_wrong_client_does_not_connect () {
     sed -i 's#CONTAINER_NAME=odelia_swarm_client_client_A_095c1b7#CONTAINER_NAME=odelia_swarm_client_client_A_'$CONTAINER_VERSION_SUFFIX'#' client_A/startup/docker.sh
 
     cd client_A/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU device=$GPU_FOR_TESTING --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
 
     sleep 20
@@ -324,6 +337,7 @@ verify_wrong_client_does_not_connect () {
     fi
 
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX
+    sleep 3
     rm -rf "$PROJECT_DIR"/prod_wrong_client
 
     cd "$CWD"
@@ -493,7 +507,6 @@ case "$1" in
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
-        # TODO add to CI if we want this (currently not working)
         ;;
 
     all | "")
@@ -502,7 +515,7 @@ case "$1" in
         run_dummy_training_standalone
         run_dummy_training_simulation_mode
         run_dummy_training_poc_mode
-        # run_nvflare_unit_tests  # uncomment to enable NVFlare unit tests
+        run_nvflare_unit_tests
         create_synthetic_data
         run_3dcnn_simulation_mode
         create_startup_kits_and_check_contained_files
@@ -511,8 +524,8 @@ case "$1" in
         kill_registry_docker
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
-        start_server_and_clients
         verify_wrong_client_does_not_connect
+        start_server_and_clients
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
