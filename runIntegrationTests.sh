@@ -16,6 +16,7 @@ fi
 
 
 check_files_on_github () {
+    exit 1
     echo "[Run] Test whether expected content is available on github"
 
     LICENSE_ON_GITHUB=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/LICENSE)
