@@ -106,4 +106,4 @@ jobs:
         continue-on-error: false
         if: always()
         run: |
-          echo "TODO clean up"
+          ./runIntegrationTests.sh kill_server_and_clients
