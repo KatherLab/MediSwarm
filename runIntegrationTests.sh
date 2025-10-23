@@ -166,6 +166,13 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
 
+    if grep -q "\-\-local_training" "$PROJECT_DIR/prod_01/client_A/startup/docker.sh"; then
+        echo "Expected option for running local training found"
+    else
+        echo "Missing option for running local training"
+        exit 1
+    fi
+
     ZIP_CONTENT=$(unzip -tv "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip")
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
