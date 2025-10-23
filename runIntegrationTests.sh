@@ -530,7 +530,6 @@ case "$1" in
 
     check_wrong_startup_kit)
         create_startup_kits_and_check_contained_files
-        create_synthetic_data
         verify_wrong_certificates_are_rejected
         cleanup_temporary_data
         # TODO add to CI if we want this
