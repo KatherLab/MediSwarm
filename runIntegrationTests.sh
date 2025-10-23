@@ -16,7 +16,6 @@ fi
 
 
 check_files_on_github () {
-    exit 1
     echo "[Run] Test whether expected content is available on github"
 
     LICENSE_ON_GITHUB=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/LICENSE)
@@ -468,8 +467,8 @@ run_dummy_training_in_swarm () {
 
 
 kill_server_and_clients () {
-    echo "[Cleanup] Kill server and client Docker containers ..."
-    docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_B_$CONTAINER_VERSION_SUFFIX
+    echo "[Cleanup] Kill server and client Docker containers if running ..."
+    docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_B_$CONTAINER_VERSION_SUFFIX || true
 }
 
 
@@ -558,6 +557,10 @@ case "$1" in
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
+        ;;
+
+    kill_server_and_clients)
+        kill_server_and_clients
         ;;
 
     all | "")
