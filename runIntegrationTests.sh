@@ -318,9 +318,10 @@ kill_registry_docker () {
 }
 
 
-verify_wrong_client_does_not_connect () {
-    echo "[Run] Verify that client with outdated startup kit does not connect ..."
+verify_wrong_certificates_are_rejected () {
+    echo "[Run] Verify that client and admin console with invalid certificate in startup kit do not connect ..."
 
+    # start server
     cp -r "$PROJECT_DIR"/prod_01 "$PROJECT_DIR"/prod_wrong_client
     cd "$PROJECT_DIR"/prod_wrong_client
     cd localhost/startup
@@ -328,11 +329,16 @@ verify_wrong_client_does_not_connect () {
     cd ../..
     sleep 10
 
+    # inject invalid certificates from outdated startup kits
     rm client_A -rf
+    rm admin@test.odelia/ -rf
     tar xvf "$CWD"/tests/integration_tests/outdated_startup_kit.tar.gz
     sed -i 's#DOCKER_IMAGE=localhost:5000/odelia:1.0.1-dev.250919.095c1b7#DOCKER_IMAGE='$DOCKER_IMAGE'#' client_A/startup/docker.sh
     sed -i 's#CONTAINER_NAME=odelia_swarm_client_client_A_095c1b7#CONTAINER_NAME=odelia_swarm_client_client_A_'$CONTAINER_VERSION_SUFFIX'#' client_A/startup/docker.sh
+    sed -i 's#DOCKER_IMAGE=localhost:5000/odelia:1.0.1-dev.251023.e940002#DOCKER_IMAGE='$DOCKER_IMAGE'#' admin@test.odelia/startup/docker.sh
+    sed -i 's#CONTAINER_NAME=odelia_swarm_admin_e940002#CONTAINER_NAME=odelia_swarm_admin_'$CONTAINER_VERSION_SUFFIX'#' admin@test.odelia/startup/docker.sh
 
+    # start client and verify that it gets rejected
     cd client_A/startup
     ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
@@ -356,6 +362,10 @@ verify_wrong_client_does_not_connect () {
         exit 1
     fi
 
+    # start admin console and verify that it gets rejected
+    echo "TODO"
+
+    # cleanup
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX
     sleep 3
     rm -rf "$PROJECT_DIR"/prod_wrong_client
@@ -521,7 +531,7 @@ case "$1" in
     check_wrong_startup_kit)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
-        verify_wrong_client_does_not_connect
+        verify_wrong_certificates_are_rejected
         cleanup_temporary_data
         # TODO add to CI if we want this
         ;;
@@ -550,7 +560,7 @@ case "$1" in
         kill_registry_docker
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
-        verify_wrong_client_does_not_connect
+        verify_wrong_certificates_are_rejected
         start_server_and_clients
         run_dummy_training_in_swarm
         kill_server_and_clients
