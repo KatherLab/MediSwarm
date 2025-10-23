@@ -363,7 +363,15 @@ verify_wrong_certificates_are_rejected () {
     fi
 
     # start admin console and verify that it gets rejected
-    echo "TODO"
+    cd admin@test.odelia/startup
+    CONSOLE_OUTPUT_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
+    if echo "$CONSOLE_OUTPUT_ADMIN" | grep -q "Communication Error - please try later"; then
+        echo "Connection rejected successfully"
+    else
+        echo "Connection with non-authorized admin console"
+        exit 1
+    fi
+    cd ../..
 
     # cleanup
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX
