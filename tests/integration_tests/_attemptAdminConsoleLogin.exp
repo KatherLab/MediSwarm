@@ -1,0 +1,8 @@
+#!/usr/bin/env expect
+
+spawn ./docker.sh --no_pull
+expect "User Name: "
+send "admin@test.odelia\r"
+sleep 30
+expect "Trying to login, please wait ..."
+expect "Communication Error - please try later"
