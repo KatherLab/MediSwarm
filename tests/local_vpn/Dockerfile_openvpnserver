@@ -1,8 +1,9 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 RUN apt update
+RUN apt upgrade -y
 RUN apt install -y easy-rsa openvpn openssl ufw joe patch
-RUN apt install -y openssh-server net-tools
+RUN apt install -y openssh-server iproute2
 
 RUN useradd ca_user
 
