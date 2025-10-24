@@ -470,8 +470,6 @@ kill_server_and_clients () {
     echo "[Cleanup] Kill server and client Docker containers if running ..."
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_B_$CONTAINER_VERSION_SUFFIX || true
     docker ps
-    docker kill $(docker container ls -q --filter name=odelia_swarm_server_flserver_\*) $(docker container ls -q --filter name=odelia_swarm_client_\*) || true
-    docker ps
 }
 
 
