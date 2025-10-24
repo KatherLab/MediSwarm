@@ -29,3 +29,6 @@ cd server_config
 nohup openvpn --duplicate-cn --client-to-client --config /etc/openvpn/server/server.conf &
 sleep 2
 chmod a+r /server_config/nohup.out
+
+tc qdisc add dev eth0 root tbf rate 30mbit burst 5mbit limit 16gbit
+
