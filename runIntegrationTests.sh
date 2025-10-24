@@ -469,7 +469,6 @@ run_dummy_training_in_swarm () {
 kill_server_and_clients () {
     echo "[Cleanup] Kill server and client Docker containers if running ..."
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_B_$CONTAINER_VERSION_SUFFIX || true
-    docker ps
 }
 
 
