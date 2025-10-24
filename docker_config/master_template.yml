@@ -640,6 +640,7 @@ docker_cln_sh: |
           --preflight_check) PREFLIGHT_CHECK="1" ;;
           --local_training)  LOCAL_TRAINING="1" ;;
           --start_client)    START_CLIENT="1" ;;
+          --list_licenses)   LIST_LICENSES="1";;
           --interactive)     INTERACTIVE="1" ;;
           --run_script)      SCRIPT_TO_RUN="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
@@ -648,17 +649,17 @@ docker_cln_sh: |
   done
 
   # Prompt for parameters if missing
-  if [[ -z "$DUMMY_TRAINING" && -z "$MY_DATA_DIR" ]]; then
+  if [[ -z "$DUMMY_TRAINING" && -z "$LIST_LICENSES" && -z "$MY_DATA_DIR" ]]; then
       read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
       : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
   fi
 
-  if [ -z "$MY_SCRATCH_DIR" ]; then
+  if [[ -z "$MY_SCRATCH_DIR" && -z "$LIST_LICENSES" ]]; then
       read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
       : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
   fi
 
-  if [ -z "$GPU2USE" ]; then
+  if [[ -z "$GPU2USE" && -z "$LIST_LICENSES" ]]; then
       read -p "Enter the GPU index to use or 'all' (default: device=0): " user_gpu
       : ${GPU2USE:="${user_gpu:-device=0}"}
   fi
@@ -666,8 +667,10 @@ docker_cln_sh: |
   # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-  mkdir -p "$MY_SCRATCH_DIR"
-  chmod -R 777 "$MY_SCRATCH_DIR"
+  if [[ ! -z "$MY_SCRATCH_DIR" ]]; then
+      mkdir -p "$MY_SCRATCH_DIR"
+      chmod -R 777 "$MY_SCRATCH_DIR"
+  fi
 
   # Networking & Cleanup
   NETARG="--net=host"
@@ -675,7 +678,7 @@ docker_cln_sh: |
 
   # Docker image and container name
   DOCKER_IMAGE={~~docker_image~~}
-  if [ -z "$NOPULL" ]; then
+  if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull "$DOCKER_IMAGE"
   fi
@@ -716,6 +719,10 @@ docker_cln_sh: |
       docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
+  elif [[ ! -z "$LIST_LICENSES" ]]; then
+      docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
+
   elif [[ ! -z "$INTERACTIVE" ]]; then
       docker run --rm $TTY_OPT --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
 
@@ -729,6 +736,7 @@ docker_cln_sh: |
       echo "--preflight_check  verify data access & local training"
       echo "--local_training   train a local model"
       echo "--start_client     launch FL client in swarm mode"
+      echo "--list_licenses    list licenses of installed packages"
       echo "--interactive      drop into interactive container (for debugging)"
       echo "--run_script       execute script in container (for testing)"
       exit 1
@@ -759,7 +767,7 @@ docker_svr_sh: |
   #NETARG="-p {~~admin_port~~}:{~~admin_port~~} -p {~~fed_learn_port~~}:{~~fed_learn_port~~}"
 
   DOCKER_IMAGE={~~docker_image~~}
-  if [ -z "$NOPULL" ]; then
+  if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
   fi
@@ -770,16 +778,16 @@ docker_svr_sh: |
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
-  if [ ! -z "$START_SERVER" ]; then
+  if [[ ! -z "$START_SERVER" ]]; then
       docker run -d -t --rm --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
-  elif [ ! -z "$LIST_LICENSES" ]; then
+  elif [[ ! -z "$LIST_LICENSES" ]]; then
       docker run --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
-      /bin/bash -c "pip-licenses -s -u --order=license"
-  elif [ ! -z "$INTERACTIVE" ]; then
+      /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
+  elif [[ ! -z "$INTERACTIVE" ]]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
@@ -787,7 +795,7 @@ docker_svr_sh: |
   else
       echo "One of the following options must be passed:"
       echo "--start_server     start the swarm learning server"
-      echo "--list_licenses    list licenses of installed python packages"
+      echo "--list_licenses    list licenses of installed packages"
       echo "--interactive      start the container with an interactive shell (for debugging purposes)"
   fi
 
@@ -796,7 +804,8 @@ docker_adm_sh: |
 
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-         --no_pull)         NOPULL="1";;
+          --no_pull)        NOPULL="1";;
+          --list_licenses)  LIST_LICENSES="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -807,11 +816,17 @@ docker_adm_sh: |
   NETARG="--net=host"
 
   DOCKER_IMAGE={~~docker_image~~}
-  if [ -z "$NOPULL" ]; then
+  if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
   fi
   CONTAINER_NAME=odelia_swarm_admin___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
+
+  if [[ ! -z "$LIST_LICENSES" ]]; then
+      docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
+      exit 0
+  fi
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   docker run --rm -it --name=$CONTAINER_NAME -v $DIR/../local/:/fl_admin/local/ -v $DIR/../startup/:/fl_admin/startup/ -w /fl_admin/startup/ $NETARG $DOCKER_IMAGE /bin/bash -c "./fl_admin.sh"
