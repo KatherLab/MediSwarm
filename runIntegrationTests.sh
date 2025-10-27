@@ -558,7 +558,6 @@ case "$1" in
 
     run_dummy_training_in_swarm)
         create_startup_kits_and_check_contained_files
-        create_synthetic_data
         start_server_and_clients
         run_dummy_training_in_swarm
         kill_server_and_clients
