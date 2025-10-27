@@ -478,8 +478,13 @@ kill_server_and_clients () {
 }
 
 
+cleanup_synthetic_data () {
+    echo "[Cleanup] Removing synthetic data ..."
+    rm -rf "$SYNTHETIC_DATA_DIR"/*
+}
+
 cleanup_temporary_data () {
-    echo "[Cleanup] Removing synthetic data, scratch directory, dummy workspace ..."
+    echo "[Cleanup] Removing synthetic data directory, scratch directory, dummy workspace ..."
     rm -rf "$SYNTHETIC_DATA_DIR"
     rm -rf "$SCRATCH_DIR"
     rm -rf "$PROJECT_DIR"
@@ -584,6 +589,7 @@ case "$1" in
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
         verify_wrong_certificates_are_rejected
+        cleanup_synthetic_data
         start_server_and_clients
         run_dummy_training_in_swarm
         kill_server_and_clients
