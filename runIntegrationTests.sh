@@ -437,7 +437,7 @@ run_dummy_training_in_swarm () {
                            'FederatedClient - INFO - Got the new primary SP:' \
                            'SwarmClientController - INFO - .*: accepted learn request from client_.' \
                            'Gatherer - INFO - .*: Contribution from client_. ACCEPTED by the aggregator at round .' \
-                           "SwarmClientController - INFO - .*: Broadcasting learn task of round . to ['client_A', 'client_B']; aggr client is client_."
+                           'SwarmClientController - INFO - .*: Broadcasting learn task of round . to .*; aggr client is client_.'
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
