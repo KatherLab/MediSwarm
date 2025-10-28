@@ -408,7 +408,7 @@ run_dummy_training_in_swarm () {
     cd admin@test.odelia/startup
     "$CWD"/tests/integration_tests/_submitDummyTraining.exp
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
-    sleep 120
+    sleep 180
     cd "$CWD"
 
     cd "$PROJECT_DIR"/prod_00/localhost/startup
