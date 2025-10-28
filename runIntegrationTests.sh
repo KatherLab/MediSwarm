@@ -140,9 +140,15 @@ run_dummy_training_poc_mode(){
 
 run_nvflare_unit_tests(){
     echo "[Run] NVFlare unit tests"
-    _run_test_in_docker tests/unit_tests/_run_nvflare_unit_tests.sh
+    docker run --rm \
+           --shm-size=16g \
+           --ipc=host \
+           --ulimit memlock=-1 \
+           --ulimit stack=67108864 \
+           --gpus="$GPU_FOR_TESTING" \
+           --entrypoint=/MediSwarm/tests/unit_tests/_run_nvflare_unit_tests.sh \
+           "$DOCKER_IMAGE"
 }
-
 
 create_startup_kits_and_check_contained_files () {
     echo "[Prepare] Startup kits for test project ..."
