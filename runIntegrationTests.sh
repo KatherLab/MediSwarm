@@ -426,6 +426,7 @@ run_dummy_training_in_swarm () {
             echo "Expected output $EXPECTED_OUTPUT found"
         else
             echo "Expected output $EXPECTED_OUTPUT missing"
+            cat "$CONSOLE_OUTPUT"
             exit 1
         fi
     done
@@ -449,6 +450,7 @@ run_dummy_training_in_swarm () {
             echo "Expected output $EXPECTED_OUTPUT found"
         else
             echo "Expected output $EXPECTED_OUTPUT missing"
+            cat "$CONSOLE_OUTPUT"
             exit 1
         fi
     done
