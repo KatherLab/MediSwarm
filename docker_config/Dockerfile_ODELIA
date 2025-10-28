@@ -256,11 +256,6 @@ COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/li
 RUN python3 -m pip install /workspace/nvflare
 RUN rm -rf /workspace/nvflare
 
-# Install the ODELIA controller package from local source
-COPY ./MediSwarm/controller /workspace/controller
-RUN python3 -m pip install  /workspace/controller
-RUN rm -rf /workspace/controller
-
 # Copy the source code for local training and deploying to the swarm
 COPY ./MediSwarm /MediSwarm
 RUN mkdir -p /fl_admin/transfer
