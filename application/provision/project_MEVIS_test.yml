@@ -15,6 +15,15 @@ participants:
   - name: MHA
     type: client
     org: MEVIS_Test
+  - name: RUMC
+    type: client
+    org: MEVIS_Test
+  - name: UKA
+    type: client
+    org: MEVIS_Test
+  - name: UZH
+    type: client
+    org: MEVIS_Test
   - name: admin@mevis.odelia
     type: admin
     org: MEVIS_Test
