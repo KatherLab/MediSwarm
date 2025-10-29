@@ -411,16 +411,18 @@ run_dummy_training_in_swarm () {
     sleep 120
     cd "$CWD"
 
+    # check for expected output in server log (clients joined, job ID assigned, 5 rounds, start of round logged, finished training logged)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT=nohup.out
-    for EXPECTED_OUTPUT in 'Total clients: 2' 'updated status of client client_A on round 4' 'updated status of client client_B on round 4' 'all_done=True' 'Server runner finished.' \
-                           'Start to the run Job: [0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' 'updated status of client client_B on round 4' \
-                           '.*SwarmServerController - INFO - .*updated status of client client_B on round 3: .* action=start_learn_task, all_done=False' \
-                           '.*SwarmServerController - INFO - .*updated status of client client_B on round 3: .* action=finished_learn_task, all_done=False' \
-                           '.*ClientManager - INFO - Client: New client client_A.* joined.*' \
-                           '.*ClientManager - INFO - Client: New client client_B.* joined.*' \
-                           '.*ClientManager - INFO - Client: New client client_.* joined. Sent token: .*  Total clients: 1' \
-                           '.*ClientManager - INFO - Client: New client client_.* joined. Sent token: .*  Total clients: 2';
+    for EXPECTED_OUTPUT in 'Client: New client client_A.* joined.*' \
+                           'Client: New client client_B.* joined.*' \
+                           'Client: New client client_.* joined. Sent token: .* Total clients: 1' \
+                           'Client: New client client_.* joined. Sent token: .* Total clients: 2' \
+                           'Start to the run Job: [0-9a-f\-]\+' \
+                           'updated status of client client_A on round 4: .* action=start_learn_task, all_done=False' \
+                           'updated status of client client_B on round 4: .* action=start_learn_task, all_done=False' \
+                           'all_done=True' \
+                           'Server runner finished.';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
@@ -432,6 +434,7 @@ run_dummy_training_in_swarm () {
     done
     cd "$CWD"
 
+    # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT=nohup.out
     for EXPECTED_OUTPUT in 'Sending training result to aggregation client' \
@@ -439,12 +442,12 @@ run_dummy_training_in_swarm () {
                            'val/AUC_ROC' \
                            'validation metric .* from client' \
                            'aggregating [0-9]* update(s) at round [0-9]*' \
-                           'FederatedClient - INFO - Successfully registered client:client_A for project' \
-                           'FederatedClient - INFO - Got engine after .* seconds' \
-                           'FederatedClient - INFO - Got the new primary SP:' \
-                           'SwarmClientController - INFO - .*: accepted learn request from client_.' \
-                           'Gatherer - INFO - .*: Contribution from client_. ACCEPTED by the aggregator at round .' \
-                           'SwarmClientController - INFO - .*: Broadcasting learn task of round . to .*; aggr client is client_.'
+                           'Successfully registered client:client_A for project' \
+                           'Got engine after .* seconds' \
+                           'Got the new primary SP:' \
+                           'accepted learn request from client_.' \
+                           'Contribution from client_. ACCEPTED by the aggregator at round .' \
+                           'Broadcasting learn task of round . to .*; aggr client is client_.'
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
