@@ -101,3 +101,9 @@ jobs:
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_dummy_training_in_swarm
+
+      - name: Kill orphaned containers from this run (if any)
+        continue-on-error: false
+        if: always()
+        run: |
+          ./runIntegrationTests.sh kill_server_and_clients
