@@ -102,6 +102,24 @@ _run_test_in_docker() {
 
 run_dummy_training_standalone(){
     echo "[Run] Minimal example, standalone"
+    OUTPUT_WITHOUT_GPU=$(docker run --rm \
+                             --shm-size=16g \
+                             --ipc=host \
+                             --ulimit memlock=-1 \
+                             --ulimit stack=67108864 \
+                             -u $(id -u):$(id -g) \
+                             -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+                             -v "$SYNTHETIC_DATA_DIR":/data \
+                             -v "$SCRATCH_DIR":/scratch \
+                             --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
+                             "$DOCKER_IMAGE" 2>&1 || echo "")
+    if echo "$OUTPUT_WITHOUT_GPU" | grep -q "RuntimeError: This example does not work without GPU" ; then
+        echo "Verified that minimal example requires GPU"
+    else
+        echo "Failed to verify that minimal example requires GPU"
+        exit 1
+    fi
+
     _run_test_in_docker tests/integration_tests/_run_minimal_example_standalone.sh
 }
 
@@ -117,9 +135,15 @@ run_dummy_training_poc_mode(){
 
 run_nvflare_unit_tests(){
     echo "[Run] NVFlare unit tests"
-    _run_test_in_docker tests/unit_tests/_run_nvflare_unit_tests.sh
+    docker run --rm \
+           --shm-size=16g \
+           --ipc=host \
+           --ulimit memlock=-1 \
+           --ulimit stack=67108864 \
+           --gpus="$GPU_FOR_TESTING" \
+           --entrypoint=/MediSwarm/tests/unit_tests/_run_nvflare_unit_tests.sh \
+           "$DOCKER_IMAGE"
 }
-
 
 create_startup_kits_and_check_contained_files () {
     echo "[Prepare] Startup kits for test project ..."
@@ -142,6 +166,13 @@ create_startup_kits_and_check_contained_files () {
             exit 1
         fi
     done
+
+    if grep -q "\-\-local_training" "$PROJECT_DIR/prod_01/client_A/startup/docker.sh"; then
+        echo "Expected option for running local training found"
+    else
+        echo "Missing option for running local training"
+        exit 1
+    fi
 
     ZIP_CONTENT=$(unzip -tv "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip")
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
@@ -198,7 +229,8 @@ run_docker_gpu_preflight_check () {
     echo "[Run] Docker/GPU preflight check (local dummy training via startup kit) ..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
     CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
-    ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT"
+    # also check that it finishes within one minute
+    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT"
 
     if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT"; then
         echo "Expected output of Docker/GPU preflight check found"
@@ -217,7 +249,8 @@ run_data_access_preflight_check () {
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
     CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
-    ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    # also check that it finishes the single round within one minute
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
     if grep -q "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && grep -q "Epoch 0: 100%" "$CONSOLE_OUTPUT"; then
         echo "Expected output of Docker/GPU preflight check found"
@@ -299,9 +332,10 @@ kill_registry_docker () {
 }
 
 
-verify_wrong_client_does_not_connect () {
-    echo "[Run] Verify that client with outdated startup kit does not connect ..."
+verify_wrong_certificates_are_rejected () {
+    echo "[Run] Verify that client and admin console with invalid certificate in startup kit do not connect ..."
 
+    # start server
     cp -r "$PROJECT_DIR"/prod_01 "$PROJECT_DIR"/prod_wrong_client
     cd "$PROJECT_DIR"/prod_wrong_client
     cd localhost/startup
@@ -309,11 +343,16 @@ verify_wrong_client_does_not_connect () {
     cd ../..
     sleep 10
 
+    # inject invalid certificates from outdated startup kits
     rm client_A -rf
+    rm admin@test.odelia/ -rf
     tar xvf "$CWD"/tests/integration_tests/outdated_startup_kit.tar.gz
     sed -i 's#DOCKER_IMAGE=localhost:5000/odelia:1.0.1-dev.250919.095c1b7#DOCKER_IMAGE='$DOCKER_IMAGE'#' client_A/startup/docker.sh
     sed -i 's#CONTAINER_NAME=odelia_swarm_client_client_A_095c1b7#CONTAINER_NAME=odelia_swarm_client_client_A_'$CONTAINER_VERSION_SUFFIX'#' client_A/startup/docker.sh
+    sed -i 's#DOCKER_IMAGE=localhost:5000/odelia:1.0.1-dev.251023.e940002#DOCKER_IMAGE='$DOCKER_IMAGE'#' admin@test.odelia/startup/docker.sh
+    sed -i 's#CONTAINER_NAME=odelia_swarm_admin_e940002#CONTAINER_NAME=odelia_swarm_admin_'$CONTAINER_VERSION_SUFFIX'#' admin@test.odelia/startup/docker.sh
 
+    # start client and verify that it gets rejected
     cd client_A/startup
     ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
@@ -337,6 +376,18 @@ verify_wrong_client_does_not_connect () {
         exit 1
     fi
 
+    # start admin console and verify that it gets rejected
+    cd admin@test.odelia/startup
+    CONSOLE_OUTPUT_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
+    if echo "$CONSOLE_OUTPUT_ADMIN" | grep -q "Communication Error - please try later"; then
+        echo "Connection rejected successfully"
+    else
+        echo "Connection with non-authorized admin console"
+        exit 1
+    fi
+    cd ../..
+
+    # cleanup
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX
     sleep 3
     rm -rf "$PROJECT_DIR"/prod_wrong_client
@@ -352,45 +403,56 @@ run_dummy_training_in_swarm () {
     cd admin@test.odelia/startup
     "$CWD"/tests/integration_tests/_submitDummyTraining.exp
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
-    sleep 60
+    sleep 120
     cd "$CWD"
 
+    # check for expected output in server log (clients joined, job ID assigned, 5 rounds, start of round logged, finished training logged)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT=nohup.out
-    for EXPECTED_OUTPUT in 'Total clients: 2' 'updated status of client client_A on round 4' 'updated status of client client_B on round 4' 'all_done=True' 'Server runner finished.' \
-                           'Start to the run Job: [0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' 'updated status of client client_B on round 4';
+    for EXPECTED_OUTPUT in 'Client: New client client_A.* joined.*' \
+                           'Client: New client client_B.* joined.*' \
+                           'Client: New client client_.* joined. Sent token: .* Total clients: 1' \
+                           'Client: New client client_.* joined. Sent token: .* Total clients: 2' \
+                           'Start to the run Job: [0-9a-f\-]\+' \
+                           'updated status of client client_A on round 4: .* action=start_learn_task, all_done=False' \
+                           'updated status of client client_B on round 4: .* action=start_learn_task, all_done=False' \
+                           'all_done=True' \
+                           'Server runner finished.';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
         else
             echo "Expected output $EXPECTED_OUTPUT missing"
+            cat "$CONSOLE_OUTPUT"
             exit 1
         fi
     done
     cd "$CWD"
 
+    # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT=nohup.out
-    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' 'Epoch 9: 100%' 'val/AUC_ROC';
+    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' \
+                           'Epoch 9: 100%' \
+                           'val/AUC_ROC' \
+                           'validation metric .* from client' \
+                           'aggregating [0-9]* update(s) at round [0-9]*' \
+                           'Successfully registered client:client_A for project' \
+                           'Got engine after .* seconds' \
+                           'Got the new primary SP:' \
+                           'accepted learn request from client_.' \
+                           'Contribution from client_. ACCEPTED by the aggregator at round .' \
+                           'Broadcasting learn task of round . to .*; aggr client is client_.'
     do
-        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
         else
             echo "Expected output $EXPECTED_OUTPUT missing"
+            cat "$CONSOLE_OUTPUT"
             exit 1
         fi
     done
     cd "$CWD"
-
-    for EXPECTED_OUTPUT in 'validation metric .* from client' 'aggregating [0-9]* update(s) at round [0-9]*';
-    do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$PROJECT_DIR"/prod_00/client_?/startup/nohup.out; then
-            echo "Expected output $EXPECTED_OUTPUT found"
-        else
-            echo "Expected output $EXPECTED_OUTPUT missing"
-            exit 1
-        fi
-    done
 
     cd "$PROJECT_DIR"/prod_00/client_A/
     FILES_PRESENT=$(find . -type f -name "*.*")
@@ -417,13 +479,18 @@ run_dummy_training_in_swarm () {
 
 
 kill_server_and_clients () {
-    echo "[Cleanup] Kill server and client Docker containers ..."
-    docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_B_$CONTAINER_VERSION_SUFFIX
+    echo "[Cleanup] Kill server and client Docker containers if running ..."
+    docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_B_$CONTAINER_VERSION_SUFFIX || true
 }
 
 
+cleanup_synthetic_data () {
+    echo "[Cleanup] Removing synthetic data ..."
+    rm -rf "$SYNTHETIC_DATA_DIR"/*
+}
+
 cleanup_temporary_data () {
-    echo "[Cleanup] Removing synthetic data, scratch directory, dummy workspace ..."
+    echo "[Cleanup] Removing synthetic data directory, scratch directory, dummy workspace ..."
     rm -rf "$SYNTHETIC_DATA_DIR"
     rm -rf "$SCRATCH_DIR"
     rm -rf "$PROJECT_DIR"
@@ -490,19 +557,21 @@ case "$1" in
 
     check_wrong_startup_kit)
         create_startup_kits_and_check_contained_files
-        create_synthetic_data
-        verify_wrong_client_does_not_connect
+        verify_wrong_certificates_are_rejected
         cleanup_temporary_data
         # TODO add to CI if we want this
         ;;
 
     run_dummy_training_in_swarm)
         create_startup_kits_and_check_contained_files
-        create_synthetic_data
         start_server_and_clients
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
+        ;;
+
+    kill_server_and_clients)
+        kill_server_and_clients
         ;;
 
     all | "")
@@ -519,7 +588,8 @@ case "$1" in
         kill_registry_docker
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
-        verify_wrong_client_does_not_connect
+        verify_wrong_certificates_are_rejected
+        cleanup_synthetic_data
         start_server_and_clients
         run_dummy_training_in_swarm
         kill_server_and_clients
