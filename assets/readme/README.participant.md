@@ -79,7 +79,7 @@ The dataset must be in the following format.
 
 1. Directories
    ```bash
-   export SITE_NAME=<name of your site>
+   export SITE_NAME=<name of your site, e.g., UKA_1>
    export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data in the structure described above is stored>
    export SCRATCHDIR=<path to where the training can store temporary files>
    ```
