@@ -5,7 +5,7 @@ This guide is for data scientists and medical research sites participating in a 
 ## Prerequisites
 
 - Hardware: Min. 32GB RAM, 8 cores, NVIDIA GPU with 24GB VRAM, 4TB storage
-- OS: Ubuntu 20.04 LTS
+- OS: Ubuntu 20.04 LTS, 22.04 LTS, or 24.04 LTS
 - Software: Docker, OpenVPN, Git
 
 ## Setup
