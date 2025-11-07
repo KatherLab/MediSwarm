@@ -21,7 +21,7 @@ participants:
   - name: UKA
     type: client
     org: MEVIS_Test
-  - name: UZH
+  - name: UMCU
     type: client
     org: MEVIS_Test
   - name: admin@mevis.odelia
