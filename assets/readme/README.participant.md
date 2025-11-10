@@ -5,8 +5,8 @@ This guide is for data scientists and medical research sites participating in a 
 ## Prerequisites
 
 - Hardware: Min. 32GB RAM, 8 cores, NVIDIA GPU with 24GB VRAM, 4TB storage
-- OS: Ubuntu 20.04 LTS
-- Software: Docker, OpenVPN, Git
+- OS: Ubuntu 20.04 LTS, 22.04 LTS, or 24.04 LTS
+- Software: Docker, OpenVPN
 
 ## Setup
 0. Add this line to your `/etc/hosts`: `172.24.4.65 dl3.tud.de dl3`
@@ -79,7 +79,7 @@ The dataset must be in the following format.
 
 1. Directories
    ```bash
-   export SITE_NAME=<name of your site>
+   export SITE_NAME=<name of your site, e.g., UKA_1>
    export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data in the structure described above is stored>
    export SCRATCHDIR=<path to where the training can store temporary files>
    ```
@@ -160,9 +160,10 @@ For any issues, check if the commands above point to problems and contact your S
 
 ## Troubleshooting
 
-* Folders where files are located need to have the correct name
-* Image files need to have the correct file name including capitalization
-* The directories listed as identifiers in the tables `annotation.csv` and `split.csv` should all be present and named correctly (including capitalization), only those directories should be present
-* The tables should not have additional or duplicate columns, entries need to have the correct captitalization
+* Folders where files are located need to have the correct name.
+* Image files need to have the correct file name including capitalization.
+* The directories listed as identifiers in the tables `annotation.csv` and `split.csv` should all be present and named correctly (including capitalization), only those directories should be present.
+* The tables should not have additional or duplicate columns, entries need to have the correct captitalization.
 * Image and table folders and files need to be present in the folders specified via `--data_dir`. Symlinks to other locations do not work, they are not available in the Docker mount.
 * The correct startup kit needs to be used. `SSLCertVerificationError` or `authentication failed` may indicate an incorrect startup kit incompatible with the current experiment.
+* Do not start the VPN connection more than once on the same machine or on more than one machine at the same time.
