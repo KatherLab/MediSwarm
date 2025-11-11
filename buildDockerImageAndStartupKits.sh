@@ -32,13 +32,12 @@ CONTAINER_VERSION_ID=`git rev-parse --short HEAD`
 CWD=`pwd`
 CLEAN_SOURCE_DIR=`mktemp -d`
 mkdir $CLEAN_SOURCE_DIR/MediSwarm
-rsync -ax --exclude workspace . $CLEAN_SOURCE_DIR/MediSwarm/
-cd $CLEAN_SOURCE_DIR/MediSwarm
-git clean -x -q -f .
+git archive --format=tar HEAD | tar x -C $CLEAN_SOURCE_DIR/MediSwarm/
 cd docker_config/NVFlare
-git clean -x -q -f .
+git archive --format=tar HEAD | tar x -C $CLEAN_SOURCE_DIR/MediSwarm/docker_config/NVFlare
 cd ../..
-rm .git -rf
+
+cd $CLEAN_SOURCE_DIR/MediSwarm
 chmod a+rX . -R
 
 # replacements in copy of source code
