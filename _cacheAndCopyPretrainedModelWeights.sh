@@ -26,6 +26,7 @@ verify_files () {
     if echo 2e405cee1bad14912278296d4f42e993 $MODEL_WEIGHTS_FILE | md5sum --check - && echo 153d2db1c329326a2d9f881317ea942e $MODEL_LICENSE_FILE | md5sum --check -; then
         echo "File contents verified successfully."
     else
+        echo "Unexpected file contents."
         exit 1
     fi
 }
