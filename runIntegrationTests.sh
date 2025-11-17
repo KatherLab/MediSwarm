@@ -422,8 +422,8 @@ run_dummy_training_in_swarm () {
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
         else
-            echo "Expected output $EXPECTED_OUTPUT missing"
             cat "$CONSOLE_OUTPUT"
+            echo "Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
     done
@@ -447,8 +447,8 @@ run_dummy_training_in_swarm () {
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
         else
-            echo "Expected output $EXPECTED_OUTPUT missing"
             cat "$CONSOLE_OUTPUT"
+            echo "Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
     done
