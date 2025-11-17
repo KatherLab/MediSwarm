@@ -432,7 +432,7 @@ run_dummy_training_in_swarm () {
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT=nohup.out
-    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' \
+    for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 9: 100%' \
                            'val/AUC_ROC' \
                            'validation metric .* from client' \
@@ -442,7 +442,7 @@ run_dummy_training_in_swarm () {
                            'Got the new primary SP:' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
-                           'Broadcasting learn task of round . to .*; aggr client is client_.'
+                           'broadcasting learn task of round . to .*; aggr client is client_.'
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
