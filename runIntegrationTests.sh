@@ -502,6 +502,11 @@ case "$1" in
         check_files_on_github
         ;;
 
+    run_nvflare_unit_tests)
+        run_nvflare_unit_tests
+        # TODO add to CI or "all" section if we want this (takes several minutes and fails for insufficient GPU memory)
+        ;;
+
     run_dummy_training_standalone)
         run_dummy_training_standalone
         cleanup_temporary_data
@@ -579,7 +584,6 @@ case "$1" in
         run_dummy_training_standalone
         run_dummy_training_simulation_mode
         run_dummy_training_poc_mode
-        run_nvflare_unit_tests
         create_synthetic_data
         run_3dcnn_simulation_mode
         create_startup_kits_and_check_contained_files
