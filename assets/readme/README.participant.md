@@ -150,15 +150,33 @@ To have a baseline for swarm training, train the same model in a comparable way 
     - TODO describe prediction results once implemented
     - **TensorBoard logs** are stored in their respective folders inside the run directory
 
-5. (Optional) You can verify that the container is running properly:
-   ```bash
-   docker ps          # Check if odelia_swarm_client_$SITE_NAME is listed
-   nvidia-smi         # Check if the GPU is busy training (it will be idling while waiting for model transfer)
-   tail -f nohup.out  # Follow training log
-   ```
+## Troubleshooting
+
+### Container Running Properly?
+
+You can verify that the container is running properly:
+
+```bash
+docker ps          # Check if odelia_swarm_client_$SITE_NAME is listed
+nvidia-smi         # Check if the GPU is busy training (it will be idling while waiting for model transfer)
+tail -f nohup.out  # Follow training log
+```
+
 For any issues, check if the commands above point to problems and contact your Swarm Operator.
 
-## Troubleshooting
+### Connection to Swarm Server Working?
+
+Let the following command run for an hour or so
+
+```bash
+ping dl3.tud.de
+```
+
+* If dl3.tud.de cannot be resolved, double-check whether it is contained in `/etc/hosts`
+* If it cannot be reached at all, double-check if the VPN connection is working.
+* If intermittent package loss occurs, double-check if your network connection is working properly. Creating new VPN credentials and certificate for connection may also help, contact your Swarm Operator for this purpose.
+
+### Further Possible Issues
 
 * Folders where files are located need to have the correct name.
 * Image files need to have the correct file name including capitalization.
