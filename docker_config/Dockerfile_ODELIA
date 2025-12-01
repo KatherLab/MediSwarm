@@ -230,14 +230,11 @@ RUN python3 -m pip install \
     typing-inspection==0.4.1 \
     xxhash==3.5.0
 
-# Install packages needed for testing
-RUN python3 -m pip install \
-    coverage==7.8.2 \
-    mock==5.2.0
 # Install packages needed for listing licenses of installed pip packages
 RUN python3 -m pip install \
     pip-licenses==5.0.0 \
     prettytable==3.16.0
+
 # Install packages needed for creating SBOM of apt packages
 RUN python3 -m pip install \
     defusedxml==0.7.1 \
