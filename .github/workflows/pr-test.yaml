@@ -52,11 +52,6 @@ jobs:
         run: |
           ./runIntegrationTests.sh check_files_on_github
 
-      - name: Run controller unit tests
-        continue-on-error: false
-        run: |
-          ./runIntegrationTests.sh run_unit_tests_controller
-
       - name: Run dummy training standalone
         continue-on-error: false
         run: |

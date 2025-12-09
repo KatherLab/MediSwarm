@@ -1,0 +1,12 @@
+FROM ubuntu:24.04
+
+RUN apt update
+RUN apt upgrade -y
+RUN apt install -y easy-rsa openvpn openssl ufw joe patch
+RUN apt install -y openssh-server iproute2
+
+RUN useradd ca_user
+
+COPY _openvpn_certificate_creation.sh /
+COPY _openvpn_start.sh /
+RUN chmod u+x /*.sh
