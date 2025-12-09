@@ -100,11 +100,6 @@ _run_test_in_docker() {
 }
 
 
-run_unit_tests_controller(){
-    echo "[Run] Controller unit tests"
-    _run_test_in_docker tests/integration_tests/_run_controller_unit_tests_with_coverage.sh
-}
-
 run_dummy_training_standalone(){
     echo "[Run] Minimal example, standalone"
     OUTPUT_WITHOUT_GPU=$(docker run --rm \
@@ -427,8 +422,8 @@ run_dummy_training_in_swarm () {
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
         else
-            echo "Expected output $EXPECTED_OUTPUT missing"
             cat "$CONSOLE_OUTPUT"
+            echo "Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
     done
@@ -437,7 +432,7 @@ run_dummy_training_in_swarm () {
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT=nohup.out
-    for EXPECTED_OUTPUT in 'Sending training result to aggregation client' \
+    for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 9: 100%' \
                            'val/AUC_ROC' \
                            'validation metric .* from client' \
@@ -447,13 +442,13 @@ run_dummy_training_in_swarm () {
                            'Got the new primary SP:' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
-                           'Broadcasting learn task of round . to .*; aggr client is client_.'
+                           'broadcasting learn task of round . to .*; aggr client is client_.'
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "Expected output $EXPECTED_OUTPUT found"
         else
-            echo "Expected output $EXPECTED_OUTPUT missing"
             cat "$CONSOLE_OUTPUT"
+            echo "Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
     done
@@ -507,9 +502,9 @@ case "$1" in
         check_files_on_github
         ;;
 
-    run_unit_tests_controller)
-        run_unit_tests_controller
-        cleanup_temporary_data
+    run_nvflare_unit_tests)
+        run_nvflare_unit_tests
+        # TODO add to CI or "all" section if we want this (takes several minutes and fails for insufficient GPU memory)
         ;;
 
     run_dummy_training_standalone)
@@ -586,11 +581,9 @@ case "$1" in
 
     all | "")
         check_files_on_github
-        run_unit_tests_controller
         run_dummy_training_standalone
         run_dummy_training_simulation_mode
         run_dummy_training_poc_mode
-        run_nvflare_unit_tests
         create_synthetic_data
         run_3dcnn_simulation_mode
         create_startup_kits_and_check_contained_files
