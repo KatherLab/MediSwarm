@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import re, sys
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import matplotlib.pyplot as plt
 
 def load_log_lines(filename: str) -> List[str]:
@@ -63,30 +63,55 @@ color_for_site = {'CAM':  '#e41a1c',
                   'USZ':  '#a65628',
                   'VHIO': '#f781bf' }
 
-def plot_for_site(training_roc_auc: Dict[int, float],
-                  validation_roc_auc: Dict[int, float],
-                  validation_roc_auc_agm: Dict[int, float],
+def plot_for_site(training_auc_roc: Dict[int, float],
+                  validation_auc_roc: Dict[int, float],
+                  validation_auc_roc_agm: Dict[int, float],
                   site_name: str) -> None:
-    print(training_auc_roc, '\n', validation_auc_roc, '\n', validation_auc_roc_agm, '\n', site_name)
     fig, ax = plt.subplots()
-    ax.plot(*zip(*sorted(training_roc_auc.items())),       '-',  c=color_for_site[site_name], linewidth=0.5, label='training AUC_ROC')
-    ax.plot(*zip(*sorted(validation_roc_auc.items())),     '-',  c=color_for_site[site_name], linewidth=2,   label='validation AUC_ROC')
-    ax.plot(*zip(*sorted(validation_roc_auc_agm.items())), '-x', c=color_for_site[site_name], markersize=6,  label='validation AUC_ROC aggregated model')
+    ax.plot(*zip(*sorted(training_auc_roc.items())),       '-',  c=color_for_site[site_name], linewidth=0.5, label='training AUC_ROC')
+    ax.plot(*zip(*sorted(validation_auc_roc.items())),     '-',  c=color_for_site[site_name], linewidth=2,   label='validation AUC_ROC')
+    ax.plot(*zip(*sorted(validation_auc_roc_agm.items())), '-x', c=color_for_site[site_name], markersize=6,  label='validation AUC_ROC aggregated model')
+    plt.xlim([0.0, 100.0])
     plt.ylim([0.0, 1.0])
     plt.legend()
     plt.title(f'{site_name}')
     plt.savefig(f'convergence_{site_name}.png')
 
 
-contents = load_log_lines(sys.argv[1])
-training_auc_roc = parse_training_AUC_ROCs(contents)
-validation_auc_roc = parse_validation_AUC_ROCs(contents)
-validation_auc_roc_agm = parse_validation_AUC_ROCs_aggregated_models(contents)
+def plot_overviews(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]]) -> None:
+    fig, ax = plt.subplots(3, 1, figsize=(6,12))
+    print(data)
+    for site_name, site_data in data.items():
+        training_auc_roc, validation_auc_roc, validation_auc_roc_agm = site_data
+        ax[0].plot(*zip(*sorted(training_auc_roc.items())),       '-',  c=color_for_site[site_name], linewidth=1,  label=site_name)
+        ax[1].plot(*zip(*sorted(validation_auc_roc.items())),     '-',  c=color_for_site[site_name], linewidth=2,  label=site_name)
+        ax[2].plot(*zip(*sorted(validation_auc_roc_agm.items())), '-x', c=color_for_site[site_name], markersize=6, label=site_name)
 
-print_num_train_val_images(contents)
-print(validation_auc_roc_agm[95], training_auc_roc[99], validation_auc_roc[99])
+        ax[0].set_title('training AUC_ROC')
+        ax[0].legend()  # only one legend where it is least distracting
+        ax[1].set_title('validation AUC_ROC')
+        ax[2].set_title('validation AUC_ROC (aggregated model)')
 
-site_name = sys.argv[1].split('/')[0]
-plot_for_site(training_auc_roc, validation_auc_roc, validation_auc_roc_agm, site_name)
+        for i in range(3):
+            ax[0].set_xlim([0.0, 100.0])
+            ax[0].set_ylim([0.0, 1.0])
 
-# TODO plot site comparsion (requires loading multiple files)
+    plt.savefig(f'convergence_overview.png')
+
+
+if __name__ == '__main__':
+    data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]] = {}
+    for logfilename in sys.argv[1:]:
+        contents = load_log_lines(logfilename)
+        training_auc_roc = parse_training_AUC_ROCs(contents)
+        validation_auc_roc = parse_validation_AUC_ROCs(contents)
+        validation_auc_roc_agm = parse_validation_AUC_ROCs_aggregated_models(contents)
+        # print_num_train_val_images(contents)
+        # print(validation_auc_roc_agm[95], training_auc_roc[99], validation_auc_roc[99])
+        site_name = logfilename.split('/')[0]
+        data[site_name] = (training_auc_roc, validation_auc_roc, validation_auc_roc_agm)
+
+    for site_name, site_data in data.items():
+        plot_for_site(*site_data, site_name)
+
+    plot_overviews(data)
