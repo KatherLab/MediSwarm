@@ -54,33 +54,38 @@ def parse_validation_AUC_ROCs_aggregated_models(contents: List[str]) -> Dict[int
 
 
 # from https://colorbrewer2.org/?type=qualitative&scheme=Set1&n=8
-color_for_site = {'CAM':  '#e41a1c',
-                  'MHA':  '#377eb8',
-                  'RSH':  '#4daf4a',
+color_for_site = {'CAM' : '#e41a1c',
+                  'MHA' : '#377eb8',
+                  'RSH' : '#4daf4a',
                   'RUMC': '#984ea3',
-                  'UKA':  '#ff7f00',
+                  'UKA' : '#ff7f00',
                   'UMCU': '#ffff33',
-                  'USZ':  '#a65628',
+                  'USZ' : '#a65628',
                   'VHIO': '#f781bf' }
 
-def plot_for_site(training_auc_roc: Dict[int, float],
-                  validation_auc_roc: Dict[int, float],
-                  validation_auc_roc_agm: Dict[int, float],
-                  site_name: str) -> None:
-    fig, ax = plt.subplots()
-    ax.plot(*zip(*sorted(training_auc_roc.items())),       '-',  c=color_for_site[site_name], linewidth=0.5, label='training AUC_ROC')
-    ax.plot(*zip(*sorted(validation_auc_roc.items())),     '-',  c=color_for_site[site_name], linewidth=2,   label='validation AUC_ROC')
-    ax.plot(*zip(*sorted(validation_auc_roc_agm.items())), '-x', c=color_for_site[site_name], markersize=6,  label='validation AUC_ROC aggregated model')
-    plt.xlim([0.0, 100.0])
-    plt.ylim([0.0, 1.0])
-    plt.legend()
-    plt.title(f'{site_name}')
-    plt.savefig(f'convergence_{site_name}.png')
+def plot_per_site(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]]) -> None:
+    fig, ax = plt.subplots(4, 2, figsize=(12,16))
+    for pos, site_name in [((0, 0), 'CAM' ),
+                           ((0, 1), 'MHA' ),
+                           ((1, 0), 'RSH' ),
+                           ((1, 1), 'RUMC'),
+                           ((2, 0), 'UKA' ),
+                           ((2, 1), 'UMCU'),
+                           ((3, 0), 'USZ' ),
+                           ((3, 1), 'VHIO') ]:
+        training_auc_roc, validation_auc_roc, validation_auc_roc_agm = data[site_name]
+        ax[pos].plot(*zip(*sorted(training_auc_roc.items())),       '-',  c=color_for_site[site_name], linewidth=0.5, label='training AUC_ROC')
+        ax[pos].plot(*zip(*sorted(validation_auc_roc.items())),     '-',  c=color_for_site[site_name], linewidth=2,   label='validation AUC_ROC')
+        ax[pos].plot(*zip(*sorted(validation_auc_roc_agm.items())), '-x', c=color_for_site[site_name], markersize=6,  label='validation AUC_ROC aggregated model')
+        ax[pos].set_xlim([0.0, 100.0])
+        ax[pos].set_ylim([0.0, 1.0])
+        ax[pos].legend()
+        ax[pos].set_title(f'{site_name}')
+    plt.savefig(f'convergence_per_site.png')
 
 
 def plot_overviews(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]]) -> None:
     fig, ax = plt.subplots(3, 1, figsize=(6,12))
-    print(data)
     for site_name, site_data in data.items():
         training_auc_roc, validation_auc_roc, validation_auc_roc_agm = site_data
         ax[0].plot(*zip(*sorted(training_auc_roc.items())),       '-',  c=color_for_site[site_name], linewidth=1,  label=site_name)
@@ -111,7 +116,5 @@ if __name__ == '__main__':
         site_name = logfilename.split('/')[0]
         data[site_name] = (training_auc_roc, validation_auc_roc, validation_auc_roc_agm)
 
-    for site_name, site_data in data.items():
-        plot_for_site(*site_data, site_name)
-
+    plot_per_site(data)
     plot_overviews(data)
