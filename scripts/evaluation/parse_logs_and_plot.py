@@ -98,8 +98,8 @@ def plot_overviews(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dic
         ax[2].set_title('validation AUC_ROC (aggregated model)')
 
         for i in range(3):
-            ax[0].set_xlim([0.0, 100.0])
-            ax[0].set_ylim([0.0, 1.0])
+            ax[i].set_xlim([0.0, 100.0])
+            ax[i].set_ylim([0.0, 1.0])
 
     plt.savefig(f'convergence_overview.png')
 
