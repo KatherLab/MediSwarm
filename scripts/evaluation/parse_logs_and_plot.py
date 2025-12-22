@@ -74,9 +74,9 @@ def plot_per_site(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict
                            ((3, 0), 'USZ' ),
                            ((3, 1), 'VHIO') ]:
         training_auc_roc, validation_auc_roc, validation_auc_roc_agm = data[site_name]
-        ax[pos].plot(*zip(*sorted(training_auc_roc.items())),       '-',  c=color_for_site[site_name], linewidth=0.5, label='training AUC_ROC')
-        ax[pos].plot(*zip(*sorted(validation_auc_roc.items())),     '-',  c=color_for_site[site_name], linewidth=2,   label='validation AUC_ROC')
-        ax[pos].plot(*zip(*sorted(validation_auc_roc_agm.items())), '-x', c=color_for_site[site_name], markersize=6,  label='validation AUC_ROC aggregated model')
+        ax[pos].plot(*zip(*sorted(training_auc_roc.items())),       '-',   c=color_for_site[site_name], linewidth=0.5, label='training AUC_ROC')
+        ax[pos].plot(*zip(*sorted(validation_auc_roc.items())),     '-',   c=color_for_site[site_name], linewidth=2,   label='validation AUC_ROC')
+        ax[pos].plot(*zip(*sorted(validation_auc_roc_agm.items())), '--x', c=color_for_site[site_name], markersize=6,  label='validation AUC_ROC aggregated model')
         ax[pos].set_xlim([0.0, 100.0])
         ax[pos].set_ylim([0.0, 1.0])
         ax[pos].legend()
@@ -88,9 +88,9 @@ def plot_overviews(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dic
     fig, ax = plt.subplots(3, 1, figsize=(6,12))
     for site_name, site_data in data.items():
         training_auc_roc, validation_auc_roc, validation_auc_roc_agm = site_data
-        ax[0].plot(*zip(*sorted(training_auc_roc.items())),       '-',  c=color_for_site[site_name], linewidth=1,  label=site_name)
-        ax[1].plot(*zip(*sorted(validation_auc_roc.items())),     '-',  c=color_for_site[site_name], linewidth=2,  label=site_name)
-        ax[2].plot(*zip(*sorted(validation_auc_roc_agm.items())), '-x', c=color_for_site[site_name], markersize=6, label=site_name)
+        ax[0].plot(*zip(*sorted(training_auc_roc.items())),       '-',   c=color_for_site[site_name], linewidth=1,  label=site_name)
+        ax[1].plot(*zip(*sorted(validation_auc_roc.items())),     '-',   c=color_for_site[site_name], linewidth=2,  label=site_name)
+        ax[2].plot(*zip(*sorted(validation_auc_roc_agm.items())), '--x', c=color_for_site[site_name], markersize=6, label=site_name)
 
         ax[0].set_title('training AUC_ROC')
         ax[0].legend()  # only one legend where it is least distracting
