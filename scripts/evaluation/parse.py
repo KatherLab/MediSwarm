@@ -2,6 +2,7 @@
 
 import re, sys
 from typing import List, Dict
+import matplotlib.pyplot as plt
 
 def load_log_lines(filename: str) -> List[str]:
     with open(filename) as infile:
@@ -52,6 +53,31 @@ def parse_validation_AUC_ROCs_aggregated_models(contents: List[str]) -> Dict[int
     return values
 
 
+# from https://colorbrewer2.org/?type=qualitative&scheme=Set1&n=8
+color_for_site = {'CAM':  '#e41a1c',
+                  'MHA':  '#377eb8',
+                  'RSH':  '#4daf4a',
+                  'RUMC': '#984ea3',
+                  'UKA':  '#ff7f00',
+                  'UMCU': '#ffff33',
+                  'USZ':  '#a65628',
+                  'VHIO': '#f781bf' }
+
+def plot_for_site(training_roc_auc: Dict[int, float],
+                  validation_roc_auc: Dict[int, float],
+                  validation_roc_auc_agm: Dict[int, float],
+                  site_name: str) -> None:
+    print(training_auc_roc, '\n', validation_auc_roc, '\n', validation_auc_roc_agm, '\n', site_name)
+    fig, ax = plt.subplots()
+    ax.plot(*zip(*sorted(training_roc_auc.items())),       '-',  c=color_for_site[site_name], linewidth=0.5, label='training AUC_ROC')
+    ax.plot(*zip(*sorted(validation_roc_auc.items())),     '-',  c=color_for_site[site_name], linewidth=2,   label='validation AUC_ROC')
+    ax.plot(*zip(*sorted(validation_roc_auc_agm.items())), '-x', c=color_for_site[site_name], markersize=6,  label='validation AUC_ROC aggregated model')
+    plt.ylim([0.0, 1.0])
+    plt.legend()
+    plt.title(f'{site_name}')
+    plt.savefig(f'convergence_{site_name}.png')
+
+
 contents = load_log_lines(sys.argv[1])
 training_auc_roc = parse_training_AUC_ROCs(contents)
 validation_auc_roc = parse_validation_AUC_ROCs(contents)
@@ -60,5 +86,7 @@ validation_auc_roc_agm = parse_validation_AUC_ROCs_aggregated_models(contents)
 print_num_train_val_images(contents)
 print(validation_auc_roc_agm[95], training_auc_roc[99], validation_auc_roc[99])
 
-# TODO plot for each site
+site_name = sys.argv[1].split('/')[0]
+plot_for_site(training_auc_roc, validation_auc_roc, validation_auc_roc_agm, site_name)
+
 # TODO plot site comparsion (requires loading multiple files)
