@@ -26,7 +26,7 @@ RUN apt install -y \
     coreutils=8.32-4.1ubuntu1.2 \
     dpkg=1.21.1ubuntu2.6 \
     e2fsprogs=1.46.5-2ubuntu1.2 \
-    gpgv=2.2.27-3ubuntu2.4 \
+    gpgv=2.2.27-3ubuntu2.5 \
     libblkid1=2.37.2-4ubuntu3.4 \
     libc-bin=2.35-0ubuntu3.11 \
     libc-dev-bin=2.35-0ubuntu3.11 \
@@ -63,17 +63,17 @@ RUN apt install -y \
 RUN apt install -y \
     apt-transport-https=2.4.14 \
     curl=7.81.0-1ubuntu1.21 \
-    dirmngr=2.2.27-3ubuntu2.4 \
+    dirmngr=2.2.27-3ubuntu2.5 \
     distro-info-data=0.52ubuntu0.11 \
-    gnupg-l10n=2.2.27-3ubuntu2.4 \
-    gnupg-utils=2.2.27-3ubuntu2.4 \
-    gnupg=2.2.27-3ubuntu2.4 \
-    gpg-agent=2.2.27-3ubuntu2.4 \
-    gpg-wks-client=2.2.27-3ubuntu2.4 \
-    gpg-wks-server=2.2.27-3ubuntu2.4 \
-    gpg=2.2.27-3ubuntu2.4 \
-    gpgconf=2.2.27-3ubuntu2.4 \
-    gpgsm=2.2.27-3ubuntu2.4 \
+    gnupg-l10n=2.2.27-3ubuntu2.5 \
+    gnupg-utils=2.2.27-3ubuntu2.5 \
+    gnupg=2.2.27-3ubuntu2.5 \
+    gpg-agent=2.2.27-3ubuntu2.5 \
+    gpg-wks-client=2.2.27-3ubuntu2.5 \
+    gpg-wks-server=2.2.27-3ubuntu2.5 \
+    gpg=2.2.27-3ubuntu2.5 \
+    gpgconf=2.2.27-3ubuntu2.5 \
+    gpgsm=2.2.27-3ubuntu2.5 \
     libassuan0=2.5.5-1build1 \
     libbrotli1=1.0.9-2build6 \
     libcurl4=7.81.0-1ubuntu1.21 \
