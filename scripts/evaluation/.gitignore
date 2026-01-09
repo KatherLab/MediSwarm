@@ -1,1 +1,4 @@
 log.txt
+local_training_console_output.txt
+convergence_overview.png
+convergence_per_site.png

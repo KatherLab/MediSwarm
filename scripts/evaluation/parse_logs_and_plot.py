@@ -3,7 +3,23 @@
 import os, re, sys
 from pathlib import Path
 from typing import List, Dict, Tuple
+from dataclasses import dataclass, field
+from itertools import product
 import matplotlib.pyplot as plt
+
+@dataclass
+class _LearningResults:
+    training_auc_roc: Dict[int, float] = field(default_factory = lambda: ({}))
+    validation_auc_roc: Dict[int, float] = field(default_factory = lambda: ({}))
+
+@dataclass
+class LocalTrainingResults(_LearningResults):
+    pass
+
+@dataclass
+class SwarmLearningResults(_LearningResults):
+    validation_auc_roc_global_model: Dict[int, float] = field(default_factory = lambda: ({}))
+
 
 def load_log_lines(filename: str) -> List[str]:
     with open(filename) as infile:
@@ -67,7 +83,7 @@ color_for_site = {'CAM' : '#e41a1c',
                   'USZ' : '#a65628',
                   'VHIO': '#f781bf' }
 
-def plot_per_site(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]]) -> None:
+def plot_per_site(swarm_data: SwarmLearningResults, local_data: LocalTrainingResults) -> None:
     fig, ax = plt.subplots(4, 2, figsize=(12,16))
     for pos, site_name in [((0, 0), 'CAM' ),
                            ((0, 1), 'MHA' ),
@@ -77,80 +93,106 @@ def plot_per_site(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict
                            ((2, 1), 'UMCU'),
                            ((3, 0), 'USZ' ),
                            ((3, 1), 'VHIO') ]:
-        training_auc_roc, validation_auc_roc, validation_auc_roc_agm = data[site_name]
-        ax[pos].plot(*zip(*sorted(training_auc_roc.items())),       '-',   c=color_for_site[site_name], linewidth=0.5, label='training AUC_ROC')
-        ax[pos].plot(*zip(*sorted(validation_auc_roc.items())),     '-',   c=color_for_site[site_name], linewidth=2,   label='validation AUC_ROC')
-        ax[pos].plot(*zip(*sorted(validation_auc_roc_agm.items())), '--x', c=color_for_site[site_name], markersize=6,  label='validation AUC_ROC aggregated model')
+
+        if local_data[site_name].training_auc_roc:
+            ax[pos].plot(*zip(*sorted(local_data[site_name].training_auc_roc.items())),                '-',   c='#a0a0a0',                 linewidth=0.5, label='local training AUC_ROC')
+        if local_data[site_name].validation_auc_roc:
+            ax[pos].plot(*zip(*sorted(local_data[site_name].validation_auc_roc.items())),              '-',   c='#a0a0a0',                 linewidth=2,   label='local validation AUC_ROC')
+        if swarm_data[site_name].training_auc_roc:
+            ax[pos].plot(*zip(*sorted(swarm_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label='swarm training AUC_ROC')
+        if swarm_data[site_name].validation_auc_roc:
+            ax[pos].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label='swarm validation AUC_ROC')
+        if swarm_data[site_name].validation_auc_roc_global_model:
+            ax[pos].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc_global_model.items())), '--x', c=color_for_site[site_name], markersize=6, label='swarm validation AUC_ROC aggregated model')
         ax[pos].set_xlim([0.0, 100.0])
         ax[pos].set_ylim([0.0, 1.0])
-        ax[pos].legend()
+
         ax[pos].set_title(f'{site_name}')
+    ax[(1,1)].legend()
+
     plt.savefig(f'convergence_per_site.png')
 
 
-def plot_overviews(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]]) -> None:
-    fig, ax = plt.subplots(3, 1, figsize=(6,12))
-    for site_name, site_data in data.items():
-        training_auc_roc, validation_auc_roc, validation_auc_roc_agm = site_data
-        ax[0].plot(*zip(*sorted(training_auc_roc.items())),       '-',   c=color_for_site[site_name], linewidth=1,  label=site_name)
-        ax[1].plot(*zip(*sorted(validation_auc_roc.items())),     '-',   c=color_for_site[site_name], linewidth=2,  label=site_name)
-        ax[2].plot(*zip(*sorted(validation_auc_roc_agm.items())), '--x', c=color_for_site[site_name], markersize=6, label=site_name)
+def plot_overviews(swarm_data: SwarmLearningResults, local_data: LocalTrainingResults) -> None:
+    fig, ax = plt.subplots(3, 2, figsize=(12,12), sharex=True)
+    for site_name in color_for_site.keys():
+        # Plot swarm training results
+        if swarm_data[site_name].training_auc_roc:
+            ax[0][0].plot(*zip(*sorted(swarm_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=1, label=site_name)
+        if swarm_data[site_name].validation_auc_roc:
+            ax[1][0].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label=site_name)
+        if swarm_data[site_name].validation_auc_roc_global_model:
+            ax[2][0].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc_global_model.items())), '--x', c=color_for_site[site_name], markersize=6, label=site_name)
 
-        ax[0].set_title('training AUC_ROC')
-        ax[0].legend()  # only one legend where it is least distracting
-        ax[1].set_title('validation AUC_ROC')
-        ax[2].set_title('validation AUC_ROC (aggregated model)')
+        ax[0][0].set_title('swarm training AUC_ROC')
+        ax[1][0].set_title('swarm validation AUC_ROC')
+        ax[2][0].set_title('swarm validation AUC_ROC (aggregated model)')
 
-        for i in range(3):
-            ax[i].set_xlim([0.0, 100.0])
-            ax[i].set_ylim([0.0, 1.0])
+        # Plot local training results
+        if local_data[site_name].training_auc_roc:
+            ax[0][1].plot(*zip(*sorted(local_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label=site_name)
+        if local_data[site_name].validation_auc_roc:
+            ax[1][1].plot(*zip(*sorted(local_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=1, label=site_name)
 
+        ax[0][1].set_title('local training AUC_ROC')
+        ax[1][1].set_title('local validation AUC_ROC')
+
+        for i in product(range(3)):
+            ax[i][0].set_xlim([0.0, 100.0])
+            ax[i][0].set_ylim([0.0, 1.0])
+
+    ax[0][0].legend()  # only one legend
     plt.savefig(f'convergence_overview.png')
 
 
-def parse_swarm_training_log(filename: Path) -> Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]:
+def parse_swarm_training_log(filename: Path) -> SwarmLearningResults:
     contents = load_log_lines(filename)
-    training_auc_roc = parse_training_AUC_ROCs(contents)
-    validation_auc_roc = parse_validation_AUC_ROCs(contents)
-    validation_auc_roc_agm = parse_validation_AUC_ROCs_aggregated_models(contents)
+    results = SwarmLearningResults()
+    results.training_auc_roc = parse_training_AUC_ROCs(contents)
+    results.validation_auc_roc = parse_validation_AUC_ROCs(contents)
+    results.validation_auc_roc_global_model = parse_validation_AUC_ROCs_aggregated_models(contents)
     num_train, num_val = get_num_train_val_images(contents)
     print(f'{site_name: <4}: {num_train: >5} training images, {num_val: >5} validation images, ' +
-          f'validation AUROC (last global model): {validation_auc_roc_agm[95]:.4f}, ' +
-          f'training AUROC (last local model): {training_auc_roc[99]:.4f}, ' +
-          f'validation AUROC (last local model): {validation_auc_roc[99]:.4f}'
+          f'validation AUROC (last global model): {results.validation_auc_roc_global_model[95]:.4f}, ' +
+          f'training AUROC (last local model): {results.training_auc_roc[99]:.4f}, ' +
+          f'validation AUROC (last local model): {results.validation_auc_roc[99]:.4f}'
           )
-    return training_auc_roc, validation_auc_roc, validation_auc_roc_agm
+    return results
 
 
-def parse_local_training_log(filename: Path) -> Tuple[Dict[int, float], Dict[int, float]]:
+def parse_local_training_log(filename: Path) -> LocalTrainingResults:
     contents = load_log_lines(filename)
-    training_auc_roc = parse_training_AUC_ROCs(contents)
-    validation_auc_roc = parse_validation_AUC_ROCs(contents)
+    results = LocalTrainingResults()
+    results.training_auc_roc = parse_training_AUC_ROCs(contents)
+    results.validation_auc_roc = parse_validation_AUC_ROCs(contents)
     num_train, num_val = get_num_train_val_images(contents)
     print(f'{site_name: <4}: {num_train: >5} training images, {num_val: >5} validation images, ' +
           '                                              ' +
-          f'final local training AUROC:        {training_auc_roc[99]:.4f}, ' +
-          f'final local validation AUROC:        {validation_auc_roc[99]:.4f}'
+          f'final local training AUROC:        {results.training_auc_roc[99]:.4f}, ' +
+          f'final local validation AUROC:        {results.validation_auc_roc[99]:.4f}'
           )
-    return training_auc_roc, validation_auc_roc
+    return results
+
 
 if __name__ == '__main__':
     # this script expects a folder structure SITE_NAME/log.txt with optional SITE_NAME/local_training_console_output.txt
-    data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]] = {}
+    swarm_data: Dict[str, SwarmLearningResults] = {}
+    local_data: Dict[str, LocalTrainingResults] = {}
+
     for site_name in color_for_site.keys():
         log_filename = Path(site_name) / 'log.txt'
+        swarm_data[site_name] = SwarmLearningResults()
         if os.path.exists(log_filename):
-            swarm_training_auc_roc, swarm_validation_auc_roc, swarm_validation_auc_roc_agm = parse_swarm_training_log(log_filename)
+            swarm_data[site_name] = parse_swarm_training_log(log_filename)
         else:
             print(f'No swarm training log file {log_filename} found for site {site_name}')
 
         local_training_log_filename = Path(site_name) / 'local_training_console_output.txt'
+        local_data[site_name] = LocalTrainingResults()
         if os.path.exists(local_training_log_filename):
-            training_auc_roc, validation_auc_roc = parse_local_training_log(local_training_log_filename)
+            local_data[site_name] = parse_local_training_log(local_training_log_filename)
         else:
             print(f'No local training log file {local_training_log_filename} found for site {site_name}')
 
-        # data[site_name] = (swarm_training_auc_roc, swarm_validation_auc_roc, swarm_validation_auc_roc_agm)
-
-    # plot_per_site(data)
-    # plot_overviews(data)
+    plot_per_site(swarm_data, local_data)
+    plot_overviews(swarm_data, local_data)
