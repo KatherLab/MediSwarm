@@ -12,6 +12,10 @@ class _LearningResults:
     training_auc_roc: Dict[int, float] = field(default_factory = lambda: ({}))
     validation_auc_roc: Dict[int, float] = field(default_factory = lambda: ({}))
 
+    def has_data(self) -> bool:
+        return self.training_auc_roc and self.validation_auc_roc
+
+
 @dataclass
 class LocalTrainingResults(_LearningResults):
     pass
@@ -19,6 +23,9 @@ class LocalTrainingResults(_LearningResults):
 @dataclass
 class SwarmLearningResults(_LearningResults):
     validation_auc_roc_global_model: Dict[int, float] = field(default_factory = lambda: ({}))
+
+    def has_data(self) -> bool:
+        return super().has_data() and self.validation_auc_roc_global_model
 
 
 def load_log_lines(filename: str) -> List[str]:
@@ -94,15 +101,12 @@ def plot_per_site(swarm_data: SwarmLearningResults, local_data: LocalTrainingRes
                            ((3, 0), 'USZ' ),
                            ((3, 1), 'VHIO') ]:
 
-        if local_data[site_name].training_auc_roc:
+        if local_data[site_name].has_data():
             ax[pos].plot(*zip(*sorted(local_data[site_name].training_auc_roc.items())),                '-',   c='#a0a0a0',                 linewidth=0.5, label='local training AUC_ROC')
-        if local_data[site_name].validation_auc_roc:
             ax[pos].plot(*zip(*sorted(local_data[site_name].validation_auc_roc.items())),              '-',   c='#a0a0a0',                 linewidth=2,   label='local validation AUC_ROC')
-        if swarm_data[site_name].training_auc_roc:
+        if swarm_data[site_name].has_data():
             ax[pos].plot(*zip(*sorted(swarm_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label='swarm training AUC_ROC')
-        if swarm_data[site_name].validation_auc_roc:
             ax[pos].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label='swarm validation AUC_ROC')
-        if swarm_data[site_name].validation_auc_roc_global_model:
             ax[pos].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc_global_model.items())), '--x', c=color_for_site[site_name], markersize=6, label='swarm validation AUC_ROC aggregated model')
         ax[pos].set_xlim([0.0, 100.0])
         ax[pos].set_ylim([0.0, 1.0])
@@ -117,11 +121,9 @@ def plot_overviews(swarm_data: SwarmLearningResults, local_data: LocalTrainingRe
     fig, ax = plt.subplots(3, 2, figsize=(12,12), sharex=True)
     for site_name in color_for_site.keys():
         # Plot swarm training results
-        if swarm_data[site_name].training_auc_roc:
+        if swarm_data[site_name].has_data():
             ax[0][0].plot(*zip(*sorted(swarm_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=1, label=site_name)
-        if swarm_data[site_name].validation_auc_roc:
             ax[1][0].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label=site_name)
-        if swarm_data[site_name].validation_auc_roc_global_model:
             ax[2][0].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc_global_model.items())), '--x', c=color_for_site[site_name], markersize=6, label=site_name)
 
         ax[0][0].set_title('swarm training AUC_ROC')
@@ -129,9 +131,8 @@ def plot_overviews(swarm_data: SwarmLearningResults, local_data: LocalTrainingRe
         ax[2][0].set_title('swarm validation AUC_ROC (aggregated model)')
 
         # Plot local training results
-        if local_data[site_name].training_auc_roc:
+        if local_data[site_name].has_data():
             ax[0][1].plot(*zip(*sorted(local_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label=site_name)
-        if local_data[site_name].validation_auc_roc:
             ax[1][1].plot(*zip(*sorted(local_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=1, label=site_name)
 
         ax[0][1].set_title('local training AUC_ROC')
