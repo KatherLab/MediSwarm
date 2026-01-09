@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import re, sys
+import os, re, sys
 from pathlib import Path
 from typing import List, Dict, Tuple
 import matplotlib.pyplot as plt
@@ -108,22 +108,49 @@ def plot_overviews(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dic
     plt.savefig(f'convergence_overview.png')
 
 
+def parse_swarm_training_log(filename: Path) -> Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]:
+    contents = load_log_lines(filename)
+    training_auc_roc = parse_training_AUC_ROCs(contents)
+    validation_auc_roc = parse_validation_AUC_ROCs(contents)
+    validation_auc_roc_agm = parse_validation_AUC_ROCs_aggregated_models(contents)
+    num_train, num_val = get_num_train_val_images(contents)
+    print(f'{site_name: <4}: {num_train: >5} training images, {num_val: >5} validation images, ' +
+          f'validation AUROC (last global model): {validation_auc_roc_agm[95]:.4f}, ' +
+          f'training AUROC (last local model): {training_auc_roc[99]:.4f}, ' +
+          f'validation AUROC (last local model): {validation_auc_roc[99]:.4f}'
+          )
+    return training_auc_roc, validation_auc_roc, validation_auc_roc_agm
+
+
+def parse_local_training_log(filename: Path) -> Tuple[Dict[int, float], Dict[int, float]]:
+    contents = load_log_lines(filename)
+    training_auc_roc = parse_training_AUC_ROCs(contents)
+    validation_auc_roc = parse_validation_AUC_ROCs(contents)
+    num_train, num_val = get_num_train_val_images(contents)
+    print(f'{site_name: <4}: {num_train: >5} training images, {num_val: >5} validation images, ' +
+          '                                              ' +
+          f'final local training AUROC:        {training_auc_roc[99]:.4f}, ' +
+          f'final local validation AUROC:        {validation_auc_roc[99]:.4f}'
+          )
+    return training_auc_roc, validation_auc_roc
+
 if __name__ == '__main__':
     # this script expects a folder structure SITE_NAME/log.txt with optional SITE_NAME/local_training_console_output.txt
     data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]] = {}
     for site_name in color_for_site.keys():
-        logfilename = Path(site_name)/'log.txt'
-        contents = load_log_lines(logfilename)
-        training_auc_roc = parse_training_AUC_ROCs(contents)
-        validation_auc_roc = parse_validation_AUC_ROCs(contents)
-        validation_auc_roc_agm = parse_validation_AUC_ROCs_aggregated_models(contents)
-        num_train, num_val = get_num_train_val_images(contents)
-        print(f'{site_name: <4}: {num_train: >5} training images, {num_val: >5} validation images, ' +
-              f'validation AUROC (last global model): {validation_auc_roc_agm[95]:.4f}, ' +
-              f'training AUROC (last local model): {training_auc_roc[99]:.4f}, ' +
-              f'validation AUROC (last local model): {validation_auc_roc[99]:.4f}'
-              )
-        data[site_name] = (training_auc_roc, validation_auc_roc, validation_auc_roc_agm)
+        log_filename = Path(site_name) / 'log.txt'
+        if os.path.exists(log_filename):
+            swarm_training_auc_roc, swarm_validation_auc_roc, swarm_validation_auc_roc_agm = parse_swarm_training_log(log_filename)
+        else:
+            print(f'No swarm training log file {log_filename} found for site {site_name}')
 
-    plot_per_site(data)
-    plot_overviews(data)
+        local_training_log_filename = Path(site_name) / 'local_training_console_output.txt'
+        if os.path.exists(local_training_log_filename):
+            training_auc_roc, validation_auc_roc = parse_local_training_log(local_training_log_filename)
+        else:
+            print(f'No local training log file {local_training_log_filename} found for site {site_name}')
+
+        # data[site_name] = (swarm_training_auc_roc, swarm_validation_auc_roc, swarm_validation_auc_roc_agm)
+
+    # plot_per_site(data)
+    # plot_overviews(data)
