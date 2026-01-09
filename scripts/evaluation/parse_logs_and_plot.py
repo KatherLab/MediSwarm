@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import re, sys
+from pathlib import Path
 from typing import List, Dict, Tuple
 import matplotlib.pyplot as plt
 
@@ -16,12 +17,15 @@ def load_log_lines(filename: str) -> List[str]:
     lines = contents.splitlines()
     return lines
 
-def print_num_train_val_images(contents: List[str]) -> None:
+def get_num_train_val_images(contents: List[str]) -> None:
     # TODO extract numbers rather than printing the entire line
     lines = [c for c in contents if 'Train set' in c]
     assert len(lines) == 1
     line = lines[0]
-    print(line)
+    # 2025-12-16 12:07:07,678 - SubprocessLauncher - INFO - Train set: 194, Val set: 50
+    line_matcher = re.compile(r'.*Train set: (?P<num_train>\d*), Val set: (?P<num_val>\d*)$')
+    match = line_matcher.match(line)
+    return match.group('num_train'), match.group('num_val')
 
 def _extract_validation_AUC_ROC_lines(contents: List[str]) -> List[str]:
     lines = [c for c in contents if 'val ACC' in c]                  # the lines contain ACC and AUC_ROC
@@ -105,15 +109,20 @@ def plot_overviews(data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dic
 
 
 if __name__ == '__main__':
+    # this script expects a folder structure SITE_NAME/log.txt with optional SITE_NAME/local_training_console_output.txt
     data: Dict[str, Tuple[Dict[int, float], Dict[int, float], Dict[int, float]]] = {}
-    for logfilename in sys.argv[1:]:
+    for site_name in color_for_site.keys():
+        logfilename = Path(site_name)/'log.txt'
         contents = load_log_lines(logfilename)
         training_auc_roc = parse_training_AUC_ROCs(contents)
         validation_auc_roc = parse_validation_AUC_ROCs(contents)
         validation_auc_roc_agm = parse_validation_AUC_ROCs_aggregated_models(contents)
-        # print_num_train_val_images(contents)
-        # print(validation_auc_roc_agm[95], training_auc_roc[99], validation_auc_roc[99])
-        site_name = logfilename.split('/')[0]
+        num_train, num_val = get_num_train_val_images(contents)
+        print(f'{site_name: <4}: {num_train: >5} training images, {num_val: >5} validation images, ' +
+              f'validation AUROC (last global model): {validation_auc_roc_agm[95]:.4f}, ' +
+              f'training AUROC (last local model): {training_auc_roc[99]:.4f}, ' +
+              f'validation AUROC (last local model): {validation_auc_roc[99]:.4f}'
+              )
         data[site_name] = (training_auc_roc, validation_auc_roc, validation_auc_roc_agm)
 
     plot_per_site(data)
