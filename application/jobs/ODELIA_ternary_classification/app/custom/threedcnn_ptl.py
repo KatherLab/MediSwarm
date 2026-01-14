@@ -140,9 +140,30 @@ def prepare_training(logger, max_epochs: int, site_name: str):
     return data_module, model, checkpointing, trainer, path_run_dir, env_vars
 
 
+def output_GT_and_classprobs_csv(model, data_module: DataModule) -> None:
+    results = []
+    for batch in data_module.val_dataloader():
+        source, target = batch['source'], batch['target']
+
+        with torch.no_grad():
+            logits = model(source)  # .to(torch.float)
+
+        # Transfer logits to integer
+        pred_prob = model.logits2probabilities(logits)
+
+        for b in range(pred_prob.size(0)):
+            results.append({
+                'GT': target[b].tolist(),
+                'NN_prob': pred_prob[b].tolist(),
+            })
+    print(results)
+    brmpf
+
+
 def validate_and_train(logger, data_module, model, trainer) -> None:
     logger.info("--- Validate global model ---")
     trainer.validate(model, datamodule=data_module)
+    output_GT_and_classprobs_csv(model, data_module)
 
     logger.info("--- Train new model ---")
     trainer.fit(model, datamodule=data_module)
