@@ -9,7 +9,7 @@ from env_config import load_environment_variables, prepare_odelia_dataset, gener
 import torch.multiprocessing as mp
 
 import logging
-
+import csv
 
 def get_num_epochs_per_round(site_name: str) -> int:
     NUM_EPOCHS_FOR_SITE = {
@@ -140,30 +140,38 @@ def prepare_training(logger, max_epochs: int, site_name: str):
     return data_module, model, checkpointing, trainer, path_run_dir, env_vars
 
 
-def output_GT_and_classprobs_csv(model, data_module: DataModule) -> None:
-    results = []
-    for batch in data_module.val_dataloader():
-        source, target = batch['source'], batch['target']
+def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv_filename) -> None:
+    def _determine_GT_and_classprobs(model, data_module: DataModule):
+        results = []
+        for batch in data_module.val_dataloader():
+            source, target = batch['source'], batch['target']
 
-        with torch.no_grad():
-            logits = model(source)  # .to(torch.float)
+            with torch.no_grad():
+                logits = model(source)
 
-        # Transfer logits to integer
-        pred_prob = model.logits2probabilities(logits)
+            pred_prob = model.logits2probabilities(logits)
 
-        for b in range(pred_prob.size(0)):
-            results.append({
-                'GT': target[b].tolist(),
-                'NN_prob': pred_prob[b].tolist(),
-            })
-    print(results)
-    brmpf
+            for b in range(pred_prob.size(0)):
+                results.append({'GT': target[b].tolist(),
+                                'pred_prob': pred_prob[b].tolist(),
+                                })
+        return results
+
+    def output_csv(results, epoch: int, csv_filename) -> None:
+        with open(csv_filename, 'a') as csvfile:
+            datawriter = csv.writer(csvfile)
+            for datapoint in results:
+                output_data = [epoch, datapoint['GT'][0]] + datapoint['pred_prob']
+                datawriter.writerow(output_data)
+
+    results = _determine_GT_and_classprobs(model, data_module)
+    output_csv(results, epoch, csv_filename)
 
 
-def validate_and_train(logger, data_module, model, trainer) -> None:
+def validate_and_train(logger, data_module, model, trainer, path_run_dir) -> None:
     logger.info("--- Validate global model ---")
     trainer.validate(model, datamodule=data_module)
-    output_GT_and_classprobs_csv(model, data_module)
+    output_GT_and_classprobs_csv(model, data_module, trainer.current_epoch, path_run_dir/'aggregated_model_results.csv')
 
     logger.info("--- Train new model ---")
     trainer.fit(model, datamodule=data_module)
