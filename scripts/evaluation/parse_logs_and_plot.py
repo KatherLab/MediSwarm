@@ -138,9 +138,9 @@ def plot_overviews(swarm_data: SwarmLearningResults, local_data: LocalTrainingRe
         ax[0][1].set_title('local training AUC_ROC')
         ax[1][1].set_title('local validation AUC_ROC')
 
-        for i in product(range(3)):
-            ax[i][0].set_xlim([0.0, 100.0])
-            ax[i][0].set_ylim([0.0, 1.0])
+        for i, j in product(range(3), range(2)):
+            ax[i][j].set_xlim([0.0, 100.0])
+            ax[i][j].set_ylim([0.0, 1.0])
 
     ax[0][0].legend()  # only one legend
     plt.savefig(f'convergence_overview.png')
