@@ -1,5 +1,17 @@
 # Usage for MediSwarm and Application Code Developers
 
+## Cloning the Repository
+
+We use a git submodule for a fork of NVFlare, so the MediSwarm repository should be cloned using
+ ```bash
+ git clone https://github.com/KatherLab/MediSwarm.git --recurse-submodules
+ ```
+
+If you have a clone without having initialized the submodule, use the following command in the MediSwarm directory
+ ```bash
+ git submodule update --init --recursive
+ ```
+
 ## Versioning of ODELIA Docker Images
 
 If needed, update the version number in file [odelia_image.version](../../odelia_image.version). It will be used
@@ -81,7 +93,6 @@ export MODEL=ResNet
 export CONFIG=original
 ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=1 --start_client
 ```
-
 
 ## Running the Application
 
