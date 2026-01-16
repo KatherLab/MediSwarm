@@ -184,10 +184,11 @@ def prepare_training(logger, max_epochs: int, site_name: str):
     return data_module, model, checkpointing, trainer, path_run_dir, env_vars
 
 
-def validate_and_train(logger, data_module, model, trainer, path_run_dir) -> None:
+def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=True) -> None:
     logger.info("--- Validate global model ---")
     trainer.validate(model, datamodule=data_module)
-    output_GT_and_classprobs_csv(model, data_module, trainer.current_epoch, path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL)
+    if output_GT_and_classprob:
+        output_GT_and_classprobs_csv(model, data_module, trainer.current_epoch, path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL)
 
     logger.info("--- Train new model ---")
     trainer.fit(model, datamodule=data_module)
