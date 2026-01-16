@@ -56,7 +56,7 @@ def main():
                 threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
-            threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
+            threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=False)
 
         if TRAINING_MODE in [TM_LOCAL_TRAINING, TM_SWARM]:
             threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)
