@@ -456,7 +456,7 @@ run_dummy_training_in_swarm () {
 
     cd "$PROJECT_DIR"/prod_00/client_A/
     FILES_PRESENT=$(find . -type f -name "*.*")
-    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
+    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt' 'site_model_gt_and_classprob.csv';
     do
         if echo "$FILES_PRESENT" | grep -q "$EXPECTED_FILE" ; then
             echo "Expected file $EXPECTED_FILE found"
