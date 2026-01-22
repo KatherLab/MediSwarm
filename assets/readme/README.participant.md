@@ -185,3 +185,11 @@ ping dl3.tud.de
 * Image and table folders and files need to be present in the folders specified via `--data_dir`. Symlinks to other locations do not work, they are not available in the Docker mount.
 * The correct startup kit needs to be used. `SSLCertVerificationError` or `authentication failed` may indicate an incorrect startup kit incompatible with the current experiment.
 * Do not start the VPN connection more than once on the same machine or on more than one machine at the same time.
+* Disk full. This can have multiple reasons:
+  * Failed trainings may have accumulated large logs. Identify which startup kit folders are big (`du -hsc`). Maybe compression is already a solution, otherwise delete/move elsewhere what is no longer needed.
+  * Many trainings accumulate many checkpoints (can be GB of data per training). Compression won’t help, possibly delete/move elsewhere what is no longer needed.
+  * Intermediate steps or unnecessary input for data conversion may have accumulated.
+  * Docker may have accumulated many images. Delete unnecessary old images (in particular on a development workstation, they tend to accumulate quickly). You can use [remove_old_odelia_docker_images.sh](../../scripts/dev_utils/remove_old_odelia_docker_images.sh) to remove all but the latest one (if that is what you want). Afterwards, call `docker system prune`.
+* If you have partitioned your system to have a small system partition and a large data partition, you probably want to configure the container storage to happen on the data partition.
+  * This can be configured via `echo '{"data-root": "/data/var_lib_docker", "features": {"containerd-snapshotter": true}}' > /etc/docker/daemon.json` (where the containerd-snapshotter may or may not be necessary).
+  * If the `data-root` is on an external, network or otherwise slow drive, you need to make sure it is available when the container daemon is started, otherwise you will not see previous containers after a reboot. Maybe `sed -i "s/After=/After=SERVICE_PROVIDING_YOUR_DATA_DRIVE.service /g" /usr/lib/systemd/system/containerd.service` is also helpful for you to configure this.
