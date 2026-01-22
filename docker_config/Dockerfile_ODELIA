@@ -28,10 +28,10 @@ RUN apt install -y \
     e2fsprogs=1.46.5-2ubuntu1.2 \
     gpgv=2.2.27-3ubuntu2.5 \
     libblkid1=2.37.2-4ubuntu3.4 \
-    libc-bin=2.35-0ubuntu3.11 \
-    libc-dev-bin=2.35-0ubuntu3.11 \
-    libc6-dev=2.35-0ubuntu3.11 \
-    libc6=2.35-0ubuntu3.11 \
+    libc-bin=2.35-0ubuntu3.12 \
+    libc-dev-bin=2.35-0ubuntu3.12 \
+    libc6-dev=2.35-0ubuntu3.12 \
+    libc6=2.35-0ubuntu3.12 \
     libcap2=1:2.44-1ubuntu0.22.04.2 \
     libcom-err2=1.46.5-2ubuntu1.2 \
     libext2fs2=1.46.5-2ubuntu1.2 \
