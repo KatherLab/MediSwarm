@@ -11,8 +11,11 @@ import torch.multiprocessing as mp
 import logging
 import csv
 
-FILENAME_GT_PREDPROB_AGGREGATED_MODEL = 'aggregated_model_gt_and_classprob.csv'
-FILENAME_GT_PREDPROB_SITE_MODEL = 'site_model_gt_and_classprob.csv'
+FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN = 'aggregated_model_gt_and_classprob_train.csv'
+FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
+
+FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION = 'aggregated_model_gt_and_classprob_validation.csv'
+FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_validation.csv'
 
 def get_num_epochs_per_round(site_name: str) -> int:
     NUM_EPOCHS_FOR_SITE = {
@@ -73,11 +76,11 @@ def create_run_directory(env_vars):
     )
 
 
-def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv_filename) -> None:
-    def _determine_GT_and_classprobs(model, data_module: DataModule):
+def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv_filename_train, csv_filename_validation) -> None:
+    def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader):
         results = []
         device = torch.device('cuda')
-        for batch in data_module.val_dataloader():
+        for batch in data_loader:
             source, target = batch['source'], batch['target']
 
             with torch.no_grad():
@@ -98,18 +101,26 @@ def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv
                 output_data = [epoch, datapoint['GT'][0]] + datapoint['pred_prob']
                 datawriter.writerow(output_data)
 
-    results = _determine_GT_and_classprobs(model, data_module)
-    output_csv(results, epoch, csv_filename)
+    results_train = _determine_GT_and_classprobs(model, data_module.train_dataloader())
+    output_csv(results_train, epoch, csv_filename_train)
+    results_validation = _determine_GT_and_classprobs(model, data_module.val_dataloader())
+    output_csv(results_validation, epoch, csv_filename_validation)
+
 
 
 class GT_PredProb_Output_Callback(Callback):
-    def __init__(self, data_module, csv_filename):
+    def __init__(self, data_module, csv_filename_train, csv_filename_validation):
         self.data_module = data_module
-        self.csv_filename = csv_filename
+        self.csv_filename_train = csv_filename_train
+        self.csv_filename_validation = csv_filename_validation
         super().__init__()
 
     def on_train_epoch_end(self, trainer, pl_module):
-        output_GT_and_classprobs_csv(pl_module, self.data_module, trainer.current_epoch, self.csv_filename)
+        output_GT_and_classprobs_csv(pl_module,
+                                     self.data_module,
+                                     trainer.current_epoch,
+                                     self.csv_filename_train,
+                                     self.csv_filename_validation)
 
 
 def prepare_training(logger, max_epochs: int, site_name: str):
@@ -161,7 +172,9 @@ def prepare_training(logger, max_epochs: int, site_name: str):
             mode=min_max,
         )
 
-        gt_predprob_output = GT_PredProb_Output_Callback(data_module, path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL)
+        gt_predprob_output = GT_PredProb_Output_Callback(data_module,
+                                                         path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
+                                                         path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
 
         trainer = Trainer(
             accelerator='gpu',
@@ -188,7 +201,9 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
     logger.info("--- Validate global model ---")
     trainer.validate(model, datamodule=data_module)
     if output_GT_and_classprob:
-        output_GT_and_classprobs_csv(model, data_module, trainer.current_epoch, path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL)
+        output_GT_and_classprobs_csv(model, data_module, trainer.current_epoch,
+                                     path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN,
+                                     path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION)
 
     logger.info("--- Train new model ---")
     trainer.fit(model, datamodule=data_module)
