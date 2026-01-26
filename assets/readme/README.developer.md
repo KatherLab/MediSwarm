@@ -29,7 +29,7 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
  ```
 
 1. Make sure you have no uncommitted changes.
-2. If package versions are still not available, you may have to check what the current version is and update the
+2. If package versions are no longer available, you may have to check what the current version is and update the
    `Dockerfile` accordingly. Version numbers are hard-coded to avoid issues due to silently different versions being
    installed.
 3. After successful build (and after verifying that everything works as expected, i.e., local tests, building startup
@@ -105,13 +105,30 @@ export CONFIG=original
 
 ## Contributing Application Code
 
-1. Take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to
-   work with NVFlare
-2. Take a look at application/jobs/ODELIA_ternary_classification for a more realistic example of pytorch code that can
-   run in the swarm
-3. Use the local tests to check if the code is swarm-ready
-4. TODO more detailed instructions
+* Take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to work with NVFlare
+* Take a look at application/jobs/ODELIA_ternary_classification for a more realistic example of pytorch code that can run in the swarm
+* If your application code needs additonal/other/newer Python packages than installed via [Dockerfile_ODELIA](../../docker_config/Dockerfile_ODELIA), create and use an adapted Dockerfile for building the Docker image
+  * Ensure (by checking against the installation log) that all packages and dependenciese are installed explicitly at pinned versions.
+* If your application code needs, e.g., other pre-trained weights in the image, adapt [_cacheAndCopyPretrainedModelWeights.sh](../../_cacheAndCopyPretrainedModelWeights.sh) and [_list_licenses.sh](../../scripts/_list_licenses.sh)
+
+To make sure your code is swarm-compatible and to isolate potential issues, we recommend the following steps.
+
+1. Create a small dataset (potentially a synthetic one; see, e.g., [create_synthetic_dataset.py](../../application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py)).
+   This avoids data issues and allows faster feedback cycles.
+2. Start with a working version outside the swarm framework in a known environment.
+   This way, you have a known-to-work baseline.
+3. Make sure the code runs in the Docker container in "local training" mode, i.e., without the swarm learning framework, either manually or like in [_run_minimal_example_standalone.sh](../../tests/integration_tests/_run_minimal_example_standalone.sh)
+   This will tell you if the code is compatible with the Docker container at hand.
+4. Make sure the code runs in NVFlare simulation mode, see [_run_3dcnn_simulation_mode.sh](../../tests/integration_tests/_run_3dcnn_simulation_mode.sh).
+   This checks compatibility of the code with the swarm training framework by running different clients in different threads.
+5. Make sure the code runs in NVFlare proof-of-concept mode, see [_run_minimal_example_proof_of_concept_mode.sh](../../tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh).
+   Proof-of-concept mode runs different clients in different processes.
+   This step probably provides few additional insights if simulation mode has already succeeded and can possibly be skipped.
+6. Make sure the code runs in an actual swarm training.
+
+TODO iterate instructions and add missing details
 
 ## Continuous Integration
 
 Tests to be executed after pushing to github are defined in `.github/workflows/pr-test.yaml`.
+This largely builds on the integration tests defined above, running those that finish within reasonable time.
