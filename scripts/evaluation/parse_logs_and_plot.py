@@ -114,7 +114,7 @@ def plot_per_site(swarm_data: SwarmLearningResults, local_data: LocalTrainingRes
         ax[pos].set_ylim([0.0, 1.0])
 
         ax[pos].set_title(f'{site_name}')
-    ax[(1,1)].legend()
+    ax[(0,0)].legend()
 
     plt.savefig(f'convergence_per_site.png')
 
