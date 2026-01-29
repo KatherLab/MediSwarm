@@ -66,12 +66,12 @@ def _parse_AUC_ROC_values(lines: List[str], regex: str) -> Dict[int, float]:
 
 def parse_training_AUC_ROCs(contents: List[str]) -> Dict[int, float]:
     lines = [c for c in contents if 'train ACC' in c]  # the lines contain ACC and AUC_ROC
-    values = _parse_AUC_ROC_values(lines, r'.*Epoch (?P<epoch>\d*).* AUC_ROC: (?P<auroc>[0-9.]*)$')
+    values = _parse_AUC_ROC_values(lines, r'.*Epoch (?P<epoch>\d*) \- .* AUC_ROC: (?P<auroc>[0-9.]*).*')
     return values
 
 def parse_validation_AUC_ROCs(contents: List[str]) -> List[float]:
     lines = [l for l in _extract_validation_AUC_ROC_lines(contents) if l.startswith('Epoch ')]  # validation after training epochs
-    values = _parse_AUC_ROC_values(lines, r'^Epoch (?P<epoch>\d*).* AUC_ROC: (?P<auroc>[0-9.]*)$')
+    values = _parse_AUC_ROC_values(lines, r'.*Epoch (?P<epoch>\d*) \- .* AUC_ROC: (?P<auroc>[0-9.]*).*$')
     return values
 
 def parse_validation_AUC_ROCs_aggregated_models(contents: List[str]) -> Dict[int, float]:
