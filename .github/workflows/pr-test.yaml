@@ -34,16 +34,6 @@ jobs:
           echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build Docker image for real project (MEVIS)
-        run: |
-          chmod +x buildDockerImageAndStartupKits.sh
-          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
-
-      - name: Show workspace path for MEVIS project
-        run: |
-          echo "WORKSPACE_PATH: ${{ env.WORKSPACE_PATH }}"
-          find workspace -maxdepth 1 -type d -name "odelia_*_MEVIS_test" || echo "No workspace found"
-
       - name: Build Docker image and dummy startup kits
         run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
