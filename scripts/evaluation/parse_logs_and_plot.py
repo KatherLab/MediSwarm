@@ -104,6 +104,8 @@ def plot_per_site(swarm_data: SwarmLearningResults, local_data: LocalTrainingRes
         if local_data[site_name].has_data():
             ax[pos].plot(*zip(*sorted(local_data[site_name].training_auc_roc.items())),                '-',   c='#a0a0a0',                 linewidth=0.5, label='local training AUC_ROC')
             ax[pos].plot(*zip(*sorted(local_data[site_name].validation_auc_roc.items())),              '-',   c='#a0a0a0',                 linewidth=2,   label='local validation AUC_ROC')
+        else:
+            ax[pos].text(10, 0.1, "no data for local training", color='red')
         if swarm_data[site_name].has_data():
             ax[pos].plot(*zip(*sorted(swarm_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label='swarm training AUC_ROC')
             ax[pos].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label='swarm validation AUC_ROC')
