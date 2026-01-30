@@ -144,6 +144,7 @@ def plot_overviews(swarm_data: SwarmLearningResults, local_data: LocalTrainingRe
             ax[i][j].set_xlim([0.0, 100.0])
             ax[i][j].set_ylim([0.0, 1.0])
 
+    ax[2][1].text(10, 0.1, "No aggregated models in local training", color='green')
     ax[0][0].legend()  # only one legend
     plt.savefig(f'convergence_overview.png')
 
