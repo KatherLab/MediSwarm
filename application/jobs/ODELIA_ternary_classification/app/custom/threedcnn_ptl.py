@@ -7,6 +7,8 @@ from data.datamodules import DataModule
 from models import ResNet, MST
 from env_config import load_environment_variables, prepare_odelia_dataset, generate_run_directory
 import torch.multiprocessing as mp
+from hashlib import sha3_224 as hash_function
+from typing import List
 
 import logging
 
@@ -26,6 +28,32 @@ def set_up_logging():
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     return logger
+
+
+def log_data_hash(dm: DataModule, logger) -> None:
+    def _get_imagename_hashes(dataloader) -> List[str]:
+        h = hash_function()
+        hashes = []
+        for batch in dataloader:
+            assert (len(batch['uid']) == 1)  # currently only implemented for batch size 1
+            h.update(batch['uid'][0].encode('utf-8'))
+            print(h.hexdigest())
+            hashes.append(h.hexdigest())
+        return hashes
+
+    def _check_for_duplicates(strings: List[str]) -> None:
+        if len(strings) != len(set(strings)):
+            print("Duplicates detected. Please make sure this was intended")
+
+    imagename_hashes_train = _get_imagename_hashes(dm.train_dataloader())
+    imagename_hashes_validation = _get_imagename_hashes(dm.val_dataloader())
+    _check_for_duplicates(imagename_hashes_train + imagename_hashes_validation)
+    imagename_hashes_train.sort()
+    imagename_hashes_validation.sort()
+    all_hashes = ''.join(imagename_hashes_train) + ''.join(imagename_hashes_validation)
+    h = hash_function()
+    h.update(all_hashes.encode('utf-8'))
+    logger.info(f"Data hash: f{h.hexdigest()}")
 
 
 def set_up_data_module(logger):
@@ -55,6 +83,8 @@ def set_up_data_module(logger):
     # for label, pct in distribution['percentages'].items():
     #     logger.info(f"Label '{label}': {pct:.2f}% of training set, Count: {distribution['counts'][label]}")
     # logger.info(f"Number of unique labels: {len(distribution['counts'])}")
+
+    log_data_hash(dm, logger)
 
     loss_kwargs = {}
 
