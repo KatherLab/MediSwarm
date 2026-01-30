@@ -8,7 +8,7 @@ from models import ResNet, MST
 from env_config import load_environment_variables, prepare_odelia_dataset, generate_run_directory
 import torch.multiprocessing as mp
 from hashlib import sha3_224 as hash_function
-from typing import List
+from typing import List, Tuple
 
 import logging
 
@@ -37,20 +37,41 @@ def log_data_hash(dm: DataModule, logger) -> None:
         for batch in dataloader:
             assert (len(batch['uid']) == 1)  # currently only implemented for batch size 1
             h.update(batch['uid'][0].encode('utf-8'))
-            print(h.hexdigest())
             hashes.append(h.hexdigest())
         return hashes
 
-    def _check_for_duplicates(strings: List[str]) -> None:
-        if len(strings) != len(set(strings)):
-            print("Duplicates detected. Please make sure this was intended")
+    def _get_imagedata_hashes(dataloader) -> List[str]:
+        h = hash_function()
+        hashes = []
+        for batch in dataloader:
+            assert (len(batch['source']) == 1)  # currently only implemented for batch size 1
+            h.update(batch['source'][0].detach().cpu().numpy().data)
+            hashes.append(h.hexdigest())
+        return hashes
 
-    imagename_hashes_train = _get_imagename_hashes(dm.train_dataloader())
-    imagename_hashes_validation = _get_imagename_hashes(dm.val_dataloader())
-    _check_for_duplicates(imagename_hashes_train + imagename_hashes_validation)
-    imagename_hashes_train.sort()
-    imagename_hashes_validation.sort()
-    all_hashes = ''.join(imagename_hashes_train) + ''.join(imagename_hashes_validation)
+    def _check_for_duplicates(strings: List[str], where: str) -> None:
+        if len(strings) != len(set(strings)):
+            print(f"Duplicate {where} detected. Please make sure this was intended")
+
+    def _get_imagename_hashes_train_val(dm: DataModule) -> Tuple[str, str]:
+        imagename_hashes_train = _get_imagename_hashes(dm.train_dataloader())
+        imagename_hashes_validation = _get_imagename_hashes(dm.val_dataloader())
+        _check_for_duplicates(imagename_hashes_train + imagename_hashes_validation, 'image UIDs')
+        imagename_hashes_train.sort()
+        imagename_hashes_validation.sort()
+        return imagename_hashes_train, imagename_hashes_validation
+
+    def _get_imagedata_hashes_train_val(dm: DataModule) -> Tuple[str, str]:
+        imagedata_hashes_train = _get_imagedata_hashes(dm.train_dataloader())
+        imagedata_hashes_validation = _get_imagedata_hashes(dm.val_dataloader())
+        _check_for_duplicates(imagedata_hashes_train + imagedata_hashes_validation, 'image data')
+        imagedata_hashes_train.sort()
+        imagedata_hashes_validation.sort()
+        return imagedata_hashes_train, imagedata_hashes_validation
+
+    imagename_hashes_train, imagename_hashes_validation = _get_imagename_hashes_train_val(dm)
+    imagedata_hashes_train, imagedata_hashes_validation = _get_imagedata_hashes_train_val(dm)
+    all_hashes = ''.join(imagename_hashes_train) + ''.join(imagename_hashes_validation) + ''.join(imagedata_hashes_train) + ''.join(imagedata_hashes_validation)
     h = hash_function()
     h.update(all_hashes.encode('utf-8'))
     logger.info(f"Data hash: f{h.hexdigest()}")
