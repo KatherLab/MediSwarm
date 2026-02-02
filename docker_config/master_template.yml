@@ -447,7 +447,7 @@ sub_start_cln_sh: |
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   echo "WORKSPACE set to $DIR/.."
   mkdir -p $DIR/../transfer
-  export PYTHONPATH=/local/custom:$PYTHONPATH
+  export PYTHONPATH=/MediSwarm/application:/local/custom:$PYTHONPATH
   echo "PYTHONPATH is $PYTHONPATH"
 
   SECONDS=0
@@ -684,7 +684,7 @@ docker_cln_sh: |
   fi
 
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
-  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
+  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
   if [[ ! -z "$MY_DATA_DIR" ]]; then
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
