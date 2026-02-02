@@ -63,7 +63,6 @@ class ODELIAAnalyticsReceiver(AnalyticsReceiver):
             fire_event=False,
         )
 
-    @abstractmethod
     def finalize(self, fl_ctx: FLContext):
         """Finalizes the receiver.
 
