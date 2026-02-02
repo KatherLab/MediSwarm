@@ -24,6 +24,7 @@ For example, add the following line (replace `<IP>` with the server's actual IP 
 ### Via Script (recommended)
 
 1. Use, e.g., the file `application/provision/project_MEVIS_test.yml`, adapt as needed (network protocol etc.)
+  * when adapting the server host name or ports, the server’s `name:`, `fed_learn_port`, and `admin_port` must match the `sp_end_point` in the `overseer_agent` section
 2. Call `buildDockerImageAndStartupKits.sh -p /path/to/project_configuration.yml` to build the Docker image and the startup kits
 3. Startup kits are generated to `workspace/<name configured in the .yml>/prod_00/`
 4. Deploy startup kits to the respective server/client operators
@@ -85,4 +86,5 @@ passwords somewhere, they are only displayed once (or you can download them agai
    prevent encrypted archives)
 4. Make sure the participants have started their clients via the respective startup kits, see below
 5. Start the *admin* startup kit using the respective `startup/docker.sh` script to start the admin console
-6. Deploy a job by `submit_job <job folder>`
+6. Log in using the user name configured as "name" of the node of type "admin" (only user name needed, auth happens via certificate)
+7. Deploy a job by `submit_job <job folder>`
