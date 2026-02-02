@@ -13,6 +13,7 @@ from data.datamodules import DataModule
 from data.datasets import MiniDatasetForTesting
 from models import MiniCNNForTesting
 
+from ODELIA_logger import ODELIA_Writer
 
 def load_environment_variables():
     """Load environment variables and return them as a dictionary."""
@@ -105,11 +106,38 @@ def prepare_training(logger):
     return data_module, model, checkpointing, trainer
 
 def validate_and_train(logger, data_module, model, trainer) -> None:
+    writer = ODELIA_Writer()
     logger.info("--- Validate global model ---")
     trainer.validate(model, datamodule=data_module)
 
     logger.info("--- Train new model ---")
     trainer.fit(model, datamodule=data_module)
+
+    log_data = {
+        round: model.current_round,
+        labels: [
+            {
+                gt_label    : 1,
+                prob1       : 0.7,
+                prob2       : 0.1,
+                prob3       : 0.9,
+            },
+            {
+                gt_label    : 2,
+                prob1       : 0.4,
+                prob2       : 0.7,
+                prob3       : 0.1,
+            },
+            {
+                gt_label    : 2,
+                prob1       : 0.0,
+                prob2       : 0.2,
+                prob3       : 0.7,
+            }
+        ]
+    }
+    writer.add_value("gt", log_data)
+
 
 def finalize_training(logger, model, checkpointing, trainer) -> None:
     model.save_best_checkpoint(trainer.logger.log_dir, checkpointing.best_model_path)
