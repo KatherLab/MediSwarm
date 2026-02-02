@@ -113,8 +113,12 @@ To have a baseline for swarm training, train the same model in a comparable way 
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training  2>&1 | tee local_training_console_output.txt
    ```
     * This currently runs 100 epochs (somewhat comparable to 20 rounds with 5 epochs each in the swarm case).
-3. Output files
-    * Same as for the swarm training (see below).
+3. Output files are located in the directory of the startup kit:
+    * Logged output during training: `local_training_console_output.txt`
+    * Class probabilities for each round/epoch for training/validation data: `runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/{aggregated,site}_model_gt_and_classprob_{train,validation}.csv`
+    * Best checkpoint for local data: `runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/epoch=….ckpt`
+    * Last checkpoint for local data: `runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/last.ckpt`
+    * TensorBoard logs: `runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/lightning_logs`
 
 ### Start Swarm Node
 
@@ -141,15 +145,15 @@ To have a baseline for swarm training, train the same model in a comparable way 
    sudo chmod a+r nohup.out
    ```
 
-4. Output files are located in the directory of the startup kit
-    - Training log: `<JOB_ID>/log.txt`
-    - Class probabilities for each round/epoch for training/validation data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/{aggregated,site}_model_gt_and_classprob_{train,validation}.csv`
-    - Best checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/epoch=….ckpt`
-    - Last checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/last.ckpt`
-    - Last aggregated model: `<JOB_ID>/app_$SITE_NAME/FL_global_model.pt`
-    - TensorBoard logs: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/lightning_logs`
-    - Code that was used for training: `<JOB_ID>/app_$SITE_NAME/custom`
-    - TODO describe prediction results once implemented
+4. Output files are located in the directory of the startup kit:
+    * Training log: `<JOB_ID>/log.txt`
+    * Class probabilities for each round/epoch for training/validation data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/{aggregated,site}_model_gt_and_classprob_{train,validation}.csv`
+    * Best checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/epoch=….ckpt`
+    * Last checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/last.ckpt`
+    * Last aggregated model: `<JOB_ID>/app_$SITE_NAME/FL_global_model.pt`
+    * TensorBoard logs: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/lightning_logs`
+    * Code that was used for training: `<JOB_ID>/app_$SITE_NAME/custom`
+    * TODO describe prediction results once implemented
 
 ## Troubleshooting
 
