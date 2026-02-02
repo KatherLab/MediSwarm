@@ -1,7 +1,7 @@
 from sklearn.model_selection import train_test_split
 import torch
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
 from models import ResNet, MST
@@ -11,7 +11,13 @@ from hashlib import sha3_224 as hash_function
 from typing import List, Tuple
 
 import logging
+import csv
 
+FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN = 'aggregated_model_gt_and_classprob_train.csv'
+FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
+
+FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION = 'aggregated_model_gt_and_classprob_validation.csv'
+FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_validation.csv'
 
 def get_num_epochs_per_round(site_name: str) -> int:
     NUM_EPOCHS_FOR_SITE = {
@@ -121,6 +127,53 @@ def create_run_directory(env_vars):
     )
 
 
+def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv_filename_train, csv_filename_validation) -> None:
+    def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader):
+        results = []
+        device = torch.device('cuda')
+        for batch in data_loader:
+            source, target = batch['source'], batch['target']
+
+            with torch.no_grad():
+                logits = model.to(device)(source.to(device))
+
+            pred_prob = model.logits2probabilities(logits)
+
+            for b in range(pred_prob.size(0)):
+                results.append({'GT': target[b].tolist(),
+                                'pred_prob': pred_prob[b].tolist(),
+                                })
+        return results
+
+    def output_csv(results, epoch: int, csv_filename) -> None:
+        with open(csv_filename, 'a') as csvfile:
+            datawriter = csv.writer(csvfile)
+            for datapoint in results:
+                output_data = [epoch, datapoint['GT'][0]] + datapoint['pred_prob']
+                datawriter.writerow(output_data)
+
+    results_train = _determine_GT_and_classprobs(model, data_module.train_dataloader())
+    output_csv(results_train, epoch, csv_filename_train)
+    results_validation = _determine_GT_and_classprobs(model, data_module.val_dataloader())
+    output_csv(results_validation, epoch, csv_filename_validation)
+
+
+
+class GT_PredProb_Output_Callback(Callback):
+    def __init__(self, data_module, csv_filename_train, csv_filename_validation):
+        self.data_module = data_module
+        self.csv_filename_train = csv_filename_train
+        self.csv_filename_validation = csv_filename_validation
+        super().__init__()
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        output_GT_and_classprobs_csv(pl_module,
+                                     self.data_module,
+                                     trainer.current_epoch,
+                                     self.csv_filename_train,
+                                     self.csv_filename_validation)
+
+
 def prepare_training(logger, max_epochs: int, site_name: str):
     try:
         env_vars = load_environment_variables()
@@ -170,12 +223,16 @@ def prepare_training(logger, max_epochs: int, site_name: str):
             mode=min_max,
         )
 
+        gt_predprob_output = GT_PredProb_Output_Callback(data_module,
+                                                         path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
+                                                         path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
+
         trainer = Trainer(
             accelerator='gpu',
             accumulate_grad_batches=1,
             precision='16-mixed',
             default_root_dir=str(path_run_dir),
-            callbacks=[checkpointing],
+            callbacks=[checkpointing, gt_predprob_output],
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
@@ -191,9 +248,13 @@ def prepare_training(logger, max_epochs: int, site_name: str):
     return data_module, model, checkpointing, trainer, path_run_dir, env_vars
 
 
-def validate_and_train(logger, data_module, model, trainer) -> None:
+def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=True) -> None:
     logger.info("--- Validate global model ---")
     trainer.validate(model, datamodule=data_module)
+    if output_GT_and_classprob:
+        output_GT_and_classprobs_csv(model, data_module, trainer.current_epoch,
+                                     path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN,
+                                     path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION)
 
     logger.info("--- Train new model ---")
     trainer.fit(model, datamodule=data_module)
