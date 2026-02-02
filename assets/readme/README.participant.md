@@ -115,7 +115,7 @@ To have a baseline for swarm training, train the same model in a comparable way 
     * This currently runs 100 epochs (somewhat comparable to 20 rounds with 5 epochs each in the swarm case).
 3. Output files are located in the directory of the startup kit:
     * Logged output during training: `local_training_console_output.txt`
-    * Class probabilities for each round/epoch for training/validation data: `runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/{aggregated,site}_model_gt_and_classprob_{train,validation}.csv`
+    * Class probabilities for each round/epoch for training/validation data: `runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/site_model_gt_and_classprob_{train,validation}.csv`
     * Best checkpoint for local data: `runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/epoch=….ckpt`
     * Last checkpoint for local data: `runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/last.ckpt`
     * TensorBoard logs: `runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/lightning_logs`
