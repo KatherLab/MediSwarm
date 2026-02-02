@@ -141,14 +141,15 @@ To have a baseline for swarm training, train the same model in a comparable way 
    sudo chmod a+r nohup.out
    ```
 
-4. Output files:
-    - **Training logs and checkpoints** are saved under:
-      ```
-      $SCRATCHDIR/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/
-      ```
-    - **Best checkpoint** usually saved as `best.ckpt` or `last.ckpt`
+4. Output files are located in the directory of the startup kit
+    - Training log: `<JOB_ID>/log.txt`
+    - Class probabilities for each round/epoch for training/validation data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/{aggregated,site}_model_gt_and_classprob_{train,validation}.csv`
+    - Best checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/epoch=….ckpt`
+    - Last checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/last.ckpt`
+    - Last aggregated model: `<JOB_ID>/app_$SITE_NAME/FL_global_model.pt`
+    - TensorBoard logs: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/lightning_logs`
+    - Code that was used for training: `<JOB_ID>/app_$SITE_NAME/custom`
     - TODO describe prediction results once implemented
-    - **TensorBoard logs** are stored in their respective folders inside the run directory
 
 ## Troubleshooting
 
