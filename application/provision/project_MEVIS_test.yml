@@ -4,11 +4,11 @@ description: >
   Test setup.
 
 participants:
-  - name: odelia-vm-a-localvpn
+  - name: localhost
     type: server
     org: MEVIS_Test
-    fed_learn_port: 8022
-    admin_port: 8023
+    fed_learn_port: 8032
+    admin_port: 8033
   - name: CAM
     type: client
     org: MEVIS_Test
@@ -63,7 +63,7 @@ builders:
         #
         overseer_exists: false
         args:
-          sp_end_point: odelia-vm-a-localvpn:8022:8023
+          sp_end_point: localhost:8032:8033
 
   - path: nvflare.lighter.impl.cert.CertBuilder
   - path: nvflare.lighter.impl.signature.SignatureBuilder
