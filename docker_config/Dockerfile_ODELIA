@@ -28,10 +28,10 @@ RUN apt install -y \
     e2fsprogs=1.46.5-2ubuntu1.2 \
     gpgv=2.2.27-3ubuntu2.5 \
     libblkid1=2.37.2-4ubuntu3.4 \
-    libc-bin=2.35-0ubuntu3.12 \
-    libc-dev-bin=2.35-0ubuntu3.12 \
-    libc6-dev=2.35-0ubuntu3.12 \
-    libc6=2.35-0ubuntu3.12 \
+    libc-bin=2.35-0ubuntu3.13 \
+    libc-dev-bin=2.35-0ubuntu3.13 \
+    libc6-dev=2.35-0ubuntu3.13 \
+    libc6=2.35-0ubuntu3.13 \
     libcap2=1:2.44-1ubuntu0.22.04.2 \
     libcom-err2=1.46.5-2ubuntu1.2 \
     libext2fs2=1.46.5-2ubuntu1.2 \
@@ -79,8 +79,8 @@ RUN apt install -y \
     libcurl4=7.81.0-1ubuntu1.21 \
     libexpat1=2.4.7-1ubuntu0.6 \
     libksba8=1.6.0-2ubuntu0.2 \
-    libldap-2.5-0=2.5.19+dfsg-0ubuntu0.22.04.1 \
-    libldap-common=2.5.19+dfsg-0ubuntu0.22.04.1 \
+    libldap-2.5-0=2.5.20+dfsg-0ubuntu0.22.04.1 \
+    libldap-common=2.5.20+dfsg-0ubuntu0.22.04.1 \
     libmpdec3=2.5.1-2build2 \
     libnghttp2-14=1.43.0-1ubuntu0.2 \
     libnpth0=1.6-3build2 \
