@@ -112,7 +112,8 @@ def validate_and_train(logger, data_module, model, trainer) -> None:
     trainer.fit(model, datamodule=data_module)
 
     log_data = {
-        round: model.current_round,
+        # round: model.current_round,
+        round: 0,
         labels: [
             {
                 gt_label    : 1,
