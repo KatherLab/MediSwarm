@@ -113,25 +113,25 @@ def validate_and_train(logger, data_module, model, trainer) -> None:
 
     log_data = {
         # round: model.current_round,
-        round: 0,
-        labels: [
+        'round': 0,
+        'labels': [
             {
-                gt_label    : 1,
-                prob1       : 0.7,
-                prob2       : 0.1,
-                prob3       : 0.9,
+                'gt_label'    : 1,
+                'prob1'       : 0.7,
+                'prob2'       : 0.1,
+                'prob3'       : 0.9,
             },
             {
-                gt_label    : 2,
-                prob1       : 0.4,
-                prob2       : 0.7,
-                prob3       : 0.1,
+                'gt_label'    : 2,
+                'prob1'       : 0.4,
+                'prob2'       : 0.7,
+                'prob3'       : 0.1,
             },
             {
-                gt_label    : 2,
-                prob1       : 0.0,
-                prob2       : 0.2,
-                prob3       : 0.7,
+                'gt_label'    : 2,
+                'prob1'       : 0.0,
+                'prob2'       : 0.2,
+                'prob3'       : 0.7,
             }
         ]
     }
