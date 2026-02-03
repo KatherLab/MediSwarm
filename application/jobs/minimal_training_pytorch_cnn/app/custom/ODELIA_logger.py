@@ -13,7 +13,7 @@ class ODELIA_Writer:
     SummaryWriter will send log records to the FLARE system.
     """
 
-    def add_value(self, tag: str, values: dict, global_step: Optional[int] = None, **kwargs):
+    def add_value(self, tag: str, values: dict, logger, global_step: Optional[int] = None, **kwargs):
         """Sends scalars.
 
         Args:
@@ -22,6 +22,7 @@ class ODELIA_Writer:
             global_step (optional, int): Global step value.
             **kwargs: Additional arguments to pass to the receiver side.
         """
+        logger.info("ODELIA_logger: about to log data")
         log(
             key=tag,
             value=values,
@@ -30,4 +31,5 @@ class ODELIA_Writer:
             writer=LogWriterName.TORCH_TB,
             **kwargs,
         )
+        logger.info("ODELIA_logger: data logged")
 
