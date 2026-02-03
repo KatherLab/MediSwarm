@@ -1,4 +1,4 @@
-# OpenVPN Setup on Ubuntu (DL0)
+# OpenVPN Setup on Ubuntu
 
 This guide explains how to set up an OpenVPN connection on **Ubuntu** using a provided `.ovpn` file and credentials, with:
 
@@ -8,6 +8,9 @@ This guide explains how to set up an OpenVPN connection on **Ubuntu** using a pr
 - systemd-based management (no cron jobs)
 
 ---
+Please remember to replace <Institute_Name> with your actual institute.
+Please ask Jeff if you lost your openvpn config file, which is 14357-de-9957-tt8rw.accessgate.cloud.ovpn or your credentials.
+
 
 ## 1. Install OpenVPN
 
@@ -151,4 +154,3 @@ The IP should correspond to the VPN, not your ISP.
 
 ---
 
-**End of document**
