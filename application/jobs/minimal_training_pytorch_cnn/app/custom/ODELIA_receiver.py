@@ -10,27 +10,13 @@ from nvflare.apis.shareable import Shareable
 from nvflare.app_common.widgets.streaming import AnalyticsReceiver
 
 class ODELIAAnalyticsReceiver(AnalyticsReceiver):
-    def __init__(self, tb_folder="tb_events", events: Optional[List[str]] = None):
+    def __init__(self, tb_folder="tb_events", kwargs: Optional[dict] = None, events: Optional[List[str]] = None):
         """Receives analytics data from ODELIA swarm.
 
         Args:
             tb_folder (str): the folder to store tensorboard files.
+            kwargs (Optional[dict], optional): keyword arguments, currently not parsed
             events (optional, List[str]): A list of events to be handled by this receiver.
-
-        .. code-block:: text
-            :caption: Folder structure
-
-            Inside run_XX folder:
-              - workspace
-                - run_01 (already created):
-                  - output_dir (default: tb_events):
-                    - peer_name_1:
-                    - peer_name_2:
-
-                - run_02 (already created):
-                  - output_dir (default: tb_events):
-                    - peer_name_1:
-                    - peer_name_2:
 
         """
         super().__init__(events=events)
