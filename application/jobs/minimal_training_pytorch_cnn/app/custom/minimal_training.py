@@ -65,9 +65,7 @@ def prepare_training(logger):
     try:
         env_vars = load_environment_variables()
         path_run_dir = create_run_directory(env_vars['scratch_dir'])
-        if not torch.cuda.is_available():
-            raise(RuntimeError("This example does not work without GPU"))
-        accelerator = 'gpu'
+        accelerator = 'cpu'
         logger.info(f"Using {accelerator} for training")
 
         data_module = set_up_data_module(env_vars)
