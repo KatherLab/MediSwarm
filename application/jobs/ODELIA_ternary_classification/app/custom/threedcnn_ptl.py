@@ -5,7 +5,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
 from models import ResNet, MST
-from env_config import load_environment_variables, prepare_odelia_dataset, generate_run_directory
+from env_config import load_environment_variables, prepare_odelia_dataset, prepare_odelia_dataset_without_augmentation, generate_run_directory
 import torch.multiprocessing as mp
 from hashlib import sha3_224 as hash_function
 from typing import List, Tuple
@@ -37,35 +37,36 @@ def set_up_logging():
 
 
 def log_data_hash(dm: DataModule, logger) -> None:
-    def _get_imagename_hashes(dataloader) -> List[str]:
-        h = hash_function()
+    def _hexdigest(data) -> str:
+        return hash_function(data).hexdigest()
+
+    def _hexdigest_string(data) -> str:
+        return _hexdigest(data.encode('utf-8'))
+
+    def _get_imageuid_hashes(dataloader) -> List[str]:
         hashes = []
         for batch in dataloader:
             assert (len(batch['uid']) == 1)  # currently only implemented for batch size 1
-            h.update(batch['uid'][0].encode('utf-8'))
-            hashes.append(h.hexdigest())
+            hashes.append(_hexdigest_string(batch['uid'][0]))
         return hashes
 
     def _get_imagedata_hashes(dataloader) -> List[str]:
-        h = hash_function()
         hashes = []
         for batch in dataloader:
-            assert (len(batch['source']) == 1)  # currently only implemented for batch size 1
-            h.update(batch['source'][0].detach().cpu().numpy().data)
-            hashes.append(h.hexdigest())
+            hashes.append(_hexdigest(batch['source']['data'][0].detach().cpu().numpy().data))
         return hashes
 
     def _check_for_duplicates(strings: List[str], where: str) -> None:
         if len(strings) != len(set(strings)):
             print(f"Duplicate {where} detected. Please make sure this was intended")
 
-    def _get_imagename_hashes_train_val(dm: DataModule) -> Tuple[str, str]:
-        imagename_hashes_train = _get_imagename_hashes(dm.train_dataloader())
-        imagename_hashes_validation = _get_imagename_hashes(dm.val_dataloader())
-        _check_for_duplicates(imagename_hashes_train + imagename_hashes_validation, 'image UIDs')
-        imagename_hashes_train.sort()
-        imagename_hashes_validation.sort()
-        return imagename_hashes_train, imagename_hashes_validation
+    def _get_imageuid_hashes_train_val(dm: DataModule) -> Tuple[str, str]:
+        imageuid_hashes_train = _get_imageuid_hashes(dm.train_dataloader())
+        imageuid_hashes_validation = _get_imageuid_hashes(dm.val_dataloader())
+        _check_for_duplicates(imageuid_hashes_train + imageuid_hashes_validation, 'image UIDs')
+        imageuid_hashes_train.sort()
+        imageuid_hashes_validation.sort()
+        return ''.join(imageuid_hashes_train), ''.join(imageuid_hashes_validation)
 
     def _get_imagedata_hashes_train_val(dm: DataModule) -> Tuple[str, str]:
         imagedata_hashes_train = _get_imagedata_hashes(dm.train_dataloader())
@@ -73,18 +74,29 @@ def log_data_hash(dm: DataModule, logger) -> None:
         _check_for_duplicates(imagedata_hashes_train + imagedata_hashes_validation, 'image data')
         imagedata_hashes_train.sort()
         imagedata_hashes_validation.sort()
-        return imagedata_hashes_train, imagedata_hashes_validation
+        return ''.join(imagedata_hashes_train), ''.join(imagedata_hashes_validation)
 
-    imagename_hashes_train, imagename_hashes_validation = _get_imagename_hashes_train_val(dm)
+    imageuid_hashes_train, imageuid_hashes_validation = _get_imageuid_hashes_train_val(dm)
     imagedata_hashes_train, imagedata_hashes_validation = _get_imagedata_hashes_train_val(dm)
-    all_hashes = ''.join(imagename_hashes_train) + ''.join(imagename_hashes_validation) + ''.join(imagedata_hashes_train) + ''.join(imagedata_hashes_validation)
-    h = hash_function()
-    h.update(all_hashes.encode('utf-8'))
-    logger.info(f"Data hash: f{h.hexdigest()}")
+    hash_all = _hexdigest_string(imageuid_hashes_train + imageuid_hashes_validation + imagedata_hashes_train + imagedata_hashes_validation)
+    logger.info(f"Data hash: {hash_all}")
 
 
 def set_up_data_module(logger):
+    def _log_dataset_hash(logger) -> None:
+        ds_train_woaug, ds_val_woaug = prepare_odelia_dataset_without_augmentation()
+        datamodule = DataModule(
+            ds_train=ds_train_woaug,
+            ds_val=ds_val_woaug,
+            batch_size=1,
+            pin_memory=True,
+            weights=None,
+            num_workers=mp.cpu_count(),
+        )
+        log_data_hash(datamodule, logger)
+
     torch.set_float32_matmul_precision('high')
+    _log_dataset_hash(logger)
     ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset()
     num_classes = sum(ds_train.class_labels_num)
     logger.info(f"Dataset path: {ds_train}")
@@ -97,7 +109,7 @@ def set_up_data_module(logger):
     dm = DataModule(
         ds_train=ds_train,
         ds_val=ds_val,
-        ds_test=ds_val,
+        ds_test=ds_val,  # TODO shouldn't this remain unset?
         batch_size=1,
         pin_memory=True,
         weights=None,
@@ -110,8 +122,6 @@ def set_up_data_module(logger):
     # for label, pct in distribution['percentages'].items():
     #     logger.info(f"Label '{label}': {pct:.2f}% of training set, Count: {distribution['counts'][label]}")
     # logger.info(f"Number of unique labels: {len(distribution['counts'])}")
-
-    log_data_hash(dm, logger)
 
     loss_kwargs = {}
 
