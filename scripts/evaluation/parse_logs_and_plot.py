@@ -179,12 +179,12 @@ def parse_local_training_log(filename: Path) -> LocalTrainingResults:
 
 
 if __name__ == '__main__':
-    # this script expects a folder structure SITE_NAME/log.txt with optional SITE_NAME/local_training_console_output.txt
+    # this script expects a folder structure SITE_NAME/nohup.out with optional SITE_NAME/local_training_console_output.txt
     swarm_data: Dict[str, SwarmLearningResults] = {}
     local_data: Dict[str, LocalTrainingResults] = {}
 
     for site_name in color_for_site.keys():
-        log_filename = Path(site_name) / 'log.txt'
+        log_filename = Path(site_name) / 'nohup.out'
         swarm_data[site_name] = SwarmLearningResults()
         if os.path.exists(log_filename):
             swarm_data[site_name] = parse_swarm_training_log(log_filename)
