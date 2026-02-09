@@ -135,7 +135,7 @@ def validate_and_train(logger, data_module, model, trainer) -> None:
             }
         ]
     }
-    writer.add_value("gt", log_data, logger=logger)
+    writer.add_value("gt", log_data)
 
 
 def finalize_training(logger, model, checkpointing, trainer) -> None:
