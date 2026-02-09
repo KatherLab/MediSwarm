@@ -127,14 +127,6 @@ ip a
 
 You should see an interface named `tun0` or similar with an IP address starting with `172.24.4.`
 
-Or verify your public IP:
-
-```bash
-curl ifconfig.me
-```
-
-The IP should correspond to the VPN, not your ISP.
-
 ---
 
 ## 8. Behavior Summary
