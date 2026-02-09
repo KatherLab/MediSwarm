@@ -40,9 +40,9 @@ class ConvertToFedEvent(Widget):
 
     def handle_event(self, event_type: str, fl_ctx: FLContext):
         logger = logging.getLogger(__name__)
-        logger.info("Initializing event converter")
+        logger.info(f"Starting event converter {event_type}")
         if event_type in self.events_to_convert:
-            logger.info("about to convert event", event_type)
+            logger.info(f"about to convert event {event_type}")
             event_scope = fl_ctx.get_prop(key=FLContextKey.EVENT_SCOPE, default=EventScope.LOCAL)
             if event_scope == EventScope.FEDERATION:
                 # already a fed event
@@ -54,5 +54,5 @@ class ConvertToFedEvent(Widget):
             if not isinstance(data, Shareable):
                 self.log_error(fl_ctx, f"Expect data to be shareable but got {type(data)}")
                 return
-            logger.info("forwarding event", event_type)
+            logger.info(f"forwarding event {event_type}")
             self.fire_fed_event(self.fed_event_prefix + event_type, data, fl_ctx)
