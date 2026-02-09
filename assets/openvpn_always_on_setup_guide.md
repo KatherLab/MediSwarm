@@ -131,11 +131,11 @@ You should see an interface named `tun0` or similar with an IP address starting 
 
 ## 8. Behavior Summary
 
-| Event | Result |
-|------|-------|
-| VPN connection drops | Automatically reconnects |
-| VPN server unavailable | Retries indefinitely |
-| Server reboot | VPN reconnects on startup |
+| Event                     | Result                           |
+|---------------------------+----------------------------------|
+| VPN connection drops      | Automatically reconnects         |
+| VPN server unavailable    | Retries indefinitely             |
+| Server reboot             | VPN reconnects on startup        |
 | Network delay during boot | systemd retries until successful |
 
 ---
