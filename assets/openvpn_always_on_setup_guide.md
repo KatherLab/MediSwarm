@@ -125,6 +125,8 @@ Check network interfaces:
 ip a
 ```
 
+You should see an interface named `tun0` or similar with an IP address starting with `172.24.4.`
+
 Or verify your public IP:
 
 ```bash
@@ -153,4 +155,3 @@ The IP should correspond to the VPN, not your ISP.
 - Configuration is suitable for headless servers.
 
 ---
-
