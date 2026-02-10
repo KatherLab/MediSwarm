@@ -91,38 +91,59 @@ color_for_site = {'CAM' : '#e41a1c',
                   'USZ' : '#a65628',
                   'VHIO': '#f781bf' }
 
-def plot_per_site(swarm_data: SwarmLearningResults, local_data: LocalTrainingResults) -> None:
-    # TODO refactor: pull computing numbers out of loop below
+def plot_per_site(swarm_data: Dict[str, SwarmLearningResults], local_data: Dict[str, SwarmLearningResults]) -> None:
+    pos_site_name = (((0, 0), 'CAM'), ((0, 1), 'MHA'), ((1, 0), 'RSH'), ((1, 1), 'RUMC'), ((2, 0), 'UKA'), ((2, 1), 'UMCU'), ((3, 0), 'USZ'), ((3, 1), 'VHIO'))
+
+    def _plot_swarm_data(swarm_data: Dict[str, SwarmLearningResults], ax) -> None:
+        for pos, site_name in pos_site_name:
+            swarm_data_for_site = swarm_data[site_name]
+            if swarm_data_for_site.has_data():
+                ax[pos].plot(*zip(*sorted(swarm_data_for_site.training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label='swarm training AUC_ROC')
+                ax[pos].plot(*zip(*sorted(swarm_data_for_site.validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label='swarm validation AUC_ROC')
+                ax[pos].plot(*zip(*sorted(swarm_data_for_site.validation_auc_roc_global_model.items())), '--x', c=color_for_site[site_name], markersize=6, label='swarm validation AUC_ROC aggregated model')
+
+    def _plot_local_data(local_data: Dict[str, SwarmLearningResults], ax) -> None:
+        for pos, site_name in pos_site_name:
+            local_data_for_site = local_data[site_name]
+            if local_data_for_site.has_data():
+                ax[pos].plot(*zip(*sorted(local_data_for_site.training_auc_roc.items())), '-', c='#a0a0a0', linewidth=0.5, label='local training AUC_ROC')
+                ax[pos].plot(*zip(*sorted(local_data_for_site.validation_auc_roc.items())), '-', c='#a0a0a0', linewidth=2, label='local validation AUC_ROC')
+            else:
+                ax[pos].text(10, 0.1, "no data for local training", color='red')
+
+    def _add_num_images(swarm_data: Dict[str, SwarmLearningResults], local_data: Dict[str, SwarmLearningResults], ax) -> None:
+        def _check_for_mismatch(num_swarm, num_local) -> None:
+            if num_swarm > 0 and num_local > 0 and num_swarm != num_local:
+                raise ("Mismatch in number of images used in swarm and local training")
+
+        for pos, site_name in pos_site_name:
+            num_train_images = 0
+            num_val_images = 0
+            swarm_data_for_site = swarm_data[site_name]
+            if swarm_data_for_site.has_data():
+                num_train_images = max(num_train_images, swarm_data_for_site.num_train_images)
+                num_val_images = max(num_val_images, swarm_data_for_site.num_val_images)
+            local_data_for_site = local_data[site_name]
+            if local_data_for_site.has_data():
+                num_train_images_local = local_data_for_site.num_train_images
+                _check_for_mismatch(num_train_images, num_train_images_local)
+                num_train_images = max(num_train_images, num_train_images_local)
+
+                num_val_images_local = local_data_for_site.num_val_images
+                _check_for_mismatch(num_val_images, num_val_images_local)
+                num_val_images = max(num_val_images, num_val_images_local)
+
+            ax[pos].set_title(f'{site_name}: {num_train_images} train, {num_val_images} val images')
 
     fig, ax = plt.subplots(4, 2, figsize=(12,16))
-    for pos, site_name in [((0, 0), 'CAM' ),
-                           ((0, 1), 'MHA' ),
-                           ((1, 0), 'RSH' ),
-                           ((1, 1), 'RUMC'),
-                           ((2, 0), 'UKA' ),
-                           ((2, 1), 'UMCU'),
-                           ((3, 0), 'USZ' ),
-                           ((3, 1), 'VHIO') ]:
+    _plot_swarm_data(swarm_data, ax)
+    _plot_local_data(local_data, ax)
+    _add_num_images(swarm_data, local_data, ax)
 
-        num_train_images = 0
-        num_val_images = 0
-        if local_data[site_name].has_data():
-            ax[pos].plot(*zip(*sorted(local_data[site_name].training_auc_roc.items())),                '-',   c='#a0a0a0',                 linewidth=0.5, label='local training AUC_ROC')
-            ax[pos].plot(*zip(*sorted(local_data[site_name].validation_auc_roc.items())),              '-',   c='#a0a0a0',                 linewidth=2,   label='local validation AUC_ROC')
-            num_train_images = max(num_train_images, local_data[site_name].num_train_images)
-            num_val_images = max(num_val_images, local_data[site_name].num_val_images)
-        else:
-            ax[pos].text(10, 0.1, "no data for local training", color='red')
-        if swarm_data[site_name].has_data():
-            ax[pos].plot(*zip(*sorted(swarm_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label='swarm training AUC_ROC')
-            ax[pos].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label='swarm validation AUC_ROC')
-            ax[pos].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc_global_model.items())), '--x', c=color_for_site[site_name], markersize=6, label='swarm validation AUC_ROC aggregated model')
-            num_train_images = max(num_train_images, swarm_data[site_name].num_train_images)
-            num_val_images = max(num_val_images, swarm_data[site_name].num_val_images)
+    for pos, _ in pos_site_name:
         ax[pos].set_xlim([0.0, 100.0])
         ax[pos].set_ylim([0.0, 1.0])
 
-        ax[pos].set_title(f'{site_name}: {num_train_images} train, {num_val_images} val images')
     ax[(0,0)].legend()
 
     plt.savefig(f'convergence_per_site.png')
