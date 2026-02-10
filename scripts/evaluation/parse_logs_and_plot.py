@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import os, re, sys
+import os, re
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Dict
 from dataclasses import dataclass, field
 from itertools import product
 import matplotlib.pyplot as plt
@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 class _LearningResults:
     training_auc_roc: Dict[int, float] = field(default_factory = lambda: ({}))
     validation_auc_roc: Dict[int, float] = field(default_factory = lambda: ({}))
+    num_train_images: int = 0
+    num_val_images: int = 0
 
     def has_data(self) -> bool:
         return self.training_auc_roc and self.validation_auc_roc
@@ -41,14 +43,13 @@ def load_log_lines(filename: str) -> List[str]:
     return lines
 
 def get_num_train_val_images(contents: List[str]) -> None:
-    # TODO extract numbers rather than printing the entire line
     lines = [c for c in contents if 'Train set' in c]
     assert len(lines) == 1
     line = lines[0]
     # 2025-12-16 12:07:07,678 - SubprocessLauncher - INFO - Train set: 194, Val set: 50
     line_matcher = re.compile(r'.*Train set: (?P<num_train>\d*), Val set: (?P<num_val>\d*)$')
     match = line_matcher.match(line)
-    return match.group('num_train'), match.group('num_val')
+    return int(match.group('num_train')), int(match.group('num_val'))
 
 def _extract_validation_AUC_ROC_lines(contents: List[str]) -> List[str]:
     lines = [c for c in contents if 'val ACC' in c]                  # the lines contain ACC and AUC_ROC
@@ -91,6 +92,8 @@ color_for_site = {'CAM' : '#e41a1c',
                   'VHIO': '#f781bf' }
 
 def plot_per_site(swarm_data: SwarmLearningResults, local_data: LocalTrainingResults) -> None:
+    # TODO refactor: pull computing numbers out of loop below
+
     fig, ax = plt.subplots(4, 2, figsize=(12,16))
     for pos, site_name in [((0, 0), 'CAM' ),
                            ((0, 1), 'MHA' ),
@@ -101,19 +104,25 @@ def plot_per_site(swarm_data: SwarmLearningResults, local_data: LocalTrainingRes
                            ((3, 0), 'USZ' ),
                            ((3, 1), 'VHIO') ]:
 
+        num_train_images = 0
+        num_val_images = 0
         if local_data[site_name].has_data():
             ax[pos].plot(*zip(*sorted(local_data[site_name].training_auc_roc.items())),                '-',   c='#a0a0a0',                 linewidth=0.5, label='local training AUC_ROC')
             ax[pos].plot(*zip(*sorted(local_data[site_name].validation_auc_roc.items())),              '-',   c='#a0a0a0',                 linewidth=2,   label='local validation AUC_ROC')
+            num_train_images = max(num_train_images, local_data[site_name].num_train_images)
+            num_val_images = max(num_val_images, local_data[site_name].num_val_images)
         else:
             ax[pos].text(10, 0.1, "no data for local training", color='red')
         if swarm_data[site_name].has_data():
             ax[pos].plot(*zip(*sorted(swarm_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label='swarm training AUC_ROC')
             ax[pos].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label='swarm validation AUC_ROC')
             ax[pos].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc_global_model.items())), '--x', c=color_for_site[site_name], markersize=6, label='swarm validation AUC_ROC aggregated model')
+            num_train_images = max(num_train_images, swarm_data[site_name].num_train_images)
+            num_val_images = max(num_val_images, swarm_data[site_name].num_val_images)
         ax[pos].set_xlim([0.0, 100.0])
         ax[pos].set_ylim([0.0, 1.0])
 
-        ax[pos].set_title(f'{site_name}')
+        ax[pos].set_title(f'{site_name}: {num_train_images} train, {num_val_images} val images')
     ax[(0,0)].legend()
 
     plt.savefig(f'convergence_per_site.png')
@@ -156,6 +165,8 @@ def parse_swarm_training_log(filename: Path) -> SwarmLearningResults:
     results.validation_auc_roc = parse_validation_AUC_ROCs(contents)
     results.validation_auc_roc_global_model = parse_validation_AUC_ROCs_aggregated_models(contents)
     num_train, num_val = get_num_train_val_images(contents)
+    results.num_train_images = num_train
+    results.num_val_images = num_val
     print(f'{site_name: <4}: {num_train: >5} training images, {num_val: >5} validation images, ' +
           f'validation AUROC (last global model): {results.validation_auc_roc_global_model[95]:.4f}, ' +
           f'training AUROC (last local model): {results.training_auc_roc[99]:.4f}, ' +
@@ -170,6 +181,8 @@ def parse_local_training_log(filename: Path) -> LocalTrainingResults:
     results.training_auc_roc = parse_training_AUC_ROCs(contents)
     results.validation_auc_roc = parse_validation_AUC_ROCs(contents)
     num_train, num_val = get_num_train_val_images(contents)
+    results.num_train_images = num_train
+    results.num_val_images = num_val
     print(f'{site_name: <4}: {num_train: >5} training images, {num_val: >5} validation images, ' +
           '                                              ' +
           f'final local training AUROC:        {results.training_auc_roc[99]:.4f}, ' +
