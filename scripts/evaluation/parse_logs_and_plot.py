@@ -128,30 +128,35 @@ def plot_per_site(swarm_data: SwarmLearningResults, local_data: LocalTrainingRes
     plt.savefig(f'convergence_per_site.png')
 
 
-def plot_overviews(swarm_data: SwarmLearningResults, local_data: LocalTrainingResults) -> None:
+def plot_overviews(swarm_data: Dict[str, SwarmLearningResults], local_data: Dict[str, SwarmLearningResults]) -> None:
+    def _plot_swarm_results(swarm_data: Dict[str, SwarmLearningResults], ax) -> None:
+        for site_name in color_for_site.keys():
+            swarm_data_for_site = swarm_data[site_name]
+            if swarm_data_for_site.has_data():
+                ax[0][0].plot(*zip(*sorted(swarm_data_for_site.training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=1, label=site_name)
+                ax[1][0].plot(*zip(*sorted(swarm_data_for_site.validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label=site_name)
+                ax[2][0].plot(*zip(*sorted(swarm_data_for_site.validation_auc_roc_global_model.items())), '--x', c=color_for_site[site_name], markersize=6, label=site_name)
+
+            ax[0][0].set_title('swarm training AUC_ROC')
+            ax[1][0].set_title('swarm validation AUC_ROC')
+            ax[2][0].set_title('swarm validation AUC_ROC (aggregated model)')
+
+    def _plot_local_results(local_data: Dict[str, SwarmLearningResults], ax) -> None:
+        for site_name in color_for_site.keys():
+            if local_data[site_name].has_data():
+                ax[0][1].plot(*zip(*sorted(local_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label=site_name)
+                ax[1][1].plot(*zip(*sorted(local_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=1, label=site_name)
+
+            ax[0][1].set_title('local training AUC_ROC')
+            ax[1][1].set_title('local validation AUC_ROC')
+
     fig, ax = plt.subplots(3, 2, figsize=(12,12), sharex=True)
-    for site_name in color_for_site.keys():
-        # Plot swarm training results
-        if swarm_data[site_name].has_data():
-            ax[0][0].plot(*zip(*sorted(swarm_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=1, label=site_name)
-            ax[1][0].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=2, label=site_name)
-            ax[2][0].plot(*zip(*sorted(swarm_data[site_name].validation_auc_roc_global_model.items())), '--x', c=color_for_site[site_name], markersize=6, label=site_name)
+    _plot_swarm_results(swarm_data, ax)
+    _plot_local_results(local_data, ax)
 
-        ax[0][0].set_title('swarm training AUC_ROC')
-        ax[1][0].set_title('swarm validation AUC_ROC')
-        ax[2][0].set_title('swarm validation AUC_ROC (aggregated model)')
-
-        # Plot local training results
-        if local_data[site_name].has_data():
-            ax[0][1].plot(*zip(*sorted(local_data[site_name].training_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=0.5, label=site_name)
-            ax[1][1].plot(*zip(*sorted(local_data[site_name].validation_auc_roc.items())), '-', c=color_for_site[site_name], linewidth=1, label=site_name)
-
-        ax[0][1].set_title('local training AUC_ROC')
-        ax[1][1].set_title('local validation AUC_ROC')
-
-        for i, j in product(range(3), range(2)):
-            ax[i][j].set_xlim([0.0, 100.0])
-            ax[i][j].set_ylim([0.0, 1.0])
+    for i, j in product(range(3), range(2)):
+        ax[i][j].set_xlim([0.0, 100.0])
+        ax[i][j].set_ylim([0.0, 1.0])
 
     ax[2][1].text(10, 0.1, "No aggregated models in local training", color='green')
     ax[0][0].legend()  # only one legend
