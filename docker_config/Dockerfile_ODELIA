@@ -19,7 +19,7 @@ RUN apt install -y \
 
 # Install python and dependencies
 RUN apt install -y \
-    libexpat1=2.4.7-1ubuntu0.6 \
+    libexpat1=2.4.7-1ubuntu0.7 \
     libmpdec3=2.5.1-2build2 \
     libpython3-stdlib=3.10.6-1~22.04.1 \
     libpython3.10-minimal=3.10.12-1~22.04.14 \
