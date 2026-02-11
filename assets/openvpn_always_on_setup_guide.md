@@ -125,23 +125,17 @@ Check network interfaces:
 ip a
 ```
 
-Or verify your public IP:
-
-```bash
-curl ifconfig.me
-```
-
-The IP should correspond to the VPN, not your ISP.
+You should see an interface named `tun0` or similar with an IP address starting with `172.24.4.`
 
 ---
 
 ## 8. Behavior Summary
 
-| Event | Result |
-|------|-------|
-| VPN connection drops | Automatically reconnects |
-| VPN server unavailable | Retries indefinitely |
-| Server reboot | VPN reconnects on startup |
+| Event                     | Result                           |
+|---------------------------+----------------------------------|
+| VPN connection drops      | Automatically reconnects         |
+| VPN server unavailable    | Retries indefinitely             |
+| Server reboot             | VPN reconnects on startup        |
 | Network delay during boot | systemd retries until successful |
 
 ---
@@ -154,3 +148,17 @@ The IP should correspond to the VPN, not your ISP.
 
 ---
 
+## Troubleshooting
+
+### Disconnecting Existing VPN Connections
+
+Some users have experienced that connecting to GoodAccess **disconnects an existing VPN or ssh connection**.
+This may happen because OpenVPN is configured to redirect all network traffic through the GoodAccess tunnel, which overrides your local or other VPN routes and may make the machine inaccessible in its local network.
+
+If this occurs, you can prevent the redirection by starting OpenVPN with
+```sh
+openvpn --config <your_config>.ovpn --pull-filter ignore redirect-gateway
+```
+This tells the OpenVPN client **not** to override your default gateway, allowing your other VPN or ssh connection to remain active.
+
+**TODO** describe how this can be configured in when starting the VPN as a system service.
