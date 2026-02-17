@@ -248,16 +248,20 @@ def analyze(root_dir, logscale_hist=False):
         plot_data_train = plot_data[plot_data.split == 'Train']
         plot_data_val = plot_data[plot_data.split == 'Val']
 
-       # Plot with split as hue (Train vs Val)
-        sns.histplot(data=plot_data, x='label', hue='split', multiple='dodge',
-                    discrete=True, stat='count', shrink=0.8, ax=ax,
-                    hue_order=['Train', 'Val'],
-                    palette=['#1f77b4', '#ff7f0e'],
-                    legend=False, alpha=1)
+        # Plot with split as hue (Train vs Val)
+        histogram = sns.histplot(data=plot_data, x='label', hue='split', multiple='dodge',
+                                 discrete=True, stat='count', shrink=0.8, ax=ax,
+                                 hue_order=['Train', 'Val'],
+                                 palette=['#1f77b4', '#ff7f0e'],
+                                 legend=False, alpha=1)
 
         ax.set_ylabel('Count' if col_idx == 0 else '')
         ax.set_xlabel('Label')
         ax.set_xticks([0, 1, 2])
+
+        # Add numbers in histogram
+        for spot in histogram.patches:
+            histogram.text(spot.get_x(), spot.get_height()+3, f'{spot.get_height()}')
 
         if logscale_hist:
             ax.set_yscale('log')
