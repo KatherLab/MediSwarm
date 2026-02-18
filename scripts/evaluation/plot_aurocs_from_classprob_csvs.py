@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
+
 from sklearn.metrics import roc_auc_score
 from matplotlib.patches import Patch
 import seaborn as sns
@@ -155,7 +156,7 @@ def verify_constant_labels_across_epochs(merged_dfs: Dict[str, pd.DataFrame]) ->
     print("Verified: Label distributions are constant across epochs for all settings")
 
 
-def verify_same_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> None:
+def verify_same_label_distributions_at_epoch_zero(merged_dfs: Dict[str, pd.DataFrame]) -> None:
     # For train: verify swarm agg and swarm site have same label distribution at epoch 0
     for site in merged_dfs["Swarm (agg, train)"].site.unique():
         agg_labels = merged_dfs["Swarm (agg, train)"][(merged_dfs["Swarm (agg, train)"].site == site) &
@@ -200,20 +201,10 @@ def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataF
     return label_dist_df
 
 
-def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: bool) -> None:
-    print("Plotting...")
-
-    sns.set_style("whitegrid", rc={"axes.spines.left": False, "axes.spines.right": False, "axes.spines.top": False})
-
-    # Get dimensions
+def plot_aurocs(auroc_df: pd.DataFrame, axes):
     n_sites = len(auroc_df.site.unique())
     sites = sorted(auroc_df.site.unique())
     auroc_types = sorted(auroc_df.auroc_type.unique())
-
-    # Create figure with proper subplots: 4 rows x n_sites columns (3 AUROC + 1 label dist)
-    fig, axes = plt.subplots(4, n_sites, figsize=(6 * n_sites, 15), dpi=150)
-    if n_sites == 1:
-        axes = axes.reshape(-1, 1)
 
     # Plot AUROC metrics (rows 0-2)
     for row_idx, auroc_type in enumerate(auroc_types):
@@ -223,17 +214,17 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
             # Filter and plot
             plot_data = auroc_df[(auroc_df.site == site) & (auroc_df.auroc_type == auroc_type)]
             sns.lineplot(data=plot_data, x='epoch', y='AUROC', hue='setting',
-                        style='setting', ax=ax, legend=(row_idx==0 and col_idx==n_sites-1))
+                         style='setting', ax=ax, legend=(row_idx == 0 and col_idx == n_sites - 1))
 
             ax.set_ylim([0, 1.01])
-            ax.set_xlim([auroc_df.epoch.min(), auroc_df.epoch.max()+1])
+            ax.set_xlim([auroc_df.epoch.min(), auroc_df.epoch.max() + 1])
             ax.set_ylabel('AUROC' if col_idx == 0 else '')
             ax.set_xlabel('Epoch')
 
             # Row labels
             if col_idx == 0:
                 ax.text(-0.15, 0.5, auroc_type, transform=ax.transAxes,
-                       fontsize=14, fontweight='bold', rotation=90, va='center', ha='right')
+                        fontsize=14, fontweight='bold', rotation=90, va='center', ha='right')
 
             # Column labels
             if row_idx == 0:
@@ -243,9 +234,10 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
             if row_idx == 0 and col_idx == n_sites - 1:
                 ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=12)
 
-    # Verify that Swarm and Local have same label distributions
+
+def verify_same_label_distribution_swarm_local(label_dist_df: pd.DataFrame) -> None:
     print("Verifying Swarm and Local have identical label distributions...")
-    for site in sites:
+    for site in sorted(label_dist_df.site.unique()):
         for split in ['Train', 'Val']:
             swarm_counts = label_dist_df[(label_dist_df.site == site) &
                                          (label_dist_df.split == split) &
@@ -257,12 +249,15 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
                 f"Label distribution mismatch for {site} {split}: Swarm={swarm_counts.to_dict()}, Local={local_counts.to_dict()}"
     print("Verified: Swarm and Local have identical label distributions")
 
+
+def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: bool) -> None:
     # Plot combined label distributions (row 3) - just use Swarm data since they're identical
     # Compute max count for shared y-axis
+
     label_counts_df = label_dist_df[label_dist_df.source == 'Swarm'].groupby(['site', 'split', 'label']).size()
     ymax = label_counts_df.max()
 
-    for col_idx, site in enumerate(sites):
+    for col_idx, site in enumerate(sorted(label_dist_df.site.unique())):
         ax = axes[3, col_idx]
 
         # Filter data - use Swarm only since we verified they're identical
@@ -306,6 +301,24 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
                    transform=ax.transAxes, fontsize=14, fontweight='bold',
                    rotation=90, va='center', ha='right')
 
+
+def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: bool) -> None:
+    print("Plotting...")
+
+    sns.set_style("whitegrid", rc={"axes.spines.left": False, "axes.spines.right": False, "axes.spines.top": False})
+
+    # Create figure with proper subplots: 4 rows x n_sites columns (3 AUROC + 1 label dist)
+    n_sites = len(auroc_df.site.unique())
+    fig, axes = plt.subplots(4, n_sites, figsize=(6 * n_sites, 15), dpi=150)
+    if n_sites == 1:
+        axes = axes.reshape(-1, 1)
+
+    plot_aurocs(auroc_df, axes)
+
+    verify_same_label_distribution_swarm_local(label_dist_df)
+
+    plot_label_distributions(label_dist_df, axes, logscale_hist)
+
     # Add legend for bar plots on bottom-right
     legend_handles = [
         Patch(facecolor='#1f77b4', label='Train'),
@@ -319,7 +332,6 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
     plt.close()
 
 
-
 def analyze(root_dir, logscale_hist=False):
     setting_files = get_setting_files(root_dir)
 
@@ -330,11 +342,10 @@ def analyze(root_dir, logscale_hist=False):
     auroc_df = compute_aurocs(merged_dfs)
 
     verify_constant_labels_across_epochs(merged_dfs)
-    verify_same_label_distributions(merged_dfs)
+    verify_same_label_distributions_at_epoch_zero(merged_dfs)
 
     label_dist_df = compute_label_distributions(merged_dfs)
 
-    # TODO subdivide further
     plot(auroc_df, label_dist_df, logscale_hist)
 
     print("Done.")
