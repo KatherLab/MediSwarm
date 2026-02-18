@@ -51,10 +51,15 @@ def analyze(root_dir, logscale_hist=False):
         add_file_or_warn(site_dir / "aggregated_model_gt_and_classprob_train.csv", swarm_agg_train_files)
         add_file_or_warn(site_dir / "aggregated_model_gt_and_classprob_validation.csv", swarm_agg_val_files)
 
-    settings = ["Swarm (agg, train)", "Swarm (agg, val)", "Swarm (site, train)", "Swarm (site, val)", "Local (train)", "Local (val)"]
-    setting_files = [swarm_agg_train_files, swarm_agg_val_files, swarm_site_train_files, swarm_site_val_files, local_train_files, local_val_files]
+    setting_files = { "Swarm (agg, train)": swarm_agg_train_files,
+                      "Swarm (agg, val)": swarm_agg_val_files,
+                      "Swarm (site, train)": swarm_site_train_files,
+                      "Swarm (site, val)": swarm_site_val_files,
+                      "Local (train)": local_train_files,
+                      "Local (val)": local_val_files
+                     }
 
-    for setting, files in zip(settings, setting_files):
+    for setting, files in setting_files.items():
         print(f'Identified {len(files)} {setting} files.')
 
     print("Computing AUROCs...")
@@ -64,7 +69,7 @@ def analyze(root_dir, logscale_hist=False):
     # Store merged dataframes for label distribution
     merged_dfs = {}
 
-    for setting, files in zip(settings, setting_files):
+    for setting, files in setting_files.items():
         print("Analyzing setting: " + setting)
 
         dfs = []
