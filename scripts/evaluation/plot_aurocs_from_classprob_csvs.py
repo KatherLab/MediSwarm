@@ -10,6 +10,7 @@ import argparse
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from warnings import warn
+from typing import List, Dict, Tuple
 
 
 def add_file_or_warn(file_path, file_list):
@@ -19,8 +20,7 @@ def add_file_or_warn(file_path, file_list):
         warn(f'{file_path} not found')
 
 
-def analyze(root_dir, logscale_hist=False):
-
+def get_setting_files(root_dir) -> Dict[str, List[Path]]:
     print("Gathering relevant files...")
 
     local_dir = root_dir / "local"
@@ -58,10 +58,27 @@ def analyze(root_dir, logscale_hist=False):
                       "Local (train)": local_train_files,
                       "Local (val)": local_val_files
                      }
+    return setting_files
 
-    for setting, files in setting_files.items():
-        print(f'Identified {len(files)} {setting} files.')
 
+# Helper function to verify labels don't change across epochs
+def _verify_constant_labels_across_epochs(df: pd.DataFrame, name: str) -> None:
+    for site in df.site.unique():
+        site_df = df[df.site == site]
+        epochs = site_df.epoch.unique()
+
+        # Get label distribution for first epoch
+        first_epoch = epochs[0]
+        ref_labels = site_df[site_df.epoch == first_epoch].label.value_counts().sort_index()
+
+        # Check all other epochs have same distribution
+        for epoch in epochs[1:]:
+            epoch_labels = site_df[site_df.epoch == epoch].label.value_counts().sort_index()
+            assert ref_labels.equals(epoch_labels), \
+                f"{name} site {site}: Label distribution changed between epoch {first_epoch} and {epoch}"
+
+
+def compute_aurocs(setting_files: Dict[str, List[Path]]) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
     print("Computing AUROCs...")
 
     auroc_dfs = []
@@ -95,7 +112,7 @@ def analyze(root_dir, logscale_hist=False):
 
                 tumor_scores_1 = merged_df[filter][["score_1", "score_2"]].max(axis=1)
                 tumor_scores_2 = merged_df[filter].score_0
-                tumor_scores = tumor_scores_1 - tumor_scores_2 # score for tumor yes/no
+                tumor_scores = tumor_scores_1 - tumor_scores_2  # score for tumor yes/no
                 tumor_labels = (merged_df[filter].label > 0).astype(int)
                 if len(tumor_labels.unique()) == 2:
                     tumor_auroc = roc_auc_score(tumor_labels, tumor_scores)
@@ -117,52 +134,43 @@ def analyze(root_dir, logscale_hist=False):
                                                "auroc_type": ["macro", "tumor (0v1/2)", "malignancy (1v2)"]}))
 
     auroc_df = pd.concat(auroc_dfs, ignore_index=True)
+    return auroc_df, merged_dfs
 
+
+def verify_constant_labels_across_epochs(merged_dfs: Dict[str, pd.DataFrame]) -> None:
     # Verify and prepare label distributions
     print("Verifying label distributions...")
 
-    # Helper function to verify labels don't change across epochs
-    def verify_constant_labels_across_epochs(df, name):
-        for site in df.site.unique():
-            site_df = df[df.site == site]
-            epochs = site_df.epoch.unique()
-
-            # Get label distribution for first epoch
-            first_epoch = epochs[0]
-            ref_labels = site_df[site_df.epoch == first_epoch].label.value_counts().sort_index()
-
-            # Check all other epochs have same distribution
-            for epoch in epochs[1:]:
-                epoch_labels = site_df[site_df.epoch == epoch].label.value_counts().sort_index()
-                assert ref_labels.equals(epoch_labels), \
-                    f"{name} site {site}: Label distribution changed between epoch {first_epoch} and {epoch}"
-
     # Verify each dataframe has constant labels across epochs
     for setting_name, df in merged_dfs.items():
-        verify_constant_labels_across_epochs(df, setting_name)
+        _verify_constant_labels_across_epochs(df, setting_name)
 
     print("Verified: Label distributions are constant across epochs for all settings")
 
+
+def verify_same_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> None:
     # For train: verify swarm agg and swarm site have same label distribution at epoch 0
     for site in merged_dfs["Swarm (agg, train)"].site.unique():
         agg_labels = merged_dfs["Swarm (agg, train)"][(merged_dfs["Swarm (agg, train)"].site == site) &
-                                                       (merged_dfs["Swarm (agg, train)"].epoch == 0)].label.value_counts().sort_index()
+                                                      (merged_dfs["Swarm (agg, train)"].epoch == 0)].label.value_counts().sort_index()
         site_labels = merged_dfs["Swarm (site, train)"][(merged_dfs["Swarm (site, train)"].site == site) &
-                                                         (merged_dfs["Swarm (site, train)"].epoch == 0)].label.value_counts().sort_index()
+                                                        (merged_dfs["Swarm (site, train)"].epoch == 0)].label.value_counts().sort_index()
         assert agg_labels.equals(site_labels), \
             f"Train label mismatch at epoch 0 for site {site}: agg={agg_labels.to_dict()}, site={site_labels.to_dict()}"
 
     # For val: verify swarm agg and swarm site have same label distribution at epoch 0
     for site in merged_dfs["Swarm (agg, val)"].site.unique():
         agg_labels = merged_dfs["Swarm (agg, val)"][(merged_dfs["Swarm (agg, val)"].site == site) &
-                                                     (merged_dfs["Swarm (agg, val)"].epoch == 0)].label.value_counts().sort_index()
+                                                    (merged_dfs["Swarm (agg, val)"].epoch == 0)].label.value_counts().sort_index()
         site_labels = merged_dfs["Swarm (site, val)"][(merged_dfs["Swarm (site, val)"].site == site) &
-                                                       (merged_dfs["Swarm (site, val)"].epoch == 0)].label.value_counts().sort_index()
+                                                      (merged_dfs["Swarm (site, val)"].epoch == 0)].label.value_counts().sort_index()
         assert agg_labels.equals(site_labels), \
             f"Val label mismatch at epoch 0 for site {site}: agg={agg_labels.to_dict()}, site={site_labels.to_dict()}"
 
     print("Verified: Swarm agg and site have same label distributions at epoch 0")
 
+
+def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     # Train distributions - use only epoch 0 since we verified labels are constant across epochs
     swarm_train_dist = merged_dfs["Swarm (agg, train)"][merged_dfs["Swarm (agg, train)"].epoch == 0][['site', 'label']].copy()
     swarm_train_dist['source'] = 'Swarm'
@@ -182,8 +190,10 @@ def analyze(root_dir, logscale_hist=False):
     local_val_dist['split'] = 'Val'
 
     label_dist_df = pd.concat([swarm_train_dist, local_train_dist, swarm_val_dist, local_val_dist], ignore_index=True)
+    return label_dist_df
 
 
+def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: bool) -> None:
     print("Plotting...")
 
     sns.set_style("whitegrid", rc={"axes.spines.left": False, "axes.spines.right": False, "axes.spines.top": False})
@@ -300,6 +310,25 @@ def analyze(root_dir, logscale_hist=False):
     plt.tight_layout()
     plt.savefig("evaluation.png", bbox_inches='tight', dpi=150)
     plt.close()
+
+
+
+def analyze(root_dir, logscale_hist=False):
+    setting_files = get_setting_files(root_dir)
+
+    for setting, files in setting_files.items():
+        print(f'Identified {len(files)} {setting} files.')
+
+    # TODO split
+    auroc_df, merged_dfs = compute_aurocs(setting_files)
+
+    verify_constant_labels_across_epochs(merged_dfs)
+    verify_same_label_distributions(merged_dfs)
+
+    label_dist_df = compute_label_distributions(merged_dfs)
+
+    # TODO subdivide further
+    plot(auroc_df, label_dist_df, logscale_hist)
 
     print("Done.")
 
