@@ -10,7 +10,7 @@ import argparse
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from warnings import warn
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
 
 def add_file_or_warn(file_path, file_list):
@@ -78,11 +78,7 @@ def _verify_constant_labels_across_epochs(df: pd.DataFrame, name: str) -> None:
                 f"{name} site {site}: Label distribution changed between epoch {first_epoch} and {epoch}"
 
 
-def compute_aurocs(setting_files: Dict[str, List[Path]]) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
-    print("Computing AUROCs...")
-
-    auroc_dfs = []
-
+def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
     # Store merged dataframes for label distribution
     merged_dfs = {}
 
@@ -97,6 +93,17 @@ def compute_aurocs(setting_files: Dict[str, List[Path]]) -> Tuple[pd.DataFrame, 
 
         merged_df = pd.concat(dfs, ignore_index=True)
         merged_dfs[setting] = merged_df
+
+    return merged_dfs
+
+
+def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+    print("Computing AUROCs...")
+
+    auroc_dfs = []
+    for setting in merged_dfs.keys():
+        print("Analyzing setting: " + setting)
+        merged_df = merged_dfs[setting]
 
         for site in merged_df.site.unique():
             print("Site: " + site)
@@ -134,7 +141,7 @@ def compute_aurocs(setting_files: Dict[str, List[Path]]) -> Tuple[pd.DataFrame, 
                                                "auroc_type": ["macro", "tumor (0v1/2)", "malignancy (1v2)"]}))
 
     auroc_df = pd.concat(auroc_dfs, ignore_index=True)
-    return auroc_df, merged_dfs
+    return auroc_df
 
 
 def verify_constant_labels_across_epochs(merged_dfs: Dict[str, pd.DataFrame]) -> None:
@@ -319,8 +326,8 @@ def analyze(root_dir, logscale_hist=False):
     for setting, files in setting_files.items():
         print(f'Identified {len(files)} {setting} files.')
 
-    # TODO split
-    auroc_df, merged_dfs = compute_aurocs(setting_files)
+    merged_dfs = load_data(setting_files)
+    auroc_df = compute_aurocs(merged_dfs)
 
     verify_constant_labels_across_epochs(merged_dfs)
     verify_same_label_distributions(merged_dfs)
