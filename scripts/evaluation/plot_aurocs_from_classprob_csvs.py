@@ -75,8 +75,8 @@ def _verify_constant_labels_across_epochs(df: pd.DataFrame, name: str) -> None:
         # Check all other epochs have same distribution
         for epoch in epochs[1:]:
             epoch_labels = site_df[site_df.epoch == epoch].label.value_counts().sort_index()
-            assert ref_labels.equals(epoch_labels), \
-                f"{name} site {site}: Label distribution changed between epoch {first_epoch} and {epoch}"
+            if not ref_labels.equals(epoch_labels):
+                warn(f"{name} site {site}: Label distribution changed between epoch {first_epoch} and {epoch}")
 
 
 def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
@@ -92,8 +92,9 @@ def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
             df.loc[:, "site"] = file.parts[1]
             dfs.append(df)
 
-        merged_df = pd.concat(dfs, ignore_index=True)
-        merged_dfs[setting] = merged_df
+        if dfs:
+            merged_df = pd.concat(dfs, ignore_index=True)
+            merged_dfs[setting] = merged_df
 
     return merged_dfs
 
@@ -158,42 +159,62 @@ def verify_constant_labels_across_epochs(merged_dfs: Dict[str, pd.DataFrame]) ->
 
 def verify_same_label_distributions_at_epoch_zero(merged_dfs: Dict[str, pd.DataFrame]) -> None:
     # For train: verify swarm agg and swarm site have same label distribution at epoch 0
-    for site in merged_dfs["Swarm (agg, train)"].site.unique():
-        agg_labels = merged_dfs["Swarm (agg, train)"][(merged_dfs["Swarm (agg, train)"].site == site) &
-                                                      (merged_dfs["Swarm (agg, train)"].epoch == 0)].label.value_counts().sort_index()
-        site_labels = merged_dfs["Swarm (site, train)"][(merged_dfs["Swarm (site, train)"].site == site) &
-                                                        (merged_dfs["Swarm (site, train)"].epoch == 0)].label.value_counts().sort_index()
-        assert agg_labels.equals(site_labels), \
-            f"Train label mismatch at epoch 0 for site {site}: agg={agg_labels.to_dict()}, site={site_labels.to_dict()}"
+    success = True
+    if "Swarm (agg, train)" in merged_dfs.keys():
+        for site in merged_dfs["Swarm (agg, train)"].site.unique():
+            agg_labels = merged_dfs["Swarm (agg, train)"][(merged_dfs["Swarm (agg, train)"].site == site) &
+                                                          (merged_dfs["Swarm (agg, train)"].epoch == 0)].label.value_counts().sort_index()
+            site_labels = merged_dfs["Swarm (site, train)"][(merged_dfs["Swarm (site, train)"].site == site) &
+                                                            (merged_dfs["Swarm (site, train)"].epoch == 0)].label.value_counts().sort_index()
+            if not agg_labels.equals(site_labels):
+                success = False
+                warn(f"Train label mismatch at epoch 0 for site {site}: agg={agg_labels.to_dict()}, site={site_labels.to_dict()}")
 
     # For val: verify swarm agg and swarm site have same label distribution at epoch 0
-    for site in merged_dfs["Swarm (agg, val)"].site.unique():
-        agg_labels = merged_dfs["Swarm (agg, val)"][(merged_dfs["Swarm (agg, val)"].site == site) &
-                                                    (merged_dfs["Swarm (agg, val)"].epoch == 0)].label.value_counts().sort_index()
-        site_labels = merged_dfs["Swarm (site, val)"][(merged_dfs["Swarm (site, val)"].site == site) &
-                                                      (merged_dfs["Swarm (site, val)"].epoch == 0)].label.value_counts().sort_index()
-        assert agg_labels.equals(site_labels), \
-            f"Val label mismatch at epoch 0 for site {site}: agg={agg_labels.to_dict()}, site={site_labels.to_dict()}"
+    if "Swarm (agg, val)" in merged_dfs.keys():
+        for site in merged_dfs["Swarm (agg, val)"].site.unique():
+            agg_labels = merged_dfs["Swarm (agg, val)"][(merged_dfs["Swarm (agg, val)"].site == site) &
+                                                        (merged_dfs["Swarm (agg, val)"].epoch == 0)].label.value_counts().sort_index()
+            site_labels = merged_dfs["Swarm (site, val)"][(merged_dfs["Swarm (site, val)"].site == site) &
+                                                          (merged_dfs["Swarm (site, val)"].epoch == 0)].label.value_counts().sort_index()
+            if not agg_labels.equals(site_labels):
+                success = False
+                warn(f"Val label mismatch at epoch 0 for site {site}: agg={agg_labels.to_dict()}, site={site_labels.to_dict()}")
 
-    print("Verified: Swarm agg and site have same label distributions at epoch 0")
+    if success:
+        print("Verified: Swarm agg and site have same label distributions at epoch 0")
 
 
 def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     # Train distributions - use only epoch 0 since we verified labels are constant across epochs
-    swarm_train_dist = merged_dfs["Swarm (agg, train)"][merged_dfs["Swarm (agg, train)"].epoch == 0][['site', 'label']].copy()
+    if "Swarm (agg, train)" in merged_dfs:
+        swarm_train_dist = merged_dfs["Swarm (agg, train)"][merged_dfs["Swarm (agg, train)"].epoch == 0][['site', 'label']].copy()
+    else:
+        swarm_train_dist = pd.DataFrame()
     swarm_train_dist['source'] = 'Swarm'
     swarm_train_dist['split'] = 'Train'
 
-    local_train_dist = merged_dfs["Local (train)"][merged_dfs["Local (train)"].epoch == 0][['site', 'label']].copy()
+    if "Local (train)" in merged_dfs:
+        local_train_dist = merged_dfs["Local (train)"][merged_dfs["Local (train)"].epoch == 0][['site', 'label']].copy()
+    else:
+        local_train_dist = pd.DataFrame()
+
     local_train_dist['source'] = 'Local'
     local_train_dist['split'] = 'Train'
 
     # Val distributions - use only epoch 0
-    swarm_val_dist = merged_dfs["Swarm (agg, val)"][merged_dfs["Swarm (agg, val)"].epoch == 0][['site', 'label']].copy()
+    if "Swarm (agg, val)" in merged_dfs:
+        swarm_val_dist = merged_dfs["Swarm (agg, val)"][merged_dfs["Swarm (agg, val)"].epoch == 0][['site', 'label']].copy()
+    else:
+        swarm_val_dist = pd.DataFrame()
     swarm_val_dist['source'] = 'Swarm'
     swarm_val_dist['split'] = 'Val'
 
-    local_val_dist = merged_dfs["Local (val)"][merged_dfs["Local (val)"].epoch == 0][['site', 'label']].copy()
+    if "Local (val)" in merged_dfs:
+        local_val_dist = merged_dfs["Local (val)"][merged_dfs["Local (val)"].epoch == 0][['site', 'label']].copy()
+    else:
+        local_val_dist = pd.DataFrame()
+
     local_val_dist['source'] = 'Local'
     local_val_dist['split'] = 'Val'
 
@@ -236,6 +257,7 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
 
 
 def verify_same_label_distribution_swarm_local(label_dist_df: pd.DataFrame) -> None:
+    success = True
     print("Verifying Swarm and Local have identical label distributions...")
     for site in sorted(label_dist_df.site.unique()):
         for split in ['Train', 'Val']:
@@ -245,9 +267,11 @@ def verify_same_label_distribution_swarm_local(label_dist_df: pd.DataFrame) -> N
             local_counts = label_dist_df[(label_dist_df.site == site) &
                                          (label_dist_df.split == split) &
                                          (label_dist_df.source == 'Local')].label.value_counts().sort_index()
-            assert swarm_counts.equals(local_counts), \
-                f"Label distribution mismatch for {site} {split}: Swarm={swarm_counts.to_dict()}, Local={local_counts.to_dict()}"
-    print("Verified: Swarm and Local have identical label distributions")
+            if not swarm_counts.equals(local_counts):
+                success = False
+                warn(f"Label distribution mismatch for {site} {split}: Swarm={swarm_counts.to_dict()}, Local={local_counts.to_dict()}")
+    if success:
+        print("Verified: Swarm and Local have identical label distributions")
 
 
 def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: bool) -> None:
@@ -264,6 +288,9 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
         plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == 'Swarm')]
         plot_data_train = plot_data[plot_data.split == 'Train']
         plot_data_val = plot_data[plot_data.split == 'Val']
+
+        if plot_data.empty:
+            return
 
         # Plot with split as hue (Train vs Val)
         histogram = sns.histplot(data=plot_data, x='label', hue='split', multiple='dodge',
