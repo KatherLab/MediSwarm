@@ -238,7 +238,7 @@ RUN apt install -y \
     libsasl2-2=2.1.27+dfsg2-3ubuntu1.2 \
     libsasl2-modules-db=2.1.27+dfsg2-3ubuntu1.2 \
     libsasl2-modules=2.1.27+dfsg2-3ubuntu1.2 \
-    libssh-4=0.9.6-2ubuntu0.22.04.5 \
+    libssh-4=0.9.6-2ubuntu0.22.04.6 \
     lsb-release=11.1.0ubuntu4 \
     pinentry-curses=1.1.1-1build2 \
     publicsuffix=20211207.1025-1 \
