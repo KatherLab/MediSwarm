@@ -318,7 +318,7 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
             ax.set_ylim([0, ymax * 1.1])
 
         # Add total sample count + split ratio in upper right
-        ax.text(1.0, 1.0, f'\n  n = {len(plot_data)}  \n  split: {len(plot_data_train)/len(plot_data):.0g}/{len(plot_data_val)/len(plot_data):.0g}  \n',
+        ax.text(1.0, 1.0, f'\n  n = {len(plot_data)}  \n  split: {len(plot_data_train)}/{len(plot_data_val)} ≈ {len(plot_data_train)/len(plot_data):.0g}/{len(plot_data_val)/len(plot_data):.0g}  \n',
                transform=ax.transAxes, fontsize=11,
                va='top', ha='right', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
