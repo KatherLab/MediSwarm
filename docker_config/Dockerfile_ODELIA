@@ -186,7 +186,7 @@ RUN apt install -y \
     libcap2=1:2.44-1ubuntu0.22.04.2 \
     libcom-err2=1.46.5-2ubuntu1.2 \
     libext2fs2=1.46.5-2ubuntu1.2 \
-    libgnutls30=3.7.3-4ubuntu1.7 \
+    libgnutls30=3.7.3-4ubuntu1.8 \
     libgssapi-krb5-2=1.19.2-2ubuntu0.7 \
     libk5crypto3=1.19.2-2ubuntu0.7 \
     libkrb5-3=1.19.2-2ubuntu0.7 \
@@ -238,7 +238,7 @@ RUN apt install -y \
     libsasl2-2=2.1.27+dfsg2-3ubuntu1.2 \
     libsasl2-modules-db=2.1.27+dfsg2-3ubuntu1.2 \
     libsasl2-modules=2.1.27+dfsg2-3ubuntu1.2 \
-    libssh-4=0.9.6-2ubuntu0.22.04.5 \
+    libssh-4=0.9.6-2ubuntu0.22.04.6 \
     lsb-release=11.1.0ubuntu4 \
     pinentry-curses=1.1.1-1build2 \
     publicsuffix=20211207.1025-1 \
