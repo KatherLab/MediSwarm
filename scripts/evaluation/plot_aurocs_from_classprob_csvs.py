@@ -278,14 +278,14 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
     # Plot combined label distributions (row 3) - just use Swarm data since they're identical
     # Compute max count for shared y-axis
 
-    label_counts_df = label_dist_df[label_dist_df.source == 'Swarm'].groupby(['site', 'split', 'label']).size()
+    label_counts_df = label_dist_df[label_dist_df.source == 'Local'].groupby(['site', 'split', 'label']).size()
     ymax = label_counts_df.max()
 
     for col_idx, site in enumerate(sorted(label_dist_df.site.unique())):
         ax = axes[3, col_idx]
 
         # Filter data - use Swarm only since we verified they're identical
-        plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == 'Swarm')]
+        plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == 'Local')]
         plot_data_train = plot_data[plot_data.split == 'Train']
         plot_data_val = plot_data[plot_data.split == 'Val']
 
