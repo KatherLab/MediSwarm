@@ -11,8 +11,10 @@ import argparse
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from warnings import warn
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
+
+AUROC_TYPES = ["macro", "none vs benign (0v1)", "none vs malignant (0v2)", "benign vs malgignant (1v2)", "none vs any (0v1/2)"]
 
 def add_file_or_warn(file_path, file_list):
     if file_path.exists():
@@ -100,6 +102,39 @@ def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
 
 
 def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+    def compute_macro_auroc(df_site_epoch: pd.DataFrame) -> float:
+        if set(df_site_epoch.label.unique()) == {0, 1, 2}:
+            return roc_auc_score(df_site_epoch.label,
+                                 df_site_epoch[["score_0", "score_1", "score_2"]],
+                                 multi_class='ovo')
+        else:
+            return np.nan
+
+    def compute_tumor_auroc(df_site_epoch: pd.DataFrame) -> float:
+        tumor_scores_1 = df_site_epoch[["score_1", "score_2"]].max(axis=1)
+        tumor_scores_2 = df_site_epoch.score_0
+        tumor_scores = tumor_scores_1 - tumor_scores_2  # score for tumor yes/no
+        tumor_labels = (df_site_epoch.label > 0).astype(int)
+        if len(tumor_labels.unique()) == 2:
+            return roc_auc_score(tumor_labels, tumor_scores)
+        else:
+            return np.nan
+
+    def compute_twoclass_aurocs(df_site_epoch: pd.DataFrame) -> Tuple[float, float, float]:
+        def compute_twoclass_auroc(df_site_epoch: pd.DataFrame, i: int, j: int) -> float:
+            filter = ((df_site_epoch.label == i) | (df_site_epoch.label == j))
+            df_site_epoch_ij = df_site_epoch[filter]
+            score_j = {0: df_site_epoch_ij.score_0,
+                       1: df_site_epoch_ij.score_1,
+                       2: df_site_epoch_ij.score_2}[j] / df_site_epoch_ij[[f'score_{i}', f'score_{j}']].sum(axis=1)
+            ij_labels = (df_site_epoch_ij.label == j)
+            if len(ij_labels.unique()) == 2:
+                return roc_auc_score(ij_labels, score_j)
+            else:
+                return np.nan
+
+        return compute_twoclass_auroc(df_site_epoch, 0, 1), compute_twoclass_auroc(df_site_epoch, 0, 2), compute_twoclass_auroc(df_site_epoch, 1, 2)
+
     print("Computing AUROCs...")
 
     auroc_dfs = []
@@ -111,36 +146,16 @@ def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
             print("Site: " + site)
             for epoch in tqdm(merged_df.epoch.unique()):
                 filter = (merged_df.epoch == epoch) & (merged_df.site == site)
-
-                if set(merged_df[filter].label.unique()) == {0, 1, 2}:
-                    macro_auroc = roc_auc_score(merged_df[filter].label,
-                                                merged_df[filter][["score_0", "score_1", "score_2"]],
-                                                multi_class='ovo')
-                else:
-                    macro_auroc = np.nan
-
-                tumor_scores_1 = merged_df[filter][["score_1", "score_2"]].max(axis=1)
-                tumor_scores_2 = merged_df[filter].score_0
-                tumor_scores = tumor_scores_1 - tumor_scores_2  # score for tumor yes/no
-                tumor_labels = (merged_df[filter].label > 0).astype(int)
-                if len(tumor_labels.unique()) == 2:
-                    tumor_auroc = roc_auc_score(tumor_labels, tumor_scores)
-                else:
-                    tumor_auroc = np.nan
-
-                tumor_filter = filter & (merged_df.label > 0)
-                tumor_malignancy_scores = merged_df[tumor_filter].score_2 / merged_df[tumor_filter][["score_1", "score_2"]].sum(axis=1)
-                tumor_malignancy_labels = merged_df[tumor_filter].label > 1
-                if len(tumor_malignancy_labels.unique()) == 2:
-                    tumor_malignancy_auroc = roc_auc_score(tumor_malignancy_labels, tumor_malignancy_scores)
-                else:
-                    tumor_malignancy_auroc = np.nan
+                df_site_epoch = merged_df[filter]
+                macro_auroc = compute_macro_auroc(df_site_epoch)
+                twoclass_aurocs = compute_twoclass_aurocs(df_site_epoch)
+                tumor_auroc = compute_tumor_auroc(df_site_epoch)
 
                 auroc_dfs.append(pd.DataFrame({"epoch": epoch,
                                                "site": site,
                                                "setting": setting,
-                                               "AUROC": [macro_auroc, tumor_auroc, tumor_malignancy_auroc],
-                                               "auroc_type": ["macro", "tumor (0v1/2)", "malignancy (1v2)"]}))
+                                               "AUROC": [macro_auroc, *twoclass_aurocs, tumor_auroc],
+                                               "auroc_type": AUROC_TYPES}))
 
     auroc_df = pd.concat(auroc_dfs, ignore_index=True)
     return auroc_df
@@ -225,10 +240,8 @@ def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataF
 def plot_aurocs(auroc_df: pd.DataFrame, axes):
     n_sites = len(auroc_df.site.unique())
     sites = sorted(auroc_df.site.unique())
-    auroc_types = sorted(auroc_df.auroc_type.unique())
 
-    # Plot AUROC metrics (rows 0-2)
-    for row_idx, auroc_type in enumerate(auroc_types):
+    for row_idx, auroc_type in enumerate(AUROC_TYPES):
         for col_idx, site in enumerate(sites):
             ax = axes[row_idx, col_idx]
 
@@ -282,7 +295,7 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
     ymax = label_counts_df.max()
 
     for col_idx, site in enumerate(sorted(label_dist_df.site.unique())):
-        ax = axes[3, col_idx]
+        ax = axes[-1, col_idx]
 
         # Filter data - use Swarm only since we verified they're identical
         plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == 'Local')]
@@ -328,6 +341,15 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
                    transform=ax.transAxes, fontsize=14, fontweight='bold',
                    rotation=90, va='center', ha='right')
 
+    # Add legend for bar plots on bottom-right
+    legend_handles = [
+        Patch(facecolor='#1f77b4', label='Train'),
+        Patch(facecolor='#ff7f0e', label='Val')
+    ]
+    axes[-1, -1].legend(handles=legend_handles, bbox_to_anchor=(1.05, 1),
+                        loc='upper left', fontsize=12, frameon=True)
+
+
 
 def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: bool) -> None:
     print("Plotting...")
@@ -336,7 +358,7 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
 
     # Create figure with proper subplots: 4 rows x n_sites columns (3 AUROC + 1 label dist)
     n_sites = len(auroc_df.site.unique())
-    fig, axes = plt.subplots(4, n_sites, figsize=(6 * n_sites, 15), dpi=150)
+    fig, axes = plt.subplots(6, n_sites, figsize=(5 * n_sites, 20))
     if n_sites == 1:
         axes = axes.reshape(-1, 1)
 
@@ -346,16 +368,8 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
 
     plot_label_distributions(label_dist_df, axes, logscale_hist)
 
-    # Add legend for bar plots on bottom-right
-    legend_handles = [
-        Patch(facecolor='#1f77b4', label='Train'),
-        Patch(facecolor='#ff7f0e', label='Val')
-    ]
-    axes[3, -1].legend(handles=legend_handles, bbox_to_anchor=(1.05, 1),
-                      loc='upper left', fontsize=12, frameon=True)
-
     plt.tight_layout()
-    plt.savefig("evaluation.png", bbox_inches='tight', dpi=150)
+    plt.savefig("evaluation.png", bbox_inches='tight', dpi=100)
     plt.close()
 
 
