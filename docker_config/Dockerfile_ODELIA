@@ -204,7 +204,7 @@ RUN apt install -y \
     libtasn1-6=4.18.0-4ubuntu0.2 \
     libudev1=249.11-0ubuntu3.17 \
     libuuid1=2.37.2-4ubuntu3.4 \
-    linux-libc-dev=5.15.0-170.180 \
+    linux-libc-dev=5.15.0-171.181 \
     logsave=1.46.5-2ubuntu1.2 \
     mount=2.37.2-4ubuntu3.4 \
     openssl=3.0.2-0ubuntu1.21 \
@@ -213,7 +213,7 @@ RUN apt install -y \
 # Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
 RUN apt install -y \
     apt-transport-https=2.4.14 \
-    curl=7.81.0-1ubuntu1.21 \
+    curl=7.81.0-1ubuntu1.22 \
     dirmngr=2.2.27-3ubuntu2.5 \
     distro-info-data=0.52ubuntu0.11 \
     gnupg-l10n=2.2.27-3ubuntu2.5 \
@@ -227,7 +227,7 @@ RUN apt install -y \
     gpgsm=2.2.27-3ubuntu2.5 \
     libassuan0=2.5.5-1build1 \
     libbrotli1=1.0.9-2build6 \
-    libcurl4=7.81.0-1ubuntu1.21 \
+    libcurl4=7.81.0-1ubuntu1.22 \
     libksba8=1.6.0-2ubuntu0.2 \
     libldap-2.5-0=2.5.20+dfsg-0ubuntu0.22.04.1 \
     libldap-common=2.5.20+dfsg-0ubuntu0.22.04.1 \
