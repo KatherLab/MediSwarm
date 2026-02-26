@@ -134,9 +134,18 @@ def prepare_training(logger, max_epochs: int, site_name: str, model_variant: str
                                                     in_ch=3, 
                                                     seed=123)
             elif team_name == "4LME_ABMIL":
-                # TODO not yet implemented
-                model = None
-                pass
+                model_creator_path = os.path.join(
+                    os.path.dirname(__file__),
+                    "models",
+                    "challenge",
+                    "abmil",
+                    "model.py",
+                )
+                spec = importlib.util.spec_from_file_location("abmil_model", model_creator_path)
+                abmil_model_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(abmil_model_module)
+                model = abmil_model_module.create_model(config_path="", in_ch=3, num_classes=num_classes)
+
             elif team_name == "5Pimed":
                 # TODO not yet implemented
                 model = None
