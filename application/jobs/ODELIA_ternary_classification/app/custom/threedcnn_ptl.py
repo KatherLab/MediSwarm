@@ -91,7 +91,7 @@ def log_data_hash(dm: DataModule, logger) -> None:
 
                 for hsh, uids in uids_for_hash.items():
                     if uids:
-                        message += f'Image data with hash {uh.hash} appears {count} times: ' + ', '.join(uids) + '\n'
+                        message += f'Image data with hash {hsh} appears {count} times: ' + ', '.join(uids) + '\n'
 
             logger.info(message)
 
