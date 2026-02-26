@@ -208,14 +208,16 @@ class ABMIL_Swin(nn.Module):
         return out, A.squeeze(-1)  # logits, attention weights
     
 
-def create_model(config_path: str) -> BasicClassifier:
+def create_model(config_path: str, in_ch: int = 3, num_classes: int = 3) -> BasicClassifier:
     
     config = pd.read_csv(config_path, skip_blank_lines=True, na_values=['NaN']).iloc[0]
 
     model_type = config['model']
     if model_type =="swin_cross":
-        model = CrossModalAttentionABMIL_Swin(num_classes=3)
+        model = CrossModalAttentionABMIL_Swin(num_classes=num_classes)
     else:
-        model = ABMIL_Swin(num_classes=3)
+        model = ABMIL_Swin(num_classes=num_classes)
 
-    model = ModelWrapper(backbone=model, )
+    wrapped_model = ModelWrapper(backbone=model, in_ch=in_ch, num_classes=num_classes)
+
+    return wrapped_model
