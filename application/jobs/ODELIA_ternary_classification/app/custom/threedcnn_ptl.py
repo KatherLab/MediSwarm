@@ -9,6 +9,7 @@ from env_config import load_environment_variables, prepare_odelia_dataset, prepa
 import torch.multiprocessing as mp
 from hashlib import sha3_224 as hash_function
 from typing import List, Tuple
+from dataclasses import dataclass
 
 import logging
 import csv
@@ -37,33 +38,71 @@ def set_up_logging():
 
 
 def log_data_hash(dm: DataModule, logger) -> None:
+    @dataclass
+    class UIDwithHash:
+        uid: str
+        hash: str
+
     def _hexdigest(data) -> str:
         return hash_function(data).hexdigest()
 
     def _hexdigest_string(data) -> str:
         return _hexdigest(data.encode('utf-8'))
 
-    def _get_imageuid_hashes(dataloader) -> List[str]:
-        hashes = []
+    def _get_imageuid_hashes(dataloader) -> List[UIDwithHash]:
+        hashes: List[UIDwithHash] = []
         for batch in dataloader:
             assert (len(batch['uid']) == 1)  # currently only implemented for batch size 1
-            hashes.append(_hexdigest_string(batch['uid'][0]))
+            uid = batch['uid'][0]
+            hashes.append(UIDwithHash(uid, _hexdigest_string(uid)))
         return hashes
 
-    def _get_imagedata_hashes(dataloader) -> List[str]:
-        hashes = []
+    def _get_imagedata_hashes(dataloader) -> List[UIDwithHash]:
+        hashes: List[UIDwithHash] = []
         for batch in dataloader:
-            hashes.append(_hexdigest(batch['source']['data'][0].detach().cpu().numpy().data))
+            hashes.append(UIDwithHash(batch['uid'][0], _hexdigest(batch['source']['data'][0].detach().cpu().numpy().data)))
         return hashes
 
-    def _check_for_duplicates(strings: List[str], where: str) -> None:
-        if len(strings) != len(set(strings)):
-            print(f"Duplicate {where} detected. Please make sure this was intended")
+    def _check_for_duplicates(uids_with_hashes: List[UIDwithHash], where: str) -> None:
+        logger.info(f'All {where}, UIDs with hashes:\n' + \
+                    '\n'.join([f'{i.uid}, {i.hash}' for i in uids_with_hashes]))
+
+        hashes = [i.hash for i in uids_with_hashes]
+        if len(hashes) != len(set(hashes)):
+            logger.warning(f'Duplicate {where} detected. Please make sure this was intended')
+            message = f'Duplicate {where}:\n'
+
+            if where == 'image UIDs':
+                multiplicity_messages = {}
+                for uh in uids_with_hashes:
+                    count = hashes.count(uh.hash)
+                    if count > 1:
+                        multiplicity_messages[uh.uid] = f'{uh.uid} ({uh.hash}) appears {count} times'
+                message += '\n'.join(multiplicity_messages.values())
+
+            elif where == 'image data':
+                uids_for_hash = {}
+                for uh in uids_with_hashes:
+                    if uh.hash not in uids_for_hash:
+                        uids_for_hash[uh.hash] = []
+                    count = hashes.count(uh.hash)
+                    if count > 1:
+                        uids_for_hash[uh.hash].append(uh.uid)
+
+                for hsh, uids in uids_for_hash.items():
+                    if uids:
+                        message += f'Image data with hash {uh.hash} appears {count} times: ' + ', '.join(uids) + '\n'
+
+            logger.info(message)
+
 
     def _get_imageuid_hashes_train_val(dm: DataModule) -> Tuple[str, str]:
         imageuid_hashes_train = _get_imageuid_hashes(dm.train_dataloader())
         imageuid_hashes_validation = _get_imageuid_hashes(dm.val_dataloader())
         _check_for_duplicates(imageuid_hashes_train + imageuid_hashes_validation, 'image UIDs')
+
+        imageuid_hashes_train = [i.hash for i in imageuid_hashes_train]
+        imageuid_hashes_validation = [i.hash for i in imageuid_hashes_validation]
         imageuid_hashes_train.sort()
         imageuid_hashes_validation.sort()
         return ''.join(imageuid_hashes_train), ''.join(imageuid_hashes_validation)
@@ -72,6 +111,9 @@ def log_data_hash(dm: DataModule, logger) -> None:
         imagedata_hashes_train = _get_imagedata_hashes(dm.train_dataloader())
         imagedata_hashes_validation = _get_imagedata_hashes(dm.val_dataloader())
         _check_for_duplicates(imagedata_hashes_train + imagedata_hashes_validation, 'image data')
+
+        imagedata_hashes_train = [i.hash for i in imagedata_hashes_train]
+        imagedata_hashes_validation = [i.hash for i in imagedata_hashes_validation]
         imagedata_hashes_train.sort()
         imagedata_hashes_validation.sort()
         return ''.join(imagedata_hashes_train), ''.join(imagedata_hashes_validation)
