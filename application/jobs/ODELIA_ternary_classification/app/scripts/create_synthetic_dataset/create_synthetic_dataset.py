@@ -112,7 +112,6 @@ if __name__ == '__main__':
                             {'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age + i + j, 'Fold': f,
                              'Split': get_split(j, f)})
 
-        '''
         # one table entry per fold without image
         for f in range(num_folds):
             j = num_images_per_site + 1
@@ -121,5 +120,5 @@ if __name__ == '__main__':
                 uid = f'{patientid}_{side}'
                 table_data.append(
                     {'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': get_split(j, f)})
-        '''
+
         save_table(output_folder, site, table_data)

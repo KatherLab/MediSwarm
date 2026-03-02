@@ -13,12 +13,12 @@ class ODELIA_Dataset3D(data.Dataset):
     PATH_ROOT = Path('/data')
     ALL_INSTITUTIONS = ['CAM', 'MHA', 'RSH', 'UKA', 'UMCU', 'VHIO', 'RUMC', 'USZ']
     DATA_DIR = {
-        "original": "data",
-        "unilateral": "data_unilateral"
+        'original': 'data',
+        'unilateral': 'data_unilateral'
     }
     META_DIR = {
-        "original": "metadata",
-        "unilateral": "metadata_unilateral"
+        'original': 'metadata',
+        'unilateral': 'metadata_unilateral'
     }
     CLASS_LABELS = {
         'original': {
@@ -96,16 +96,16 @@ class ODELIA_Dataset3D(data.Dataset):
         dfs = []
         for institution in self.institutions:
             path_metadata = self.path_root / institution / self.meta_dir
-            df = self.load_split(path_metadata / 'split.csv', fold=fold, split=split, fraction=fraction)
-            df['Institution'] = institution
 
-            # Verify files exist
-            # uids = self.run_item_crawler(self.path_root/institution/'data_unilateral')
-            # df = df[df['UID'].isin(uids)]
+            df_split = self.load_split(path_metadata / 'split.csv', fold=fold, split=split, fraction=fraction)
+            df_split['Institution'] = institution
 
-            # Merge with annotations
-            df_anno = pd.read_csv(path_metadata / 'annotation.csv', dtype={'UID': str, 'PatientID': str})
-            df = df.merge(df_anno, on='UID', how='inner')
+            df_annot = pd.read_csv(path_metadata / 'annotation.csv', dtype={'UID': str, 'PatientID': str})
+
+            df = df_split.merge(df_annot, on='UID', how='inner')  # uses only UIDs present in both dataframes
+
+            uids_in_imags = self.run_item_crawler(self.path_root/institution/self.DATA_DIR[config])
+            df = df[df['UID'].isin(uids_in_imags)]  # limit to UIDs for which an image is present
 
             dfs.append(df)
         df = pd.concat(dfs).reset_index(drop=True)
