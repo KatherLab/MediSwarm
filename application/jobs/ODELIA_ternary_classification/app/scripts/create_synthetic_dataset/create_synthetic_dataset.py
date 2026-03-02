@@ -100,17 +100,26 @@ if __name__ == '__main__':
         for j in tqdm(range(num_images_per_site), f'Generating synthetic images for {site}'):
             lesion_class = j % 3
             image = get_image(i, j, lesion_class)
+            patientid = f'ID_{j:03d}'
             for side in ('left', 'right'):
-                patientid = f'ID_{j:03d}'
                 uid = f'{patientid}_{side}'
                 side_folder = output_folder / site / data_folder / uid
                 os.mkdir(side_folder)
-                # sitk.WriteImage(image, side_folder/'Pre.nii.gz')
                 sitk.WriteImage(image, side_folder / 'Sub_1.nii.gz')
-                # sitk.WriteImage(image, side_folder/'T2.nii.gz')
-                for f in range(num_folds):
-                    table_data.append(
-                        {'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age + i + j, 'Fold': f,
-                         'Split': get_split(j, f)})
+                if j < num_images_per_site - 1:  # one image per side without table entry
+                    for f in range(num_folds):
+                        table_data.append(
+                            {'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age + i + j, 'Fold': f,
+                             'Split': get_split(j, f)})
 
+        '''
+        # one table entry per fold without image
+        for f in range(num_folds):
+            j = num_images_per_site + 1
+            for side in ('left', 'right'):
+                patientid = f'ID_{j:03d}'
+                uid = f'{patientid}_{side}'
+                table_data.append(
+                    {'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': get_split(j, f)})
+        '''
         save_table(output_folder, site, table_data)
