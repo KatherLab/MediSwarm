@@ -143,7 +143,7 @@ def set_up_data_module(logger):
 
     torch.set_float32_matmul_precision('high')
     _log_dataset_hash(logger)
-    ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset()
+    ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset(logger)
     num_classes = sum(ds_train.class_labels_num)
     logger.info(f"Dataset path: {ds_train}")
     logger.info(f"Run directory: {path_run_dir}")

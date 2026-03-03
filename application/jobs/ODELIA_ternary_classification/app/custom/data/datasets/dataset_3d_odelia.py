@@ -153,7 +153,8 @@ class ODELIA_Dataset3D(data.Dataset):
         return [path.relative_to(path_root).name for path in Path(path_root).iterdir() if path.is_dir()]
 
     @classmethod
-    def print_UID_discrepancies(cls,
+    def log_UID_discrepancies(cls,
+                                logger,
                                 path_root=None,
                                 institutions=None,
                                 fold=0) -> None:
@@ -179,31 +180,31 @@ class ODELIA_Dataset3D(data.Dataset):
         def _get_uids(path_metadata: Path, path_root: Path, config) -> Tuple[List[str], Dict[str|None, List[str]], List[str]]:
             return _get_uids_in_annotation(path_metadata), _get_uids_in_split(path_metadata, fold), _get_uids_of_images_present(path_root, config)
 
-        def _print_duplicates(uids: List[str], where: str) -> None:
+        def _log_duplicates(uids: List[str], where: str, logger) -> None:
             if len(uids) != len(set(uids)):
-                print(f'ERROR: Duplicates among {where} UIDs detected, they should be unique')
+                logger.error(f'Duplicates among {where} UIDs detected, they should be unique')
                 for u in set(uids):
                     count = uids.count(u)
                     if count > 1:
-                        print(f'{u} appears {count} times')
+                        logger.error(f'{u} appears {count} times')
 
-        def _print_difference(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str) -> None:
+        def _log_difference(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger) -> None:
             difference = set(uids_a).difference(set(uids_b))
             if difference:
                 difference = list(difference)
                 difference.sort()
-                print(f'WARNING: Difference in {where_a}\\{where_b} detected, make sure this was intended:', ', '.join(difference))
+                logger.warning(f'Difference in {where_a}\\{where_b} detected, make sure this was intended: ' + ', '.join(difference))
 
-        def _print_differences(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str) -> None:
-            _print_difference(uids_a, uids_b, where_a, where_b)
-            _print_difference(uids_b, uids_a, where_b, where_a)
+        def _log_differences(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger) -> None:
+            _log_difference(uids_a, uids_b, where_a, where_b, logger)
+            _log_difference(uids_b, uids_a, where_b, where_a, logger)
 
-        def _print_intersection(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str) -> None:
+        def _log_intersection(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger) -> None:
             intersection = set(uids_a).intersection(set(uids_b))
             if intersection:
                 intersection = list(intersection)
                 intersection.sort()
-                print(f'ERROR: Entries in {where_a}∩{where_b} detected, they should be in one set only:', ', '.join(intersection))
+                logger.error(f'Entries in {where_a}∩{where_b} detected, they should be in one set only: ' + ', '.join(intersection))
 
         config = 'unilateral'
         path_root = Path(cls.PATH_ROOT if path_root is None else path_root)
@@ -213,12 +214,12 @@ class ODELIA_Dataset3D(data.Dataset):
             uids_in_annotation, uids_in_split, uids_in_images = _get_uids(path_metadata, path_root, config)
 
             if True:
-                print('INFO: Annoation UIDs:', ' '.join(uids_in_annotation))
-                print('INFO: All split UIDs:', ' '.join(uids_in_split[None]))
-                print('INFO: Training UIDs:', ' '.join(uids_in_split['train']))
-                print('INFO: Validation UIDs:', ' '.join(uids_in_split['val']))
-                print('INFO: Test UIDs:', ' '.join(uids_in_split['test']))
-                print('INFO: Image UIDs', ' '.join(uids_in_images))
+                logger.info('Annoation UIDs: ' + ' '.join(uids_in_annotation))
+                logger.info('All split UIDs: ' + ' '.join(uids_in_split[None]))
+                logger.info('Training UIDs: ' + ' '.join(uids_in_split['train']))
+                logger.info('Validation UIDs: ' + ' '.join(uids_in_split['val']))
+                logger.info('Test UIDs: ' + ' '.join(uids_in_split['test']))
+                logger.info('Image UIDs ' + ' '.join(uids_in_images))
 
             for uids, where in ((uids_in_annotation, 'annotation'),
                                 (uids_in_split[None], 'all split'),
@@ -226,12 +227,12 @@ class ODELIA_Dataset3D(data.Dataset):
                                 (uids_in_split['val'], 'validation'),
                                 (uids_in_split['test'], 'test'),
                                 (uids_in_images, 'image'),) :
-                _print_duplicates(uids, where)
+                _log_duplicates(uids, where, logger)
 
-            _print_differences(uids_in_annotation, uids_in_split[None], 'annotation', 'split')
-            _print_differences(uids_in_split[None], uids_in_images,'split', 'images')
-            _print_differences(uids_in_annotation, uids_in_images, 'annotation', 'images')
+            _log_differences(uids_in_annotation, uids_in_split[None], 'annotation', 'split', logger)
+            _log_differences(uids_in_split[None], uids_in_images,'split', 'images', logger)
+            _log_differences(uids_in_annotation, uids_in_images, 'annotation', 'images', logger)
 
-            _print_intersection(uids_in_split['train'], uids_in_split['val'], 'training', 'validation')
-            _print_intersection(uids_in_split['train'], uids_in_split['test'], 'training', 'test')
-            _print_intersection(uids_in_split['val'], uids_in_split['test'], 'validation', 'test')
+            _log_intersection(uids_in_split['train'], uids_in_split['val'], 'training', 'validation', logger)
+            _log_intersection(uids_in_split['train'], uids_in_split['test'], 'training', 'test', logger)
+            _log_intersection(uids_in_split['val'], uids_in_split['test'], 'validation', 'test', logger)
