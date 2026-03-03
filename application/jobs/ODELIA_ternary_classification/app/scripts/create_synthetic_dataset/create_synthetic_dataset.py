@@ -112,13 +112,13 @@ if __name__ == '__main__':
                             {'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age + i + j, 'Fold': f,
                              'Split': get_split(j, f)})
 
-        # one table entry per fold without image
+        # one table entry per fold without image that is a duplicate in two parts of the split
         for f in range(num_folds):
             j = num_images_per_site + 1
             for side in ('left', 'right'):
                 patientid = f'ID_{j:03d}'
                 uid = f'{patientid}_{side}'
-                table_data.append(
-                    {'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': get_split(j, f)})
+                table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'})
+                table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'val'})
 
         save_table(output_folder, site, table_data)

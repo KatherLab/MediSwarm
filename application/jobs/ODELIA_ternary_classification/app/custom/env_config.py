@@ -37,6 +37,8 @@ def prepare_odelia_dataset():
     path_run_dir = Path.cwd() / 'runs' / institution / run_name
     path_run_dir.mkdir(parents=True, exist_ok=True)
 
+    ODELIA_Dataset3D.print_UID_discrepancies(institutions=[institution])
+
     ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config,
                                 random_flip=True, random_rotate=True, random_inverse=False, noise=True)
     ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config)
