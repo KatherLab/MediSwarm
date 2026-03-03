@@ -26,7 +26,7 @@ def load_prediction_modules(prediction_flag):
     return predict, prediction_flag
 
 
-def prepare_odelia_dataset():
+def prepare_odelia_dataset(logger):
     # parser removed, now read from environment
     institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])  # TODO think about how this should be handled
     model = os.environ.get('MODEL_NAME', 'MST')
@@ -37,7 +37,7 @@ def prepare_odelia_dataset():
     path_run_dir = Path.cwd() / 'runs' / institution / run_name
     path_run_dir.mkdir(parents=True, exist_ok=True)
 
-    ODELIA_Dataset3D.print_UID_discrepancies(institutions=[institution])
+    ODELIA_Dataset3D.log_UID_discrepancies(logger, institutions=[institution])
 
     ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config,
                                 random_flip=True, random_rotate=True, random_inverse=False, noise=True)

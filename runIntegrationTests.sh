@@ -256,17 +256,18 @@ run_data_access_preflight_check () {
        grep -q  "Epoch 0: 100%" "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:Duplicate image data detected. Please make sure this was intended" "$CONSOLE_OUTPUT" && \
        grep -qx "Image data with hash .* appears 2 times: ID_005_right, ID_005_left" "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR: Duplicates among all split UIDs detected, they should be unique" "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING: Difference in split\\images detected, make sure this was intended: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING: Difference in images\\split detected, make sure this was intended: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING: Difference in annotation\\images detected, make sure this was intended: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING: Difference in images\\annotation detected, make sure this was intended: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR: Entries in training∩validation detected, they should be in one set only: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" ; then
+       grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique" "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference in split.images detected, make sure this was intended: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference in images.split detected, make sure this was intended: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference in annotation.images detected, make sure this was intended: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference in images.annotation detected, make sure this was intended: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" ; then
         echo "Expected output of Docker/GPU preflight check found"
     else
-        echo "Missing expected output of Docker/GPU preflight check"
+        echo "Missing expected output B of Docker/GPU preflight check"
         exit 1
     fi
+
 
     cd "$CWD"
 }
