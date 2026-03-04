@@ -99,6 +99,19 @@ The dataset must be in the following format.
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check  2>&1 | tee preflight_check_console_output.txt
    ```
     * Training time depends on the size of the local dataset.
+5. If Check your local dataset for discrepancies.
+   * Check `preflight_check_console_output.txt` for errors and warnings about the dataset.
+       * There should be no duplicate UIDs.
+       * If there are discrepancies between UIDs listed in `split.csv` and `annotation.csv` and the image files present, make sure this is intended and not an error.
+       * There should be no UIDs present in more than one split (training, validation, test).
+       * If duplicate image data is reported, make sure this is intended and not a mix-up of patients, failure in preprocessing etc.
+   * You can run
+       ```bash
+       ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --log_dataset_details
+       ```
+     to see more detailed output including UIDs for further debugging. (This output may contain confidential UIDs, do not share it!)
+
+
 
 ### Run Local Training
 
