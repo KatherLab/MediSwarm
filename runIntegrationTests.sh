@@ -588,7 +588,7 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_data_access_preflight_check
-        # run_data_access_preflight_check_log_details
+        run_data_access_preflight_check_log_details
         cleanup_temporary_data
         ;;
 
