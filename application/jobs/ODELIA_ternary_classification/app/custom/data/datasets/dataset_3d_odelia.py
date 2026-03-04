@@ -154,10 +154,11 @@ class ODELIA_Dataset3D(data.Dataset):
 
     @classmethod
     def log_UID_discrepancies(cls,
-                                logger,
-                                path_root=None,
-                                institutions=None,
-                                fold=0) -> None:
+                              logger,
+                              path_root=None,
+                              institutions=None,
+                              fold=0,
+                              log_dataset_details=False) -> None:
 
         def _get_uids_in_annotation(path_metadata: Path):
             df_annotation = pd.read_csv(path_metadata / 'annotation.csv', dtype={'UID': str, 'PatientID': str})
@@ -180,31 +181,36 @@ class ODELIA_Dataset3D(data.Dataset):
         def _get_uids(path_metadata: Path, path_root: Path, config) -> Tuple[List[str], Dict[str|None, List[str]], List[str]]:
             return _get_uids_in_annotation(path_metadata), _get_uids_in_split(path_metadata, fold), _get_uids_of_images_present(path_root, config)
 
-        def _log_duplicates(uids: List[str], where: str, logger) -> None:
+        def _log_duplicates(uids: List[str], where: str, logger, log_dataset_details) -> None:
             if len(uids) != len(set(uids)):
                 logger.error(f'Duplicates among {where} UIDs detected, they should be unique')
-                for u in set(uids):
-                    count = uids.count(u)
-                    if count > 1:
-                        logger.error(f'{u} appears {count} times')
+                if log_dataset_details:
+                    for u in set(uids):
+                        count = uids.count(u)
+                        if count > 1:
+                            logger.error(f'{u} appears {count} times')
 
-        def _log_difference(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger) -> None:
+        def _log_difference(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
             difference = set(uids_a).difference(set(uids_b))
             if difference:
-                difference = list(difference)
-                difference.sort()
-                logger.warning(f'Difference in {where_a}\\{where_b} detected, make sure this was intended: ' + ', '.join(difference))
+                logger.warning(f'UIDs in {where_a} but not in {where_b} detected, make sure this was intended.')
+                if log_dataset_details:
+                    difference = list(difference)
+                    difference.sort()
+                    logger.warning(f'Difference {where_a}\\{where_b}: ' + ', '.join(difference))
 
-        def _log_differences(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger) -> None:
-            _log_difference(uids_a, uids_b, where_a, where_b, logger)
-            _log_difference(uids_b, uids_a, where_b, where_a, logger)
+        def _log_differences(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
+            _log_difference(uids_a, uids_b, where_a, where_b, logger, log_dataset_details)
+            _log_difference(uids_b, uids_a, where_b, where_a, logger, log_dataset_details)
 
-        def _log_intersection(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger) -> None:
+        def _log_intersection(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
             intersection = set(uids_a).intersection(set(uids_b))
             if intersection:
-                intersection = list(intersection)
-                intersection.sort()
-                logger.error(f'Entries in {where_a}∩{where_b} detected, they should be in one set only: ' + ', '.join(intersection))
+                logger.error(f'Entries in {where_a}∩{where_b} detected, they should be in one set only.')
+                if log_dataset_details:
+                    intersection = list(intersection)
+                    intersection.sort()
+                    logger.error(f'Entries in {where_a}∩{where_b}: ' + ', '.join(intersection))
 
         config = 'unilateral'
         path_root = Path(cls.PATH_ROOT if path_root is None else path_root)
@@ -213,7 +219,7 @@ class ODELIA_Dataset3D(data.Dataset):
             path_metadata = path_root / institution / meta_dir
             uids_in_annotation, uids_in_split, uids_in_images = _get_uids(path_metadata, path_root, config)
 
-            if True:
+            if log_dataset_details:
                 logger.info('Annoation UIDs: ' + ' '.join(uids_in_annotation))
                 logger.info('All split UIDs: ' + ' '.join(uids_in_split[None]))
                 logger.info('Training UIDs: ' + ' '.join(uids_in_split['train']))
@@ -227,12 +233,12 @@ class ODELIA_Dataset3D(data.Dataset):
                                 (uids_in_split['val'], 'validation'),
                                 (uids_in_split['test'], 'test'),
                                 (uids_in_images, 'image'),) :
-                _log_duplicates(uids, where, logger)
+                _log_duplicates(uids, where, logger, log_dataset_details)
 
-            _log_differences(uids_in_annotation, uids_in_split[None], 'annotation', 'split', logger)
-            _log_differences(uids_in_split[None], uids_in_images,'split', 'images', logger)
-            _log_differences(uids_in_annotation, uids_in_images, 'annotation', 'images', logger)
+            _log_differences(uids_in_annotation, uids_in_split[None], 'annotation', 'split', logger, log_dataset_details)
+            _log_differences(uids_in_split[None], uids_in_images,'split', 'images', logger, log_dataset_details)
+            _log_differences(uids_in_annotation, uids_in_images, 'annotation', 'images', logger, log_dataset_details)
 
-            _log_intersection(uids_in_split['train'], uids_in_split['val'], 'training', 'validation', logger)
-            _log_intersection(uids_in_split['train'], uids_in_split['test'], 'training', 'test', logger)
-            _log_intersection(uids_in_split['val'], uids_in_split['test'], 'validation', 'test', logger)
+            _log_intersection(uids_in_split['train'], uids_in_split['val'], 'training', 'validation', logger, log_dataset_details)
+            _log_intersection(uids_in_split['train'], uids_in_split['test'], 'training', 'test', logger, log_dataset_details)
+            _log_intersection(uids_in_split['val'], uids_in_split['test'], 'validation', 'test', logger, log_dataset_details)
