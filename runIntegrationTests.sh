@@ -252,22 +252,51 @@ run_data_access_preflight_check () {
     # also check that it finishes the single round within one minute
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    if grep -q  "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && \
-       grep -q  "Epoch 0: 100%" "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:Duplicate image data detected. Please make sure this was intended" "$CONSOLE_OUTPUT" && \
-       grep -qx "Image data with hash .* appears 2 times: ID_005_right, ID_005_left" "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique" "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference in split.images detected, make sure this was intended: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference in images.split detected, make sure this was intended: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference in annotation.images detected, make sure this was intended: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference in images.annotation detected, make sure this was intended: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" ; then
-        echo "Expected output of Docker/GPU preflight check found"
+    if grep -q "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && \
+       grep -q "Epoch 0: 100%" "$CONSOLE_OUTPUT" && \
+       grep -q "WARNING:threedcnn_ptl:Duplicate image data detected. Please make sure this was intended" "$CONSOLE_OUTPUT" && \
+       grep -q "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique" "$CONSOLE_OUTPUT" && \
+       grep -q "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only." "$CONSOLE_OUTPUT" ; then
+        echo "Expected output of data access preflight check found"
     else
-        echo "Missing expected output B of Docker/GPU preflight check"
+        echo "Missing expected output of data access preflight check"
         exit 1
     fi
 
+    if grep -q  "ID_0" "$CONSOLE_OUTPUT" ; then
+        echo "Unexpected output of data access preflight check without logging dataset details found"
+        exit 1
+    else
+        echo "Output of data access preflight check contains no unexpected UIDs."
+    fi
+
+    cd "$CWD"
+}
+
+run_data_access_preflight_check_log_details () {
+    # requires having built a startup kit and synthetic dataset
+    echo "[Run] Data access preflight check with logging dataset details..."
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
+    # also check that it finishes the single round within one minute
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+
+    if grep -qx "Image data with hash .* appears 2 times: ID_005_right, ID_005_left" "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference split.images: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference images.annotation: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" ; then
+        echo "Expected output of Docker/GPU preflight check found"
+    else
+        echo "Missing expected output of Docker/GPU preflight check"
+        exit 1
+    fi
 
     cd "$CWD"
 }
@@ -559,6 +588,7 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_data_access_preflight_check
+        # run_data_access_preflight_check_log_details
         cleanup_temporary_data
         ;;
 
