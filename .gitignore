@@ -184,3 +184,4 @@ poc
 # Ignore directory for caching pre-trained models
 docker_config/torch_home_cache
 *.pth
+*.zip
