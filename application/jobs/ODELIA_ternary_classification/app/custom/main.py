@@ -9,8 +9,11 @@ import nvflare.client as flare_util
 import threedcnn_ptl
 
 TRAINING_MODE = os.getenv("TRAINING_MODE")
+<<<<<<< HEAD
 MODEL_VARIANT = os.getenv("MODEL_VARIANT")  # e.g. 'mst or 'challenge_x3d'
 
+=======
+>>>>>>> upstream/main
 TM_PREFLIGHT_CHECK = "preflight_check"
 TM_LOCAL_TRAINING = "local_training"
 TM_SWARM = "swarm"
@@ -42,7 +45,11 @@ def main():
 
     try:
         data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(
+<<<<<<< HEAD
             logger, NUM_EPOCHS, SITE_NAME, model_variant=MODEL_VARIANT
+=======
+            logger, NUM_EPOCHS, SITE_NAME
+>>>>>>> upstream/main
         )
 
         if TRAINING_MODE == TM_SWARM:
@@ -55,10 +62,17 @@ def main():
                 input_model = flare.receive()
                 logger.info(f"Current round: {input_model.current_round}")
 
+<<<<<<< HEAD
                 threedcnn_ptl.validate_and_train(logger, data_module, model, trainer)
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer)
+=======
+                threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
+
+        elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
+            threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=False)
+>>>>>>> upstream/main
 
         if TRAINING_MODE in [TM_LOCAL_TRAINING, TM_SWARM]:
             threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)

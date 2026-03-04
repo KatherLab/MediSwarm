@@ -1,7 +1,11 @@
 import os
 from datetime import datetime
 from pathlib import Path
+<<<<<<< HEAD
 
+=======
+from data.datasets import ODELIA_Dataset3D
+>>>>>>> upstream/main
 
 def load_environment_variables():
     return {
@@ -26,10 +30,17 @@ def load_prediction_modules(prediction_flag):
     return predict, prediction_flag
 
 
+<<<<<<< HEAD
 def prepare_odelia_dataset(model_name: str = ''):
     # parser removed, now read from environment
     institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])  # TODO think about how this should be handled
     model = model_name if (model_name is not None and model_name != "") else os.environ.get('MODEL_NAME', 'MST')
+=======
+def prepare_odelia_dataset():
+    # parser removed, now read from environment
+    institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])  # TODO think about how this should be handled
+    model = os.environ.get('MODEL_NAME', 'MST')
+>>>>>>> upstream/main
     config = os.environ.get('CONFIG', 'unilateral')
 
     current_time = datetime.now().strftime("%Y_%m_%d_%H%M%S")
@@ -37,7 +48,10 @@ def prepare_odelia_dataset(model_name: str = ''):
     path_run_dir = Path.cwd() / 'runs' / institution / run_name
     path_run_dir.mkdir(parents=True, exist_ok=True)
 
+<<<<<<< HEAD
     from data.datasets import ODELIA_Dataset3D
+=======
+>>>>>>> upstream/main
     ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config,
                                 random_flip=True, random_rotate=True, random_inverse=False, noise=True)
     ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config)
@@ -49,6 +63,19 @@ def prepare_odelia_dataset(model_name: str = ''):
     return ds_train, ds_val, path_run_dir, run_name
 
 
+<<<<<<< HEAD
+=======
+def prepare_odelia_dataset_without_augmentation():
+    institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])
+    config = os.environ.get('CONFIG', 'unilateral')
+
+    ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config, transform='USE_UNPROCESSED_IMAGES')
+    ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config, transform='USE_UNPROCESSED_IMAGES')
+
+    return ds_train, ds_val
+
+
+>>>>>>> upstream/main
 def generate_run_directory(scratch_dir, task_data_name, model_name, local_compare_flag):
     current_time = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     mode = 'local_compare' if local_compare_flag else 'swarm_learning'
