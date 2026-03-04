@@ -17,6 +17,7 @@ RUN apt install -y \
     apt-utils=2.4.14 \
     libapt-pkg6.0=2.4.14
 
+<<<<<<< HEAD
 # Update versions of installed packages
 RUN apt install -y --no-install-recommends \
     base-files=12ubuntu4.7 \
@@ -111,6 +112,23 @@ RUN apt install -y --no-install-recommends \
 
 # Clean up apt cache
 RUN rm -rf /var/lib/apt/lists/*
+=======
+# Install python and dependencies
+RUN apt install -y \
+    libexpat1=2.4.7-1ubuntu0.7 \
+    libmpdec3=2.5.1-2build2 \
+    libpython3-stdlib=3.10.6-1~22.04.1 \
+    libpython3.10-minimal=3.10.12-1~22.04.14 \
+    libpython3.10-stdlib=3.10.12-1~22.04.14 \
+    libreadline8=8.1.2-1 \
+    libsqlite3-0=3.37.2-2ubuntu0.5 \
+    media-types=7.0.0 \
+    python3-minimal=3.10.6-1~22.04.1 \
+    python3.10-minimal=3.10.12-1~22.04.14 \
+    python3.10=3.10.12-1~22.04.14 \
+    python3=3.10.6-1~22.04.1 \
+    readline-common=8.1.2-1
+>>>>>>> upstream/main
 
 # uninstall conda to prevent usage and avoid and potential repository license issues
 RUN python3 -m pip uninstall -y conda conda-package-handling conda_index
@@ -125,7 +143,11 @@ RUN python3 -m pip install \
 RUN python3 -m pip install \
     --upgrade \
     psutil==7.0.0
+<<<<<<< HEAD
 RUN python3 -m pip install --no-install-recommends \
+=======
+RUN python3 -m pip install \
+>>>>>>> upstream/main
     Flask==3.0.2 \
     Flask-JWT-Extended==4.6.0 \
     Flask-SQLAlchemy==3.1.1 \
@@ -142,11 +164,18 @@ RUN python3 -m pip install --no-install-recommends \
     protobuf==4.24.4 \
     pyhocon==0.3.61 \
     pyparsing==3.2.3 \
+<<<<<<< HEAD
     websockets==15.0.1 \
     || true # if one version is missing, insall other packages
 
 # Install additional Python packages for application code at defined versions
 RUN python3 -m pip install --no-install-recommends \
+=======
+    websockets==15.0.1
+
+# Install additional Python packages for application code at defined versions
+RUN python3 -m pip install \
+>>>>>>> upstream/main
     Deprecated==1.2.18 \
     SimpleITK==2.5.0 \
     absl-py==2.2.2 \
@@ -231,8 +260,12 @@ RUN python3 -m pip install --no-install-recommends \
     smmap==5.0.2 \
     typing-extensions==4.13.2 \
     typing-inspection==0.4.1 \
+<<<<<<< HEAD
     xxhash==3.5.0 \
     || true # if one version is missing, insall other packages
+=======
+    xxhash==3.5.0
+>>>>>>> upstream/main
 
 # Install packages needed for listing licenses of installed pip packages
 RUN python3 -m pip install \
@@ -249,6 +282,89 @@ RUN python3 -m pip install \
 # Clean up pip cache
 RUN python3 -m pip cache purge
 
+<<<<<<< HEAD
+=======
+# Update versions of installed packages
+RUN apt install -y \
+    base-files=12ubuntu4.7 \
+    bash=5.1-6ubuntu1.1 \
+    bsdutils=1:2.37.2-4ubuntu3.4 \
+    ca-certificates=20240203~22.04.1 \
+    coreutils=8.32-4.1ubuntu1.2 \
+    dpkg=1.21.1ubuntu2.6 \
+    e2fsprogs=1.46.5-2ubuntu1.2 \
+    gpgv=2.2.27-3ubuntu2.5 \
+    libblkid1=2.37.2-4ubuntu3.4 \
+    libc-bin=2.35-0ubuntu3.13 \
+    libc-dev-bin=2.35-0ubuntu3.13 \
+    libc6-dev=2.35-0ubuntu3.13 \
+    libc6=2.35-0ubuntu3.13 \
+    libcap2=1:2.44-1ubuntu0.22.04.2 \
+    libcom-err2=1.46.5-2ubuntu1.2 \
+    libext2fs2=1.46.5-2ubuntu1.2 \
+    libgnutls30=3.7.3-4ubuntu1.7 \
+    libgssapi-krb5-2=1.19.2-2ubuntu0.7 \
+    libk5crypto3=1.19.2-2ubuntu0.7 \
+    libkrb5-3=1.19.2-2ubuntu0.7 \
+    libkrb5support0=1.19.2-2ubuntu0.7 \
+    libmount1=2.37.2-4ubuntu3.4 \
+    libpam-modules-bin=1.4.0-11ubuntu2.6 \
+    libpam-modules=1.4.0-11ubuntu2.6 \
+    libpam-runtime=1.4.0-11ubuntu2.6 \
+    libpam0g=1.4.0-11ubuntu2.6 \
+    libseccomp2=2.5.3-2ubuntu3~22.04.1 \
+    libsmartcols1=2.37.2-4ubuntu3.4 \
+    libss2=1.46.5-2ubuntu1.2 \
+    libssl3=3.0.2-0ubuntu1.21 \
+    libsystemd0=249.11-0ubuntu3.17 \
+    libtasn1-6=4.18.0-4ubuntu0.2 \
+    libudev1=249.11-0ubuntu3.17 \
+    libuuid1=2.37.2-4ubuntu3.4 \
+    linux-libc-dev=5.15.0-170.180 \
+    logsave=1.46.5-2ubuntu1.2 \
+    mount=2.37.2-4ubuntu3.4 \
+    openssl=3.0.2-0ubuntu1.21 \
+    util-linux=2.37.2-4ubuntu3.4
+
+# Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
+RUN apt install -y \
+    apt-transport-https=2.4.14 \
+    curl=7.81.0-1ubuntu1.21 \
+    dirmngr=2.2.27-3ubuntu2.5 \
+    distro-info-data=0.52ubuntu0.11 \
+    gnupg-l10n=2.2.27-3ubuntu2.5 \
+    gnupg-utils=2.2.27-3ubuntu2.5 \
+    gnupg=2.2.27-3ubuntu2.5 \
+    gpg-agent=2.2.27-3ubuntu2.5 \
+    gpg-wks-client=2.2.27-3ubuntu2.5 \
+    gpg-wks-server=2.2.27-3ubuntu2.5 \
+    gpg=2.2.27-3ubuntu2.5 \
+    gpgconf=2.2.27-3ubuntu2.5 \
+    gpgsm=2.2.27-3ubuntu2.5 \
+    libassuan0=2.5.5-1build1 \
+    libbrotli1=1.0.9-2build6 \
+    libcurl4=7.81.0-1ubuntu1.21 \
+    libksba8=1.6.0-2ubuntu0.2 \
+    libldap-2.5-0=2.5.20+dfsg-0ubuntu0.22.04.1 \
+    libldap-common=2.5.20+dfsg-0ubuntu0.22.04.1 \
+    libnghttp2-14=1.43.0-1ubuntu0.2 \
+    libnpth0=1.6-3build2 \
+    libpsl5=0.21.0-1.2build2 \
+    librtmp1=2.4+20151223.gitfa8646d.1-2build4 \
+    libsasl2-2=2.1.27+dfsg2-3ubuntu1.2 \
+    libsasl2-modules-db=2.1.27+dfsg2-3ubuntu1.2 \
+    libsasl2-modules=2.1.27+dfsg2-3ubuntu1.2 \
+    libssh-4=0.9.6-2ubuntu0.22.04.5 \
+    lsb-release=11.1.0ubuntu4 \
+    pinentry-curses=1.1.1-1build2 \
+    publicsuffix=20211207.1025-1 \
+    unzip=6.0-26ubuntu3.2 \
+    zip=3.0-12build2
+
+# Clean up apt cache
+RUN rm -rf /var/lib/apt/lists/*
+
+>>>>>>> upstream/main
 # install ODELIA fork of NVFlare from local source
 WORKDIR /workspace/
 COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare

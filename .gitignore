@@ -170,7 +170,7 @@ docker_config/NVFlare
 
 # POC and provision auto-generated files
 poc
-provision
+#provision
 
 /docker_config/controller/
 
