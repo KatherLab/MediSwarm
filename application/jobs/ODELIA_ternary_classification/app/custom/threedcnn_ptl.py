@@ -1,17 +1,6 @@
 from sklearn.model_selection import train_test_split
 import torch
 from pytorch_lightning import Trainer
-<<<<<<< HEAD
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
-from data.datamodules import DataModule
-from models import ResNet, MST, Swin3D
-from env_config import load_environment_variables, prepare_odelia_dataset, generate_run_directory
-import torch.multiprocessing as mp
-
-import logging
-
-=======
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
@@ -29,7 +18,6 @@ FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
 
 FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION = 'aggregated_model_gt_and_classprob_validation.csv'
 FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_validation.csv'
->>>>>>> upstream/main
 
 def get_num_epochs_per_round(site_name: str) -> int:
     NUM_EPOCHS_FOR_SITE = {
@@ -48,11 +36,6 @@ def set_up_logging():
     return logger
 
 
-<<<<<<< HEAD
-def set_up_data_module(logger, model_name: str = ''):
-    torch.set_float32_matmul_precision('high')
-    ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset(model_name=model_name)
-=======
 def log_data_hash(dm: DataModule, logger) -> None:
     def _hexdigest(data) -> str:
         return hash_function(data).hexdigest()
@@ -115,7 +98,6 @@ def set_up_data_module(logger):
     torch.set_float32_matmul_precision('high')
     _log_dataset_hash(logger)
     ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset()
->>>>>>> upstream/main
     num_classes = sum(ds_train.class_labels_num)
     logger.info(f"Dataset path: {ds_train}")
     logger.info(f"Run directory: {path_run_dir}")
@@ -127,11 +109,7 @@ def set_up_data_module(logger):
     dm = DataModule(
         ds_train=ds_train,
         ds_val=ds_val,
-<<<<<<< HEAD
-        ds_test=ds_val,
-=======
         ds_test=ds_val,  # TODO shouldn't this remain unset?
->>>>>>> upstream/main
         batch_size=1,
         pin_memory=True,
         weights=None,
@@ -159,11 +137,6 @@ def create_run_directory(env_vars):
     )
 
 
-<<<<<<< HEAD
-def prepare_training(logger, max_epochs: int, site_name: str, model_variant: str | None = None):
-    try:
-        env_vars = load_environment_variables()
-=======
 def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv_filename_train, csv_filename_validation) -> None:
     def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader):
         results = []
@@ -215,7 +188,6 @@ def prepare_training(logger, max_epochs: int, site_name: str):
     try:
         env_vars = load_environment_variables()
         data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger)
->>>>>>> upstream/main
 
         if not torch.cuda.is_available():
             raise RuntimeError("This example requires a GPU")
@@ -223,15 +195,11 @@ def prepare_training(logger, max_epochs: int, site_name: str):
         logger.info(f"Running code version {env_vars['mediswarm_version']}")
         logger.info(f"Using GPU for training")
 
-<<<<<<< HEAD
         # Allow an explicit model_variant to override the configured env model name.
         model_name = model_variant if (model_variant is not None and model_variant != "") else os.environ.get('MODEL_NAME', '')
 
         data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, model_name)
-=======
-        model_name = env_vars['model_name']
 
->>>>>>> upstream/main
         model = None
         if model_name in ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:
             resnet_variant = int(model_name[6:])
@@ -245,7 +213,6 @@ def prepare_training(logger, max_epochs: int, site_name: str):
                         num_classes=num_classes,
                         spatial_dims=3,
                         loss_kwargs=loss_kwargs)
-<<<<<<< HEAD
         elif model_name == "Swin3D":
             print(f"Using Swin3D model:\nShould we include {loss_kwargs} here?")
             model = Swin3D(n_input_channels=1,
@@ -257,7 +224,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
             # factory by file path using importlib to avoid renaming directories.
             import importlib.util
             import os
-            team_name = model_name.split('_')[1] 
+            team_name = model_name.split('_')[1]
             if team_name == "1DvideAndConquer":
                 # TODO not yet implemented
                 model = None
@@ -277,10 +244,10 @@ def prepare_training(logger, max_epochs: int, site_name: str):
                 spec = importlib.util.spec_from_file_location("agaldran_model_factory", factory_path)
                 agaldran_factory = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(agaldran_factory)
-                model = agaldran_factory.model_factory(arch="mvit_v2_s", 
-                                                    pretrained_path="application\\jobs\\ODELIA_ternary_classification\\app\\custom\\models\\challenge\\3agaldran\\mvit_v2_s-ae3be167.pth", 
-                                                    num_classes=3, 
-                                                    in_ch=3, 
+                model = agaldran_factory.model_factory(arch="mvit_v2_s",
+                                                    pretrained_path="application\\jobs\\ODELIA_ternary_classification\\app\\custom\\models\\challenge\\3agaldran\\mvit_v2_s-ae3be167.pth",
+                                                    num_classes=3,
+                                                    in_ch=3,
                                                     seed=123)
             elif team_name == "4LME_ABMIL":
                 # TODO not yet implemented
@@ -294,8 +261,6 @@ def prepare_training(logger, max_epochs: int, site_name: str):
                 raise ValueError(f"Unknown challenge team name: {team_name}")
         else:
             raise ValueError(f"Unsupported model name: {model_name}.")
-=======
->>>>>>> upstream/main
 
         logger.info(f"Using model: {model_name}")
 
@@ -319,23 +284,16 @@ def prepare_training(logger, max_epochs: int, site_name: str):
             mode=min_max,
         )
 
-<<<<<<< HEAD
-=======
         gt_predprob_output = GT_PredProb_Output_Callback(data_module,
                                                          path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
                                                          path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
 
->>>>>>> upstream/main
         trainer = Trainer(
             accelerator='gpu',
             accumulate_grad_batches=1,
             precision='16-mixed',
             default_root_dir=str(path_run_dir),
-<<<<<<< HEAD
-            callbacks=[checkpointing],
-=======
             callbacks=[checkpointing, gt_predprob_output],
->>>>>>> upstream/main
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
@@ -351,11 +309,6 @@ def prepare_training(logger, max_epochs: int, site_name: str):
     return data_module, model, checkpointing, trainer, path_run_dir, env_vars
 
 
-<<<<<<< HEAD
-def validate_and_train(logger, data_module, model, trainer) -> None:
-    logger.info("--- Validate global model ---")
-    trainer.validate(model, datamodule=data_module)
-=======
 def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=True) -> None:
     logger.info("--- Validate global model ---")
     trainer.validate(model, datamodule=data_module)
@@ -363,7 +316,6 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
         output_GT_and_classprobs_csv(model, data_module, trainer.current_epoch,
                                      path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN,
                                      path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION)
->>>>>>> upstream/main
 
     logger.info("--- Train new model ---")
     trainer.fit(model, datamodule=data_module)

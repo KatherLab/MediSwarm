@@ -177,7 +177,6 @@ class BasicClassifier(BasicModel):
 
     def logits2probabilities(self, logits):
         return F.softmax(logits, dim=1)
-<<<<<<< HEAD
 
 
 ### Wrapper class for wrapping any model into BasicModel ###
@@ -200,5 +199,3 @@ class ModelWrapper(BasicClassifier):
 
     def forward(self, x):
         return self.backbone(x)
-=======
->>>>>>> upstream/main
