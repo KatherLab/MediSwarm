@@ -151,11 +151,8 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
                 percentage = 100 * cclass / len(classes_in_ds)
                 logger.info(f'Samples in {which} set of class {i}: {cclass} ({percentage:.1f}%)')
 
-        logger.info(f'Dataset path: {ds_train}')
         logger.info(f'Run directory: {path_run_dir}')
         logger.info(f'Run name: {run_name}')
-        logger.info(f'Length of train dataset: {len(ds_train)}')
-        logger.info(f'Length of val dataset: {len(ds_val)}')
 
         _log_label_distribution(ds_train, 'training', logger)
         _log_label_distribution(ds_val, 'validation', logger)
