@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from pathlib import Path
-
+from data.datasets import ODELIA_Dataset3D
 
 def load_environment_variables():
     return {
@@ -47,6 +47,16 @@ def prepare_odelia_dataset(model_name: str = ''):
     # print(f"Labels in val: {[sample['label'] for sample in ds_val]}")
 
     return ds_train, ds_val, path_run_dir, run_name
+
+
+def prepare_odelia_dataset_without_augmentation():
+    institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])
+    config = os.environ.get('CONFIG', 'unilateral')
+
+    ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config, transform='USE_UNPROCESSED_IMAGES')
+    ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config, transform='USE_UNPROCESSED_IMAGES')
+
+    return ds_train, ds_val
 
 
 def generate_run_directory(scratch_dir, task_data_name, model_name, local_compare_flag):

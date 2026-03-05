@@ -170,7 +170,7 @@ docker_config/NVFlare
 
 # POC and provision auto-generated files
 poc
-provision
+#provision
 
 /docker_config/controller/
 
@@ -184,3 +184,4 @@ provision
 # Ignore directory for caching pre-trained models
 docker_config/torch_home_cache
 *.pth
+*.zip

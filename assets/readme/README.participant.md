@@ -113,8 +113,23 @@ To have a baseline for swarm training, train the same model in a comparable way 
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training  2>&1 | tee local_training_console_output.txt
    ```
     * This currently runs 100 epochs (somewhat comparable to 20 rounds with 5 epochs each in the swarm case).
+<<<<<<< HEAD
+<<<<<<< HEAD
 3. Output files
     * Same as for the swarm training (see below).
+=======
+=======
+>>>>>>> upstream/main
+3. Output files are located in the directory of the startup kit:
+    * Logged output during training: `startup/local_training_console_output.txt`
+    * Class probabilities for each round/epoch for training/validation data: `startup/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/site_model_gt_and_classprob_{train,validation}.csv`
+    * Best checkpoint for local data: `startup/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/epoch=….ckpt`
+    * Last checkpoint for local data: `startup/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/last.ckpt`
+    * TensorBoard logs: `startup/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/lightning_logs`
+<<<<<<< HEAD
+>>>>>>> upstream/main
+=======
+>>>>>>> upstream/main
 
 ### Start Swarm Node
 
@@ -141,6 +156,8 @@ To have a baseline for swarm training, train the same model in a comparable way 
    sudo chmod a+r nohup.out
    ```
 
+<<<<<<< HEAD
+<<<<<<< HEAD
 4. Output files:
     - **Training logs and checkpoints** are saved under:
       ```
@@ -149,6 +166,22 @@ To have a baseline for swarm training, train the same model in a comparable way 
     - **Best checkpoint** usually saved as `best.ckpt` or `last.ckpt`
     - TODO describe prediction results once implemented
     - **TensorBoard logs** are stored in their respective folders inside the run directory
+=======
+=======
+>>>>>>> upstream/main
+4. Output files are located in the directory of the startup kit (note: unlike local training results, this is *not* in the `startup` directory)
+    * Training log: `<JOB_ID>/log.txt`
+    * Class probabilities for each round/epoch for training/validation data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/{aggregated,site}_model_gt_and_classprob_{train,validation}.csv`
+    * Best checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/epoch=….ckpt`
+    * Last checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/last.ckpt`
+    * Last aggregated model: `<JOB_ID>/app_$SITE_NAME/FL_global_model.pt`
+    * TensorBoard logs: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/lightning_logs`
+    * Code that was used for training: `<JOB_ID>/app_$SITE_NAME/custom`
+    * TODO describe prediction results once implemented
+<<<<<<< HEAD
+>>>>>>> upstream/main
+=======
+>>>>>>> upstream/main
 
 ## Troubleshooting
 
@@ -185,3 +218,21 @@ ping dl3.tud.de
 * Image and table folders and files need to be present in the folders specified via `--data_dir`. Symlinks to other locations do not work, they are not available in the Docker mount.
 * The correct startup kit needs to be used. `SSLCertVerificationError` or `authentication failed` may indicate an incorrect startup kit incompatible with the current experiment.
 * Do not start the VPN connection more than once on the same machine or on more than one machine at the same time.
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> upstream/main
+* Disk full. This can have multiple reasons:
+  * Failed trainings may have accumulated large logs. Identify which startup kit folders are big (`du -hsc`). Maybe compression is already a solution, otherwise delete/move elsewhere what is no longer needed.
+  * Many trainings accumulate many checkpoints (can be GB of data per training). Compression won’t help, possibly delete/move elsewhere what is no longer needed.
+  * Intermediate steps or unnecessary input for data conversion may have accumulated.
+  * Docker may have accumulated many images. Delete unnecessary old images (in particular on a development workstation, they tend to accumulate quickly). You can use [remove_old_odelia_docker_images.sh](../../scripts/dev_utils/remove_old_odelia_docker_images.sh) to remove all but the latest one (if that is what you want). Afterwards, call `docker system prune`.
+* If you have partitioned your system to have a small system partition and a large data partition, you probably want to configure the container storage to happen on the data partition.
+  * This can be configured via `echo '{"data-root": "/data/var_lib_docker", "features": {"containerd-snapshotter": true}}' > /etc/docker/daemon.json` (where the containerd-snapshotter may or may not be necessary).
+<<<<<<< HEAD
+  * If the `data-root` is on an external, network or otherwise slow drive, you need to make sure it is available when the container daemon is started, otherwise you will not see previous containers after a reboot. Maybe `sed -i "s/After=/After=SERVICE_PROVIDING_YOUR_DATA_DRIVE.service /g" /usr/lib/systemd/system/containerd.service` is also helpful for you to configure this.
+>>>>>>> upstream/main
+=======
+  * If the `data-root` is on an external, network or otherwise slow drive, you need to make sure it is available when the container daemon is started, otherwise you will not see previous containers after a reboot. Maybe `sed -i "s/After=/After=SERVICE_PROVIDING_YOUR_DATA_DRIVE.service /g" /usr/lib/systemd/system/containerd.service` is also helpful for you to configure this.
+>>>>>>> upstream/main
