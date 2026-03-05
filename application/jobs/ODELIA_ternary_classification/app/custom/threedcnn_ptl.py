@@ -141,16 +141,30 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
         )
         log_data_hash(datamodule, logger, log_dataset_details)
 
+    def _log_dataset_stats(ds_train, ds_val, path_run_dir, run_name, logger) -> None:
+        def _log_label_distribution(ds, which: str, logger) -> None:
+            classes_in_ds = list(ds.df['Lesion'])
+            counts = {i: classes_in_ds.count(i) for i in set(classes_in_ds)}
+            logger.info(f'Total samples in {which} set: {len(classes_in_ds)}')
+            for i in sorted(counts.keys()):
+                cclass = counts[i]
+                percentage = 100 * cclass / len(classes_in_ds)
+                logger.info(f'Samples in {which} set of class {i}: {cclass} ({percentage:.1f}%)')
+
+        logger.info(f'Dataset path: {ds_train}')
+        logger.info(f'Run directory: {path_run_dir}')
+        logger.info(f'Run name: {run_name}')
+        logger.info(f'Length of train dataset: {len(ds_train)}')
+        logger.info(f'Length of val dataset: {len(ds_val)}')
+
+        _log_label_distribution(ds_train, 'training', logger)
+        _log_label_distribution(ds_val, 'validation', logger)
+
     torch.set_float32_matmul_precision('high')
     _log_dataset_hash(logger, log_dataset_details)
     ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset(logger, log_dataset_details)
+    _log_dataset_stats(ds_train, ds_val, path_run_dir, run_name, logger)
     num_classes = sum(ds_train.class_labels_num)
-    logger.info(f"Dataset path: {ds_train}")
-    logger.info(f"Run directory: {path_run_dir}")
-    logger.info(f"Run name: {run_name}")
-    # logger.info(f"Number of classes: {num_classes}")  # number of possible classes, not number of classes present, thus misleading
-    logger.info(f"Length of train dataset: {len(ds_train)}")
-    logger.info(f"Length of val dataset: {len(ds_val)}")
 
     dm = DataModule(
         ds_train=ds_train,
@@ -161,13 +175,6 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
         weights=None,
         num_workers=mp.cpu_count(),
     )
-
-    # # Log label distribution
-    # distribution = dm.get_train_label_distribution(lambda sample: sample['label'])
-    # logger.info(f"Total samples in training set: {distribution['total']}")
-    # for label, pct in distribution['percentages'].items():
-    #     logger.info(f"Label '{label}': {pct:.2f}% of training set, Count: {distribution['counts'][label]}")
-    # logger.info(f"Number of unique labels: {len(distribution['counts'])}")
 
     loss_kwargs = {}
 
