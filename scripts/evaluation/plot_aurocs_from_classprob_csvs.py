@@ -14,7 +14,7 @@ from warnings import warn
 from typing import List, Dict, Tuple
 
 
-AUROC_TYPES = ["macro", "none vs benign (0v1)", "none vs malignant (0v2)", "benign vs malgignant (1v2)", "none vs any (0v1/2)"]
+AUROC_TYPES = ["macro", "none vs benign (0v1)", "none vs malignant (0v2)", "benign vs malgignant (1v2)", "none vs any (0v1/2)", "none/benign vs malignant (0/1v2)"]
 
 def add_file_or_warn(file_path, file_list):
     if file_path.exists():
@@ -110,13 +110,11 @@ def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
         else:
             return np.nan
 
-    def compute_tumor_auroc(df_site_epoch: pd.DataFrame) -> float:
-        tumor_scores_1 = df_site_epoch[["score_1", "score_2"]].max(axis=1)
-        tumor_scores_2 = df_site_epoch.score_0
-        tumor_scores = tumor_scores_1 - tumor_scores_2  # score for tumor yes/no
-        tumor_labels = (df_site_epoch.label > 0).astype(int)
-        if len(tumor_labels.unique()) == 2:
-            return roc_auc_score(tumor_labels, tumor_scores)
+    def compute_combined_auroc(df_site_epoch: pd.DataFrame, scores_to_combine: List[str], other_label: int) -> float:
+        tumor_scores_combined = df_site_epoch[scores_to_combine].sum(axis=1)
+        tumor_labels_combined = (df_site_epoch.label != other_label).astype(int)
+        if len(tumor_labels_combined.unique()) == 2:
+            return roc_auc_score(tumor_labels_combined, tumor_scores_combined)
         else:
             return np.nan
 
@@ -149,12 +147,13 @@ def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
                 df_site_epoch = merged_df[filter]
                 macro_auroc = compute_macro_auroc(df_site_epoch)
                 twoclass_aurocs = compute_twoclass_aurocs(df_site_epoch)
-                tumor_auroc = compute_tumor_auroc(df_site_epoch)
+                tumor_auroc = compute_combined_auroc(df_site_epoch, ["score_1", "score_2"], 0)
+                malignant_auroc = compute_combined_auroc(df_site_epoch, ["score_0", "score_1"], 2)
 
                 auroc_dfs.append(pd.DataFrame({"epoch": epoch,
                                                "site": site,
                                                "setting": setting,
-                                               "AUROC": [macro_auroc, *twoclass_aurocs, tumor_auroc],
+                                               "AUROC": [macro_auroc, *twoclass_aurocs, tumor_auroc, malignant_auroc],
                                                "auroc_type": AUROC_TYPES}))
 
     auroc_df = pd.concat(auroc_dfs, ignore_index=True)
@@ -356,9 +355,9 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
 
     sns.set_style("whitegrid", rc={"axes.spines.left": False, "axes.spines.right": False, "axes.spines.top": False})
 
-    # Create figure with proper subplots: 4 rows x n_sites columns (3 AUROC + 1 label dist)
     n_sites = len(auroc_df.site.unique())
-    fig, axes = plt.subplots(6, n_sites, figsize=(5 * n_sites, 20))
+    n_rows = len(AUROC_TYPES) + 1
+    fig, axes = plt.subplots(n_rows, n_sites, figsize=(5 * n_sites, 4 * n_rows))
     if n_sites == 1:
         axes = axes.reshape(-1, 1)
 
