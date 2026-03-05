@@ -87,6 +87,16 @@ class ODELIA_Dataset3D(data.Dataset):
 
                 ImageOrSubjectToTensor() if to_tensor else tio.Lambda(lambda x: x)
             ])
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+        elif transform == 'USE_UNPROCESSED_IMAGES':
+            self.transform = tio.Compose([tio.Lambda(lambda x: x)])
+>>>>>>> upstream/main
+=======
+        elif transform == 'USE_UNPROCESSED_IMAGES':
+            self.transform = tio.Compose([tio.Lambda(lambda x: x)])
+>>>>>>> upstream/main
         else:
             self.transform = transform
 
