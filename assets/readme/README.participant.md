@@ -202,7 +202,7 @@ ping dl3.tud.de
 * The tables should not have additional or duplicate columns, entries need to have the correct captitalization.
 * Image and table folders and files need to be present in the folders specified via `--data_dir`. Symlinks to other locations do not work, they are not available in the Docker mount.
 * The correct startup kit needs to be used. `SSLCertVerificationError` or `authentication failed` may indicate an incorrect startup kit incompatible with the current experiment.
-* Do not start the VPN connection more than once on the same machine or on more than one machine at the same time.
+* Do not start the VPN connection more than once on the same machine, do not use the same credentials on more than one machine at the same time.
 * Disk full. This can have multiple reasons:
   * Failed trainings may have accumulated large logs. Identify which startup kit folders are big (`du -hsc`). Maybe compression is already a solution, otherwise delete/move elsewhere what is no longer needed.
   * Many trainings accumulate many checkpoints (can be GB of data per training). Compression won’t help, possibly delete/move elsewhere what is no longer needed.
