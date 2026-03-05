@@ -242,7 +242,7 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
 
     for row_idx, auroc_type in enumerate(AUROC_TYPES):
         for col_idx, site in enumerate(sites):
-            ax = axes[row_idx, col_idx]
+            ax = axes[row_idx+1, col_idx]
 
             # Filter and plot
             plot_data = auroc_df[(auroc_df.site == site) & (auroc_df.auroc_type == auroc_type)]
@@ -258,10 +258,6 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
             if col_idx == 0:
                 ax.text(-0.15, 0.5, auroc_type, transform=ax.transAxes,
                         fontsize=14, fontweight='bold', rotation=90, va='center', ha='right')
-
-            # Column labels
-            if row_idx == 0:
-                ax.set_title(site, fontsize=14, fontweight='bold', pad=10)
 
             # Legend only on top-right
             if row_idx == 0 and col_idx == n_sites - 1:
@@ -287,14 +283,14 @@ def verify_same_label_distribution_swarm_local(label_dist_df: pd.DataFrame) -> N
 
 
 def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: bool) -> None:
-    # Plot combined label distributions (row 3) - just use Swarm data since they're identical
+    # Plot combined label distributions - just use Swarm data since they're identical
     # Compute max count for shared y-axis
 
     label_counts_df = label_dist_df[label_dist_df.source == 'Local'].groupby(['site', 'split', 'label']).size()
     ymax = label_counts_df.max()
 
     for col_idx, site in enumerate(sorted(label_dist_df.site.unique())):
-        ax = axes[-1, col_idx]
+        ax = axes[0, col_idx]
 
         # Filter data - use Swarm only since we verified they're identical
         plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == 'Local')]
@@ -334,6 +330,8 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
                transform=ax.transAxes, fontsize=11,
                va='top', ha='right', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
+        ax.set_title(site, fontsize=14, fontweight='bold', pad=10)
+
         # Row label
         if col_idx == 0:
             ax.text(-0.15, 0.5, 'Label Distribution',
@@ -345,8 +343,8 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
         Patch(facecolor='#1f77b4', label='Train'),
         Patch(facecolor='#ff7f0e', label='Val')
     ]
-    axes[-1, -1].legend(handles=legend_handles, bbox_to_anchor=(1.05, 1),
-                        loc='upper left', fontsize=12, frameon=True)
+    axes[0, -1].legend(handles=legend_handles, bbox_to_anchor=(1.05, 1),
+                       loc='upper left', fontsize=12, frameon=True)
 
 
 
