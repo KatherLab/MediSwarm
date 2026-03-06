@@ -42,12 +42,12 @@ def prepare_odelia_dataset(logger, log_dataset_details: bool = False):
     ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config,
                                 random_flip=True, random_rotate=True, random_inverse=False, noise=True)
     ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config)
+    ds_test = ODELIA_Dataset3D(institutions=institution, split='test', config=config)
 
     print(f"Total samples loaded: {len(ds_train)} (train) + {len(ds_val)} (val)")
     print(f"Train set: {len(ds_train)}, Val set: {len(ds_val)}")
-    # print(f"Labels in val: {[sample['label'] for sample in ds_val]}")
 
-    return ds_train, ds_val, path_run_dir, run_name
+    return ds_train, ds_val, ds_test, path_run_dir, run_name
 
 
 def prepare_odelia_dataset_without_augmentation():
