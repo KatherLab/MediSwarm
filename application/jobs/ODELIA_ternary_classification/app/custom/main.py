@@ -12,6 +12,7 @@ TRAINING_MODE = os.getenv("TRAINING_MODE")
 TM_PREFLIGHT_CHECK = "preflight_check"
 TM_LOCAL_TRAINING = "local_training"
 TM_SWARM = "swarm"
+LOG_DATASET_DETAILS = 'LOG_DATASET_DETAILS' in os.environ
 
 if not TRAINING_MODE:
     raise ValueError("TRAINING_MODE environment variable must be set")
@@ -40,7 +41,7 @@ def main():
 
     try:
         data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(
-            logger, NUM_EPOCHS, SITE_NAME
+            logger, NUM_EPOCHS, SITE_NAME, LOG_DATASET_DETAILS
         )
 
         if TRAINING_MODE == TM_SWARM:
