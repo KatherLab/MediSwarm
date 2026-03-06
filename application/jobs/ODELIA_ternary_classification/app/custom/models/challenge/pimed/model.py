@@ -3,7 +3,7 @@ import torch.nn as nn
 from monai.networks.nets import ResNet
 from monai.networks.nets.resnet import ResNetBlock, ResNetBottleneck
 
-from base_model import BasicClassifier, ModelWrapper
+from models.base_model import BasicClassifier, ModelWrapper
 
 class Resnet(nn.Module):
     
