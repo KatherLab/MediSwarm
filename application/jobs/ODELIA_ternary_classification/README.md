@@ -36,6 +36,7 @@ export SCRATCH_DIR="/workspace/tmp_scratch"
 mkdir "$SCRATCH_DIR"
 cd application/jobs/ODELIA_ternary_classification/app/custom/
 export TRAINING_MODE="local_training"
+export MODEL_VARIANT="challenge_5Pimed"
 export SITE_NAME=<your site name, i.e., the subfolder of $DATADIR where your data is located>
 export NUM_EPOCHS=1
 export DATA_DIR="/data/"
