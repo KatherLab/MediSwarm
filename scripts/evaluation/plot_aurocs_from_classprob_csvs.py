@@ -23,7 +23,7 @@ def add_file_or_warn(file_path, file_list):
         warn(f'{file_path} not found')
 
 
-def get_setting_files(root_dir) -> Dict[str, List[Path]]:
+def get_setting_files(root_dir: str) -> Dict[str, List[Path]]:
     print('Gathering relevant files...')
 
     local_dir = root_dir / 'local'
@@ -101,12 +101,12 @@ def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
     return merged_dfs
 
 
-def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
-    def compute_macro_auroc(df_site_epoch: pd.DataFrame) -> float:
+def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame], roc_auc_type: str) -> pd.DataFrame:
+    def compute_macro_auroc(df_site_epoch: pd.DataFrame, roc_auc_type: str) -> float:
         if set(df_site_epoch.label.unique()) == {0, 1, 2}:
             return roc_auc_score(df_site_epoch.label,
                                  df_site_epoch[['score_0', 'score_1', 'score_2']],
-                                 multi_class='ovo')
+                                 multi_class=roc_auc_type)
         else:
             return np.nan
 
@@ -145,7 +145,7 @@ def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
             for epoch in tqdm(merged_df.epoch.unique()):
                 filter = (merged_df.epoch == epoch) & (merged_df.site == site)
                 df_site_epoch = merged_df[filter]
-                macro_auroc = compute_macro_auroc(df_site_epoch)
+                macro_auroc = compute_macro_auroc(df_site_epoch, roc_auc_type)
                 twoclass_aurocs = compute_twoclass_aurocs(df_site_epoch)
                 tumor_auroc = compute_combined_auroc(df_site_epoch, ['score_1', 'score_2'], 0)
                 malignant_auroc = compute_combined_auroc(df_site_epoch, ['score_0', 'score_1'], 2)
@@ -370,14 +370,14 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
     plt.close()
 
 
-def analyze(root_dir, logscale_hist=False):
+def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str):
     setting_files = get_setting_files(root_dir)
 
     for setting, files in setting_files.items():
         print(f'Identified {len(files)} {setting} files.')
 
     merged_dfs = load_data(setting_files)
-    auroc_df = compute_aurocs(merged_dfs)
+    auroc_df = compute_aurocs(merged_dfs, roc_auc_type)
 
     verify_constant_labels_across_epochs(merged_dfs)
     verify_same_label_distributions_at_epoch_zero(merged_dfs)
@@ -398,7 +398,10 @@ if __name__ == '__main__':
     parser.add_argument('--logscale_hist', action=argparse.BooleanOptionalAction,
                         default=False,
                         help='Plot sample count histograms in log scale')
+    parser.add_argument('--roc_auc_type',
+                        choices=['ovo', 'ovr'], default='ovo',
+                        help='Type of ROC_AUC to compute. ovo: one-vs-one (default), ovr: one-vs-rest')
 
     args = parser.parse_args()
 
-    analyze(args.data_dir, args.logscale_hist)
+    analyze(args.data_dir, args.logscale_hist, args.roc_auc_type)
