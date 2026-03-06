@@ -246,7 +246,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                 model = agaldran_factory.model_factory(arch="mvit_v2_s",
                                                     pretrained_path="application\\jobs\\ODELIA_ternary_classification\\app\\custom\\models\\challenge\\3agaldran\\mvit_v2_s-ae3be167.pth",
                                                     num_classes=3,
-                                                    in_ch=1,
+                                                    in_ch=3,
                                                     seed=123)
             elif team_name == "4LME_ABMIL":
                 model_creator_path = os.path.join(
@@ -259,7 +259,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                 spec = importlib.util.spec_from_file_location("abmil_model", model_creator_path)
                 abmil_model_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(abmil_model_module)
-                model = abmil_model_module.create_model(config_path="", in_ch=1, num_classes=num_classes)
+                model = abmil_model_module.create_model(config_path="", in_ch=3, num_classes=num_classes)
 
             elif team_name == "5Pimed":
                 model_creator_path = os.path.join(

@@ -135,6 +135,7 @@ class ODELIA_Dataset3D(data.Dataset):
         path_folder = self.path_root / institution / self.data_dir / uid
         # img = self.load_img([path_folder/f'{name}.nii.gz' for name in [ 'Pre', 'Sub_1', 'T2']])
         img = self.load_img(path_folder / 'Sub_1.nii.gz')
+        # img = self.load_img([path_folder/f'{name}.nii.gz' for name in [ 'Pre', 'Post_1', 'Sub_1']])
         img = self.transform(img)
 
         return {'uid': uid, 'source': img, 'target': target}
