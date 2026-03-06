@@ -260,6 +260,8 @@ run_data_access_preflight_check () {
        grep -q  "INFO:threedcnn_ptl:Total samples in validation set:" "$CONSOLE_OUTPUT" && \
        grep -q  "INFO:threedcnn_ptl:Total samples in test set:" "$CONSOLE_OUTPUT" && \
        grep -qx "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)" "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in test set:" "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:Duplicate image data detected. Please make sure this was intended" "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique" "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
@@ -295,7 +297,11 @@ run_data_access_preflight_check_log_details () {
     # also check that it finishes the single round within one minute
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    if grep -qx "Image data with hash .* appears 2 times: ID_005_right, ID_005_left" "$CONSOLE_OUTPUT" && \
+    if grep -q  "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
+       grep -qx "Image data with hash .* appears 2 times: ID_005_right, ID_005_left" "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference split.images: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
