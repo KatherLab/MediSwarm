@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-
+import sys
+from pathlib import Path
+sys.path.append(Path(__file__))
 import os
 import torch
 
@@ -41,8 +43,9 @@ def main():
     logger = threedcnn_ptl.set_up_logging()
 
     try:
+        print(MODEL_VARIANT)
         data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(
-            logger, NUM_EPOCHS, SITE_NAME, model_variant=MODEL_VARIANT
+            logger, NUM_EPOCHS, model_variant=MODEL_VARIANT
         )
 
         if TRAINING_MODE == TM_SWARM:
@@ -55,11 +58,10 @@ def main():
                 input_model = flare.receive()
                 logger.info(f"Current round: {input_model.current_round}")
 
-                threedcnn_ptl.validate_and_train(logger, data_module, model, trainer)
+                threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
-            threedcnn_ptl.validate_and_train(logger, data_module, model, trainer)
-                threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
+            threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=False)

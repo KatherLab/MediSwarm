@@ -9,6 +9,7 @@ from env_config import load_environment_variables, prepare_odelia_dataset, prepa
 import torch.multiprocessing as mp
 from hashlib import sha3_224 as hash_function
 from typing import List, Tuple
+from pathlib import Path
 
 import logging
 import csv
@@ -184,7 +185,7 @@ class GT_PredProb_Output_Callback(Callback):
                                      self.csv_filename_validation)
 
 
-def prepare_training(logger, max_epochs: int, site_name: str):
+def prepare_training(logger, max_epochs: int, model_variant: str):
     try:
         env_vars = load_environment_variables()
         data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger)
@@ -197,8 +198,6 @@ def prepare_training(logger, max_epochs: int, site_name: str):
 
         # Allow an explicit model_variant to override the configured env model name.
         model_name = model_variant if (model_variant is not None and model_variant != "") else os.environ.get('MODEL_NAME', '')
-
-        data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, model_name)
 
         model = None
         if model_name in ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:
@@ -224,7 +223,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
             # factory by file path using importlib to avoid renaming directories.
             import importlib.util
             import os
-            team_name = model_name.split('_')[1]
+            team_name = "_".join(model_name.split('_')[1:])
             if team_name == "1DvideAndConquer":
                 # TODO not yet implemented
                 model = None
@@ -247,11 +246,11 @@ def prepare_training(logger, max_epochs: int, site_name: str):
                 model = agaldran_factory.model_factory(arch="mvit_v2_s",
                                                     pretrained_path="application\\jobs\\ODELIA_ternary_classification\\app\\custom\\models\\challenge\\3agaldran\\mvit_v2_s-ae3be167.pth",
                                                     num_classes=3,
-                                                    in_ch=3,
+                                                    in_ch=1,
                                                     seed=123)
             elif team_name == "4LME_ABMIL":
                 model_creator_path = os.path.join(
-                    os.path.dirname(__file__),
+                    os.path.dirname(Path(__file__)),
                     "models",
                     "challenge",
                     "abmil",
@@ -260,7 +259,7 @@ def prepare_training(logger, max_epochs: int, site_name: str):
                 spec = importlib.util.spec_from_file_location("abmil_model", model_creator_path)
                 abmil_model_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(abmil_model_module)
-                model = abmil_model_module.create_model(config_path="", in_ch=3, num_classes=num_classes)
+                model = abmil_model_module.create_model(config_path="", in_ch=1, num_classes=num_classes)
 
             elif team_name == "5Pimed":
                 model_creator_path = os.path.join(

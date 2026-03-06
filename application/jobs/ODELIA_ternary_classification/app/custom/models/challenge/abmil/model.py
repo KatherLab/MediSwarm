@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from base_model import BasicClassifier, ModelWrapper
+from models.base_model import BasicClassifier, ModelWrapper
 
 class CrossModalAttentionABMIL_Swin(nn.Module):
     """
@@ -210,9 +210,9 @@ class ABMIL_Swin(nn.Module):
 
 def create_model(config_path: str, in_ch: int = 3, num_classes: int = 3) -> BasicClassifier:
     
-    config = pd.read_csv(config_path, skip_blank_lines=True, na_values=['NaN']).iloc[0]
+    #config = pd.read_csv(config_path, skip_blank_lines=True, na_values=['NaN']).iloc[0]
 
-    model_type = config['model']
+    model_type = "swin"
     if model_type =="swin_cross":
         model = CrossModalAttentionABMIL_Swin(num_classes=num_classes)
     else:
