@@ -144,6 +144,7 @@ class ABMIL_Swin(nn.Module):
         model_name: str = "swin_tiny_patch4_window7_224.ms_in22k",
         pretrained: bool = True,
         num_classes: int = 2,
+        in_channels: int = 3,
         hidden_dim: int = 256,
         dropout: float = 0.1,
     ):
@@ -152,6 +153,7 @@ class ABMIL_Swin(nn.Module):
         # 1) Swin backbone WITHOUT final linear head
         self.backbone = timm.create_model(model_name, pretrained=pretrained, num_classes=0)
         self.embed_dim = self.backbone.num_features  # e.g. 768 (tiny), 1024 (base)
+        self.in_channels = in_channels
 
         # 2) Attention network (ABMIL)
         self.attn_V = nn.Linear(self.embed_dim, hidden_dim)
@@ -188,7 +190,12 @@ class ABMIL_Swin(nn.Module):
             logits : (B, num_classes)
             attn_w : (B, 32)   -- attention per slice (sums to 1)
         """
+        volume = volume.transpose(1, 2)
         B, N, C, H, W = volume.shape
+        if C == 1:
+            volume = volume.expand(-1, -1, 3, -1, -1)
+            C = 3
+        
         x = volume.view(B * N, C, H, W)                # flatten slices
         
         # (B*N, 3, 224, 224) → (B*N, embed_dim) → reshape
@@ -205,7 +212,7 @@ class ABMIL_Swin(nn.Module):
         # ----------------  Head  ---------------- #
         out = self.classifier(self.dropout(self.norm(patient_feat)))  # (B, num_classes)
 
-        return out, A.squeeze(-1)  # logits, attention weights
+        return out #A.squeeze(-1)  # logits, attention weights
     
 
 def create_model(config_path: str, in_ch: int = 3, num_classes: int = 3) -> BasicClassifier:
