@@ -146,10 +146,13 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
             classes_in_ds = list(ds.df['Lesion'])
             counts = {i: classes_in_ds.count(i) for i in set(classes_in_ds)}
             logger.info(f'Total samples in {which} set: {len(classes_in_ds)}')
-            for i in sorted(counts.keys()):
-                cclass = counts[i]
-                percentage = 100 * cclass / len(classes_in_ds)
-                logger.info(f'Samples in {which} set of class {i}: {cclass} ({percentage:.1f}%)')
+            for i in range(3):  # TODO generalize if there is a different number of classes
+                if i not in counts:
+                    logger.warning(f'No Samples of class {i} in {which} set, please make sure this was intended.')
+                else:
+                    cclass = counts[i]
+                    percentage = 100 * cclass / len(classes_in_ds)
+                    logger.info(f'Samples in {which} set of class {i}: {cclass} ({percentage:.1f}%)')
 
         logger.info(f'Run directory: {path_run_dir}')
         logger.info(f'Run name: {run_name}')
