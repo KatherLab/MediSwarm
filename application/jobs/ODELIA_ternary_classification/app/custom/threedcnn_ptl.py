@@ -263,9 +263,17 @@ def prepare_training(logger, max_epochs: int, site_name: str):
                 model = abmil_model_module.create_model(config_path="", in_ch=3, num_classes=num_classes)
 
             elif team_name == "5Pimed":
-                # TODO not yet implemented
-                model = None
-                pass
+                model_creator_path = os.path.join(
+                    os.path.dirname(__file__),
+                    "models",
+                    "challenge",
+                    "pimed",
+                    "model.py",
+                )
+                spec = importlib.util.spec_from_file_location("pimed_model", model_creator_path)
+                pimed_model_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(pimed_model_module)
+                model = pimed_model_module.create_model(model_name="resnet18", num_classes=num_classes, norm="batch")
             else:
                 raise ValueError(f"Unknown challenge team name: {team_name}")
         else:
