@@ -258,6 +258,7 @@ run_data_access_preflight_check () {
        grep -q  "INFO:threedcnn_ptl:Run name" "$CONSOLE_OUTPUT" && \
        grep -q  "INFO:threedcnn_ptl:Total samples in training set:" "$CONSOLE_OUTPUT" && \
        grep -q  "INFO:threedcnn_ptl:Total samples in validation set:" "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in test set:" "$CONSOLE_OUTPUT" && \
        grep -qx "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)" "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:Duplicate image data detected. Please make sure this was intended" "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique" "$CONSOLE_OUTPUT" && \
@@ -265,7 +266,9 @@ run_data_access_preflight_check () {
        grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only." "$CONSOLE_OUTPUT" ; then
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" ; then
         echo "Expected output (including expected warnings and errors) of data access preflight check found"
     else
         echo "Missing expected output of data access preflight check"
@@ -297,7 +300,9 @@ run_data_access_preflight_check_log_details () {
        grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference images.annotation: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" ; then
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" ; then
         echo "Expected output (including expected warnings and errors) of Docker/GPU preflight check found"
     else
         echo "Missing expected output of Docker/GPU preflight check"

@@ -141,7 +141,7 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
         )
         log_data_hash(datamodule, logger, log_dataset_details)
 
-    def _log_dataset_stats(ds_train, ds_val, path_run_dir, run_name, logger) -> None:
+    def _log_dataset_stats(ds_train, ds_val, ds_test, path_run_dir, run_name, logger) -> None:
         def _log_label_distribution(ds, which: str, logger) -> None:
             classes_in_ds = list(ds.df['Lesion'])
             counts = {i: classes_in_ds.count(i) for i in set(classes_in_ds)}
@@ -156,17 +156,18 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
 
         _log_label_distribution(ds_train, 'training', logger)
         _log_label_distribution(ds_val, 'validation', logger)
+        _log_label_distribution(ds_test, 'test', logger)
 
     torch.set_float32_matmul_precision('high')
     _log_dataset_hash(logger, log_dataset_details)
-    ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset(logger, log_dataset_details)
-    _log_dataset_stats(ds_train, ds_val, path_run_dir, run_name, logger)
+    ds_train, ds_val, ds_test, path_run_dir, run_name = prepare_odelia_dataset(logger, log_dataset_details)
+    _log_dataset_stats(ds_train, ds_val, ds_test, path_run_dir, run_name, logger)
     num_classes = sum(ds_train.class_labels_num)
 
     dm = DataModule(
         ds_train=ds_train,
         ds_val=ds_val,
-        ds_test=ds_val,  # TODO shouldn't this remain unset?
+        ds_test=ds_test,
         batch_size=1,
         pin_memory=True,
         weights=None,
