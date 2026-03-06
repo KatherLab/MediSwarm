@@ -63,7 +63,11 @@ def log_data_hash(dm: DataModule, logger, log_dataset_details: bool = False) -> 
             hashes.append(UIDwithHash(batch['uid'][0], _hexdigest(batch['source']['data'][0].detach().cpu().numpy().data)))
         return hashes
 
-    def _check_for_duplicates(uids_with_hashes_train: List[UIDwithHash], uids_with_hashes_valid: List[UIDwithHash], where: str, log_dataset_details: bool) -> None:
+    def _check_for_duplicates(uids_with_hashes_train: List[UIDwithHash],
+                              uids_with_hashes_valid: List[UIDwithHash],
+                              uids_with_hashes_test: List[UIDwithHash],
+                              where: str,
+                              log_dataset_details: bool) -> None:
         def _check_separately_for_duplicates(uids_with_hashes: List[UIDwithHash], where: str, which: str, log_dataset_details: bool) -> None:
             if log_dataset_details:
                 logger.info(f'All {which} data {where}, UIDs with hashes:\n' + \
@@ -98,42 +102,50 @@ def log_data_hash(dm: DataModule, logger, log_dataset_details: bool = False) -> 
 
         _check_separately_for_duplicates(uids_with_hashes_train, where, 'training', log_dataset_details)
         _check_separately_for_duplicates(uids_with_hashes_valid, where, 'validation', log_dataset_details)
-        _check_separately_for_duplicates(uids_with_hashes_train + uids_with_hashes_valid, where, 'training ∪ validation', log_dataset_details)
+        _check_separately_for_duplicates(uids_with_hashes_test, where, 'test', log_dataset_details)
+        _check_separately_for_duplicates(uids_with_hashes_train + uids_with_hashes_valid + uids_with_hashes_test, where, 'training ∪ validation ∪ test', log_dataset_details)
 
-    def _get_imageuid_hashes_train_val(dm: DataModule, log_dataset_details: bool) -> Tuple[str, str]:
+    def _get_imageuid_hashes_train_val_test(dm: DataModule, log_dataset_details: bool) -> Tuple[str, str, str]:
         imageuid_hashes_train = _get_imageuid_hashes(dm.train_dataloader())
         imageuid_hashes_validation = _get_imageuid_hashes(dm.val_dataloader())
-        _check_for_duplicates(imageuid_hashes_train, imageuid_hashes_validation, 'image UIDs', log_dataset_details)
+        imageuid_hashes_test = _get_imageuid_hashes(dm.test_dataloader())
+        _check_for_duplicates(imageuid_hashes_train, imageuid_hashes_validation, imageuid_hashes_test, 'image UIDs', log_dataset_details)
 
         imageuid_hashes_train = [i.hash for i in imageuid_hashes_train]
         imageuid_hashes_validation = [i.hash for i in imageuid_hashes_validation]
+        imageuid_hashes_test = [i.hash for i in imageuid_hashes_test]
         imageuid_hashes_train.sort()
         imageuid_hashes_validation.sort()
-        return ''.join(imageuid_hashes_train), ''.join(imageuid_hashes_validation)
+        imageuid_hashes_test.sort()
+        return ''.join(imageuid_hashes_train), ''.join(imageuid_hashes_validation), ''.join(imageuid_hashes_test)
 
-    def _get_imagedata_hashes_train_val(dm: DataModule, log_dataset_details: bool) -> Tuple[str, str]:
+    def _get_imagedata_hashes_train_val_test(dm: DataModule, log_dataset_details: bool) -> Tuple[str, str, str]:
         imagedata_hashes_train = _get_imagedata_hashes(dm.train_dataloader())
         imagedata_hashes_validation = _get_imagedata_hashes(dm.val_dataloader())
-        _check_for_duplicates(imagedata_hashes_train, imagedata_hashes_validation, 'image data', log_dataset_details)
+        imagedata_hashes_test = _get_imagedata_hashes(dm.test_dataloader())
+        _check_for_duplicates(imagedata_hashes_train, imagedata_hashes_validation, imagedata_hashes_test, 'image data', log_dataset_details)
 
         imagedata_hashes_train = [i.hash for i in imagedata_hashes_train]
         imagedata_hashes_validation = [i.hash for i in imagedata_hashes_validation]
+        imagedata_hashes_test = [i.hash for i in imagedata_hashes_test]
         imagedata_hashes_train.sort()
         imagedata_hashes_validation.sort()
-        return ''.join(imagedata_hashes_train), ''.join(imagedata_hashes_validation)
+        imagedata_hashes_test.sort()
+        return ''.join(imagedata_hashes_train), ''.join(imagedata_hashes_validation), ''.join(imagedata_hashes_test)
 
-    imageuid_hashes_train, imageuid_hashes_validation = _get_imageuid_hashes_train_val(dm, log_dataset_details)
-    imagedata_hashes_train, imagedata_hashes_validation = _get_imagedata_hashes_train_val(dm, log_dataset_details)
-    hash_all = _hexdigest_string(imageuid_hashes_train + imageuid_hashes_validation + imagedata_hashes_train + imagedata_hashes_validation)
+    imageuid_hashes_train, imageuid_hashes_validation, imageuid_hashes_test = _get_imageuid_hashes_train_val_test(dm, log_dataset_details)
+    imagedata_hashes_train, imagedata_hashes_validation, imagedata_hashes_test = _get_imagedata_hashes_train_val_test(dm, log_dataset_details)
+    hash_all = _hexdigest_string(imageuid_hashes_train + imageuid_hashes_validation + imageuid_hashes_test + imagedata_hashes_train + imagedata_hashes_validation + imagedata_hashes_test)
     logger.info(f"Data hash: {hash_all}")
 
 
 def set_up_data_module(logger, log_dataset_details: bool = False):
     def _log_dataset_hash(logger, log_dataset_details: bool) -> None:
-        ds_train_woaug, ds_val_woaug = prepare_odelia_dataset_without_augmentation()
+        ds_train_woaug, ds_val_woaug, ds_test_woaug = prepare_odelia_dataset_without_augmentation()
         datamodule = DataModule(
             ds_train=ds_train_woaug,
             ds_val=ds_val_woaug,
+            ds_test=ds_test_woaug,
             batch_size=1,
             pin_memory=True,
             weights=None,
