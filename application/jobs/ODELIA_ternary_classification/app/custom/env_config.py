@@ -56,8 +56,9 @@ def prepare_odelia_dataset_without_augmentation():
 
     ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config, transform='USE_UNPROCESSED_IMAGES')
     ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config, transform='USE_UNPROCESSED_IMAGES')
+    ds_test = ODELIA_Dataset3D(institutions=institution, split='test', config=config, transform='USE_UNPROCESSED_IMAGES')
 
-    return ds_train, ds_val
+    return ds_train, ds_val, ds_test
 
 
 def generate_run_directory(scratch_dir, task_data_name, model_name, local_compare_flag):
