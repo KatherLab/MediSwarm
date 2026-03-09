@@ -8,21 +8,21 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pytorchvideo.models.hub import i3d_r50, slowfast_r50#, r2plus1d_18
+#from pytorchvideo.models.hub import i3d_r50, slowfast_r50#, r2plus1d_18
 from torchvision.models.video import r3d_18, r2plus1d_18, s3d, mc3_18
-from pytorchvideo.models.hub import slowfast_r101
+#from pytorchvideo.models.hub import slowfast_r101
 from torchvision.models.video import swin3d_t          # tiny / patch=(2,4,4)
 from torchvision.models.video import swin3d_b
 from torchvision.models.video import swin3d_s
 from torchvision.models.video import mvit_v1_b, mvit_v2_s
-from pytorchvideo.models.hub import x3d_s
+#from pytorchvideo.models.hub import x3d_s
 
 # utils/model_factory.py  (add near the other loaders)
-from pytorchvideo.models.hub import x3d_s
+#from pytorchvideo.models.hub import x3d_s
 import torch, torch.nn as nn, torch.nn.functional as F
 import os, math
 
-from base_model import BasicClassifier, ModelWrapper 
+from models.base_model import BasicClassifier, ModelWrapper
 
 def bn_to_in(module):
     for name, child in module.named_children():
@@ -36,129 +36,129 @@ def bn_to_in(module):
         else:
             bn_to_in(child)
 
-def load_x3d_s(
-    pretrained_path: str | None = "mvit_v2_s-ae3be167",   # folder OR .pth/.pt/.ckpt file
-    num_classes:    int        = 2,
-    target_frames:  int        = 16,
-    target_hw:      int        = 224,
-) -> nn.Module:
-    """
-    X3D-S adapted for 1-channel 64×128×128 CT volumes (no auto-download).
+# def load_x3d_s(
+#     pretrained_path: str | None = "mvit_v2_s-ae3be167",   # folder OR .pth/.pt/.ckpt file
+#     num_classes:    int        = 2,
+#     target_frames:  int        = 16,
+#     target_hw:      int        = 224,
+# ) -> nn.Module:
+#     """
+#     X3D-S adapted for 1-channel 64×128×128 CT volumes (no auto-download).
 
-    Steps
-    -----
-    1.  Build bare backbone (`x3d_s(pretrained=False)`).
-    2.  Optionally load local checkpoint before surgery.
-    3.  Collapse first spatial conv (RGB→1ch) — works for both
-        Conv3d stems (legacy) *and* Conv2plus1d stems (new).
-    4.  Replace classifier head with fresh `Linear(num_classes)`.
-    5.  Wrap with:
-          • learned temporal blur 64→`target_frames`
-          • trilinear up-sample to `target_hw`².
-    """
+#     Steps
+#     -----
+#     1.  Build bare backbone (`x3d_s(pretrained=False)`).
+#     2.  Optionally load local checkpoint before surgery.
+#     3.  Collapse first spatial conv (RGB→1ch) — works for both
+#         Conv3d stems (legacy) *and* Conv2plus1d stems (new).
+#     4.  Replace classifier head with fresh `Linear(num_classes)`.
+#     5.  Wrap with:
+#           • learned temporal blur 64→`target_frames`
+#           • trilinear up-sample to `target_hw`².
+#     """
 
-    # ---------------------------------------------------------------- 1) build
-    core = x3d_s(pretrained=False)
+#     # ---------------------------------------------------------------- 1) build
+#     core = x3d_s(pretrained=False)
 
-    # ---------------------------------------------------------------- 2) ckpt
-    if pretrained_path:
-        print(f"🚀 loading X3D-S weights from {pretrained_path}")
-        ckpt_file = pretrained_path
-        if os.path.isdir(pretrained_path):
-            picks = [f for f in os.listdir(pretrained_path)
-                     if f.lower().endswith((".pth", ".pt", ".ckpt"))]
-            if not picks:
-                raise FileNotFoundError(f"No checkpoint in {pretrained_path}")
-            if len(picks) > 1:
-                print(f"⚠️ multiple ckpts — using {picks[0]}")
-            ckpt_file = os.path.join(pretrained_path, picks[0])
-        state = torch.load(ckpt_file, map_location="cpu")
-        core.load_state_dict(state, strict=False)
-    else:
-        print("⚙️ model initialised **without** pretrained weights")
+#     # ---------------------------------------------------------------- 2) ckpt
+#     if pretrained_path:
+#         print(f"🚀 loading X3D-S weights from {pretrained_path}")
+#         ckpt_file = pretrained_path
+#         if os.path.isdir(pretrained_path):
+#             picks = [f for f in os.listdir(pretrained_path)
+#                      if f.lower().endswith((".pth", ".pt", ".ckpt"))]
+#             if not picks:
+#                 raise FileNotFoundError(f"No checkpoint in {pretrained_path}")
+#             if len(picks) > 1:
+#                 print(f"⚠️ multiple ckpts — using {picks[0]}")
+#             ckpt_file = os.path.join(pretrained_path, picks[0])
+#         state = torch.load(ckpt_file, map_location="cpu")
+#         core.load_state_dict(state, strict=False)
+#     else:
+#         print("⚙️ model initialised **without** pretrained weights")
 
-    # ---------------------------------------------------------------- 3) patch first conv → 1-channel
-    #
-    #  • Older releases:   core.stem.conv  (Conv3d)
-    #  • Newer releases:   first block is Conv2plus1d  ⇒ it has attribute `conv_s`
-    #
-    def _find_spatial_conv(net):
-        # Case A – classic Conv3d stem
-        if hasattr(net, "stem") and hasattr(net.stem, "conv"):
-            return net.stem, "conv", net.stem.conv
+#     # ---------------------------------------------------------------- 3) patch first conv → 1-channel
+#     #
+#     #  • Older releases:   core.stem.conv  (Conv3d)
+#     #  • Newer releases:   first block is Conv2plus1d  ⇒ it has attribute `conv_s`
+#     #
+#     def _find_spatial_conv(net):
+#         # Case A – classic Conv3d stem
+#         if hasattr(net, "stem") and hasattr(net.stem, "conv"):
+#             return net.stem, "conv", net.stem.conv
 
-        # Case B – Conv2plus1d stem (new X3D)
-        first_block = net.blocks[0] if hasattr(net, "blocks") else None
-        if first_block is not None and hasattr(first_block, "conv_s"):
-            return first_block, "conv_s", first_block.conv_s
+#         # Case B – Conv2plus1d stem (new X3D)
+#         first_block = net.blocks[0] if hasattr(net, "blocks") else None
+#         if first_block is not None and hasattr(first_block, "conv_s"):
+#             return first_block, "conv_s", first_block.conv_s
 
-        # Fallback: walk all modules until we hit a Conv3d-like module
-        for m in net.modules():
-            if isinstance(m, nn.Conv3d):
-                return None, None, m
-            # allow detection by class-name to avoid importing the class
-            if m.__class__.__name__.lower().startswith("conv2plus1d"):
-                return m, "conv_s", m.conv_s
+#         # Fallback: walk all modules until we hit a Conv3d-like module
+#         for m in net.modules():
+#             if isinstance(m, nn.Conv3d):
+#                 return None, None, m
+#             # allow detection by class-name to avoid importing the class
+#             if m.__class__.__name__.lower().startswith("conv2plus1d"):
+#                 return m, "conv_s", m.conv_s
 
-        raise RuntimeError("Could not locate a spatial conv in X3D stem")
+#         raise RuntimeError("Could not locate a spatial conv in X3D stem")
 
-    parent, attr, old = _find_spatial_conv(core)
+#     parent, attr, old = _find_spatial_conv(core)
 
-    w_gray = old.weight.mean(1, keepdim=True)            # (C_out,1,kT,kH,kW)
-    new = nn.Conv3d(
-        in_channels=1,
-        out_channels=old.out_channels,
-        kernel_size=old.kernel_size,
-        stride=old.stride,
-        padding=old.padding,
-        bias=False,
-    )
-    new.weight = nn.Parameter(w_gray)
+#     w_gray = old.weight.mean(1, keepdim=True)            # (C_out,1,kT,kH,kW)
+#     new = nn.Conv3d(
+#         in_channels=1,
+#         out_channels=old.out_channels,
+#         kernel_size=old.kernel_size,
+#         stride=old.stride,
+#         padding=old.padding,
+#         bias=False,
+#     )
+#     new.weight = nn.Parameter(w_gray)
 
-    if parent is None:  # extremely old rare case
-        raise RuntimeError("Unhandled stem layout (no parent module)")
-    else:
-        setattr(parent, attr, new)
+#     if parent is None:  # extremely old rare case
+#         raise RuntimeError("Unhandled stem layout (no parent module)")
+#     else:
+#         setattr(parent, attr, new)
 
-    print("✓ patched first spatial conv → 1-channel")
+#     print("✓ patched first spatial conv → 1-channel")
 
-    # ---------------------------------------------------------------- 4) new classifier
-    try:                            # current API
-        in_dim = core.head.projection.in_features
-        core.head.projection = nn.Identity()
-    except AttributeError:          # very old API
-        in_dim = core.head.in_features
-        core.head = nn.Identity()
+#     # ---------------------------------------------------------------- 4) new classifier
+#     try:                            # current API
+#         in_dim = core.head.projection.in_features
+#         core.head.projection = nn.Identity()
+#     except AttributeError:          # very old API
+#         in_dim = core.head.in_features
+#         core.head = nn.Identity()
 
-    new_fc = nn.Linear(in_dim, num_classes)
+#     new_fc = nn.Linear(in_dim, num_classes)
 
-    # ---------------------------------------------------------------- 5) wrapper with temporal blur & up-sample
-    class X3DWrapper(nn.Module):
-        def __init__(self, backbone, classifier):
-            super().__init__()
-            stride_t = math.ceil(64 / target_frames)        # ≈4
-            self.reduce = nn.Conv3d(
-                1, 1, kernel_size=(5,1,1), stride=(stride_t,1,1),
-                padding=(2,0,0), bias=False,
-            )
-            with torch.no_grad():
-                blur = torch.tensor([1,2,4,2,1], dtype=torch.float32) / 10
-                self.reduce.weight.zero_()
-                self.reduce.weight[:, :, :, 0, 0] = blur.view(1,1,5)
+#     # ---------------------------------------------------------------- 5) wrapper with temporal blur & up-sample
+#     class X3DWrapper(nn.Module):
+#         def __init__(self, backbone, classifier):
+#             super().__init__()
+#             stride_t = math.ceil(64 / target_frames)        # ≈4
+#             self.reduce = nn.Conv3d(
+#                 1, 1, kernel_size=(5,1,1), stride=(stride_t,1,1),
+#                 padding=(2,0,0), bias=False,
+#             )
+#             with torch.no_grad():
+#                 blur = torch.tensor([1,2,4,2,1], dtype=torch.float32) / 10
+#                 self.reduce.weight.zero_()
+#                 self.reduce.weight[:, :, :, 0, 0] = blur.view(1,1,5)
 
-            self.backbone   = backbone
-            self.classifier = classifier
-            self.up         = nn.Upsample(size=(target_frames, target_hw, target_hw),
-                                          mode="trilinear", align_corners=False)
+#             self.backbone   = backbone
+#             self.classifier = classifier
+#             self.up         = nn.Upsample(size=(target_frames, target_hw, target_hw),
+#                                           mode="trilinear", align_corners=False)
 
-        def forward(self, x):                       # x : [B,1,64,128,128]
-            x = self.reduce(x)                      #      [B,1,16,128,128]
-            x = self.up(x)                          #      [B,1,16,224,224]
-            feats = self.backbone(x)                # (already GAP pooled)
-            return self.classifier(feats)           # logits
+#         def forward(self, x):                       # x : [B,1,64,128,128]
+#             x = self.reduce(x)                      #      [B,1,16,128,128]
+#             x = self.up(x)                          #      [B,1,16,224,224]
+#             feats = self.backbone(x)                # (already GAP pooled)
+#             return self.classifier(feats)           # logits
 
-    print(f"✓ temporal blur 64→{target_frames} & spatial ↑ to {target_hw}²")
-    return X3DWrapper(core, new_fc)
+#     print(f"✓ temporal blur 64→{target_frames} & spatial ↑ to {target_hw}²")
+#    return X3DWrapper(core, new_fc)
 
 def load_mvit_v1_b(pretrained_path: str | None = None,
                    num_classes:    int = 3,
@@ -769,198 +769,198 @@ def load_r3d_18(pretrained_path: str | None = None, num_classes: int = 2) -> nn.
 
     return model
 
-def load_slowfast_r50(pretrained_path: str | None = None,
-                  num_classes: int = 2,
-                  alpha: int = 4,
-                  dummy_depth: int = 32,
-                  dummy_hw: int = 128) -> nn.Module:
-    base = slowfast_r50(pretrained=False)
+# def load_slowfast_r50(pretrained_path: str | None = None,
+#                   num_classes: int = 2,
+#                   alpha: int = 4,
+#                   dummy_depth: int = 32,
+#                   dummy_hw: int = 128) -> nn.Module:
+#     base = slowfast_r50(pretrained=False)
 
-    # Load weights first
-    if pretrained_path is not None:
-        print("🚀 Loading pretrained weights from:", pretrained_path)
-        if os.path.isdir(pretrained_path):
-            ckpts = [f for f in os.listdir(pretrained_path) if f.lower().endswith((".pth", ".pt", ".ckpt", ".pyth"))]
-            if not ckpts:
-                raise FileNotFoundError(f"No checkpoint found in {pretrained_path}")
-            if len(ckpts) > 1:
-                print(f"⚠️  Multiple files found—using {ckpts[0]}")
-            ckpt_file = os.path.join(pretrained_path, ckpts[0])
-        else:
-            ckpt_file = pretrained_path
-        state = torch.load(ckpt_file, map_location="cpu")
-        base.load_state_dict(state, strict=False)
-    else:
-        print("⚙️  Model initialized without pretrained weights.")
+#     # Load weights first
+#     if pretrained_path is not None:
+#         print("🚀 Loading pretrained weights from:", pretrained_path)
+#         if os.path.isdir(pretrained_path):
+#             ckpts = [f for f in os.listdir(pretrained_path) if f.lower().endswith((".pth", ".pt", ".ckpt", ".pyth"))]
+#             if not ckpts:
+#                 raise FileNotFoundError(f"No checkpoint found in {pretrained_path}")
+#             if len(ckpts) > 1:
+#                 print(f"⚠️  Multiple files found—using {ckpts[0]}")
+#             ckpt_file = os.path.join(pretrained_path, ckpts[0])
+#         else:
+#             ckpt_file = pretrained_path
+#         state = torch.load(ckpt_file, map_location="cpu")
+#         base.load_state_dict(state, strict=False)
+#     else:
+#         print("⚙️  Model initialized without pretrained weights.")
 
-    # Adapt both stems to 1-channel input
-    for path_i in [0, 1]:  # 0: slow, 1: fast
-        conv = base.blocks[0].multipathway_blocks[path_i].conv
-        w = conv.weight  # (C_out, 3, kt, kh, kw)
-        w1 = w.mean(dim=1, keepdim=True)  # (C_out, 1, kt, kh, kw)
-        new_stem = nn.Conv3d(
-            in_channels=1,
-            out_channels=conv.out_channels,
-            kernel_size=conv.kernel_size,
-            stride=conv.stride,
-            padding=conv.padding,
-            bias=False
-        )
-        new_stem.weight = nn.Parameter(w1)
-        base.blocks[0].multipathway_blocks[path_i].conv = new_stem
+#     # Adapt both stems to 1-channel input
+#     for path_i in [0, 1]:  # 0: slow, 1: fast
+#         conv = base.blocks[0].multipathway_blocks[path_i].conv
+#         w = conv.weight  # (C_out, 3, kt, kh, kw)
+#         w1 = w.mean(dim=1, keepdim=True)  # (C_out, 1, kt, kh, kw)
+#         new_stem = nn.Conv3d(
+#             in_channels=1,
+#             out_channels=conv.out_channels,
+#             kernel_size=conv.kernel_size,
+#             stride=conv.stride,
+#             padding=conv.padding,
+#             bias=False
+#         )
+#         new_stem.weight = nn.Parameter(w1)
+#         base.blocks[0].multipathway_blocks[path_i].conv = new_stem
 
-    # Wrap blocks[0:5] and infer channel dimensions
-    backbone = nn.Sequential(*base.blocks[:5])
-    with torch.no_grad():
-        dummy = torch.zeros(1, 1, dummy_depth, dummy_hw, dummy_hw)
-        slow = dummy[:, :, ::alpha]
-        fast = dummy
-        s_out, f_out = backbone([slow, fast])
-        C_s, C_f = s_out.shape[1], f_out.shape[1]
+#     # Wrap blocks[0:5] and infer channel dimensions
+#     backbone = nn.Sequential(*base.blocks[:5])
+#     with torch.no_grad():
+#         dummy = torch.zeros(1, 1, dummy_depth, dummy_hw, dummy_hw)
+#         slow = dummy[:, :, ::alpha]
+#         fast = dummy
+#         s_out, f_out = backbone([slow, fast])
+#         C_s, C_f = s_out.shape[1], f_out.shape[1]
 
-    class SlowFastHead(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.backbone = backbone
-            self.pool_s = nn.AdaptiveAvgPool3d((1, 1, 1))
-            self.pool_f = nn.AdaptiveAvgPool3d((1, 1, 1))
-            self.classifier = nn.Linear(C_s + C_f, num_classes)
+#     class SlowFastHead(nn.Module):
+#         def __init__(self):
+#             super().__init__()
+#             self.backbone = backbone
+#             self.pool_s = nn.AdaptiveAvgPool3d((1, 1, 1))
+#             self.pool_f = nn.AdaptiveAvgPool3d((1, 1, 1))
+#             self.classifier = nn.Linear(C_s + C_f, num_classes)
 
-        def forward(self, x):
-            s = x[:, :, ::alpha]
-            f = x
-            s_out, f_out = self.backbone([s, f])
-            s_feat = self.pool_s(s_out).view(x.size(0), -1)
-            f_feat = self.pool_f(f_out).view(x.size(0), -1)
-            return self.classifier(torch.cat([s_feat, f_feat], dim=1))
+#         def forward(self, x):
+#             s = x[:, :, ::alpha]
+#             f = x
+#             s_out, f_out = self.backbone([s, f])
+#             s_feat = self.pool_s(s_out).view(x.size(0), -1)
+#             f_feat = self.pool_f(f_out).view(x.size(0), -1)
+#             return self.classifier(torch.cat([s_feat, f_feat], dim=1))
 
-    return SlowFastHead()
+#     return SlowFastHead()
 
-def load_slowfast_r101(pretrained_path: str | None = None,
-                       num_classes: int = 2,
-                       alpha: int = 4,
-                       dummy_depth: int = 32,
-                       dummy_hw: int = 128) -> nn.Module:
-    """
-    SlowFast-R101 adapted for grayscale 3-D CT volumes.
-    """
-    base = slowfast_r101(pretrained=False)        # never auto-download
+# def load_slowfast_r101(pretrained_path: str | None = None,
+#                        num_classes: int = 2,
+#                        alpha: int = 4,
+#                        dummy_depth: int = 32,
+#                        dummy_hw: int = 128) -> nn.Module:
+#     """
+#     SlowFast-R101 adapted for grayscale 3-D CT volumes.
+#     """
+#     base = slowfast_r101(pretrained=False)        # never auto-download
 
-    # ---------- load checkpoint ----------
-    if pretrained_path:
-        print("🚀 Loading pretrained weights from:", pretrained_path)
-        ckpt = pretrained_path
-        if os.path.isdir(pretrained_path):
-            files = [f for f in os.listdir(pretrained_path)
-                     if f.lower().endswith((".pth", ".pt", ".ckpt", ".pyth"))]
-            if not files:
-                raise FileNotFoundError(f"No ckpt in {pretrained_path}")
-            if len(files) > 1:
-                print(f"⚠️  Multiple ckpts — using {files[0]}")
-            ckpt = os.path.join(pretrained_path, files[0])
-        base.load_state_dict(torch.load(ckpt, map_location="cpu"),
-                             strict=False)
-    else:
-        print("⚙️  Model initialized without pretrained weights.")
+#     # ---------- load checkpoint ----------
+#     if pretrained_path:
+#         print("🚀 Loading pretrained weights from:", pretrained_path)
+#         ckpt = pretrained_path
+#         if os.path.isdir(pretrained_path):
+#             files = [f for f in os.listdir(pretrained_path)
+#                      if f.lower().endswith((".pth", ".pt", ".ckpt", ".pyth"))]
+#             if not files:
+#                 raise FileNotFoundError(f"No ckpt in {pretrained_path}")
+#             if len(files) > 1:
+#                 print(f"⚠️  Multiple ckpts — using {files[0]}")
+#             ckpt = os.path.join(pretrained_path, files[0])
+#         base.load_state_dict(torch.load(ckpt, map_location="cpu"),
+#                              strict=False)
+#     else:
+#         print("⚙️  Model initialized without pretrained weights.")
 
-    # ---------- collapse both stems to 1 channel ----------
-    for pathway in (0, 1):                                    # 0 slow, 1 fast
-        conv = base.blocks[0].multipathway_blocks[pathway].conv
-        w_rgb = conv.weight                                    # (C_out, 3, …)
-        w_g   = w_rgb.mean(1, keepdim=True)                    # (C_out, 1, …)
-        new_conv = nn.Conv3d(
-            1, conv.out_channels, kernel_size=conv.kernel_size,
-            stride=conv.stride, padding=conv.padding, bias=False
-        )
-        new_conv.weight = nn.Parameter(w_g)
-        base.blocks[0].multipathway_blocks[pathway].conv = new_conv
+#     # ---------- collapse both stems to 1 channel ----------
+#     for pathway in (0, 1):                                    # 0 slow, 1 fast
+#         conv = base.blocks[0].multipathway_blocks[pathway].conv
+#         w_rgb = conv.weight                                    # (C_out, 3, …)
+#         w_g   = w_rgb.mean(1, keepdim=True)                    # (C_out, 1, …)
+#         new_conv = nn.Conv3d(
+#             1, conv.out_channels, kernel_size=conv.kernel_size,
+#             stride=conv.stride, padding=conv.padding, bias=False
+#         )
+#         new_conv.weight = nn.Parameter(w_g)
+#         base.blocks[0].multipathway_blocks[pathway].conv = new_conv
 
-    # ---------- build backbone (blocks 0–4) ----------
-    backbone = nn.Sequential(*base.blocks[:5])
+#     # ---------- build backbone (blocks 0–4) ----------
+#     backbone = nn.Sequential(*base.blocks[:5])
 
-    # ---------- infer channel dims ----------
-    with torch.no_grad():
-        dummy = torch.zeros(1, 1, dummy_depth, dummy_hw, dummy_hw)
-        slow  = dummy[:, :, ::alpha]        # temporal stride for slow path
-        fast  = dummy
-        s_out, f_out = backbone([slow, fast])
-        C_s, C_f = s_out.shape[1], f_out.shape[1]
+#     # ---------- infer channel dims ----------
+#     with torch.no_grad():
+#         dummy = torch.zeros(1, 1, dummy_depth, dummy_hw, dummy_hw)
+#         slow  = dummy[:, :, ::alpha]        # temporal stride for slow path
+#         fast  = dummy
+#         s_out, f_out = backbone([slow, fast])
+#         C_s, C_f = s_out.shape[1], f_out.shape[1]
 
-    # ---------- classification head ----------
-    class SlowFastR101Head(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.backbone = backbone
-            self.pool_s   = nn.AdaptiveAvgPool3d((1, 1, 1))
-            self.pool_f   = nn.AdaptiveAvgPool3d((1, 1, 1))
-            self.classif  = nn.Linear(C_s + C_f, num_classes)
-        def forward(self, x):
-            s = x[:, :, ::alpha]
-            f = x
-            s_out, f_out = self.backbone([s, f])
-            s_feat = self.pool_s(s_out).flatten(1)
-            f_feat = self.pool_f(f_out).flatten(1)
-            return self.classif(torch.cat([s_feat, f_feat], dim=1))
+#     # ---------- classification head ----------
+#     class SlowFastR101Head(nn.Module):
+#         def __init__(self):
+#             super().__init__()
+#             self.backbone = backbone
+#             self.pool_s   = nn.AdaptiveAvgPool3d((1, 1, 1))
+#             self.pool_f   = nn.AdaptiveAvgPool3d((1, 1, 1))
+#             self.classif  = nn.Linear(C_s + C_f, num_classes)
+#         def forward(self, x):
+#             s = x[:, :, ::alpha]
+#             f = x
+#             s_out, f_out = self.backbone([s, f])
+#             s_feat = self.pool_s(s_out).flatten(1)
+#             f_feat = self.pool_f(f_out).flatten(1)
+#             return self.classif(torch.cat([s_feat, f_feat], dim=1))
 
-    return SlowFastR101Head()
+#     return SlowFastR101Head()
 
-def load_i3d(pretrained_path: str | None = None, num_classes: int = 2) -> nn.Module:
-    base = i3d_r50(pretrained=False)
+# def load_i3d(pretrained_path: str | None = None, num_classes: int = 2) -> nn.Module:
+#     base = i3d_r50(pretrained=False)
 
-    # Load pretrained weights if provided
-    if pretrained_path is not None:
-        print("🚀 Loading pretrained weights from:", pretrained_path)
-        if os.path.isdir(pretrained_path):
-            ckpts = [f for f in os.listdir(pretrained_path)
-                     if f.lower().endswith((".pth", ".pt", ".ckpt", ".pyth"))]
-            if not ckpts:
-                raise FileNotFoundError(f"No checkpoint found in {pretrained_path}")
-            if len(ckpts) > 1:
-                print(f"⚠️  Multiple files found—using {ckpts[0]}")
-            ckpt_file = os.path.join(pretrained_path, ckpts[0])
-        else:
-            ckpt_file = pretrained_path
-        state = torch.load(ckpt_file, map_location="cpu")
-        base.load_state_dict(state, strict=False)
-    else:
-        print("⚙️  Model initialized without pretrained weights.")
+#     # Load pretrained weights if provided
+#     if pretrained_path is not None:
+#         print("🚀 Loading pretrained weights from:", pretrained_path)
+#         if os.path.isdir(pretrained_path):
+#             ckpts = [f for f in os.listdir(pretrained_path)
+#                      if f.lower().endswith((".pth", ".pt", ".ckpt", ".pyth"))]
+#             if not ckpts:
+#                 raise FileNotFoundError(f"No checkpoint found in {pretrained_path}")
+#             if len(ckpts) > 1:
+#                 print(f"⚠️  Multiple files found—using {ckpts[0]}")
+#             ckpt_file = os.path.join(pretrained_path, ckpts[0])
+#         else:
+#             ckpt_file = pretrained_path
+#         state = torch.load(ckpt_file, map_location="cpu")
+#         base.load_state_dict(state, strict=False)
+#     else:
+#         print("⚙️  Model initialized without pretrained weights.")
 
-    # Adapt 3-channel stem to 1-channel
-    w_orig = base.blocks[0].conv.weight  # (64,3,5,7,7)
-    w_1ch = w_orig.mean(dim=1, keepdim=True)  # (64,1,5,7,7)
-    new_stem = nn.Conv3d(
-        in_channels=1,
-        out_channels=64,
-        kernel_size=(5, 7, 7),
-        stride=(1, 2, 2),
-        padding=(2, 3, 3),
-        bias=False
-    )
-    new_stem.weight = nn.Parameter(w_1ch)
-    base.blocks[0].conv = new_stem
+#     # Adapt 3-channel stem to 1-channel
+#     w_orig = base.blocks[0].conv.weight  # (64,3,5,7,7)
+#     w_1ch = w_orig.mean(dim=1, keepdim=True)  # (64,1,5,7,7)
+#     new_stem = nn.Conv3d(
+#         in_channels=1,
+#         out_channels=64,
+#         kernel_size=(5, 7, 7),
+#         stride=(1, 2, 2),
+#         padding=(2, 3, 3),
+#         bias=False
+#     )
+#     new_stem.weight = nn.Parameter(w_1ch)
+#     base.blocks[0].conv = new_stem
 
-    # Replace classifier head
-    feat_dim = base.blocks[-1].proj.in_features
-    class I3DHead(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.backbone = nn.Sequential(*base.blocks[:-1])
-            self.pool = nn.AdaptiveAvgPool3d((1, 1, 1))
-            self.classifier = nn.Linear(feat_dim, num_classes)
+#     # Replace classifier head
+#     feat_dim = base.blocks[-1].proj.in_features
+#     class I3DHead(nn.Module):
+#         def __init__(self):
+#             super().__init__()
+#             self.backbone = nn.Sequential(*base.blocks[:-1])
+#             self.pool = nn.AdaptiveAvgPool3d((1, 1, 1))
+#             self.classifier = nn.Linear(feat_dim, num_classes)
 
-        def forward(self, x):
-            x = self.backbone(x)
-            x = self.pool(x).view(x.size(0), -1)
-            return self.classifier(x)
+#         def forward(self, x):
+#             x = self.backbone(x)
+#             x = self.pool(x).view(x.size(0), -1)
+#             return self.classifier(x)
 
-    return I3DHead()
+#     return I3DHead()
 
 
 # Registry of available video models
 VIDEO_BACKBONES = {
-    "i3d_r50":      load_i3d,
-    "slowfast_r50": load_slowfast_r50,
-    "slowfast_r101": load_slowfast_r101,
+    #"i3d_r50":      load_i3d,
+    #"slowfast_r50": load_slowfast_r50,
+    #"slowfast_r101": load_slowfast_r101,
     "r3d_18":       load_r3d_18,
     "r2plus1d_18":  load_r2plus1d_18,
     "s3d":          load_s3d,
@@ -970,7 +970,7 @@ VIDEO_BACKBONES = {
     "swin3d_b":     load_swin3d_b,
     "mvit_v2_s":    load_mvit_v2_s,
     "mvit_v1_b":    load_mvit_v1_b, 
-    "x3d_s":        load_x3d_s,
+    #"x3d_s":        load_x3d_s,
     #"x3d_xs":       load_x3d_xs,
 }
 
