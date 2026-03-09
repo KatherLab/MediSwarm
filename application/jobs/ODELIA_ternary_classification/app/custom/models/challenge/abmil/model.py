@@ -215,7 +215,7 @@ class ABMIL_Swin(nn.Module):
         return out #A.squeeze(-1)  # logits, attention weights
     
 
-def create_model(config_path: str, in_ch: int = 3, num_classes: int = 3) -> BasicClassifier:
+def create_model(n_input_channels: int = 3, num_classes: int = 3) -> BasicClassifier:
     
     #config = pd.read_csv(config_path, skip_blank_lines=True, na_values=['NaN']).iloc[0]
 
@@ -225,6 +225,6 @@ def create_model(config_path: str, in_ch: int = 3, num_classes: int = 3) -> Basi
     else:
         model = ABMIL_Swin(num_classes=num_classes)
 
-    wrapped_model = ModelWrapper(backbone=model, in_ch=in_ch, num_classes=num_classes)
+    wrapped_model = ModelWrapper(backbone=model, in_ch=n_input_channels, num_classes=num_classes)
 
     return wrapped_model
