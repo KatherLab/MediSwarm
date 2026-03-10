@@ -22,14 +22,14 @@ RUN apt install -y \
     libexpat1=2.4.7-1ubuntu0.7 \
     libmpdec3=2.5.1-2build2 \
     libpython3-stdlib=3.10.6-1~22.04.1 \
-    libpython3.10-minimal=3.10.12-1~22.04.14 \
-    libpython3.10-stdlib=3.10.12-1~22.04.14 \
+    libpython3.10-minimal=3.10.12-1~22.04.15 \
+    libpython3.10-stdlib=3.10.12-1~22.04.15 \
     libreadline8=8.1.2-1 \
     libsqlite3-0=3.37.2-2ubuntu0.5 \
     media-types=7.0.0 \
     python3-minimal=3.10.6-1~22.04.1 \
-    python3.10-minimal=3.10.12-1~22.04.14 \
-    python3.10=3.10.12-1~22.04.14 \
+    python3.10-minimal=3.10.12-1~22.04.15 \
+    python3.10=3.10.12-1~22.04.15 \
     python3=3.10.6-1~22.04.1 \
     readline-common=8.1.2-1
 
