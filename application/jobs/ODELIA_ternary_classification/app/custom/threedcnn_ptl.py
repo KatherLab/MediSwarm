@@ -13,6 +13,7 @@ from pathlib import Path
 
 import logging
 import csv
+import importlib.util
 import os
 
 FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN = 'aggregated_model_gt_and_classprob_train.csv'
@@ -222,8 +223,6 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
             # The challenge model folder starts with a digit (3agaldran), which
             # is not a valid Python identifier for standard imports. Load the
             # factory by file path using importlib to avoid renaming directories.
-            import importlib.util
-            import os
             team_name = "_".join(model_name.split('_')[1:])
             if team_name == "1DvideAndConquer":
                 # TODO not yet implemented
