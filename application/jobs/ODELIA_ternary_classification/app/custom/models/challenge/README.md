@@ -14,6 +14,9 @@ export MODEL_VARIANT=<model_team>                       # can be either the mode
                                                         # [1DivideAndConquer, 2BCN_AIM, 3agaldran, 4LME_ABMIL, 5Pimed]
 export SCRATCHDIR=<scratch_dir> 
 
+### Creating startup kits: if there is an issue with the versions:
+https://github.com/deboraJ1/MediSwarm/blob/include_abmil/scripts/dev_utils/README_dockerfile_update.md
+
 
 Example:
 export SITE_NAME=CAM                                 
