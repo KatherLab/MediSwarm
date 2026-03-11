@@ -632,17 +632,18 @@ docker_cln_sh: |
   # Parse command-line arguments
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-          --data_dir)        MY_DATA_DIR="$2"; shift ;;
-          --scratch_dir)     MY_SCRATCH_DIR="$2"; shift ;;
-          --GPU)             GPU2USE="$2"; shift ;;
-          --no_pull)         NOPULL="1" ;;
-          --dummy_training)  DUMMY_TRAINING="1" ;;
-          --preflight_check) PREFLIGHT_CHECK="1" ;;
-          --local_training)  LOCAL_TRAINING="1" ;;
-          --start_client)    START_CLIENT="1" ;;
-          --list_licenses)   LIST_LICENSES="1";;
-          --interactive)     INTERACTIVE="1" ;;
-          --run_script)      SCRIPT_TO_RUN="$2"; shift ;;
+          --data_dir)            MY_DATA_DIR="$2"; shift ;;
+          --scratch_dir)         MY_SCRATCH_DIR="$2"; shift ;;
+          --GPU)                 GPU2USE="$2"; shift ;;
+          --no_pull)             NOPULL="1" ;;
+          --dummy_training)      DUMMY_TRAINING="1" ;;
+          --preflight_check)     PREFLIGHT_CHECK="1" ;;
+          --local_training)      LOCAL_TRAINING="1" ;;
+          --start_client)        START_CLIENT="1" ;;
+          --list_licenses)       LIST_LICENSES="1";;
+          --interactive)         INTERACTIVE="1" ;;
+          --run_script)          SCRIPT_TO_RUN="$2"; shift ;;
+          --log_dataset_details) LOG_DATASET_DETAILS="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -667,7 +668,7 @@ docker_cln_sh: |
   # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-  if [[ ! -z "$MY_SCRATCH_DIR" ]]; then
+  if [ -n "$MY_SCRATCH_DIR" ]; then
       mkdir -p "$MY_SCRATCH_DIR"
       chmod -R 777 "$MY_SCRATCH_DIR"
   fi
@@ -686,7 +687,7 @@ docker_cln_sh: |
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
-  if [[ ! -z "$MY_DATA_DIR" ]]; then
+  if [ -n "$MY_DATA_DIR" ]; then
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
   fi
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
@@ -702,43 +703,47 @@ docker_cln_sh: |
             --env CONFIG=unilateral \
             --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__"
 
+  if [ -n "$LOG_DATASET_DETAILS" ]; then
+     ENV_VARS+=" --env LOG_DATASET_DETAILS=1"
+  fi
+
   # Execution modes
-  if [[ ! -z "$DUMMY_TRAINING" ]]; then
+  if [ -n "$DUMMY_TRAINING" ]; then
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
 
-  elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
+  elif [ -n "$PREFLIGHT_CHECK" ]; then
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=preflight_check --env NUM_EPOCHS=1 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/main.py"
 
-  elif [[ ! -z "$LOCAL_TRAINING" ]]; then
+  elif [ -n "$LOCAL_TRAINING" ]; then
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=100 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/main.py"
 
-  elif [[ ! -z "$START_CLIENT" ]]; then
+  elif [ -n "$START_CLIENT" ]; then
       docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
-  elif [[ ! -z "$LIST_LICENSES" ]]; then
+  elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
 
-  elif [[ ! -z "$INTERACTIVE" ]]; then
+  elif [ -n "$INTERACTIVE" ]; then
       docker run --rm $TTY_OPT --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
 
-  elif [[ ! -z "$SCRIPT_TO_RUN" ]]; then
+  elif [ -n "$SCRIPT_TO_RUN" ]; then
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS $DOCKER_IMAGE \
       /bin/bash -c "$SCRIPT_TO_RUN"
 
   else
       echo "❗ One of the following options must be passed:"
-      echo "--dummy_training   minimal sanity check for Docker/GPU"
-      echo "--preflight_check  verify data access & local training"
-      echo "--local_training   train a local model"
-      echo "--start_client     launch FL client in swarm mode"
-      echo "--list_licenses    list licenses of installed packages"
-      echo "--interactive      drop into interactive container (for debugging)"
-      echo "--run_script       execute script in container (for testing)"
+      echo "--dummy_training      minimal sanity check for Docker/GPU"
+      echo "--preflight_check     verify data access & local training"
+      echo "--local_training      train a local model"
+      echo "--start_client        launch FL client in swarm mode"
+      echo "--list_licenses       list licenses of installed packages"
+      echo "--interactive         drop into interactive container (for debugging)"
+      echo "--run_script          execute script in container (for testing)"
       exit 1
   fi
 
@@ -778,16 +783,16 @@ docker_svr_sh: |
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
-  if [[ ! -z "$START_SERVER" ]]; then
+  if [ -n "$START_SERVER" ]; then
       docker run -d -t --rm --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
-  elif [[ ! -z "$LIST_LICENSES" ]]; then
+  elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
-  elif [[ ! -z "$INTERACTIVE" ]]; then
+  elif [ -n "$INTERACTIVE" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
@@ -822,7 +827,7 @@ docker_adm_sh: |
   fi
   CONTAINER_NAME=odelia_swarm_admin___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
-  if [[ ! -z "$LIST_LICENSES" ]]; then
+  if [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
       exit 0
