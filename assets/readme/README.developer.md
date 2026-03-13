@@ -1,10 +1,5 @@
 # Usage for MediSwarm and Application Code Developers
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> upstream/main
 ## Cloning the Repository
 
 We use a git submodule for a fork of NVFlare, so the MediSwarm repository should be cloned using
@@ -17,10 +12,6 @@ If you have a clone without having initialized the submodule, use the following 
  git submodule update --init --recursive
  ```
 
-<<<<<<< HEAD
->>>>>>> upstream/main
-=======
->>>>>>> upstream/main
 ## Versioning of ODELIA Docker Images
 
 If needed, update the version number in file [odelia_image.version](../../odelia_image.version). It will be used
@@ -38,15 +29,7 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
  ```
 
 1. Make sure you have no uncommitted changes.
-<<<<<<< HEAD
-<<<<<<< HEAD
 2. If package versions are still not available, you may have to check what the current version is and update the
-=======
-2. If package versions are no longer available, you may have to check what the current version is and update the
->>>>>>> upstream/main
-=======
-2. If package versions are no longer available, you may have to check what the current version is and update the
->>>>>>> upstream/main
    `Dockerfile` accordingly. Version numbers are hard-coded to avoid issues due to silently different versions being
    installed.
 3. After successful build (and after verifying that everything works as expected, i.e., local tests, building startup
@@ -111,13 +94,6 @@ export CONFIG=original
 ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=1 --start_client
 ```
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-=======
->>>>>>> upstream/main
-=======
->>>>>>> upstream/main
 ## Running the Application
 
 1. **CIFAR-10 example:**
@@ -129,17 +105,7 @@ export CONFIG=original
 
 ## Contributing Application Code
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-1. Take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to
-   work with NVFlare
-2. Take a look at application/jobs/ODELIA_ternary_classification for a more realistic example of pytorch code that can
-   run in the swarm
-3. Use the local tests to check if the code is swarm-ready
-4. TODO more detailed instructions
-=======
-=======
->>>>>>> upstream/main
+
 * Take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to work with NVFlare
 * Take a look at application/jobs/ODELIA_ternary_classification for a more realistic example of pytorch code that can run in the swarm
 * If your application code needs additonal/other/newer Python packages than installed via [Dockerfile_ODELIA](../../docker_config/Dockerfile_ODELIA), create and use an adapted Dockerfile for building the Docker image
@@ -162,19 +128,10 @@ To make sure your code is swarm-compatible and to isolate potential issues, we r
 6. Make sure the code runs in an actual swarm training.
 
 TODO iterate instructions and add missing details
-<<<<<<< HEAD
->>>>>>> upstream/main
-=======
->>>>>>> upstream/main
+
 
 ## Continuous Integration
 
 Tests to be executed after pushing to github are defined in `.github/workflows/pr-test.yaml`.
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
+
 This largely builds on the integration tests defined above, running those that finish within reasonable time.
->>>>>>> upstream/main
-=======
-This largely builds on the integration tests defined above, running those that finish within reasonable time.
->>>>>>> upstream/main
