@@ -172,13 +172,13 @@ RUN python3 -m pip cache purge
 RUN apt install -y \
     base-files=12ubuntu4.7 \
     bash=5.1-6ubuntu1.1 \
-    bsdutils=1:2.37.2-4ubuntu3.4 \
+    bsdutils=1:2.37.2-4ubuntu3.5 \
     ca-certificates=20240203~22.04.1 \
     coreutils=8.32-4.1ubuntu1.2 \
     dpkg=1.21.1ubuntu2.6 \
     e2fsprogs=1.46.5-2ubuntu1.2 \
     gpgv=2.2.27-3ubuntu2.5 \
-    libblkid1=2.37.2-4ubuntu3.4 \
+    libblkid1=2.37.2-4ubuntu3.5 \
     libc-bin=2.35-0ubuntu3.13 \
     libc-dev-bin=2.35-0ubuntu3.13 \
     libc6-dev=2.35-0ubuntu3.13 \
@@ -191,24 +191,24 @@ RUN apt install -y \
     libk5crypto3=1.19.2-2ubuntu0.7 \
     libkrb5-3=1.19.2-2ubuntu0.7 \
     libkrb5support0=1.19.2-2ubuntu0.7 \
-    libmount1=2.37.2-4ubuntu3.4 \
+    libmount1=2.37.2-4ubuntu3.5 \
     libpam-modules-bin=1.4.0-11ubuntu2.6 \
     libpam-modules=1.4.0-11ubuntu2.6 \
     libpam-runtime=1.4.0-11ubuntu2.6 \
     libpam0g=1.4.0-11ubuntu2.6 \
     libseccomp2=2.5.3-2ubuntu3~22.04.1 \
-    libsmartcols1=2.37.2-4ubuntu3.4 \
+    libsmartcols1=2.37.2-4ubuntu3.5 \
     libss2=1.46.5-2ubuntu1.2 \
     libssl3=3.0.2-0ubuntu1.21 \
     libsystemd0=249.11-0ubuntu3.17 \
     libtasn1-6=4.18.0-4ubuntu0.2 \
     libudev1=249.11-0ubuntu3.17 \
-    libuuid1=2.37.2-4ubuntu3.4 \
+    libuuid1=2.37.2-4ubuntu3.5 \
     linux-libc-dev=5.15.0-171.181 \
     logsave=1.46.5-2ubuntu1.2 \
-    mount=2.37.2-4ubuntu3.4 \
+    mount=2.37.2-4ubuntu3.5 \
     openssl=3.0.2-0ubuntu1.21 \
-    util-linux=2.37.2-4ubuntu3.4
+    util-linux=2.37.2-4ubuntu3.5
 
 # Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
 RUN apt install -y \
