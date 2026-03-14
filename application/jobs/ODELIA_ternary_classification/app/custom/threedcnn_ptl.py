@@ -197,6 +197,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
 
         logger.info(f"Running code version {env_vars['mediswarm_version']}")
         logger.info(f"Using GPU for training")
+        logger.info(f"Model variant: {model_variant if model_variant and len(model_variant) > 0 else env_vars['MODEL_NAME', '[empty name]']}")
 
         # Allow an explicit model_variant to override the configured env model name.
         model_name = model_variant if (model_variant is not None and model_variant != "") else os.environ.get('MODEL_NAME', '')
@@ -224,9 +225,18 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
             # is not a valid Python identifier for standard imports. Load the
             # factory by file path using importlib to avoid renaming directories.
             team_name = "_".join(model_name.split('_')[1:])
-            if team_name == "1DvideAndConquer":
-                # TODO not yet implemented
-                model = None
+            if team_name == "1DivideAndConquer":
+                model_creator_path = os.path.join(
+                    os.path.dirname(Path(__file__)),
+                    "models",
+                    "challenge",
+                    "1DivideAndConquer",
+                    "model.py",
+                )
+                spec = importlib.util.spec_from_file_location("abmil_model", model_creator_path)
+                divide_model_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(divide_model_module)
+                model = divide_model_module.create_model(n_input_channels=3, num_classes=num_classes)
                 pass
             elif team_name == "2BCN_AIM":
                 model_creator_path = os.path.join(
@@ -262,7 +272,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                     os.path.dirname(Path(__file__)),
                     "models",
                     "challenge",
-                    "abmil",
+                    "4abmil",
                     "model.py",
                 )
                 spec = importlib.util.spec_from_file_location("abmil_model", model_creator_path)
@@ -275,7 +285,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                     os.path.dirname(__file__),
                     "models",
                     "challenge",
-                    "pimed",
+                    "5pimed",
                     "model.py",
                 )
                 spec = importlib.util.spec_from_file_location("pimed_model", model_creator_path)
