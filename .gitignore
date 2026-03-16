@@ -186,6 +186,8 @@ docker_config/torch_home_cache
 *.pth
 *.zip
 
+# Build output and logs
+challenge_docker_generation.txt
 
 runs
 *.bak
