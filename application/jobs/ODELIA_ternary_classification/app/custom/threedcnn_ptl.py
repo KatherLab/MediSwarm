@@ -85,7 +85,7 @@ def log_data_hash(dm: DataModule, logger) -> None:
     logger.info(f"Data hash: {hash_all}")
 
 
-def set_up_data_module(logger):
+def set_up_data_module(logger, model_name: str = ''):
     def _log_dataset_hash(logger) -> None:
         ds_train_woaug, ds_val_woaug = prepare_odelia_dataset_without_augmentation()
         datamodule = DataModule(
@@ -100,7 +100,7 @@ def set_up_data_module(logger):
 
     torch.set_float32_matmul_precision('high')
     _log_dataset_hash(logger)
-    ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset()
+    ds_train, ds_val, path_run_dir, run_name = prepare_odelia_dataset(model_name)
     num_classes = sum(ds_train.class_labels_num)
     logger.info(f"Dataset path: {ds_train}")
     logger.info(f"Run directory: {path_run_dir}")
@@ -189,8 +189,13 @@ class GT_PredProb_Output_Callback(Callback):
 
 def prepare_training(logger, max_epochs: int, model_variant: str):
     try:
+        # If model_variant is a challenge team name (without challenge_ prefix), add it
+        CHALLENGE_TEAMS = ["1DivideAndConquer", "2BCN_AIM", "3agaldran", "4LME_ABMIL", "5Pimed"]
+        if model_variant in CHALLENGE_TEAMS:
+            model_variant = f"challenge_{model_variant}"
+        
         env_vars = load_environment_variables()
-        data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger)
+        data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, model_variant)
 
         if not torch.cuda.is_available():
             raise RuntimeError("This example requires a GPU")
@@ -198,9 +203,6 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
         logger.info(f"Running code version {env_vars['mediswarm_version']}")
         logger.info(f"Using GPU for training")
         logger.info(f"Model variant: {model_variant if model_variant and len(model_variant) > 0 else env_vars['MODEL_NAME', '[empty name]']}")
-
-        # Allow an explicit model_variant to override the configured env model name.
-        model_name = model_variant if (model_variant is not None and model_variant != "") else os.environ.get('MODEL_NAME', '')
 
         model = None
         if model_name in ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:
