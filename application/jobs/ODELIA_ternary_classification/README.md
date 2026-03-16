@@ -80,10 +80,11 @@ args {
 ```conf
 args {
     model {
-    path = "models.challenge.pimed.model.create_model"
+    path = "models.challenge.2bcnaim.model.create_model"
     args {
         n_input_channels = 1
         num_classes = 3
+        spatial_dims = 3
     }
     }
 }
