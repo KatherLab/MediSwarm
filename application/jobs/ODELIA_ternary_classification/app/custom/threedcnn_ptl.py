@@ -243,13 +243,13 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                     os.path.dirname(Path(__file__)),
                     "models",
                     "challenge",
-                    "2bcmaim",
-                    "swinunter.py",
+                    "2bcnaim",
+                    "swinunetr.py",
                 )
-                spec = importlib.util.spec_from_file_location("swinunter_model", model_creator_path)
-                swinunter_model_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(swinunter_model_module)
-                model = swinunter_model_module.create_model(img_size=224, num_classes=num_classes, n_input_channels=1)
+                spec = importlib.util.spec_from_file_location("swinunetr_model", model_creator_path)
+                swinunetr_model_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(swinunetr_model_module)
+                model = swinunetr_model_module.create_model(img_size=224, num_classes=num_classes, n_input_channels=1, spatial_dims=3)
                 
             elif team_name == "3agaldran":
                 factory_path = os.path.join(
