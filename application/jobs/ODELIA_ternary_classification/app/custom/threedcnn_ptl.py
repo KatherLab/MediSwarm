@@ -229,9 +229,18 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                 model = None
                 pass
             elif team_name == "2BCN_AIM":
-                # TODO not yet implemented
-                model = None
-                pass
+                model_creator_path = os.path.join(
+                    os.path.dirname(Path(__file__)),
+                    "models",
+                    "challenge",
+                    "2bcmaim",
+                    "swinunter.py",
+                )
+                spec = importlib.util.spec_from_file_location("swinunter_model", model_creator_path)
+                swinunter_model_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(swinunter_model_module)
+                model = swinunter_model_module.create_model(img_size=224, num_classes=num_classes, n_input_channels=1)
+                
             elif team_name == "3agaldran":
                 factory_path = os.path.join(
                     os.path.dirname(__file__),

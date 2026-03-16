@@ -76,6 +76,19 @@ args {
     }
 }
 ```
+*BMC_AIM:
+```conf
+args {
+    model {
+    path = "models.challenge.pimed.model.create_model"
+    args {
+        n_input_channels = 1
+        num_classes = 3
+    }
+    }
+}
+
+```
 * PIMED:
 ```conf
 args {
