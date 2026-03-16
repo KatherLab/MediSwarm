@@ -195,6 +195,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
             model_variant = f"challenge_{model_variant}"
         
         env_vars = load_environment_variables()
+        logger.info(f"Environment variables: {env_vars}")
         data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, model_variant)
 
         if not torch.cuda.is_available():
@@ -202,7 +203,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
 
         logger.info(f"Running code version {env_vars['mediswarm_version']}")
         logger.info(f"Using GPU for training")
-        logger.info(f"Model variant: {model_variant if model_variant and len(model_variant) > 0 else env_vars['MODEL_NAME', '[empty name]']}")
+        logger.info(f"Model variant: {model_variant if model_variant and len(model_variant) > 0 else env_vars.get('MODEL_NAME', '[empty name]')}")
 
         model = None
         if model_name in ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:

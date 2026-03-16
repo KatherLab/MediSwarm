@@ -73,3 +73,46 @@ def get_persistor_config(model_name: str):
             "persistor_args": config["persistor_args"]
         }
     return None
+
+def create_challenge_model(model_name: str = None, **kwargs):
+    """
+    Factory function to create any challenge model.
+    Can be called with explicit model_name or reads from MODEL_VARIANT env var.
+    """
+    import os
+    import importlib.util
+    from pathlib import Path
+
+    if model_name is None:
+        model_name = os.getenv("MODEL_VARIANT")
+        if not model_name:
+            raise ValueError("MODEL_VARIANT environment variable must be set")
+
+    # Normalize model name
+    CHALLENGE_TEAMS = ["1DivideAndConquer", "2BCN_AIM", "3agaldran", "4LME_ABMIL", "5Pimed"]
+    if model_name in CHALLENGE_TEAMS:
+        model_name = f"challenge_{model_name}"
+
+    if not model_name.startswith("challenge_"):
+        raise ValueError(f"Model name must start with 'challenge_': {model_name}")
+
+    # Get model config
+    team_name = "_".join(model_name.split('_')[1:])
+    config = get_model_config(team_name)
+    if not config:
+        raise ValueError(f"Unknown challenge model: {team_name}")
+
+    # Import and create model
+    module_path = config["persistor_path"]
+    module_parts = module_path.split('.')
+    function_name = module_parts[-1]
+
+    # Import the module
+    module = __import__(module_path.rsplit('.', 1)[0], fromlist=[function_name])
+    create_func = getattr(module, function_name)
+
+    # Merge config args with any additional kwargs
+    model_args = config["persistor_args"].copy()
+    model_args.update(kwargs)
+
+    return create_func(**model_args)
