@@ -29,7 +29,7 @@ RUN apt install -y \
     media-types \
     python3-minimal \
     python3.10-minimal \
-    python3.10
+    python3.10 \
     python3=3.10.6-1~22.04.1 \
     readline-common=8.1.2-1
 
