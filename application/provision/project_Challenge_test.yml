@@ -1,5 +1,5 @@
 api_version: 3
-name: odelia__challenge_model_test
+name: odelia_challenge_model_test
 description: Odelia TUD server testing challenge models with all collaborators clients on Odelia challenge dataset provision http based yaml file
 
 participants:

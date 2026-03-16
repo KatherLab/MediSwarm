@@ -11,7 +11,6 @@ import nvflare.client as flare_util
 import threedcnn_ptl
 
 TRAINING_MODE = os.getenv("TRAINING_MODE")
-MODEL_VARIANT = os.getenv("MODEL_VARIANT")  # e.g. 'mst or 'challenge_x3d'
 
 TM_PREFLIGHT_CHECK = "preflight_check"
 TM_LOCAL_TRAINING = "local_training"
@@ -26,8 +25,14 @@ if TRAINING_MODE == TM_SWARM:
     NUM_EPOCHS = threedcnn_ptl.get_num_epochs_per_round(SITE_NAME)
 elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
     SITE_NAME = os.getenv("SITE_NAME")
+    MODEL_NAME = os.getenv("MODEL_NAME")
     if not SITE_NAME:
         raise ValueError("SITE_NAME environment variable must be set for local training")
+    if not MODEL_NAME:
+        raise ValueError("MODEL_NAME environment variable must be set for local training")
+    MODEL_VARIANT = os.getenv("MODEL_VARIANT")  # e.g. 'mst or 'challenge_x3d'
+    if not MODEL_VARIANT and MODEL_NAME.startswith("challenge"):
+        raise ValueError("MODEL_VARIANT environment variable must be set for local training of challenge models")
     try:
         NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", "1"))
     except ValueError:
