@@ -5,10 +5,11 @@
 # 
 # This script automates the full workflow:
 # 1. Tests model loading and training for all 5 challenge models
-# 2. Updates config files for each model
-# 3. Commits and pushes changes
-# 4. Generates startup kits
-# 5. Runs preflight checks and local training tests
+# 2. Generates startup kits (config is now static with dynamic model factory)
+# 3. Runs preflight checks and local training tests
+#
+# The NVFlare config now uses a dynamic model factory that reads MODEL_VARIANT
+# from environment variables, eliminating the need to update configs per model.
 #
 # Usage: ./test_and_build_all_models.sh [--no-push] [--models "model1,model2"] [--skip-build]
 ##############################################################################
@@ -139,56 +140,17 @@ run_model_test() {
 
 # Function to update config for model
 update_config_for_model() {
-    local model=$1
-    
-    echo -e "${YELLOW}Updating config for $model...${NC}"
-    
-    python3 "${UPDATE_CONFIG_SCRIPT}" "$model" "$CONFIG_PATH"
-    if [ $? -eq 0 ]; then
-        print_status 0 "Config updated for $model"
-        return 0
-    else
-        print_status 1 "Failed to update config for $model"
-        return 1
-    fi
+    # Config is now static - uses dynamic model factory
+    # No longer need to update config for each model
+    print_status 0 "Config update skipped (using dynamic factory)"
+    return 0
 }
 
 # Function to commit and push changes
 commit_and_push() {
-    local model=$1
-    
-    echo -e "${YELLOW}Committing changes for $model...${NC}"
-    
-    cd "$PROJECT_ROOT"
-    
-    git add "${ODELIA_APP_DIR}/config/config_fed_client.conf"
-    git commit -m "config: update persistor for challenge model $model" \
-        > /tmp/git_commit.log 2>&1
-    
-    if [ $? -eq 0 ]; then
-        print_status 0 "Changes committed for $model"
-        
-        if [ "$NO_PUSH" = false ]; then
-            git push > /tmp/git_push.log 2>&1
-            if [ $? -eq 0 ]; then
-                print_status 0 "Changes pushed for $model"
-                return 0
-            else
-                print_status 1 "Failed to push changes"
-                return 1
-            fi
-        fi
-    else
-        # Check if there are no changes to commit
-        if grep -q "nothing to commit" /tmp/git_commit.log; then
-            echo -e "${YELLOW}No changes to commit for $model${NC}"
-            return 0
-        else
-            print_status 1 "Failed to commit changes"
-            cat /tmp/git_commit.log | sed 's/^/    /'
-            return 1
-        fi
-    fi
+    # No config changes to commit anymore
+    print_status 0 "Git commit skipped (no config changes)"
+    return 0
 }
 
 # Function to build startup kits
@@ -256,29 +218,13 @@ main() {
         fi
     done
     
-    # Section 2: Update configs and commit
-    print_section "Phase 2: Configuration Update & Git Commit"
-    
-    for model in "${MODELS[@]}"; do
-        echo ""
-        echo -e "${BLUE}Processing: $model${NC}"
-        
-        # Skip config update if model tests failed
-        if [[ " ${failed_models[*]} " =~ " ${model} " ]]; then
-            print_warning "Skipping config update (tests failed)"
-            continue
-        fi
-        
-        if update_config_for_model "$model"; then
-            if [ "$NO_PUSH" = false ]; then
-                commit_and_push "$model"
-            fi
-        fi
-    done
-    
-    # Section 3: Build startup kits
+    # Section 2: Build startup kits (no config updates needed)
     if [ "$SKIP_BUILD" = false ]; then
+        print_section "Phase 2: Building Startup Kits"
         build_startup_kits
+    else
+        print_section "Phase 2: Build Skipped (--skip-build)"
+        echo -e "${YELLOW}Startup kit build skipped as requested${NC}"
     fi
     
     # Final summary

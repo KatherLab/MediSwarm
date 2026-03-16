@@ -37,6 +37,7 @@ elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
         NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", "1"))
     except ValueError:
         raise ValueError("NUM_EPOCHS must be an integer")
+    print(f"Running in {TRAINING_MODE} mode with SITE_NAME={SITE_NAME}, MODEL_NAME={MODEL_NAME}, MODEL_VARIANT={MODEL_VARIANT}, NUM_EPOCHS={NUM_EPOCHS}")
 else:
     raise ValueError(f"Unsupported TRAINING_MODE: {TRAINING_MODE}")
 
