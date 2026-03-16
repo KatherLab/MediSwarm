@@ -1,0 +1,1300 @@
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/3agaldran'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/model_factory.py' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/3agaldran/model_factory.py'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/mvit_v2_s-ae3be167.pth' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/3agaldran/mvit_v2_s-ae3be167.pth'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/__pycache__' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/3agaldran/__pycache__'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/__pycache__/model_factory.cpython-310.pyc' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/3agaldran/__pycache__/model_factory.cpython-310.pyc'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/README.md' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/README.md'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/4abmil' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/4abmil'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/4abmil/__pycache__' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/4abmil/__pycache__'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/4abmil/__pycache__/model.cpython-310.pyc' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/4abmil/__pycache__/model.cpython-310.pyc'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/4abmil/model.py' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/4abmil/model.py'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/5pimed' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/5pimed'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/5pimed/__pycache__' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/5pimed/__pycache__'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/5pimed/__pycache__/model.cpython-310.pyc' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/5pimed/__pycache__/model.cpython-310.pyc'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/5pimed/model.py' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/5pimed/model.py'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/2bcnaim' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/2bcnaim'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/2bcnaim/__pycache__' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/2bcnaim/__pycache__'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/2bcnaim/__pycache__/swinunter.cpython-310.pyc' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/2bcnaim/__pycache__/swinunter.cpython-310.pyc'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/2bcnaim/swinunetr.py' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/2bcnaim/swinunetr.py'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/1DivideAndConquer' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/1DivideAndConquer'
+'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/1DivideAndConquer/model.py' -> '/tmp/tmp.msXVqYoSxG/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge/1DivideAndConquer/model.py'
+/home/swarm/Documents/MediSwarmChallenge/MediSwarm/docker_config/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth: OK
+/home/swarm/Documents/MediSwarmChallenge/MediSwarm/docker_config/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE: OK
+File contents verified successfully.
+jefftud/odelia_challenge:1.0.2-dev.260316.ce217d0
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile_ODELIA
+#1 transferring dockerfile:
+#1 transferring dockerfile: 6.29kB done
+#1 DONE 0.5s
+
+#2 [internal] load metadata for docker.io/pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime
+#2 ...
+
+#3 [auth] pytorch/pytorch:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime
+#2 DONE 0.9s
+
+#4 [internal] load .dockerignore
+#4 transferring context:
+#4 transferring context: 2B done
+#4 DONE 0.5s
+
+#5 [ 1/25] FROM docker.io/pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime@sha256:923f687790bec78081c357e71dcd5dcef80b0cc00f6c34484902a5e83362c854
+#5 CACHED
+
+#6 [internal] load build context
+#6 transferring context: 267.00MB 3.1s done
+#6 DONE 3.9s
+
+#7 [ 2/25] RUN apt update
+#7 1.417 
+#7 1.417 WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+#7 1.417 
+#7 6.780 Get:1 http://archive.ubuntu.com/ubuntu jammy InRelease [270 kB]
+#7 6.920 Get:2 http://archive.ubuntu.com/ubuntu jammy-updates InRelease [128 kB]
+#7 6.976 Get:3 http://archive.ubuntu.com/ubuntu jammy-backports InRelease [127 kB]
+#7 6.986 Get:4 http://security.ubuntu.com/ubuntu jammy-security InRelease [129 kB]
+#7 7.202 Get:5 http://archive.ubuntu.com/ubuntu jammy/multiverse amd64 Packages [266 kB]
+#7 7.257 Get:6 http://archive.ubuntu.com/ubuntu jammy/main amd64 Packages [1792 kB]
+#7 7.331 Get:7 http://archive.ubuntu.com/ubuntu jammy/restricted amd64 Packages [164 kB]
+#7 7.335 Get:8 http://archive.ubuntu.com/ubuntu jammy/universe amd64 Packages [17.5 MB]
+#7 7.904 Get:9 http://security.ubuntu.com/ubuntu jammy-security/restricted amd64 Packages [6786 kB]
+#7 7.996 Get:10 http://archive.ubuntu.com/ubuntu jammy-updates/restricted amd64 Packages [6994 kB]
+#7 8.127 Get:11 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 Packages [4162 kB]
+#7 8.237 Get:12 http://archive.ubuntu.com/ubuntu jammy-updates/universe amd64 Packages [1615 kB]
+#7 8.264 Get:13 http://archive.ubuntu.com/ubuntu jammy-updates/multiverse amd64 Packages [70.9 kB]
+#7 8.264 Get:14 http://archive.ubuntu.com/ubuntu jammy-backports/main amd64 Packages [84.0 kB]
+#7 8.265 Get:15 http://archive.ubuntu.com/ubuntu jammy-backports/universe amd64 Packages [35.6 kB]
+#7 8.613 Get:16 http://security.ubuntu.com/ubuntu jammy-security/main amd64 Packages [3827 kB]
+#7 8.694 Get:17 http://security.ubuntu.com/ubuntu jammy-security/universe amd64 Packages [1302 kB]
+#7 8.747 Get:18 http://security.ubuntu.com/ubuntu jammy-security/multiverse amd64 Packages [62.6 kB]
+#7 9.511 Fetched 45.3 MB in 8s (5782 kB/s)
+#7 9.511 Reading package lists...
+#7 10.39 Building dependency tree...
+#7 10.58 Reading state information...
+#7 10.61 47 packages can be upgraded. Run 'apt list --upgradable' to see them.
+#7 DONE 18.2s
+
+#8 [ 3/25] RUN apt install -y     apt     apt-utils     libapt-pkg6.0
+#8 1.481 
+#8 1.481 WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+#8 1.481 
+#8 1.650 Reading package lists...
+#8 2.568 Building dependency tree...
+#8 2.757 Reading state information...
+#8 2.923 Suggested packages:
+#8 2.923   apt-doc aptitude | synaptic | wajig dpkg-dev gnupg | gnupg2 | gnupg1
+#8 2.923   powermgmt-base
+#8 3.141 The following NEW packages will be installed:
+#8 3.143   apt-utils
+#8 3.144 The following packages will be upgraded:
+#8 3.146   apt libapt-pkg6.0
+#8 8.280 2 upgraded, 1 newly installed, 0 to remove and 45 not upgraded.
+#8 8.280 Need to get 2486 kB of archives.
+#8 8.280 After this operation, 811 kB of additional disk space will be used.
+#8 8.280 Get:1 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libapt-pkg6.0 amd64 2.4.14 [912 kB]
+#8 8.463 Get:2 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 apt amd64 2.4.14 [1363 kB]
+#8 8.512 Get:3 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 apt-utils amd64 2.4.14 [211 kB]
+#8 8.849 debconf: delaying package configuration, since apt-utils is not installed
+#8 8.990 Fetched 2486 kB in 5s (464 kB/s)
+#8 9.307 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6643 files and directories currently installed.)
+#8 9.321 Preparing to unpack .../libapt-pkg6.0_2.4.14_amd64.deb ...
+#8 9.532 Unpacking libapt-pkg6.0:amd64 (2.4.14) over (2.4.11) ...
+#8 10.17 Setting up libapt-pkg6.0:amd64 (2.4.14) ...
+#8 10.74 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6643 files and directories currently installed.)
+#8 10.75 Preparing to unpack .../archives/apt_2.4.14_amd64.deb ...
+#8 10.98 Unpacking apt (2.4.14) over (2.4.11) ...
+#8 13.05 Setting up apt (2.4.14) ...
+#8 13.97 Selecting previously unselected package apt-utils.
+#8 13.97 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6643 files and directories currently installed.)
+#8 13.99 Preparing to unpack .../apt-utils_2.4.14_amd64.deb ...
+#8 14.04 Unpacking apt-utils (2.4.14) ...
+#8 14.42 Setting up apt-utils (2.4.14) ...
+#8 14.58 Processing triggers for libc-bin (2.35-0ubuntu3.6) ...
+#8 DONE 16.7s
+
+#9 [ 4/25] RUN apt install -y     libexpat1     libmpdec3     libpython3-stdlib     libpython3.10-minimal     libpython3.10-stdlib     libreadline8     libsqlite3-0     media-types     python3-minimal     python3.10-minimal     python3.10     python3=3.10.6-1~22.04.1     readline-common=8.1.2-1
+#9 1.530 
+#9 1.530 WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+#9 1.530 
+#9 1.729 Reading package lists...
+#9 2.660 Building dependency tree...
+#9 2.852 Reading state information...
+#9 3.031 Suggested packages:
+#9 3.031   python3-doc python3-tk python3-venv python3.10-venv python3.10-doc binutils
+#9 3.031   binfmt-support readline-doc
+#9 3.304 The following NEW packages will be installed:
+#9 3.304   libexpat1 libmpdec3 libpython3-stdlib libpython3.10-minimal
+#9 3.305   libpython3.10-stdlib libreadline8 libsqlite3-0 media-types python3
+#9 3.306   python3-minimal python3.10 python3.10-minimal readline-common
+#9 8.445 0 upgraded, 13 newly installed, 0 to remove and 45 not upgraded.
+#9 8.445 Need to get 6558 kB of archives.
+#9 8.445 After this operation, 23.5 MB of additional disk space will be used.
+#9 8.445 Get:1 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpython3.10-minimal amd64 3.10.12-1~22.04.15 [816 kB]
+#9 8.640 Get:2 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libexpat1 amd64 2.4.7-1ubuntu0.7 [92.1 kB]
+#9 8.658 Get:3 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 python3.10-minimal amd64 3.10.12-1~22.04.15 [2275 kB]
+#9 8.831 Get:4 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 python3-minimal amd64 3.10.6-1~22.04.1 [24.3 kB]
+#9 8.832 Get:5 http://archive.ubuntu.com/ubuntu jammy/main amd64 media-types all 7.0.0 [25.5 kB]
+#9 8.835 Get:6 http://archive.ubuntu.com/ubuntu jammy/main amd64 libmpdec3 amd64 2.5.1-2build2 [86.8 kB]
+#9 8.843 Get:7 http://archive.ubuntu.com/ubuntu jammy/main amd64 readline-common all 8.1.2-1 [53.5 kB]
+#9 8.848 Get:8 http://archive.ubuntu.com/ubuntu jammy/main amd64 libreadline8 amd64 8.1.2-1 [153 kB]
+#9 8.860 Get:9 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libsqlite3-0 amd64 3.37.2-2ubuntu0.5 [643 kB]
+#9 8.898 Get:10 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpython3.10-stdlib amd64 3.10.12-1~22.04.15 [1850 kB]
+#9 8.948 Get:11 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 python3.10 amd64 3.10.12-1~22.04.15 [508 kB]
+#9 8.951 Get:12 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpython3-stdlib amd64 3.10.6-1~22.04.1 [6812 B]
+#9 8.952 Get:13 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 python3 amd64 3.10.6-1~22.04.1 [22.8 kB]
+#9 9.381 debconf: unable to initialize frontend: Dialog
+#9 9.381 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#9 9.381 debconf: falling back to frontend: Readline
+#9 9.381 debconf: unable to initialize frontend: Readline
+#9 9.381 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7, <> line 13.)
+#9 9.381 debconf: falling back to frontend: Teletype
+#9 9.392 dpkg-preconfigure: unable to re-open stdin: 
+#9 9.552 Fetched 6558 kB in 6s (1164 kB/s)
+#9 9.870 Selecting previously unselected package libpython3.10-minimal:amd64.
+#9 9.870 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6681 files and directories currently installed.)
+#9 9.884 Preparing to unpack .../libpython3.10-minimal_3.10.12-1~22.04.15_amd64.deb ...
+#9 9.936 Unpacking libpython3.10-minimal:amd64 (3.10.12-1~22.04.15) ...
+#9 10.52 Selecting previously unselected package libexpat1:amd64.
+#9 10.52 Preparing to unpack .../libexpat1_2.4.7-1ubuntu0.7_amd64.deb ...
+#9 10.63 Unpacking libexpat1:amd64 (2.4.7-1ubuntu0.7) ...
+#9 11.10 Selecting previously unselected package python3.10-minimal.
+#9 11.10 Preparing to unpack .../python3.10-minimal_3.10.12-1~22.04.15_amd64.deb ...
+#9 11.15 Unpacking python3.10-minimal (3.10.12-1~22.04.15) ...
+#9 11.53 Setting up libpython3.10-minimal:amd64 (3.10.12-1~22.04.15) ...
+#9 11.73 Setting up libexpat1:amd64 (2.4.7-1ubuntu0.7) ...
+#9 11.88 Setting up python3.10-minimal (3.10.12-1~22.04.15) ...
+#9 12.86 Selecting previously unselected package python3-minimal.
+#9 12.86 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6985 files and directories currently installed.)
+#9 12.87 Preparing to unpack .../0-python3-minimal_3.10.6-1~22.04.1_amd64.deb ...
+#9 12.93 Unpacking python3-minimal (3.10.6-1~22.04.1) ...
+#9 13.25 Selecting previously unselected package media-types.
+#9 13.25 Preparing to unpack .../1-media-types_7.0.0_all.deb ...
+#9 13.30 Unpacking media-types (7.0.0) ...
+#9 13.68 Selecting previously unselected package libmpdec3:amd64.
+#9 13.68 Preparing to unpack .../2-libmpdec3_2.5.1-2build2_amd64.deb ...
+#9 13.74 Unpacking libmpdec3:amd64 (2.5.1-2build2) ...
+#9 14.14 Selecting previously unselected package readline-common.
+#9 14.14 Preparing to unpack .../3-readline-common_8.1.2-1_all.deb ...
+#9 14.20 Unpacking readline-common (8.1.2-1) ...
+#9 14.92 Selecting previously unselected package libreadline8:amd64.
+#9 14.93 Preparing to unpack .../4-libreadline8_8.1.2-1_amd64.deb ...
+#9 14.97 Unpacking libreadline8:amd64 (8.1.2-1) ...
+#9 15.36 Selecting previously unselected package libsqlite3-0:amd64.
+#9 15.36 Preparing to unpack .../5-libsqlite3-0_3.37.2-2ubuntu0.5_amd64.deb ...
+#9 15.41 Unpacking libsqlite3-0:amd64 (3.37.2-2ubuntu0.5) ...
+#9 15.74 Selecting previously unselected package libpython3.10-stdlib:amd64.
+#9 15.74 Preparing to unpack .../6-libpython3.10-stdlib_3.10.12-1~22.04.15_amd64.deb ...
+#9 15.80 Unpacking libpython3.10-stdlib:amd64 (3.10.12-1~22.04.15) ...
+#9 16.18 Selecting previously unselected package python3.10.
+#9 16.19 Preparing to unpack .../7-python3.10_3.10.12-1~22.04.15_amd64.deb ...
+#9 16.23 Unpacking python3.10 (3.10.12-1~22.04.15) ...
+#9 16.51 Selecting previously unselected package libpython3-stdlib:amd64.
+#9 16.51 Preparing to unpack .../8-libpython3-stdlib_3.10.6-1~22.04.1_amd64.deb ...
+#9 16.56 Unpacking libpython3-stdlib:amd64 (3.10.6-1~22.04.1) ...
+#9 16.83 Setting up python3-minimal (3.10.6-1~22.04.1) ...
+#9 17.63 Selecting previously unselected package python3.
+#9 17.63 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7415 files and directories currently installed.)
+#9 17.65 Preparing to unpack .../python3_3.10.6-1~22.04.1_amd64.deb ...
+#9 17.72 Unpacking python3 (3.10.6-1~22.04.1) ...
+#9 18.01 Setting up media-types (7.0.0) ...
+#9 18.81 Setting up libsqlite3-0:amd64 (3.37.2-2ubuntu0.5) ...
+#9 18.99 Setting up libmpdec3:amd64 (2.5.1-2build2) ...
+#9 19.14 Setting up readline-common (8.1.2-1) ...
+#9 19.30 Setting up libreadline8:amd64 (8.1.2-1) ...
+#9 19.49 Setting up libpython3.10-stdlib:amd64 (3.10.12-1~22.04.15) ...
+#9 19.66 Setting up libpython3-stdlib:amd64 (3.10.6-1~22.04.1) ...
+#9 19.81 Setting up python3.10 (3.10.12-1~22.04.15) ...
+#9 20.49 Setting up python3 (3.10.6-1~22.04.1) ...
+#9 20.61 running python rtupdate hooks for python3.10...
+#9 20.61 running python post-rtupdate hooks for python3.10...
+#9 20.83 Processing triggers for libc-bin (2.35-0ubuntu3.6) ...
+#9 DONE 23.7s
+
+#10 [ 5/25] RUN python3 -m pip uninstall -y conda conda-package-handling conda_index
+#10 1.821 Found existing installation: conda 23.9.0
+#10 1.840 Uninstalling conda-23.9.0:
+#10 3.786   Successfully uninstalled conda-23.9.0
+#10 3.815 Found existing installation: conda-package-handling 2.2.0
+#10 3.818 Uninstalling conda-package-handling-2.2.0:
+#10 3.981   Successfully uninstalled conda-package-handling-2.2.0
+#10 3.986 Found existing installation: conda_index 0.4.0
+#10 3.995 Uninstalling conda_index-0.4.0:
+#10 4.142   Successfully uninstalled conda_index-0.4.0
+#10 4.146 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#10 DONE 5.7s
+
+#11 [ 6/25] RUN python3 -m pip install     -U     pip==25.2     setuptools==80.8.0
+#11 7.223 Collecting pip==25.2
+#11 12.37   Downloading pip-25.2-py3-none-any.whl.metadata (4.7 kB)
+#11 12.80 Collecting setuptools==80.8.0
+#11 12.82   Downloading setuptools-80.8.0-py3-none-any.whl.metadata (6.6 kB)
+#11 12.97 Downloading pip-25.2-py3-none-any.whl (1.8 MB)
+#11 14.62    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 1.1 MB/s eta 0:00:00
+#11 14.64 Downloading setuptools-80.8.0-py3-none-any.whl (1.2 MB)
+#11 16.24    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 755.9 kB/s eta 0:00:00
+#11 16.62 Installing collected packages: setuptools, pip
+#11 16.62   Attempting uninstall: setuptools
+#11 16.62     Found existing installation: setuptools 68.2.2
+#11 16.62     Uninstalling setuptools-68.2.2:
+#11 17.77       Successfully uninstalled setuptools-68.2.2
+#11 18.39   Attempting uninstall: pip
+#11 18.39     Found existing installation: pip 23.3.1
+#11 18.39     Uninstalling pip-23.3.1:
+#11 20.89       Successfully uninstalled pip-23.3.1
+#11 21.61 Successfully installed pip-25.2 setuptools-80.8.0
+#11 21.61 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#11 DONE 29.5s
+
+#12 [ 7/25] RUN python3 -m pip install     --upgrade     psutil==7.0.0
+#12 7.343 Collecting psutil==7.0.0
+#12 12.47   Downloading psutil-7.0.0-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (22 kB)
+#12 12.61 Downloading psutil-7.0.0-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (277 kB)
+#12 12.89 Installing collected packages: psutil
+#12 12.89   Attempting uninstall: psutil
+#12 12.89     Found existing installation: psutil 5.9.0
+#12 12.89     Uninstalling psutil-5.9.0:
+#12 13.10       Successfully uninstalled psutil-5.9.0
+#12 13.32 ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+#12 13.32 conda-build 24.3.0 requires conda>=23.5.0, which is not installed.
+#12 13.32 conda-build 24.3.0 requires conda-index>=0.4.0, which is not installed.
+#12 13.32 conda-build 24.3.0 requires conda-package-handling>=1.3, which is not installed.
+#12 13.32 Successfully installed psutil-7.0.0
+#12 13.32 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#12 13.32 
+#12 13.32 [notice] A new release of pip is available: 25.2 -> 26.0.1
+#12 13.32 [notice] To update, run: pip install --upgrade pip
+#12 DONE 14.6s
+
+#13 [ 8/25] RUN python3 -m pip install     Flask==3.0.2     Flask-JWT-Extended==4.6.0     Flask-SQLAlchemy==3.1.1     PyJWT==2.10.1     SQLAlchemy==2.0.16     Werkzeug==3.0.1     blinker==1.9.0     docker==7.1.0     greenlet==3.2.2     grpcio==1.62.1     gunicorn==23.0.0     itsdangerous==2.2.0     msgpack==1.1.0     protobuf==4.24.4     pyhocon==0.3.61     pyparsing==3.2.3     websockets==15.0.1
+#13 7.177 Collecting Flask==3.0.2
+#13 12.32   Downloading flask-3.0.2-py3-none-any.whl.metadata (3.6 kB)
+#13 12.58 Collecting Flask-JWT-Extended==4.6.0
+#13 12.60   Downloading Flask_JWT_Extended-4.6.0-py2.py3-none-any.whl.metadata (3.9 kB)
+#13 12.82 Collecting Flask-SQLAlchemy==3.1.1
+#13 12.84   Downloading flask_sqlalchemy-3.1.1-py3-none-any.whl.metadata (3.4 kB)
+#13 13.04 Collecting PyJWT==2.10.1
+#13 13.06   Downloading PyJWT-2.10.1-py3-none-any.whl.metadata (4.0 kB)
+#13 14.55 Collecting SQLAlchemy==2.0.16
+#13 14.57   Downloading SQLAlchemy-2.0.16-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (9.4 kB)
+#13 14.89 Collecting Werkzeug==3.0.1
+#13 14.90   Downloading werkzeug-3.0.1-py3-none-any.whl.metadata (4.1 kB)
+#13 15.10 Collecting blinker==1.9.0
+#13 15.12   Downloading blinker-1.9.0-py3-none-any.whl.metadata (1.6 kB)
+#13 15.39 Collecting docker==7.1.0
+#13 15.41   Downloading docker-7.1.0-py3-none-any.whl.metadata (3.8 kB)
+#13 16.21 Collecting greenlet==3.2.2
+#13 16.24   Downloading greenlet-3.2.2-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (4.1 kB)
+#13 17.92 Collecting grpcio==1.62.1
+#13 17.94   Downloading grpcio-1.62.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.0 kB)
+#13 18.14 Collecting gunicorn==23.0.0
+#13 18.15   Downloading gunicorn-23.0.0-py3-none-any.whl.metadata (4.4 kB)
+#13 18.34 Collecting itsdangerous==2.2.0
+#13 18.36   Downloading itsdangerous-2.2.0-py3-none-any.whl.metadata (1.9 kB)
+#13 18.66 Collecting msgpack==1.1.0
+#13 18.66   Downloading msgpack-1.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (8.4 kB)
+#13 19.13 Collecting protobuf==4.24.4
+#13 19.15   Downloading protobuf-4.24.4-cp37-abi3-manylinux2014_x86_64.whl.metadata (540 bytes)
+#13 19.34 Collecting pyhocon==0.3.61
+#13 19.36   Downloading pyhocon-0.3.61-py3-none-any.whl.metadata (1.2 kB)
+#13 19.58 Collecting pyparsing==3.2.3
+#13 19.59   Downloading pyparsing-3.2.3-py3-none-any.whl.metadata (5.0 kB)
+#13 19.93 Collecting websockets==15.0.1
+#13 19.94   Downloading websockets-15.0.1-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.8 kB)
+#13 20.05 Requirement already satisfied: Jinja2>=3.1.2 in /opt/conda/lib/python3.10/site-packages (from Flask==3.0.2) (3.1.3)
+#13 20.05 Requirement already satisfied: click>=8.1.3 in /opt/conda/lib/python3.10/site-packages (from Flask==3.0.2) (8.1.7)
+#13 20.09 Requirement already satisfied: typing-extensions>=4.2.0 in /opt/conda/lib/python3.10/site-packages (from SQLAlchemy==2.0.16) (4.10.0)
+#13 20.09 Requirement already satisfied: MarkupSafe>=2.1.1 in /opt/conda/lib/python3.10/site-packages (from Werkzeug==3.0.1) (2.1.3)
+#13 20.09 Requirement already satisfied: requests>=2.26.0 in /opt/conda/lib/python3.10/site-packages (from docker==7.1.0) (2.31.0)
+#13 20.09 Requirement already satisfied: urllib3>=1.26.0 in /opt/conda/lib/python3.10/site-packages (from docker==7.1.0) (2.1.0)
+#13 20.10 Requirement already satisfied: packaging in /opt/conda/lib/python3.10/site-packages (from gunicorn==23.0.0) (23.2)
+#13 20.11 Requirement already satisfied: charset-normalizer<4,>=2 in /opt/conda/lib/python3.10/site-packages (from requests>=2.26.0->docker==7.1.0) (2.0.4)
+#13 20.11 Requirement already satisfied: idna<4,>=2.5 in /opt/conda/lib/python3.10/site-packages (from requests>=2.26.0->docker==7.1.0) (3.4)
+#13 20.11 Requirement already satisfied: certifi>=2017.4.17 in /opt/conda/lib/python3.10/site-packages (from requests>=2.26.0->docker==7.1.0) (2024.2.2)
+#13 20.13 Downloading flask-3.0.2-py3-none-any.whl (101 kB)
+#13 20.24 Downloading Flask_JWT_Extended-4.6.0-py2.py3-none-any.whl (22 kB)
+#13 20.32 Downloading PyJWT-2.10.1-py3-none-any.whl (22 kB)
+#13 20.40 Downloading flask_sqlalchemy-3.1.1-py3-none-any.whl (25 kB)
+#13 20.50 Downloading SQLAlchemy-2.0.16-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.7 MB)
+#13 21.11    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.7/2.7 MB 4.4 MB/s  0:00:00
+#13 21.13 Downloading werkzeug-3.0.1-py3-none-any.whl (226 kB)
+#13 21.25 Downloading blinker-1.9.0-py3-none-any.whl (8.5 kB)
+#13 21.35 Downloading docker-7.1.0-py3-none-any.whl (147 kB)
+#13 21.45 Downloading greenlet-3.2.2-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (580 kB)
+#13 21.70    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 580.6/580.6 kB 1.4 MB/s  0:00:00
+#13 21.71 Downloading grpcio-1.62.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (5.5 MB)
+#13 22.29    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 9.6 MB/s  0:00:00
+#13 22.30 Downloading gunicorn-23.0.0-py3-none-any.whl (85 kB)
+#13 22.39 Downloading itsdangerous-2.2.0-py3-none-any.whl (16 kB)
+#13 22.49 Downloading msgpack-1.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (378 kB)
+#13 22.59 Downloading protobuf-4.24.4-cp37-abi3-manylinux2014_x86_64.whl (311 kB)
+#13 22.71 Downloading pyhocon-0.3.61-py3-none-any.whl (25 kB)
+#13 22.79 Downloading pyparsing-3.2.3-py3-none-any.whl (111 kB)
+#13 22.88 Downloading websockets-15.0.1-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (181 kB)
+#13 23.14 Installing collected packages: Werkzeug, websockets, pyparsing, PyJWT, protobuf, msgpack, itsdangerous, gunicorn, grpcio, greenlet, blinker, SQLAlchemy, pyhocon, Flask, docker, Flask-SQLAlchemy, Flask-JWT-Extended
+#13 26.32 
+#13 26.35 Successfully installed Flask-3.0.2 Flask-JWT-Extended-4.6.0 Flask-SQLAlchemy-3.1.1 PyJWT-2.10.1 SQLAlchemy-2.0.16 Werkzeug-3.0.1 blinker-1.9.0 docker-7.1.0 greenlet-3.2.2 grpcio-1.62.1 gunicorn-23.0.0 itsdangerous-2.2.0 msgpack-1.1.0 protobuf-4.24.4 pyhocon-0.3.61 pyparsing-3.2.3 websockets-15.0.1
+#13 26.35 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#13 26.36 
+#13 26.36 [notice] A new release of pip is available: 25.2 -> 26.0.1
+#13 26.36 [notice] To update, run: pip install --upgrade pip
+#13 DONE 29.5s
+
+#14 [ 9/25] RUN python3 -m pip install     Deprecated==1.2.18     SimpleITK==2.5.0     absl-py==2.2.2     aiohttp==3.11.18     aiosignal==1.3.2     async-timeout==5.0.1     cachetools==5.5.2     contourpy==1.3.2     cycler==0.12.1     et-xmlfile==2.0.0     fonttools==4.58.0     frozenlist==1.6.0     google-auth-oauthlib==1.2.2     google-auth==2.40.2     huggingface_hub==0.29.3     datasets==3.4.1     coral_pytorch==1.4.0     humanize==4.12.3     joblib==1.5.1     kiwisolver==1.4.8     lightning-utilities==0.14.3     markdown-it-py==3.0.0     markdown==3.8     matplotlib==3.9.2     mdurl==0.1.2     monai==1.4.0     multidict==6.4.4     nibabel==5.3.2     oauthlib==3.2.2     openpyxl==3.1.5     pandas==2.2.3     numpy==1.26.4     pyasn1-modules==0.4.2     pyasn1==0.6.1     pydicom==3.0.1     python-dateutil==2.9.0.post0     x-transformers==2.3.5     pytorch-lightning==2.4.0     requests==2.32.3     requests-oauthlib==2.0.0     rich==14.0.0     rsa==4.9.1     safetensors==0.5.3     scikit-learn==1.5.2     scipy==1.15.3     seaborn==0.13.2     wandb==0.18.6     einops==0.8.0     shellingham==1.5.4     tensorboard-data-server==0.7.2     tensorboard-plugin-wit==1.8.1     tensorboard==2.19.0     threadpoolctl==3.6.0     timm==1.0.15     torchio==0.20.1     torchmetrics==1.7.1     torchvision==0.17.2     torchaudio==2.2.2     tqdm==4.67.0     typer==0.15.4     tzdata==2025.2     wrapt==1.17.2     yarl==1.20.0     aiohappyeyeballs==2.6.1     annotated-types==0.7.0     dill==0.3.8     docker-pycreds==0.4.0     einx==0.3.0     frozendict==2.4.6     gitdb==4.0.12     gitpython==3.1.44     hf-xet==1.1.2     importlib-resources==6.5.2     loguru==0.7.3     multiprocess==0.70.16     propcache==0.3.1     pyarrow==20.0.0     pydantic==2.11.5     pydantic-core==2.33.2     sentry-sdk==2.29.1     setproctitle==1.3.6     smmap==5.0.2     typing-extensions==4.13.2     typing-inspection==0.4.1     xxhash==3.5.0
+#14 7.251 Collecting Deprecated==1.2.18
+#14 12.33   Downloading Deprecated-1.2.18-py2.py3-none-any.whl.metadata (5.7 kB)
+#14 12.60 Collecting SimpleITK==2.5.0
+#14 12.62   Downloading simpleitk-2.5.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (7.2 kB)
+#14 12.81 Collecting absl-py==2.2.2
+#14 12.83   Downloading absl_py-2.2.2-py3-none-any.whl.metadata (2.6 kB)
+#14 13.56 Collecting aiohttp==3.11.18
+#14 13.57   Downloading aiohttp-3.11.18-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (7.7 kB)
+#14 13.75 Collecting aiosignal==1.3.2
+#14 13.76   Downloading aiosignal-1.3.2-py2.py3-none-any.whl.metadata (3.8 kB)
+#14 13.95 Collecting async-timeout==5.0.1
+#14 13.96   Downloading async_timeout-5.0.1-py3-none-any.whl.metadata (5.1 kB)
+#14 14.15 Collecting cachetools==5.5.2
+#14 14.16   Downloading cachetools-5.5.2-py3-none-any.whl.metadata (5.4 kB)
+#14 14.43 Collecting contourpy==1.3.2
+#14 14.43   Downloading contourpy-1.3.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.5 kB)
+#14 14.66 Collecting cycler==0.12.1
+#14 14.67   Downloading cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+#14 14.88 Collecting et-xmlfile==2.0.0
+#14 14.89   Downloading et_xmlfile-2.0.0-py3-none-any.whl.metadata (2.7 kB)
+#14 15.21 Collecting fonttools==4.58.0
+#14 15.23   Downloading fonttools-4.58.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (104 kB)
+#14 15.62 Collecting frozenlist==1.6.0
+#14 15.63   Downloading frozenlist-1.6.0-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (16 kB)
+#14 15.82 Collecting google-auth-oauthlib==1.2.2
+#14 15.83   Downloading google_auth_oauthlib-1.2.2-py3-none-any.whl.metadata (2.7 kB)
+#14 16.06 Collecting google-auth==2.40.2
+#14 16.07   Downloading google_auth-2.40.2-py2.py3-none-any.whl.metadata (6.2 kB)
+#14 16.33 Collecting huggingface_hub==0.29.3
+#14 16.34   Downloading huggingface_hub-0.29.3-py3-none-any.whl.metadata (13 kB)
+#14 16.60 Collecting datasets==3.4.1
+#14 16.61   Downloading datasets-3.4.1-py3-none-any.whl.metadata (19 kB)
+#14 16.97 Collecting coral_pytorch==1.4.0
+#14 17.04   Downloading coral_pytorch-1.4.0-py2.py3-none-any.whl.metadata (1.4 kB)
+#14 17.23 Collecting humanize==4.12.3
+#14 17.24   Downloading humanize-4.12.3-py3-none-any.whl.metadata (7.8 kB)
+#14 17.42 Collecting joblib==1.5.1
+#14 17.43   Downloading joblib-1.5.1-py3-none-any.whl.metadata (5.6 kB)
+#14 17.79 Collecting kiwisolver==1.4.8
+#14 17.80   Downloading kiwisolver-1.4.8-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl.metadata (6.2 kB)
+#14 18.01 Collecting lightning-utilities==0.14.3
+#14 18.02   Downloading lightning_utilities-0.14.3-py3-none-any.whl.metadata (5.6 kB)
+#14 18.22 Collecting markdown-it-py==3.0.0
+#14 18.23   Downloading markdown_it_py-3.0.0-py3-none-any.whl.metadata (6.9 kB)
+#14 18.48 Collecting markdown==3.8
+#14 18.49   Downloading markdown-3.8-py3-none-any.whl.metadata (5.1 kB)
+#14 18.85 Collecting matplotlib==3.9.2
+#14 18.86   Downloading matplotlib-3.9.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (11 kB)
+#14 19.05 Collecting mdurl==0.1.2
+#14 19.06   Downloading mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+#14 19.23 Collecting monai==1.4.0
+#14 19.25   Downloading monai-1.4.0-py3-none-any.whl.metadata (11 kB)
+#14 19.69 Collecting multidict==6.4.4
+#14 19.71   Downloading multidict-6.4.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.3 kB)
+#14 19.89 Collecting nibabel==5.3.2
+#14 19.90   Downloading nibabel-5.3.2-py3-none-any.whl.metadata (9.1 kB)
+#14 20.14 Collecting oauthlib==3.2.2
+#14 20.16   Downloading oauthlib-3.2.2-py3-none-any.whl.metadata (7.5 kB)
+#14 20.37 Collecting openpyxl==3.1.5
+#14 20.38   Downloading openpyxl-3.1.5-py2.py3-none-any.whl.metadata (2.5 kB)
+#14 20.73 Collecting pandas==2.2.3
+#14 20.74   Downloading pandas-2.2.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (89 kB)
+#14 20.88 Requirement already satisfied: numpy==1.26.4 in /opt/conda/lib/python3.10/site-packages (1.26.4)
+#14 21.00 Collecting pyasn1-modules==0.4.2
+#14 21.01   Downloading pyasn1_modules-0.4.2-py3-none-any.whl.metadata (3.5 kB)
+#14 21.19 Collecting pyasn1==0.6.1
+#14 21.20   Downloading pyasn1-0.6.1-py3-none-any.whl.metadata (8.4 kB)
+#14 21.38 Collecting pydicom==3.0.1
+#14 21.39   Downloading pydicom-3.0.1-py3-none-any.whl.metadata (9.4 kB)
+#14 21.58 Collecting python-dateutil==2.9.0.post0
+#14 21.59   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+#14 21.86 Collecting x-transformers==2.3.5
+#14 21.86   Downloading x_transformers-2.3.5-py3-none-any.whl.metadata (88 kB)
+#14 22.13 Collecting pytorch-lightning==2.4.0
+#14 22.14   Downloading pytorch_lightning-2.4.0-py3-none-any.whl.metadata (21 kB)
+#14 22.38 Collecting requests==2.32.3
+#14 22.39   Downloading requests-2.32.3-py3-none-any.whl.metadata (4.6 kB)
+#14 22.60 Collecting requests-oauthlib==2.0.0
+#14 22.62   Downloading requests_oauthlib-2.0.0-py2.py3-none-any.whl.metadata (11 kB)
+#14 22.86 Collecting rich==14.0.0
+#14 22.87   Downloading rich-14.0.0-py3-none-any.whl.metadata (18 kB)
+#14 23.09 Collecting rsa==4.9.1
+#14 23.11   Downloading rsa-4.9.1-py3-none-any.whl.metadata (5.6 kB)
+#14 23.40 Collecting safetensors==0.5.3
+#14 23.41   Downloading safetensors-0.5.3-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (3.8 kB)
+#14 23.70 Collecting scikit-learn==1.5.2
+#14 23.71   Downloading scikit_learn-1.5.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (13 kB)
+#14 24.10 Collecting scipy==1.15.3
+#14 24.11   Downloading scipy-1.15.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (61 kB)
+#14 24.35 Collecting seaborn==0.13.2
+#14 24.37   Downloading seaborn-0.13.2-py3-none-any.whl.metadata (5.4 kB)
+#14 24.63 Collecting wandb==0.18.6
+#14 24.64   Downloading wandb-0.18.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (9.7 kB)
+#14 24.86 Collecting einops==0.8.0
+#14 24.87   Downloading einops-0.8.0-py3-none-any.whl.metadata (12 kB)
+#14 25.04 Collecting shellingham==1.5.4
+#14 25.05   Downloading shellingham-1.5.4-py2.py3-none-any.whl.metadata (3.5 kB)
+#14 25.23 Collecting tensorboard-data-server==0.7.2
+#14 25.24   Downloading tensorboard_data_server-0.7.2-py3-none-manylinux_2_31_x86_64.whl.metadata (1.1 kB)
+#14 25.48 Collecting tensorboard-plugin-wit==1.8.1
+#14 25.50   Downloading tensorboard_plugin_wit-1.8.1-py3-none-any.whl.metadata (873 bytes)
+#14 25.76 Collecting tensorboard==2.19.0
+#14 25.77   Downloading tensorboard-2.19.0-py3-none-any.whl.metadata (1.8 kB)
+#14 26.01 Collecting threadpoolctl==3.6.0
+#14 26.02   Downloading threadpoolctl-3.6.0-py3-none-any.whl.metadata (13 kB)
+#14 26.30 Collecting timm==1.0.15
+#14 26.31   Downloading timm-1.0.15-py3-none-any.whl.metadata (52 kB)
+#14 26.57 Collecting torchio==0.20.1
+#14 26.58   Downloading torchio-0.20.1-py3-none-any.whl.metadata (50 kB)
+#14 26.77 Collecting torchmetrics==1.7.1
+#14 26.78   Downloading torchmetrics-1.7.1-py3-none-any.whl.metadata (21 kB)
+#14 26.91 Requirement already satisfied: torchvision==0.17.2 in /opt/conda/lib/python3.10/site-packages (0.17.2)
+#14 26.91 Requirement already satisfied: torchaudio==2.2.2 in /opt/conda/lib/python3.10/site-packages (2.2.2)
+#14 27.05 Collecting tqdm==4.67.0
+#14 27.06   Downloading tqdm-4.67.0-py3-none-any.whl.metadata (57 kB)
+#14 27.24 Collecting typer==0.15.4
+#14 27.25   Downloading typer-0.15.4-py3-none-any.whl.metadata (15 kB)
+#14 27.44 Collecting tzdata==2025.2
+#14 27.45   Downloading tzdata-2025.2-py2.py3-none-any.whl.metadata (1.4 kB)
+#14 27.78 Collecting wrapt==1.17.2
+#14 27.79   Downloading wrapt-1.17.2-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.4 kB)
+#14 28.31 Collecting yarl==1.20.0
+#14 28.32   Downloading yarl-1.20.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (72 kB)
+#14 28.51 Collecting aiohappyeyeballs==2.6.1
+#14 28.52   Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl.metadata (5.9 kB)
+#14 28.68 Collecting annotated-types==0.7.0
+#14 28.69   Downloading annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+#14 28.88 Collecting dill==0.3.8
+#14 28.89   Downloading dill-0.3.8-py3-none-any.whl.metadata (10 kB)
+#14 29.08 Collecting docker-pycreds==0.4.0
+#14 29.09   Downloading docker_pycreds-0.4.0-py2.py3-none-any.whl.metadata (1.8 kB)
+#14 29.27 Collecting einx==0.3.0
+#14 29.28   Downloading einx-0.3.0-py3-none-any.whl.metadata (6.9 kB)
+#14 29.52 Collecting frozendict==2.4.6
+#14 29.53   Downloading frozendict-2.4.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (23 kB)
+#14 29.74 Collecting gitdb==4.0.12
+#14 29.75   Downloading gitdb-4.0.12-py3-none-any.whl.metadata (1.2 kB)
+#14 29.97 Collecting gitpython==3.1.44
+#14 29.98   Downloading GitPython-3.1.44-py3-none-any.whl.metadata (13 kB)
+#14 30.23 Collecting hf-xet==1.1.2
+#14 30.24   Downloading hf_xet-1.1.2-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (879 bytes)
+#14 30.50 Collecting importlib-resources==6.5.2
+#14 30.51   Downloading importlib_resources-6.5.2-py3-none-any.whl.metadata (3.9 kB)
+#14 30.70 Collecting loguru==0.7.3
+#14 30.71   Downloading loguru-0.7.3-py3-none-any.whl.metadata (22 kB)
+#14 30.92 Collecting multiprocess==0.70.16
+#14 30.93   Downloading multiprocess-0.70.16-py310-none-any.whl.metadata (7.2 kB)
+#14 31.14 Collecting propcache==0.3.1
+#14 31.15   Downloading propcache-0.3.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (10 kB)
+#14 31.40 Collecting pyarrow==20.0.0
+#14 31.41   Downloading pyarrow-20.0.0-cp310-cp310-manylinux_2_28_x86_64.whl.metadata (3.3 kB)
+#14 31.70 Collecting pydantic==2.11.5
+#14 31.71   Downloading pydantic-2.11.5-py3-none-any.whl.metadata (67 kB)
+#14 32.80 Collecting pydantic-core==2.33.2
+#14 32.81   Downloading pydantic_core-2.33.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.8 kB)
+#14 33.03 Collecting sentry-sdk==2.29.1
+#14 33.04   Downloading sentry_sdk-2.29.1-py2.py3-none-any.whl.metadata (10 kB)
+#14 33.30 Collecting setproctitle==1.3.6
+#14 33.31   Downloading setproctitle-1.3.6-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (10 kB)
+#14 33.53 Collecting smmap==5.0.2
+#14 33.54   Downloading smmap-5.0.2-py3-none-any.whl.metadata (4.3 kB)
+#14 33.70 Collecting typing-extensions==4.13.2
+#14 33.71   Downloading typing_extensions-4.13.2-py3-none-any.whl.metadata (3.0 kB)
+#14 33.86 Collecting typing-inspection==0.4.1
+#14 33.87   Downloading typing_inspection-0.4.1-py3-none-any.whl.metadata (2.6 kB)
+#14 34.28 Collecting xxhash==3.5.0
+#14 34.29   Downloading xxhash-3.5.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (12 kB)
+#14 34.39 Requirement already satisfied: attrs>=17.3.0 in /opt/conda/lib/python3.10/site-packages (from aiohttp==3.11.18) (23.1.0)
+#14 34.41 Requirement already satisfied: idna>=2.0 in /opt/conda/lib/python3.10/site-packages (from yarl==1.20.0) (3.4)
+#14 34.45 Requirement already satisfied: filelock in /opt/conda/lib/python3.10/site-packages (from huggingface_hub==0.29.3) (3.13.1)
+#14 34.45 Requirement already satisfied: fsspec>=2023.5.0 in /opt/conda/lib/python3.10/site-packages (from huggingface_hub==0.29.3) (2024.3.1)
+#14 34.45 Requirement already satisfied: packaging>=20.9 in /opt/conda/lib/python3.10/site-packages (from huggingface_hub==0.29.3) (23.2)
+#14 34.45 Requirement already satisfied: pyyaml>=5.1 in /opt/conda/lib/python3.10/site-packages (from huggingface_hub==0.29.3) (6.0.1)
+#14 34.50 Requirement already satisfied: setuptools in /opt/conda/lib/python3.10/site-packages (from coral_pytorch==1.4.0) (80.8.0)
+#14 34.53 Requirement already satisfied: pillow>=8 in /opt/conda/lib/python3.10/site-packages (from matplotlib==3.9.2) (10.2.0)
+#14 34.53 Requirement already satisfied: pyparsing>=2.3.1 in /opt/conda/lib/python3.10/site-packages (from matplotlib==3.9.2) (3.2.3)
+#14 34.53 Requirement already satisfied: torch>=1.9 in /opt/conda/lib/python3.10/site-packages (from monai==1.4.0) (2.2.2)
+#14 34.55 Requirement already satisfied: pytz>=2020.1 in /opt/conda/lib/python3.10/site-packages (from pandas==2.2.3) (2023.3.post1)
+#14 34.56 Requirement already satisfied: six>=1.5 in /opt/conda/lib/python3.10/site-packages (from python-dateutil==2.9.0.post0) (1.16.0)
+#14 34.58 Requirement already satisfied: charset-normalizer<4,>=2 in /opt/conda/lib/python3.10/site-packages (from requests==2.32.3) (2.0.4)
+#14 34.58 Requirement already satisfied: urllib3<3,>=1.21.1 in /opt/conda/lib/python3.10/site-packages (from requests==2.32.3) (2.1.0)
+#14 34.58 Requirement already satisfied: certifi>=2017.4.17 in /opt/conda/lib/python3.10/site-packages (from requests==2.32.3) (2024.2.2)
+#14 34.59 Requirement already satisfied: pygments<3.0.0,>=2.13.0 in /opt/conda/lib/python3.10/site-packages (from rich==14.0.0) (2.15.1)
+#14 34.62 Requirement already satisfied: click!=8.0.0,>=7.1 in /opt/conda/lib/python3.10/site-packages (from wandb==0.18.6) (8.1.7)
+#14 34.63 Requirement already satisfied: platformdirs in /opt/conda/lib/python3.10/site-packages (from wandb==0.18.6) (3.10.0)
+#14 34.63 Requirement already satisfied: protobuf!=4.21.0,!=5.28.0,<6,>=3.19.0 in /opt/conda/lib/python3.10/site-packages (from wandb==0.18.6) (4.24.4)
+#14 34.63 Requirement already satisfied: psutil>=5.0.0 in /opt/conda/lib/python3.10/site-packages (from wandb==0.18.6) (7.0.0)
+#14 34.66 Requirement already satisfied: grpcio>=1.48.2 in /opt/conda/lib/python3.10/site-packages (from tensorboard==2.19.0) (1.62.1)
+#14 34.67 Requirement already satisfied: werkzeug>=1.0.1 in /opt/conda/lib/python3.10/site-packages (from tensorboard==2.19.0) (3.0.1)
+#14 34.70 Requirement already satisfied: sympy in /opt/conda/lib/python3.10/site-packages (from einx==0.3.0) (1.12)
+#14 34.81 Requirement already satisfied: networkx in /opt/conda/lib/python3.10/site-packages (from torch>=1.9->monai==1.4.0) (3.1)
+#14 34.81 Requirement already satisfied: jinja2 in /opt/conda/lib/python3.10/site-packages (from torch>=1.9->monai==1.4.0) (3.1.3)
+#14 34.81 Requirement already satisfied: MarkupSafe>=2.1.1 in /opt/conda/lib/python3.10/site-packages (from werkzeug>=1.0.1->tensorboard==2.19.0) (2.1.3)
+#14 34.83 Requirement already satisfied: mpmath>=0.19 in /opt/conda/lib/python3.10/site-packages (from sympy->einx==0.3.0) (1.3.0)
+#14 34.84 Downloading Deprecated-1.2.18-py2.py3-none-any.whl (10.0 kB)
+#14 34.97 Downloading wrapt-1.17.2-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (82 kB)
+#14 35.06 Downloading simpleitk-2.5.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (52.6 MB)
+#14 36.79    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 52.6/52.6 MB 30.4 MB/s  0:00:01
+#14 36.80 Downloading absl_py-2.2.2-py3-none-any.whl (135 kB)
+#14 36.89 Downloading aiohttp-3.11.18-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.6 MB)
+#14 37.09    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.6/1.6 MB 6.9 MB/s  0:00:00
+#14 37.12 Downloading async_timeout-5.0.1-py3-none-any.whl (6.2 kB)
+#14 37.21 Downloading multidict-6.4.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (219 kB)
+#14 37.30 Downloading yarl-1.20.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (333 kB)
+#14 37.39 Downloading aiosignal-1.3.2-py2.py3-none-any.whl (7.6 kB)
+#14 37.47 Downloading cachetools-5.5.2-py3-none-any.whl (10 kB)
+#14 37.55 Downloading contourpy-1.3.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (325 kB)
+#14 37.65 Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
+#14 37.73 Downloading et_xmlfile-2.0.0-py3-none-any.whl (18 kB)
+#14 37.84 Downloading fonttools-4.58.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (4.7 MB)
+#14 38.20    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 12.8 MB/s  0:00:00
+#14 38.21 Downloading frozenlist-1.6.0-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (287 kB)
+#14 38.34 Downloading google_auth_oauthlib-1.2.2-py3-none-any.whl (19 kB)
+#14 38.43 Downloading google_auth-2.40.2-py2.py3-none-any.whl (216 kB)
+#14 38.55 Downloading rsa-4.9.1-py3-none-any.whl (34 kB)
+#14 38.65 Downloading huggingface_hub-0.29.3-py3-none-any.whl (468 kB)
+#14 38.75 Downloading datasets-3.4.1-py3-none-any.whl (487 kB)
+#14 38.86 Downloading dill-0.3.8-py3-none-any.whl (116 kB)
+#14 38.94 Downloading multiprocess-0.70.16-py310-none-any.whl (134 kB)
+#14 39.02 Downloading coral_pytorch-1.4.0-py2.py3-none-any.whl (7.3 kB)
+#14 39.12 Downloading humanize-4.12.3-py3-none-any.whl (128 kB)
+#14 39.21 Downloading joblib-1.5.1-py3-none-any.whl (307 kB)
+#14 39.30 Downloading kiwisolver-1.4.8-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl (1.6 MB)
+#14 39.45    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.6/1.6 MB 9.9 MB/s  0:00:00
+#14 39.46 Downloading lightning_utilities-0.14.3-py3-none-any.whl (28 kB)
+#14 39.56 Downloading markdown_it_py-3.0.0-py3-none-any.whl (87 kB)
+#14 39.64 Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+#14 39.72 Downloading markdown-3.8-py3-none-any.whl (106 kB)
+#14 39.81 Downloading matplotlib-3.9.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (8.3 MB)
+#14 40.22    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.3/8.3 MB 20.4 MB/s  0:00:00
+#14 40.23 Downloading monai-1.4.0-py3-none-any.whl (1.5 MB)
+#14 40.37    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.5/1.5 MB 10.5 MB/s  0:00:00
+#14 40.38 Downloading nibabel-5.3.2-py3-none-any.whl (3.3 MB)
+#14 40.62    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.3/3.3 MB 13.3 MB/s  0:00:00
+#14 40.63 Downloading oauthlib-3.2.2-py3-none-any.whl (151 kB)
+#14 40.73 Downloading openpyxl-3.1.5-py2.py3-none-any.whl (250 kB)
+#14 40.84 Downloading pandas-2.2.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (13.1 MB)
+#14 41.38    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.1/13.1 MB 24.1 MB/s  0:00:00
+#14 41.43 Downloading pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)
+#14 41.52 Downloading pyasn1-0.6.1-py3-none-any.whl (83 kB)
+#14 41.62 Downloading pydicom-3.0.1-py3-none-any.whl (2.4 MB)
+#14 41.83    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.4/2.4 MB 10.5 MB/s  0:00:00
+#14 41.84 Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+#14 41.93 Downloading x_transformers-2.3.5-py3-none-any.whl (83 kB)
+#14 42.02 Downloading pytorch_lightning-2.4.0-py3-none-any.whl (815 kB)
+#14 42.13    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 815.2/815.2 kB 5.1 MB/s  0:00:00
+#14 42.14 Downloading requests-2.32.3-py3-none-any.whl (64 kB)
+#14 42.23 Downloading requests_oauthlib-2.0.0-py2.py3-none-any.whl (24 kB)
+#14 42.34 Downloading rich-14.0.0-py3-none-any.whl (243 kB)
+#14 42.42 Downloading typing_extensions-4.13.2-py3-none-any.whl (45 kB)
+#14 42.53 Downloading safetensors-0.5.3-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (471 kB)
+#14 42.65 Downloading scikit_learn-1.5.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (13.3 MB)
+#14 43.50    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.3/13.3 MB 15.5 MB/s  0:00:00
+#14 43.52 Downloading scipy-1.15.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (37.7 MB)
+#14 45.42    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 37.7/37.7 MB 19.8 MB/s  0:00:01
+#14 45.43 Downloading seaborn-0.13.2-py3-none-any.whl (294 kB)
+#14 45.57 Downloading wandb-0.18.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.1 MB)
+#14 46.40    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.1/16.1 MB 19.5 MB/s  0:00:00
+#14 46.41 Downloading einops-0.8.0-py3-none-any.whl (43 kB)
+#14 46.49 Downloading shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)
+#14 46.57 Downloading tensorboard_data_server-0.7.2-py3-none-manylinux_2_31_x86_64.whl (6.6 MB)
+#14 46.93    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.6/6.6 MB 18.1 MB/s  0:00:00
+#14 46.95 Downloading tensorboard_plugin_wit-1.8.1-py3-none-any.whl (781 kB)
+#14 47.06    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 781.3/781.3 kB 5.3 MB/s  0:00:00
+#14 47.07 Downloading tensorboard-2.19.0-py3-none-any.whl (5.5 MB)
+#14 47.42    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 15.5 MB/s  0:00:00
+#14 47.44 Downloading threadpoolctl-3.6.0-py3-none-any.whl (18 kB)
+#14 47.53 Downloading timm-1.0.15-py3-none-any.whl (2.4 MB)
+#14 47.73    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.4/2.4 MB 11.1 MB/s  0:00:00
+#14 47.75 Downloading torchio-0.20.1-py3-none-any.whl (175 kB)
+#14 47.84 Downloading torchmetrics-1.7.1-py3-none-any.whl (961 kB)
+#14 47.97    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 961.5/961.5 kB 6.2 MB/s  0:00:00
+#14 47.98 Downloading tqdm-4.67.0-py3-none-any.whl (78 kB)
+#14 48.07 Downloading typer-0.15.4-py3-none-any.whl (45 kB)
+#14 48.16 Downloading tzdata-2025.2-py2.py3-none-any.whl (347 kB)
+#14 48.25 Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl (15 kB)
+#14 48.35 Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+#14 48.43 Downloading docker_pycreds-0.4.0-py2.py3-none-any.whl (9.0 kB)
+#14 48.51 Downloading einx-0.3.0-py3-none-any.whl (102 kB)
+#14 48.60 Downloading frozendict-2.4.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (117 kB)
+#14 48.68 Downloading gitdb-4.0.12-py3-none-any.whl (62 kB)
+#14 48.83 Downloading smmap-5.0.2-py3-none-any.whl (24 kB)
+#14 48.92 Downloading GitPython-3.1.44-py3-none-any.whl (207 kB)
+#14 49.02 Downloading hf_xet-1.1.2-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (5.2 MB)
+#14 49.34    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 16.3 MB/s  0:00:00
+#14 49.35 Downloading importlib_resources-6.5.2-py3-none-any.whl (37 kB)
+#14 49.44 Downloading loguru-0.7.3-py3-none-any.whl (61 kB)
+#14 49.54 Downloading propcache-0.3.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (206 kB)
+#14 49.62 Downloading pyarrow-20.0.0-cp310-cp310-manylinux_2_28_x86_64.whl (42.3 MB)
+#14 51.37    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 42.3/42.3 MB 24.1 MB/s  0:00:01
+#14 51.40 Downloading pydantic-2.11.5-py3-none-any.whl (444 kB)
+#14 51.51 Downloading pydantic_core-2.33.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.0 MB)
+#14 51.63    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 15.1 MB/s  0:00:00
+#14 51.66 Downloading sentry_sdk-2.29.1-py2.py3-none-any.whl (341 kB)
+#14 51.75 Downloading setproctitle-1.3.6-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (30 kB)
+#14 51.85 Downloading typing_inspection-0.4.1-py3-none-any.whl (14 kB)
+#14 51.94 Downloading xxhash-3.5.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (194 kB)
+#14 53.00 Installing collected packages: tensorboard-plugin-wit, SimpleITK, xxhash, wrapt, tzdata, typing-extensions, tqdm, threadpoolctl, tensorboard-data-server, smmap, shellingham, setproctitle, sentry-sdk, scipy, safetensors, requests, python-dateutil, pydicom, pyasn1, pyarrow, propcache, oauthlib, mdurl, markdown, loguru, kiwisolver, joblib, importlib-resources, humanize, hf-xet, frozenlist, frozendict, fonttools, et-xmlfile, einops, docker-pycreds, dill, cycler, coral_pytorch, contourpy, cachetools, async-timeout, annotated-types, aiohappyeyeballs, absl-py, typing-inspection, tensorboard, scikit-learn, rsa, requests-oauthlib, pydantic-core, pyasn1-modules, pandas, openpyxl, nibabel, multiprocess, multidict, matplotlib, markdown-it-py, lightning-utilities, huggingface_hub, gitdb, einx, Deprecated, aiosignal, yarl, x-transformers, torchmetrics, seaborn, rich, pydantic, monai, google-auth, gitpython, wandb, typer, timm, google-auth-oauthlib, aiohttp, torchio, pytorch-lightning, datasets
+#14 54.48   Attempting uninstall: typing-extensions
+#14 54.48     Found existing installation: typing_extensions 4.10.0
+#14 54.49     Uninstalling typing_extensions-4.10.0:
+#14 54.74       Successfully uninstalled typing_extensions-4.10.0
+#14 54.87   Attempting uninstall: tqdm
+#14 54.87     Found existing installation: tqdm 4.65.0
+#14 54.88     Uninstalling tqdm-4.65.0:
+#14 55.05       Successfully uninstalled tqdm-4.65.0
+#14 58.85   Attempting uninstall: requests
+#14 58.85     Found existing installation: requests 2.31.0
+#14 58.86     Uninstalling requests-2.31.0:
+#14 58.93       Successfully uninstalled requests-2.31.0
+#14 78.87 
+#14 78.91 ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+#14 78.91 conda-build 24.3.0 requires conda>=23.5.0, which is not installed.
+#14 78.91 conda-build 24.3.0 requires conda-index>=0.4.0, which is not installed.
+#14 78.91 conda-build 24.3.0 requires conda-package-handling>=1.3, which is not installed.
+#14 78.91 Successfully installed Deprecated-1.2.18 SimpleITK-2.5.0 absl-py-2.2.2 aiohappyeyeballs-2.6.1 aiohttp-3.11.18 aiosignal-1.3.2 annotated-types-0.7.0 async-timeout-5.0.1 cachetools-5.5.2 contourpy-1.3.2 coral_pytorch-1.4.0 cycler-0.12.1 datasets-3.4.1 dill-0.3.8 docker-pycreds-0.4.0 einops-0.8.0 einx-0.3.0 et-xmlfile-2.0.0 fonttools-4.58.0 frozendict-2.4.6 frozenlist-1.6.0 gitdb-4.0.12 gitpython-3.1.44 google-auth-2.40.2 google-auth-oauthlib-1.2.2 hf-xet-1.1.2 huggingface_hub-0.29.3 humanize-4.12.3 importlib-resources-6.5.2 joblib-1.5.1 kiwisolver-1.4.8 lightning-utilities-0.14.3 loguru-0.7.3 markdown-3.8 markdown-it-py-3.0.0 matplotlib-3.9.2 mdurl-0.1.2 monai-1.4.0 multidict-6.4.4 multiprocess-0.70.16 nibabel-5.3.2 oauthlib-3.2.2 openpyxl-3.1.5 pandas-2.2.3 propcache-0.3.1 pyarrow-20.0.0 pyasn1-0.6.1 pyasn1-modules-0.4.2 pydantic-2.11.5 pydantic-core-2.33.2 pydicom-3.0.1 python-dateutil-2.9.0.post0 pytorch-lightning-2.4.0 requests-2.32.3 requests-oauthlib-2.0.0 rich-14.0.0 rsa-4.9.1 safetensors-0.5.3 scikit-learn-1.5.2 scipy-1.15.3 seaborn-0.13.2 sentry-sdk-2.29.1 setproctitle-1.3.6 shellingham-1.5.4 smmap-5.0.2 tensorboard-2.19.0 tensorboard-data-server-0.7.2 tensorboard-plugin-wit-1.8.1 threadpoolctl-3.6.0 timm-1.0.15 torchio-0.20.1 torchmetrics-1.7.1 tqdm-4.67.0 typer-0.15.4 typing-extensions-4.13.2 typing-inspection-0.4.1 tzdata-2025.2 wandb-0.18.6 wrapt-1.17.2 x-transformers-2.3.5 xxhash-3.5.0 yarl-1.20.0
+#14 78.91 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#14 78.92 
+#14 78.92 [notice] A new release of pip is available: 25.2 -> 26.0.1
+#14 78.92 [notice] To update, run: pip install --upgrade pip
+#14 DONE 92.4s
+
+#15 [10/25] RUN python3 -m pip install     pip-licenses==5.0.0     prettytable==3.16.0
+#15 7.058 Collecting pip-licenses==5.0.0
+#15 12.14   Downloading pip_licenses-5.0.0-py3-none-any.whl.metadata (32 kB)
+#15 12.46 Collecting prettytable==3.16.0
+#15 12.48   Downloading prettytable-3.16.0-py3-none-any.whl.metadata (33 kB)
+#15 12.59 Requirement already satisfied: tomli>=2 in /opt/conda/lib/python3.10/site-packages (from pip-licenses==5.0.0) (2.0.1)
+#15 12.59 Requirement already satisfied: wcwidth in /opt/conda/lib/python3.10/site-packages (from prettytable==3.16.0) (0.2.5)
+#15 12.60 Downloading pip_licenses-5.0.0-py3-none-any.whl (20 kB)
+#15 12.76 Downloading prettytable-3.16.0-py3-none-any.whl (33 kB)
+#15 13.27 Installing collected packages: prettytable, pip-licenses
+#15 13.59 
+#15 13.64 Successfully installed pip-licenses-5.0.0 prettytable-3.16.0
+#15 13.64 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#15 13.64 
+#15 13.64 [notice] A new release of pip is available: 25.2 -> 26.0.1
+#15 13.64 [notice] To update, run: pip install --upgrade pip
+#15 DONE 15.6s
+
+#16 [11/25] RUN python3 -m pip install     defusedxml==0.7.1     distro2sbom==0.6.0     lib4sbom==0.8.4     semantic-version==2.10.0
+#16 7.085 Collecting defusedxml==0.7.1
+#16 12.19   Downloading defusedxml-0.7.1-py2.py3-none-any.whl.metadata (32 kB)
+#16 12.47 Collecting distro2sbom==0.6.0
+#16 12.49   Downloading distro2sbom-0.6.0-py2.py3-none-any.whl.metadata (14 kB)
+#16 12.74 Collecting lib4sbom==0.8.4
+#16 12.75   Downloading lib4sbom-0.8.4-py2.py3-none-any.whl.metadata (43 kB)
+#16 12.97 Collecting semantic-version==2.10.0
+#16 12.98   Downloading semantic_version-2.10.0-py2.py3-none-any.whl.metadata (9.7 kB)
+#16 13.10 Requirement already satisfied: pyyaml>=5.4 in /opt/conda/lib/python3.10/site-packages (from lib4sbom==0.8.4) (6.0.1)
+#16 13.11 Downloading defusedxml-0.7.1-py2.py3-none-any.whl (25 kB)
+#16 13.25 Downloading distro2sbom-0.6.0-py2.py3-none-any.whl (27 kB)
+#16 13.35 Downloading lib4sbom-0.8.4-py2.py3-none-any.whl (2.3 MB)
+#16 13.50    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.3/2.3 MB 14.4 MB/s  0:00:00
+#16 13.51 Downloading semantic_version-2.10.0-py2.py3-none-any.whl (15 kB)
+#16 14.05 Installing collected packages: semantic-version, defusedxml, lib4sbom, distro2sbom
+#16 14.73 
+#16 14.77 Successfully installed defusedxml-0.7.1 distro2sbom-0.6.0 lib4sbom-0.8.4 semantic-version-2.10.0
+#16 14.77 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#16 14.77 
+#16 14.77 [notice] A new release of pip is available: 25.2 -> 26.0.1
+#16 14.77 [notice] To update, run: pip install --upgrade pip
+#16 DONE 16.6s
+
+#17 [12/25] RUN python3 -m pip cache purge
+#17 22.82 Files removed: 648 (260.2 MB)
+#17 DONE 24.6s
+
+#18 [13/25] RUN apt install -y     base-files     bash     bsdutils     ca-certificates     coreutils     dpkg     e2fsprogs     gpgv     libblkid1     libc-bin     libc-dev-bin     libc6-dev     libc6     libcap2     libcom-err2     libext2fs2     libgnutls30     libgssapi-krb5-2     libk5crypto3     libkrb5-3     libkrb5support0     libmount1     libpam-modules-bin     libpam-modules     libpam-runtime     libpam0g     libseccomp2     libsmartcols1     libss2     libssl3     libsystemd0     libtasn1-6     libudev1     libuuid1     linux-libc-dev     logsave     mount     openssl     util-linux
+#18 1.415 
+#18 1.415 WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+#18 1.415 
+#18 1.592 Reading package lists...
+#18 2.504 Building dependency tree...
+#18 2.688 Reading state information...
+#18 2.885 Suggested packages:
+#18 2.885   bash-doc debsig-verify gpart parted fuse2fs e2fsck-static gnupg manpages
+#18 2.885   glibc-doc locales manpages-dev gnutls-bin krb5-doc krb5-user cryptsetup-bin
+#18 2.885   libpam-doc nfs-common dosfstools kbd util-linux-locales
+#18 2.885 Recommended packages:
+#18 2.885   bash-completion bsdextrautils e2fsprogs-l10n manpages manpages-dev
+#18 2.885   libc-devtools libnss-nis libnss-nisplus krb5-locales uuid-runtime
+#18 3.201 The following packages will be upgraded:
+#18 3.201   base-files bash bsdutils ca-certificates coreutils dpkg e2fsprogs gpgv
+#18 3.201   libblkid1 libc-bin libc-dev-bin libc6 libc6-dev libcap2 libcom-err2
+#18 3.201   libext2fs2 libgnutls30 libgssapi-krb5-2 libk5crypto3 libkrb5-3
+#18 3.201   libkrb5support0 libmount1 libpam-modules libpam-modules-bin libpam-runtime
+#18 3.202   libpam0g libseccomp2 libsmartcols1 libss2 libssl3 libsystemd0 libtasn1-6
+#18 3.202   libudev1 libuuid1 linux-libc-dev logsave mount openssl util-linux
+#18 8.545 39 upgraded, 0 newly installed, 0 to remove and 6 not upgraded.
+#18 8.545 Need to get 19.2 MB of archives.
+#18 8.545 After this operation, 323 kB of additional disk space will be used.
+#18 8.545 Get:1 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libc6-dev amd64 2.35-0ubuntu3.13 [2101 kB]
+#18 9.282 Get:2 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libc-dev-bin amd64 2.35-0ubuntu3.13 [20.3 kB]
+#18 9.284 Get:3 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 linux-libc-dev amd64 5.15.0-173.183 [1327 kB]
+#18 9.316 Get:4 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libc6 amd64 2.35-0ubuntu3.13 [3235 kB]
+#18 9.645 Get:5 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 base-files amd64 12ubuntu4.7 [61.9 kB]
+#18 9.648 Get:6 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 bash amd64 5.1-6ubuntu1.1 [769 kB]
+#18 9.672 Get:7 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 bsdutils amd64 1:2.37.2-4ubuntu3.5 [80.7 kB]
+#18 9.674 Get:8 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 coreutils amd64 8.32-4.1ubuntu1.2 [1437 kB]
+#18 9.766 Get:9 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 dpkg amd64 1.21.1ubuntu2.6 [1239 kB]
+#18 9.796 Get:10 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 util-linux amd64 2.37.2-4ubuntu3.5 [1067 kB]
+#18 9.850 Get:11 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libc-bin amd64 2.35-0ubuntu3.13 [706 kB]
+#18 9.899 Get:12 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpam0g amd64 1.4.0-11ubuntu2.6 [59.9 kB]
+#18 9.901 Get:13 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpam-modules-bin amd64 1.4.0-11ubuntu2.6 [37.4 kB]
+#18 9.904 Get:14 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpam-modules amd64 1.4.0-11ubuntu2.6 [282 kB]
+#18 9.942 Get:15 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libsystemd0 amd64 249.11-0ubuntu3.17 [317 kB]
+#18 9.981 Get:16 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 logsave amd64 1.46.5-2ubuntu1.2 [10.1 kB]
+#18 9.983 Get:17 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libext2fs2 amd64 1.46.5-2ubuntu1.2 [208 kB]
+#18 9.995 Get:18 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 e2fsprogs amd64 1.46.5-2ubuntu1.2 [590 kB]
+#18 10.01 Get:19 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 mount amd64 2.37.2-4ubuntu3.5 [114 kB]
+#18 10.05 Get:20 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libblkid1 amd64 2.37.2-4ubuntu3.5 [103 kB]
+#18 10.08 Get:21 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libcap2 amd64 1:2.44-1ubuntu0.22.04.2 [18.3 kB]
+#18 10.08 Get:22 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libcom-err2 amd64 1.46.5-2ubuntu1.2 [9304 B]
+#18 10.08 Get:23 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libk5crypto3 amd64 1.19.2-2ubuntu0.7 [86.5 kB]
+#18 10.09 Get:24 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libkrb5support0 amd64 1.19.2-2ubuntu0.7 [32.7 kB]
+#18 10.16 Get:25 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libkrb5-3 amd64 1.19.2-2ubuntu0.7 [356 kB]
+#18 10.20 Get:26 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libgssapi-krb5-2 amd64 1.19.2-2ubuntu0.7 [144 kB]
+#18 10.21 Get:27 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libssl3 amd64 3.0.2-0ubuntu1.21 [1905 kB]
+#18 10.24 Get:28 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libmount1 amd64 2.37.2-4ubuntu3.5 [122 kB]
+#18 10.25 Get:29 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpam-runtime all 1.4.0-11ubuntu2.6 [40.2 kB]
+#18 10.27 Get:30 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libsmartcols1 amd64 2.37.2-4ubuntu3.5 [50.7 kB]
+#18 10.29 Get:31 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libudev1 amd64 249.11-0ubuntu3.17 [76.7 kB]
+#18 10.29 Get:32 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libuuid1 amd64 2.37.2-4ubuntu3.5 [23.6 kB]
+#18 10.29 Get:33 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gpgv amd64 2.2.27-3ubuntu2.5 [137 kB]
+#18 10.30 Get:34 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libtasn1-6 amd64 4.18.0-4ubuntu0.2 [43.6 kB]
+#18 10.37 Get:35 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libgnutls30 amd64 3.7.3-4ubuntu1.8 [970 kB]
+#18 10.42 Get:36 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libseccomp2 amd64 2.5.3-2ubuntu3~22.04.1 [47.4 kB]
+#18 10.42 Get:37 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libss2 amd64 1.46.5-2ubuntu1.2 [12.3 kB]
+#18 10.42 Get:38 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 openssl amd64 3.0.2-0ubuntu1.21 [1184 kB]
+#18 10.45 Get:39 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 ca-certificates all 20240203~22.04.1 [162 kB]
+#18 10.84 debconf: unable to initialize frontend: Dialog
+#18 10.84 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#18 10.84 debconf: falling back to frontend: Readline
+#18 10.85 debconf: unable to initialize frontend: Readline
+#18 10.85 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7, <> line 39.)
+#18 10.85 debconf: falling back to frontend: Teletype
+#18 10.86 dpkg-preconfigure: unable to re-open stdin: 
+#18 10.99 Fetched 19.2 MB in 7s (2650 kB/s)
+#18 11.17 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7435 files and directories currently installed.)
+#18 11.19 Preparing to unpack .../libc6-dev_2.35-0ubuntu3.13_amd64.deb ...
+#18 11.34 Unpacking libc6-dev:amd64 (2.35-0ubuntu3.13) over (2.35-0ubuntu3.6) ...
+#18 32.48 Preparing to unpack .../libc-dev-bin_2.35-0ubuntu3.13_amd64.deb ...
+#18 32.63 Unpacking libc-dev-bin (2.35-0ubuntu3.13) over (2.35-0ubuntu3.6) ...
+#18 33.09 Preparing to unpack .../linux-libc-dev_5.15.0-173.183_amd64.deb ...
+#18 33.26 Unpacking linux-libc-dev:amd64 (5.15.0-173.183) over (5.15.0-101.111) ...
+#18 72.74 Preparing to unpack .../libc6_2.35-0ubuntu3.13_amd64.deb ...
+#18 73.06 debconf: unable to initialize frontend: Dialog
+#18 73.06 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#18 73.06 debconf: falling back to frontend: Readline
+#18 73.06 debconf: unable to initialize frontend: Readline
+#18 73.06 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+#18 73.06 debconf: falling back to frontend: Teletype
+#18 73.27 Unpacking libc6:amd64 (2.35-0ubuntu3.13) over (2.35-0ubuntu3.6) ...
+#18 85.57 Setting up libc6:amd64 (2.35-0ubuntu3.13) ...
+#18 85.82 debconf: unable to initialize frontend: Dialog
+#18 85.82 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#18 85.82 debconf: falling back to frontend: Readline
+#18 85.82 debconf: unable to initialize frontend: Readline
+#18 85.82 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+#18 85.82 debconf: falling back to frontend: Teletype
+#18 87.40 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 87.41 Preparing to unpack .../base-files_12ubuntu4.7_amd64.deb ...
+#18 87.61 Unpacking base-files (12ubuntu4.7) over (12ubuntu4.6) ...
+#18 89.39 Setting up base-files (12ubuntu4.7) ...
+#18 89.68 Installing new version of config file /etc/issue ...
+#18 89.80 Installing new version of config file /etc/issue.net ...
+#18 89.90 Installing new version of config file /etc/lsb-release ...
+#18 90.97 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 90.99 Preparing to unpack .../bash_5.1-6ubuntu1.1_amd64.deb ...
+#18 91.19 Unpacking bash (5.1-6ubuntu1.1) over (5.1-6ubuntu1) ...
+#18 91.96 Setting up bash (5.1-6ubuntu1.1) ...
+#18 92.30 update-alternatives: error: alternative path /usr/share/man/man7/bash-builtins.7.gz doesn't exist
+#18 92.55 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 92.57 Preparing to unpack .../bsdutils_1%3a2.37.2-4ubuntu3.5_amd64.deb ...
+#18 92.75 Unpacking bsdutils (1:2.37.2-4ubuntu3.5) over (1:2.37.2-4ubuntu3) ...
+#18 93.77 Setting up bsdutils (1:2.37.2-4ubuntu3.5) ...
+#18 94.18 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 94.20 Preparing to unpack .../coreutils_8.32-4.1ubuntu1.2_amd64.deb ...
+#18 94.35 Unpacking coreutils (8.32-4.1ubuntu1.2) over (8.32-4.1ubuntu1.1) ...
+#18 101.7 Setting up coreutils (8.32-4.1ubuntu1.2) ...
+#18 102.1 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 102.2 Preparing to unpack .../dpkg_1.21.1ubuntu2.6_amd64.deb ...
+#18 102.3 Unpacking dpkg (1.21.1ubuntu2.6) over (1.21.1ubuntu2.2) ...
+#18 104.2 Setting up dpkg (1.21.1ubuntu2.6) ...
+#18 105.2 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 105.2 Preparing to unpack .../util-linux_2.37.2-4ubuntu3.5_amd64.deb ...
+#18 105.4 Unpacking util-linux (2.37.2-4ubuntu3.5) over (2.37.2-4ubuntu3) ...
+#18 112.5 Setting up util-linux (2.37.2-4ubuntu3.5) ...
+#18 113.6 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 113.6 Preparing to unpack .../libc-bin_2.35-0ubuntu3.13_amd64.deb ...
+#18 113.7 Unpacking libc-bin (2.35-0ubuntu3.13) over (2.35-0ubuntu3.6) ...
+#18 115.6 Setting up libc-bin (2.35-0ubuntu3.13) ...
+#18 116.5 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 116.5 Preparing to unpack .../libpam0g_1.4.0-11ubuntu2.6_amd64.deb ...
+#18 116.7 Unpacking libpam0g:amd64 (1.4.0-11ubuntu2.6) over (1.4.0-11ubuntu2.4) ...
+#18 117.4 Setting up libpam0g:amd64 (1.4.0-11ubuntu2.6) ...
+#18 117.6 debconf: unable to initialize frontend: Dialog
+#18 117.6 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#18 117.6 debconf: falling back to frontend: Readline
+#18 117.6 debconf: unable to initialize frontend: Readline
+#18 117.6 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+#18 117.6 debconf: falling back to frontend: Teletype
+#18 117.9 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 117.9 Preparing to unpack .../libpam-modules-bin_1.4.0-11ubuntu2.6_amd64.deb ...
+#18 118.0 Unpacking libpam-modules-bin (1.4.0-11ubuntu2.6) over (1.4.0-11ubuntu2.4) ...
+#18 118.8 Setting up libpam-modules-bin (1.4.0-11ubuntu2.6) ...
+#18 119.5 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 119.5 Preparing to unpack .../libpam-modules_1.4.0-11ubuntu2.6_amd64.deb ...
+#18 119.7 debconf: unable to initialize frontend: Dialog
+#18 119.7 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#18 119.7 debconf: falling back to frontend: Readline
+#18 119.7 debconf: unable to initialize frontend: Readline
+#18 119.7 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+#18 119.7 debconf: falling back to frontend: Teletype
+#18 119.8 Unpacking libpam-modules:amd64 (1.4.0-11ubuntu2.6) over (1.4.0-11ubuntu2.4) ...
+#18 122.4 Setting up libpam-modules:amd64 (1.4.0-11ubuntu2.6) ...
+#18 122.7 Installing new version of config file /etc/security/namespace.init ...
+#18 123.5 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 123.5 Preparing to unpack .../libsystemd0_249.11-0ubuntu3.17_amd64.deb ...
+#18 123.6 Unpacking libsystemd0:amd64 (249.11-0ubuntu3.17) over (249.11-0ubuntu3.12) ...
+#18 124.1 Setting up libsystemd0:amd64 (249.11-0ubuntu3.17) ...
+#18 124.5 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 124.5 Preparing to unpack .../logsave_1.46.5-2ubuntu1.2_amd64.deb ...
+#18 124.6 Unpacking logsave (1.46.5-2ubuntu1.2) over (1.46.5-2ubuntu1.1) ...
+#18 125.2 Preparing to unpack .../libext2fs2_1.46.5-2ubuntu1.2_amd64.deb ...
+#18 125.4 Unpacking libext2fs2:amd64 (1.46.5-2ubuntu1.2) over (1.46.5-2ubuntu1.1) ...
+#18 126.3 Setting up libext2fs2:amd64 (1.46.5-2ubuntu1.2) ...
+#18 126.9 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 126.9 Preparing to unpack .../e2fsprogs_1.46.5-2ubuntu1.2_amd64.deb ...
+#18 127.1 Unpacking e2fsprogs (1.46.5-2ubuntu1.2) over (1.46.5-2ubuntu1.1) ...
+#18 128.7 Preparing to unpack .../mount_2.37.2-4ubuntu3.5_amd64.deb ...
+#18 128.9 Unpacking mount (2.37.2-4ubuntu3.5) over (2.37.2-4ubuntu3) ...
+#18 130.2 Preparing to unpack .../libblkid1_2.37.2-4ubuntu3.5_amd64.deb ...
+#18 130.4 Unpacking libblkid1:amd64 (2.37.2-4ubuntu3.5) over (2.37.2-4ubuntu3) ...
+#18 130.9 Setting up libblkid1:amd64 (2.37.2-4ubuntu3.5) ...
+#18 131.4 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 131.4 Preparing to unpack .../libcap2_1%3a2.44-1ubuntu0.22.04.2_amd64.deb ...
+#18 131.5 Unpacking libcap2:amd64 (1:2.44-1ubuntu0.22.04.2) over (1:2.44-1ubuntu0.22.04.1) ...
+#18 132.0 Setting up libcap2:amd64 (1:2.44-1ubuntu0.22.04.2) ...
+#18 132.4 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 132.4 Preparing to unpack .../libcom-err2_1.46.5-2ubuntu1.2_amd64.deb ...
+#18 132.6 Unpacking libcom-err2:amd64 (1.46.5-2ubuntu1.2) over (1.46.5-2ubuntu1.1) ...
+#18 133.1 Setting up libcom-err2:amd64 (1.46.5-2ubuntu1.2) ...
+#18 133.5 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 133.5 Preparing to unpack .../libk5crypto3_1.19.2-2ubuntu0.7_amd64.deb ...
+#18 133.7 Unpacking libk5crypto3:amd64 (1.19.2-2ubuntu0.7) over (1.19.2-2ubuntu0.3) ...
+#18 134.1 Setting up libk5crypto3:amd64 (1.19.2-2ubuntu0.7) ...
+#18 134.5 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 134.6 Preparing to unpack .../libkrb5support0_1.19.2-2ubuntu0.7_amd64.deb ...
+#18 134.7 Unpacking libkrb5support0:amd64 (1.19.2-2ubuntu0.7) over (1.19.2-2ubuntu0.3) ...
+#18 135.2 Setting up libkrb5support0:amd64 (1.19.2-2ubuntu0.7) ...
+#18 135.6 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 135.6 Preparing to unpack .../libkrb5-3_1.19.2-2ubuntu0.7_amd64.deb ...
+#18 135.8 Unpacking libkrb5-3:amd64 (1.19.2-2ubuntu0.7) over (1.19.2-2ubuntu0.3) ...
+#18 136.4 Setting up libkrb5-3:amd64 (1.19.2-2ubuntu0.7) ...
+#18 136.9 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 136.9 Preparing to unpack .../libgssapi-krb5-2_1.19.2-2ubuntu0.7_amd64.deb ...
+#18 137.1 Unpacking libgssapi-krb5-2:amd64 (1.19.2-2ubuntu0.7) over (1.19.2-2ubuntu0.3) ...
+#18 137.6 Setting up libgssapi-krb5-2:amd64 (1.19.2-2ubuntu0.7) ...
+#18 138.2 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 138.2 Preparing to unpack .../libssl3_3.0.2-0ubuntu1.21_amd64.deb ...
+#18 138.3 Unpacking libssl3:amd64 (3.0.2-0ubuntu1.21) over (3.0.2-0ubuntu1.15) ...
+#18 139.3 Setting up libssl3:amd64 (3.0.2-0ubuntu1.21) ...
+#18 139.5 debconf: unable to initialize frontend: Dialog
+#18 139.5 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#18 139.5 debconf: falling back to frontend: Readline
+#18 139.5 debconf: unable to initialize frontend: Readline
+#18 139.5 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+#18 139.5 debconf: falling back to frontend: Teletype
+#18 139.9 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 139.9 Preparing to unpack .../libmount1_2.37.2-4ubuntu3.5_amd64.deb ...
+#18 140.1 Unpacking libmount1:amd64 (2.37.2-4ubuntu3.5) over (2.37.2-4ubuntu3) ...
+#18 140.6 Setting up libmount1:amd64 (2.37.2-4ubuntu3.5) ...
+#18 141.3 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 141.3 Preparing to unpack .../libpam-runtime_1.4.0-11ubuntu2.6_all.deb ...
+#18 141.5 Unpacking libpam-runtime (1.4.0-11ubuntu2.6) over (1.4.0-11ubuntu2.4) ...
+#18 142.5 Setting up libpam-runtime (1.4.0-11ubuntu2.6) ...
+#18 142.8 debconf: unable to initialize frontend: Dialog
+#18 142.8 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#18 142.8 debconf: falling back to frontend: Readline
+#18 142.8 debconf: unable to initialize frontend: Readline
+#18 142.8 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+#18 142.8 debconf: falling back to frontend: Teletype
+#18 143.4 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 143.4 Preparing to unpack .../libsmartcols1_2.37.2-4ubuntu3.5_amd64.deb ...
+#18 143.6 Unpacking libsmartcols1:amd64 (2.37.2-4ubuntu3.5) over (2.37.2-4ubuntu3) ...
+#18 144.1 Setting up libsmartcols1:amd64 (2.37.2-4ubuntu3.5) ...
+#18 144.5 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 144.5 Preparing to unpack .../libudev1_249.11-0ubuntu3.17_amd64.deb ...
+#18 144.7 Unpacking libudev1:amd64 (249.11-0ubuntu3.17) over (249.11-0ubuntu3.12) ...
+#18 145.2 Setting up libudev1:amd64 (249.11-0ubuntu3.17) ...
+#18 145.6 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 145.6 Preparing to unpack .../libuuid1_2.37.2-4ubuntu3.5_amd64.deb ...
+#18 145.8 Unpacking libuuid1:amd64 (2.37.2-4ubuntu3.5) over (2.37.2-4ubuntu3) ...
+#18 146.3 Setting up libuuid1:amd64 (2.37.2-4ubuntu3.5) ...
+#18 146.6 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 146.6 Preparing to unpack .../gpgv_2.2.27-3ubuntu2.5_amd64.deb ...
+#18 146.8 Unpacking gpgv (2.2.27-3ubuntu2.5) over (2.2.27-3ubuntu2.1) ...
+#18 147.3 Setting up gpgv (2.2.27-3ubuntu2.5) ...
+#18 147.7 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 147.8 Preparing to unpack .../libtasn1-6_4.18.0-4ubuntu0.2_amd64.deb ...
+#18 147.9 Unpacking libtasn1-6:amd64 (4.18.0-4ubuntu0.2) over (4.18.0-4build1) ...
+#18 148.4 Setting up libtasn1-6:amd64 (4.18.0-4ubuntu0.2) ...
+#18 148.8 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 148.8 Preparing to unpack .../libgnutls30_3.7.3-4ubuntu1.8_amd64.deb ...
+#18 149.0 Unpacking libgnutls30:amd64 (3.7.3-4ubuntu1.8) over (3.7.3-4ubuntu1.4) ...
+#18 149.6 Setting up libgnutls30:amd64 (3.7.3-4ubuntu1.8) ...
+#18 150.1 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 150.1 Preparing to unpack .../libseccomp2_2.5.3-2ubuntu3~22.04.1_amd64.deb ...
+#18 150.5 Unpacking libseccomp2:amd64 (2.5.3-2ubuntu3~22.04.1) over (2.5.3-2ubuntu2) ...
+#18 150.9 Setting up libseccomp2:amd64 (2.5.3-2ubuntu3~22.04.1) ...
+#18 151.5 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7434 files and directories currently installed.)
+#18 151.5 Preparing to unpack .../libss2_1.46.5-2ubuntu1.2_amd64.deb ...
+#18 151.7 Unpacking libss2:amd64 (1.46.5-2ubuntu1.2) over (1.46.5-2ubuntu1.1) ...
+#18 152.2 Preparing to unpack .../openssl_3.0.2-0ubuntu1.21_amd64.deb ...
+#18 152.3 Unpacking openssl (3.0.2-0ubuntu1.21) over (3.0.2-0ubuntu1.15) ...
+#18 153.3 Preparing to unpack .../ca-certificates_20240203~22.04.1_all.deb ...
+#18 153.5 Unpacking ca-certificates (20240203~22.04.1) over (20230311ubuntu0.22.04.1) ...
+#18 159.4 Setting up linux-libc-dev:amd64 (5.15.0-173.183) ...
+#18 159.5 Setting up libss2:amd64 (1.46.5-2ubuntu1.2) ...
+#18 159.8 Setting up logsave (1.46.5-2ubuntu1.2) ...
+#18 160.0 Setting up mount (2.37.2-4ubuntu3.5) ...
+#18 160.2 Setting up libc-dev-bin (2.35-0ubuntu3.13) ...
+#18 160.3 Setting up openssl (3.0.2-0ubuntu1.21) ...
+#18 160.7 Setting up e2fsprogs (1.46.5-2ubuntu1.2) ...
+#18 161.3 Setting up ca-certificates (20240203~22.04.1) ...
+#18 161.6 debconf: unable to initialize frontend: Dialog
+#18 161.6 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#18 161.6 debconf: falling back to frontend: Readline
+#18 161.6 debconf: unable to initialize frontend: Readline
+#18 161.6 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+#18 161.6 debconf: falling back to frontend: Teletype
+#18 165.5 Updating certificates in /etc/ssl/certs...
+#18 167.9 rehash: warning: skipping ca-certificates.crt,it does not contain exactly one certificate or CRL
+#18 167.9 14 added, 5 removed; done.
+#18 168.1 Setting up libc6-dev:amd64 (2.35-0ubuntu3.13) ...
+#18 168.3 Processing triggers for libc-bin (2.35-0ubuntu3.13) ...
+#18 168.6 Processing triggers for ca-certificates (20240203~22.04.1) ...
+#18 168.7 Updating certificates in /etc/ssl/certs...
+#18 170.1 0 added, 0 removed; done.
+#18 170.1 Running hooks in /etc/ca-certificates/update.d...
+#18 170.2 done.
+#18 DONE 171.5s
+
+#19 [14/25] RUN apt install -y     apt-transport-https     curl     dirmngr     distro-info-data     gnupg-l10n     gnupg-utils     gnupg     gpg-agent     gpg-wks-client     gpg-wks-server     gpg     gpgconf     gpgsm     libassuan0     libbrotli1     libcurl4     libksba8     libldap-2.5-0     libldap-common     libnghttp2-14     libnpth0     libpsl5     librtmp1     libsasl2-2     libsasl2-modules-db     libsasl2-modules     libssh-4     lsb-release     pinentry-curses     publicsuffix     unzip     zip
+#19 1.452 
+#19 1.452 WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+#19 1.452 
+#19 1.629 Reading package lists...
+#19 2.528 Building dependency tree...
+#19 2.714 Reading state information...
+#19 2.895 Suggested packages:
+#19 2.895   dbus-user-session libpam-systemd pinentry-gnome3 tor parcimonie xloadimage
+#19 2.895   scdaemon libsasl2-modules-gssapi-mit | libsasl2-modules-gssapi-heimdal
+#19 2.895   libsasl2-modules-ldap libsasl2-modules-otp libsasl2-modules-sql pinentry-doc
+#19 3.152 The following NEW packages will be installed:
+#19 3.152   apt-transport-https curl dirmngr distro-info-data gnupg gnupg-l10n
+#19 3.152   gnupg-utils gpg gpg-agent gpg-wks-client gpg-wks-server gpgconf gpgsm
+#19 3.153   libassuan0 libbrotli1 libcurl4 libksba8 libldap-2.5-0 libldap-common
+#19 3.153   libnghttp2-14 libnpth0 libpsl5 librtmp1 libsasl2-2 libsasl2-modules
+#19 3.154   libsasl2-modules-db libssh-4 lsb-release pinentry-curses publicsuffix unzip
+#19 3.154   zip
+#19 8.824 0 upgraded, 32 newly installed, 0 to remove and 6 not upgraded.
+#19 8.824 Need to get 4332 kB of archives.
+#19 8.824 After this operation, 11.7 MB of additional disk space will be used.
+#19 8.824 Get:1 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 distro-info-data all 0.52ubuntu0.11 [5444 B]
+#19 8.943 Get:2 http://archive.ubuntu.com/ubuntu jammy/main amd64 lsb-release all 11.1.0ubuntu4 [10.8 kB]
+#19 9.037 Get:3 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libnghttp2-14 amd64 1.43.0-1ubuntu0.2 [76.9 kB]
+#19 9.172 Get:4 http://archive.ubuntu.com/ubuntu jammy/main amd64 libpsl5 amd64 0.21.0-1.2build2 [58.4 kB]
+#19 9.230 Get:5 http://archive.ubuntu.com/ubuntu jammy/main amd64 publicsuffix all 20211207.1025-1 [129 kB]
+#19 9.308 Get:6 http://archive.ubuntu.com/ubuntu jammy-updates/universe amd64 apt-transport-https all 2.4.14 [1510 B]
+#19 9.309 Get:7 http://archive.ubuntu.com/ubuntu jammy/main amd64 libbrotli1 amd64 1.0.9-2build6 [315 kB]
+#19 9.416 Get:8 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libsasl2-modules-db amd64 2.1.27+dfsg2-3ubuntu1.2 [20.5 kB]
+#19 9.417 Get:9 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libsasl2-2 amd64 2.1.27+dfsg2-3ubuntu1.2 [53.8 kB]
+#19 9.431 Get:10 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libldap-2.5-0 amd64 2.5.20+dfsg-0ubuntu0.22.04.1 [184 kB]
+#19 9.457 Get:11 http://archive.ubuntu.com/ubuntu jammy/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-2build4 [58.2 kB]
+#19 9.465 Get:12 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libssh-4 amd64 0.9.6-2ubuntu0.22.04.6 [187 kB]
+#19 9.496 Get:13 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libcurl4 amd64 7.81.0-1ubuntu1.23 [290 kB]
+#19 9.549 Get:14 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 curl amd64 7.81.0-1ubuntu1.23 [194 kB]
+#19 9.587 Get:15 http://archive.ubuntu.com/ubuntu jammy/main amd64 libassuan0 amd64 2.5.5-1build1 [38.2 kB]
+#19 9.590 Get:16 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gpgconf amd64 2.2.27-3ubuntu2.5 [94.3 kB]
+#19 9.598 Get:17 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libksba8 amd64 1.6.0-2ubuntu0.2 [119 kB]
+#19 9.608 Get:18 http://archive.ubuntu.com/ubuntu jammy/main amd64 libnpth0 amd64 1.6-3build2 [8664 B]
+#19 9.610 Get:19 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 dirmngr amd64 2.2.27-3ubuntu2.5 [293 kB]
+#19 9.637 Get:20 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gnupg-l10n all 2.2.27-3ubuntu2.5 [54.5 kB]
+#19 9.644 Get:21 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gnupg-utils amd64 2.2.27-3ubuntu2.5 [309 kB]
+#19 9.678 Get:22 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gpg amd64 2.2.27-3ubuntu2.5 [519 kB]
+#19 9.724 Get:23 http://archive.ubuntu.com/ubuntu jammy/main amd64 pinentry-curses amd64 1.1.1-1build2 [34.4 kB]
+#19 9.743 Get:24 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gpg-agent amd64 2.2.27-3ubuntu2.5 [209 kB]
+#19 9.759 Get:25 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gpg-wks-client amd64 2.2.27-3ubuntu2.5 [62.7 kB]
+#19 9.760 Get:26 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gpg-wks-server amd64 2.2.27-3ubuntu2.5 [57.6 kB]
+#19 9.762 Get:27 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gpgsm amd64 2.2.27-3ubuntu2.5 [197 kB]
+#19 9.767 Get:28 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gnupg all 2.2.27-3ubuntu2.5 [315 kB]
+#19 9.832 Get:29 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libldap-common all 2.5.20+dfsg-0ubuntu0.22.04.1 [16.4 kB]
+#19 9.833 Get:30 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libsasl2-modules amd64 2.1.27+dfsg2-3ubuntu1.2 [68.8 kB]
+#19 9.835 Get:31 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 unzip amd64 6.0-26ubuntu3.2 [175 kB]
+#19 9.852 Get:32 http://archive.ubuntu.com/ubuntu jammy/main amd64 zip amd64 3.0-12build2 [176 kB]
+#19 10.25 debconf: unable to initialize frontend: Dialog
+#19 10.25 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#19 10.25 debconf: falling back to frontend: Readline
+#19 10.25 debconf: unable to initialize frontend: Readline
+#19 10.25 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.34.0 /usr/local/share/perl/5.34.0 /usr/lib/x86_64-linux-gnu/perl5/5.34 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.34 /usr/share/perl/5.34 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7, <> line 32.)
+#19 10.25 debconf: falling back to frontend: Teletype
+#19 10.26 dpkg-preconfigure: unable to re-open stdin: 
+#19 10.38 Fetched 4332 kB in 7s (647 kB/s)
+#19 10.55 Selecting previously unselected package distro-info-data.
+#19 10.55 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7443 files and directories currently installed.)
+#19 10.57 Preparing to unpack .../00-distro-info-data_0.52ubuntu0.11_all.deb ...
+#19 10.62 Unpacking distro-info-data (0.52ubuntu0.11) ...
+#19 11.04 Selecting previously unselected package lsb-release.
+#19 11.04 Preparing to unpack .../01-lsb-release_11.1.0ubuntu4_all.deb ...
+#19 11.09 Unpacking lsb-release (11.1.0ubuntu4) ...
+#19 11.54 Selecting previously unselected package libnghttp2-14:amd64.
+#19 11.55 Preparing to unpack .../02-libnghttp2-14_1.43.0-1ubuntu0.2_amd64.deb ...
+#19 11.65 Unpacking libnghttp2-14:amd64 (1.43.0-1ubuntu0.2) ...
+#19 12.03 Selecting previously unselected package libpsl5:amd64.
+#19 12.03 Preparing to unpack .../03-libpsl5_0.21.0-1.2build2_amd64.deb ...
+#19 12.08 Unpacking libpsl5:amd64 (0.21.0-1.2build2) ...
+#19 12.36 Selecting previously unselected package publicsuffix.
+#19 12.36 Preparing to unpack .../04-publicsuffix_20211207.1025-1_all.deb ...
+#19 12.41 Unpacking publicsuffix (20211207.1025-1) ...
+#19 12.69 Selecting previously unselected package apt-transport-https.
+#19 12.70 Preparing to unpack .../05-apt-transport-https_2.4.14_all.deb ...
+#19 12.75 Unpacking apt-transport-https (2.4.14) ...
+#19 13.14 Selecting previously unselected package libbrotli1:amd64.
+#19 13.14 Preparing to unpack .../06-libbrotli1_1.0.9-2build6_amd64.deb ...
+#19 13.19 Unpacking libbrotli1:amd64 (1.0.9-2build6) ...
+#19 13.51 Selecting previously unselected package libsasl2-modules-db:amd64.
+#19 13.51 Preparing to unpack .../07-libsasl2-modules-db_2.1.27+dfsg2-3ubuntu1.2_amd64.deb ...
+#19 13.56 Unpacking libsasl2-modules-db:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+#19 13.88 Selecting previously unselected package libsasl2-2:amd64.
+#19 13.89 Preparing to unpack .../08-libsasl2-2_2.1.27+dfsg2-3ubuntu1.2_amd64.deb ...
+#19 13.94 Unpacking libsasl2-2:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+#19 14.30 Selecting previously unselected package libldap-2.5-0:amd64.
+#19 14.31 Preparing to unpack .../09-libldap-2.5-0_2.5.20+dfsg-0ubuntu0.22.04.1_amd64.deb ...
+#19 14.36 Unpacking libldap-2.5-0:amd64 (2.5.20+dfsg-0ubuntu0.22.04.1) ...
+#19 14.76 Selecting previously unselected package librtmp1:amd64.
+#19 14.77 Preparing to unpack .../10-librtmp1_2.4+20151223.gitfa8646d.1-2build4_amd64.deb ...
+#19 14.81 Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2build4) ...
+#19 15.36 Selecting previously unselected package libssh-4:amd64.
+#19 15.36 Preparing to unpack .../11-libssh-4_0.9.6-2ubuntu0.22.04.6_amd64.deb ...
+#19 15.41 Unpacking libssh-4:amd64 (0.9.6-2ubuntu0.22.04.6) ...
+#19 15.79 Selecting previously unselected package libcurl4:amd64.
+#19 15.80 Preparing to unpack .../12-libcurl4_7.81.0-1ubuntu1.23_amd64.deb ...
+#19 15.85 Unpacking libcurl4:amd64 (7.81.0-1ubuntu1.23) ...
+#19 16.17 Selecting previously unselected package curl.
+#19 16.17 Preparing to unpack .../13-curl_7.81.0-1ubuntu1.23_amd64.deb ...
+#19 16.23 Unpacking curl (7.81.0-1ubuntu1.23) ...
+#19 16.62 Selecting previously unselected package libassuan0:amd64.
+#19 16.63 Preparing to unpack .../14-libassuan0_2.5.5-1build1_amd64.deb ...
+#19 16.68 Unpacking libassuan0:amd64 (2.5.5-1build1) ...
+#19 16.94 Selecting previously unselected package gpgconf.
+#19 16.94 Preparing to unpack .../15-gpgconf_2.2.27-3ubuntu2.5_amd64.deb ...
+#19 17.00 Unpacking gpgconf (2.2.27-3ubuntu2.5) ...
+#19 17.43 Selecting previously unselected package libksba8:amd64.
+#19 17.43 Preparing to unpack .../16-libksba8_1.6.0-2ubuntu0.2_amd64.deb ...
+#19 17.49 Unpacking libksba8:amd64 (1.6.0-2ubuntu0.2) ...
+#19 17.90 Selecting previously unselected package libnpth0:amd64.
+#19 17.90 Preparing to unpack .../17-libnpth0_1.6-3build2_amd64.deb ...
+#19 17.95 Unpacking libnpth0:amd64 (1.6-3build2) ...
+#19 18.46 Selecting previously unselected package dirmngr.
+#19 18.46 Preparing to unpack .../18-dirmngr_2.2.27-3ubuntu2.5_amd64.deb ...
+#19 18.55 Unpacking dirmngr (2.2.27-3ubuntu2.5) ...
+#19 18.85 Selecting previously unselected package gnupg-l10n.
+#19 18.85 Preparing to unpack .../19-gnupg-l10n_2.2.27-3ubuntu2.5_all.deb ...
+#19 18.91 Unpacking gnupg-l10n (2.2.27-3ubuntu2.5) ...
+#19 19.38 Selecting previously unselected package gnupg-utils.
+#19 19.38 Preparing to unpack .../20-gnupg-utils_2.2.27-3ubuntu2.5_amd64.deb ...
+#19 19.45 Unpacking gnupg-utils (2.2.27-3ubuntu2.5) ...
+#19 19.78 Selecting previously unselected package gpg.
+#19 19.78 Preparing to unpack .../21-gpg_2.2.27-3ubuntu2.5_amd64.deb ...
+#19 19.83 Unpacking gpg (2.2.27-3ubuntu2.5) ...
+#19 20.18 Selecting previously unselected package pinentry-curses.
+#19 20.19 Preparing to unpack .../22-pinentry-curses_1.1.1-1build2_amd64.deb ...
+#19 20.24 Unpacking pinentry-curses (1.1.1-1build2) ...
+#19 20.76 Selecting previously unselected package gpg-agent.
+#19 20.77 Preparing to unpack .../23-gpg-agent_2.2.27-3ubuntu2.5_amd64.deb ...
+#19 20.83 Unpacking gpg-agent (2.2.27-3ubuntu2.5) ...
+#19 21.19 Selecting previously unselected package gpg-wks-client.
+#19 21.19 Preparing to unpack .../24-gpg-wks-client_2.2.27-3ubuntu2.5_amd64.deb ...
+#19 21.25 Unpacking gpg-wks-client (2.2.27-3ubuntu2.5) ...
+#19 21.51 Selecting previously unselected package gpg-wks-server.
+#19 21.51 Preparing to unpack .../25-gpg-wks-server_2.2.27-3ubuntu2.5_amd64.deb ...
+#19 21.56 Unpacking gpg-wks-server (2.2.27-3ubuntu2.5) ...
+#19 21.82 Selecting previously unselected package gpgsm.
+#19 21.82 Preparing to unpack .../26-gpgsm_2.2.27-3ubuntu2.5_amd64.deb ...
+#19 21.88 Unpacking gpgsm (2.2.27-3ubuntu2.5) ...
+#19 22.18 Selecting previously unselected package gnupg.
+#19 22.18 Preparing to unpack .../27-gnupg_2.2.27-3ubuntu2.5_all.deb ...
+#19 22.24 Unpacking gnupg (2.2.27-3ubuntu2.5) ...
+#19 22.62 Selecting previously unselected package libldap-common.
+#19 22.63 Preparing to unpack .../28-libldap-common_2.5.20+dfsg-0ubuntu0.22.04.1_all.deb ...
+#19 22.68 Unpacking libldap-common (2.5.20+dfsg-0ubuntu0.22.04.1) ...
+#19 23.02 Selecting previously unselected package libsasl2-modules:amd64.
+#19 23.02 Preparing to unpack .../29-libsasl2-modules_2.1.27+dfsg2-3ubuntu1.2_amd64.deb ...
+#19 23.07 Unpacking libsasl2-modules:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+#19 23.44 Selecting previously unselected package unzip.
+#19 23.44 Preparing to unpack .../30-unzip_6.0-26ubuntu3.2_amd64.deb ...
+#19 23.50 Unpacking unzip (6.0-26ubuntu3.2) ...
+#19 23.82 Selecting previously unselected package zip.
+#19 23.82 Preparing to unpack .../31-zip_3.0-12build2_amd64.deb ...
+#19 23.87 Unpacking zip (3.0-12build2) ...
+#19 24.18 Setting up libksba8:amd64 (1.6.0-2ubuntu0.2) ...
+#19 24.34 Setting up libpsl5:amd64 (0.21.0-1.2build2) ...
+#19 24.51 Setting up apt-transport-https (2.4.14) ...
+#19 24.66 Setting up distro-info-data (0.52ubuntu0.11) ...
+#19 24.82 Setting up unzip (6.0-26ubuntu3.2) ...
+#19 24.98 Setting up libbrotli1:amd64 (1.0.9-2build6) ...
+#19 25.13 Setting up libsasl2-modules:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+#19 25.34 Setting up libnghttp2-14:amd64 (1.43.0-1ubuntu0.2) ...
+#19 25.56 Setting up libnpth0:amd64 (1.6-3build2) ...
+#19 25.71 Setting up libassuan0:amd64 (2.5.5-1build1) ...
+#19 25.86 Setting up libldap-common (2.5.20+dfsg-0ubuntu0.22.04.1) ...
+#19 26.09 Setting up libsasl2-modules-db:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+#19 26.41 Setting up zip (3.0-12build2) ...
+#19 26.60 Setting up gnupg-l10n (2.2.27-3ubuntu2.5) ...
+#19 26.76 Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2build4) ...
+#19 26.91 Setting up libsasl2-2:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+#19 27.07 Setting up libssh-4:amd64 (0.9.6-2ubuntu0.22.04.6) ...
+#19 27.23 Setting up gpgconf (2.2.27-3ubuntu2.5) ...
+#19 27.41 Setting up lsb-release (11.1.0ubuntu4) ...
+#19 27.58 Setting up publicsuffix (20211207.1025-1) ...
+#19 27.73 Setting up gpg (2.2.27-3ubuntu2.5) ...
+#19 27.89 Setting up gnupg-utils (2.2.27-3ubuntu2.5) ...
+#19 28.04 Setting up pinentry-curses (1.1.1-1build2) ...
+#19 28.42 Setting up gpg-agent (2.2.27-3ubuntu2.5) ...
+#19 29.50 Setting up gpgsm (2.2.27-3ubuntu2.5) ...
+#19 29.65 Setting up libldap-2.5-0:amd64 (2.5.20+dfsg-0ubuntu0.22.04.1) ...
+#19 29.96 Setting up dirmngr (2.2.27-3ubuntu2.5) ...
+#19 30.59 Setting up gpg-wks-server (2.2.27-3ubuntu2.5) ...
+#19 30.74 Setting up libcurl4:amd64 (7.81.0-1ubuntu1.23) ...
+#19 30.90 Setting up curl (7.81.0-1ubuntu1.23) ...
+#19 31.06 Setting up gpg-wks-client (2.2.27-3ubuntu2.5) ...
+#19 31.21 Setting up gnupg (2.2.27-3ubuntu2.5) ...
+#19 31.36 Processing triggers for libc-bin (2.35-0ubuntu3.13) ...
+#19 DONE 33.1s
+
+#20 [15/25] RUN rm -rf /var/lib/apt/lists/*
+#20 DONE 2.9s
+
+#21 [16/25] WORKDIR /workspace/
+#21 DONE 1.5s
+
+#22 [17/25] COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
+#22 DONE 2.6s
+
+#23 [18/25] COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
+#23 DONE 1.8s
+
+#24 [19/25] RUN python3 -m pip install /workspace/nvflare
+#24 2.129 Processing ./nvflare
+#24 2.133   Installing build dependencies: started
+#24 15.51   Installing build dependencies: finished with status 'done'
+#24 15.52   Getting requirements to build wheel: started
+#24 16.00   Getting requirements to build wheel: finished with status 'done'
+#24 16.00   Preparing metadata (pyproject.toml): started
+#24 16.33   Preparing metadata (pyproject.toml): finished with status 'done'
+#24 16.38 Requirement already satisfied: cryptography>=36.0.0 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (42.0.5)
+#24 16.38 Requirement already satisfied: Flask==3.0.2 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (3.0.2)
+#24 16.39 Requirement already satisfied: Werkzeug==3.0.1 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (3.0.1)
+#24 16.39 Requirement already satisfied: Flask-JWT-Extended==4.6.0 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (4.6.0)
+#24 16.39 Requirement already satisfied: Flask-SQLAlchemy==3.1.1 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (3.1.1)
+#24 16.39 Requirement already satisfied: SQLAlchemy==2.0.16 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (2.0.16)
+#24 16.39 Requirement already satisfied: grpcio==1.62.1 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (1.62.1)
+#24 16.39 Requirement already satisfied: gunicorn>=22.0.0 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (23.0.0)
+#24 16.39 Requirement already satisfied: numpy in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (1.26.4)
+#24 16.39 Requirement already satisfied: protobuf==4.24.4 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (4.24.4)
+#24 16.39 Requirement already satisfied: psutil>=5.9.1 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (7.0.0)
+#24 16.39 Requirement already satisfied: PyYAML>=6.0 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (6.0.1)
+#24 16.39 Requirement already satisfied: requests>=2.28.0 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (2.32.3)
+#24 16.39 Requirement already satisfied: six>=1.15.0 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (1.16.0)
+#24 16.39 Requirement already satisfied: msgpack>=1.0.3 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (1.1.0)
+#24 16.39 Requirement already satisfied: docker>=6.0 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (7.1.0)
+#24 16.39 Requirement already satisfied: websockets>=10.4 in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (15.0.1)
+#24 16.39 Requirement already satisfied: pyhocon in /opt/conda/lib/python3.10/site-packages (from nvflare_mediswarm==1.0rc1.dev260316) (0.3.61)
+#24 16.40 Requirement already satisfied: Jinja2>=3.1.2 in /opt/conda/lib/python3.10/site-packages (from Flask==3.0.2->nvflare_mediswarm==1.0rc1.dev260316) (3.1.3)
+#24 16.40 Requirement already satisfied: itsdangerous>=2.1.2 in /opt/conda/lib/python3.10/site-packages (from Flask==3.0.2->nvflare_mediswarm==1.0rc1.dev260316) (2.2.0)
+#24 16.40 Requirement already satisfied: click>=8.1.3 in /opt/conda/lib/python3.10/site-packages (from Flask==3.0.2->nvflare_mediswarm==1.0rc1.dev260316) (8.1.7)
+#24 16.40 Requirement already satisfied: blinker>=1.6.2 in /opt/conda/lib/python3.10/site-packages (from Flask==3.0.2->nvflare_mediswarm==1.0rc1.dev260316) (1.9.0)
+#24 16.40 Requirement already satisfied: PyJWT<3.0,>=2.0 in /opt/conda/lib/python3.10/site-packages (from Flask-JWT-Extended==4.6.0->nvflare_mediswarm==1.0rc1.dev260316) (2.10.1)
+#24 16.43 Requirement already satisfied: typing-extensions>=4.2.0 in /opt/conda/lib/python3.10/site-packages (from SQLAlchemy==2.0.16->nvflare_mediswarm==1.0rc1.dev260316) (4.13.2)
+#24 16.43 Requirement already satisfied: greenlet!=0.4.17 in /opt/conda/lib/python3.10/site-packages (from SQLAlchemy==2.0.16->nvflare_mediswarm==1.0rc1.dev260316) (3.2.2)
+#24 16.43 Requirement already satisfied: MarkupSafe>=2.1.1 in /opt/conda/lib/python3.10/site-packages (from Werkzeug==3.0.1->nvflare_mediswarm==1.0rc1.dev260316) (2.1.3)
+#24 16.44 Requirement already satisfied: cffi>=1.12 in /opt/conda/lib/python3.10/site-packages (from cryptography>=36.0.0->nvflare_mediswarm==1.0rc1.dev260316) (1.16.0)
+#24 16.44 Requirement already satisfied: pycparser in /opt/conda/lib/python3.10/site-packages (from cffi>=1.12->cryptography>=36.0.0->nvflare_mediswarm==1.0rc1.dev260316) (2.21)
+#24 16.44 Requirement already satisfied: urllib3>=1.26.0 in /opt/conda/lib/python3.10/site-packages (from docker>=6.0->nvflare_mediswarm==1.0rc1.dev260316) (2.1.0)
+#24 16.44 Requirement already satisfied: packaging in /opt/conda/lib/python3.10/site-packages (from gunicorn>=22.0.0->nvflare_mediswarm==1.0rc1.dev260316) (23.2)
+#24 16.45 Requirement already satisfied: charset-normalizer<4,>=2 in /opt/conda/lib/python3.10/site-packages (from requests>=2.28.0->nvflare_mediswarm==1.0rc1.dev260316) (2.0.4)
+#24 16.45 Requirement already satisfied: idna<4,>=2.5 in /opt/conda/lib/python3.10/site-packages (from requests>=2.28.0->nvflare_mediswarm==1.0rc1.dev260316) (3.4)
+#24 16.45 Requirement already satisfied: certifi>=2017.4.17 in /opt/conda/lib/python3.10/site-packages (from requests>=2.28.0->nvflare_mediswarm==1.0rc1.dev260316) (2024.2.2)
+#24 16.46 Requirement already satisfied: pyparsing<4,>=2 in /opt/conda/lib/python3.10/site-packages (from pyhocon->nvflare_mediswarm==1.0rc1.dev260316) (3.2.3)
+#24 16.46 Building wheels for collected packages: nvflare_mediswarm
+#24 16.46   Building wheel for nvflare_mediswarm (pyproject.toml): started
+#24 17.36   Building wheel for nvflare_mediswarm (pyproject.toml): finished with status 'done'
+#24 17.38   Created wheel for nvflare_mediswarm: filename=nvflare_mediswarm-1.0rc1.dev260316-py3-none-any.whl size=2102718 sha256=efd312e835b6761f0ab5dc85952a31855dcd31ab2279781ffb9e1316b371fdde
+#24 17.38   Stored in directory: /tmp/pip-ephem-wheel-cache-4k_vg9ee/wheels/9a/c4/60/eed1b9a65e484c4c9d5f3702d5da2e51d4608b4aa334bfefdd
+#24 17.39 Successfully built nvflare_mediswarm
+#24 17.77 Installing collected packages: nvflare_mediswarm
+#24 18.69 Successfully installed nvflare_mediswarm-1.0rc1.dev260316
+#24 18.69 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#24 18.69 
+#24 18.69 [notice] A new release of pip is available: 25.2 -> 26.0.1
+#24 18.69 [notice] To update, run: pip install --upgrade pip
+#24 DONE 21.1s
+
+#25 [20/25] RUN rm -rf /workspace/nvflare
+#25 DONE 23.1s
+
+#26 [21/25] COPY ./MediSwarm /MediSwarm
+#26 DONE 5.3s
+
+#27 [22/25] RUN mkdir -p /fl_admin/transfer
+#27 DONE 2.7s
+
+#28 [23/25] RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
+#28 DONE 2.8s
+
+#29 [24/25] COPY ./torch_home_cache /torch_home
+#29 DONE 2.8s
+
+#30 [25/25] RUN chmod a+rwx /home
+#30 DONE 2.8s
+
+#31 exporting to image
+#31 exporting layers
+#31 exporting layers 20.0s done
+#31 writing image sha256:a3bc7df1e0a410edb10c61990863a236b0f823ff4b22c7c3dd4a0a82137c6bb0 0.0s done
+#31 naming to docker.io/jefftud/odelia_challenge:1.0.2-dev.260316.ce217d0 0.1s done
+#31 DONE 20.3s
+Docker image jefftud/odelia_challenge:1.0.2-dev.260316.ce217d0 built successfully
+./_buildStartupKits.sh application/provision/project_Challenge_test.yml 1.0.2-dev.260316.ce217d0 jefftud/odelia_challenge:1.0.2-dev.260316.ce217d0
+Building startup kits for project application/provision/project_Challenge_test.yml with version 1.0.2-dev.260316.ce217d0
+Project yaml file: /workspace/application/provision/project_Challenge_test.yml.
+Generated results can be found under /workspace/workspace/odelia__challenge_model_test/prod_00. 
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/CAM_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/MEVIS_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/MEVIS_2_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/MEVIS_3_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/MHA_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/RSH_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/RUMC_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/TUD_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/TUD_2_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/UKA_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/UMCU_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/USZ_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/VHIO_1_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/dl3.tud.de_1.0.2-dev.260316.ce217d0.zip
+Generated startup kit workspace/odelia__challenge_model_test/prod_00/jiefu.zhu@tu-dresden.de_1.0.2-dev.260316.ce217d0.zip
+Startup kits built successfully
+If you wish, manually push jefftud/odelia_challenge:1.0.2-dev.260316.ce217d0 now
