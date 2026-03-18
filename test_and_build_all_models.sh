@@ -27,6 +27,7 @@ NC='\033[0m' # No Color
 python_env="/home/swarm/Documents/ODELIA/.venv"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ODELIA_APP_DIR="${PROJECT_ROOT}/application/jobs/ODELIA_ternary_classification/app"
+PROVISION_FILE="${PROJECT_ROOT}/application/provision/project_Challenge_test.yml"
 DOCKER_DIR="${PROJECT_ROOT}/workspace/odelia_challenge_model_test/prod_00/UKA_1/startup/"
 
 CONFIG_PATH="${ODELIA_APP_DIR}/config/config_fed_client.conf"
@@ -125,12 +126,12 @@ run_model_test() {
     echo "Environment: TRAINING_MODE=$TRAINING_MODE, SITE_NAME=$SITE_NAME, MODEL_NAME=$MODEL_NAME, MODEL_VARIANT=$MODEL_VARIANT, NUM_EPOCHS=$NUM_EPOCHS"
     
     cd "${ODELIA_APP_DIR}/custom"
-    docker rm -f "odelia_swarm_client_${SITE_NAME}_$(git rev-parse --short HEAD)" 2>/dev/null || true  # remove any existing container before next test
 
     # Run with timeout
     timeout 600 $python_env/bin/python3 main.py > "/tmp/test_${model}_${mode}.log" 2>&1
     
     cd $DOCKER_DIR
+    docker rm -f "odelia_swarm_client_${SITE_NAME}_$(git -C "$PROJECT_ROOT" rev-parse --short HEAD)" 2>/dev/null || true  # remove any existing container before next test
     if [ "$mode" = "local_training" ]; then
         ./docker.sh --scratch_dir $SCRATCH_DIR --GPU device=0 --dummy_training 2>&1 | tee $SCRATCH_DIR/dummy_training_console_output.txt
     fi
@@ -176,7 +177,7 @@ build_startup_kits() {
     
     echo -e "${YELLOW}Running build script...${NC}"
     
-    timeout 1800 ./buildDockerImageAndStartupKits2.sh > /tmp/build.log 2>&1
+    timeout 1800 ./buildDockerImageAndStartupKits2.sh -p  $PROVISION_FILE > /tmp/build.log 2>&1
     local exit_code=$?
     
     if [ $exit_code -eq 0 ]; then
