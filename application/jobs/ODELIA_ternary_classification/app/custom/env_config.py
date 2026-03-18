@@ -38,9 +38,9 @@ def prepare_odelia_dataset(model_name: str = ''):
     path_run_dir.mkdir(parents=True, exist_ok=True)
 
     from data.datasets import ODELIA_Dataset3D
-    ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config,
+    ds_train = ODELIA_Dataset3D(path_root=os.environ['DATA_DIR'], institutions=institution, split='train', config=config,
                                 random_flip=True, random_rotate=True, random_inverse=False, noise=True)
-    ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config)
+    ds_val = ODELIA_Dataset3D(path_root=os.environ['DATA_DIR'], institutions=institution, split='val', config=config)
 
     print(f"Total samples loaded: {len(ds_train)} (train) + {len(ds_val)} (val)")
     print(f"Train set: {len(ds_train)}, Val set: {len(ds_val)}")
@@ -53,8 +53,8 @@ def prepare_odelia_dataset_without_augmentation():
     institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])
     config = os.environ.get('CONFIG', 'unilateral')
 
-    ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config, transform='USE_UNPROCESSED_IMAGES')
-    ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config, transform='USE_UNPROCESSED_IMAGES')
+    ds_train = ODELIA_Dataset3D(path_root=os.environ['DATA_DIR'], institutions=institution, split='train', config=config, transform='USE_UNPROCESSED_IMAGES')
+    ds_val = ODELIA_Dataset3D(path_root=os.environ['DATA_DIR'], institutions=institution, split='val', config=config, transform='USE_UNPROCESSED_IMAGES')
 
     return ds_train, ds_val
 
