@@ -38,7 +38,7 @@ check_files_on_github () {
     done
 
     PARTICIPANT_README=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/assets/readme/README.participant.md)
-    for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node';
+    for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node' 'Output files';
     do
         if echo "$PARTICIPANT_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
             echo "Instructions on $EXPECTED_KEYWORDS found"
