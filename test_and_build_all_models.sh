@@ -131,7 +131,8 @@ run_model_test() {
     timeout 600 $python_env/bin/python3 main.py > "/tmp/test_${model}_${mode}.log" 2>&1
     
     cd $DOCKER_DIR
-    docker rm -f "odelia_swarm_client_${SITE_NAME}_$(git -C "$PROJECT_ROOT" rev-parse --short HEAD)" 2>/dev/null || true  # remove any existing container before next test
+    docker ps -a --filter "name=odelia_challenge_${SITE_NAME}" -q | xargs -r docker rm -f
+
     if [ "$mode" = "local_training" ]; then
         ./docker.sh --scratch_dir $SCRATCH_DIR --GPU device=0 --dummy_training 2>&1 | tee $SCRATCH_DIR/dummy_training_console_output.txt
     fi
