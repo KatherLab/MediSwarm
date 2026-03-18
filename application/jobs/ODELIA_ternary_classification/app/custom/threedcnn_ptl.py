@@ -236,7 +236,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                     "1DivideAndConquer",
                     "model.py",
                 )
-                spec = importlib.util.spec_from_file_location("abmil_model", model_creator_path)
+                spec = importlib.util.spec_from_file_location("divide_model", model_creator_path)
                 divide_model_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(divide_model_module)
                 model = divide_model_module.create_model(n_input_channels=3, num_classes=num_classes)

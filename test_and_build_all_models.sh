@@ -25,21 +25,22 @@ NC='\033[0m' # No Color
 
 # Configuration
 python_env="/home/swarm/Documents/ODELIA/.venv"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ODELIA_APP_DIR="${PROJECT_ROOT}/application/jobs/ODELIA_ternary_classification/app"
-CONFIG_PATH="${ODELIA_APP_DIR}/config/config_fed_client.conf"
-TEST_SCRIPT="${SCRIPT_DIR}/tests/unit_tests/test_challenge_models.py"
-UPDATE_CONFIG_SCRIPT="${SCRIPT_DIR}/scripts/update_config_fed_client.py"
+DOCKER_DIR="${PROJECT_ROOT}/workspace/odelia_challenge_model_test/prod_00/UKA_1/startup/"
 
-# Import model names from shared config
-CHALLENGE_CONFIG_PATH="${SCRIPT_DIR}/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/challenge_models_config.sh"
+CONFIG_PATH="${ODELIA_APP_DIR}/config/config_fed_client.conf"
+CHALLENGE_CONFIG_PATH="${ODELIA_APP_DIR}/custom/models/challenge/challenge_models_config.sh"
+
+TEST_SCRIPT="${PROJECT_ROOT}/tests/unit_tests/test_challenge_models.py"
+UPDATE_CONFIG_SCRIPT="${PROJECT_ROOT}/scripts/update_config_fed_client.py"
+
 source "$python_env/bin/activate"
 
 # Parse arguments
 NO_PUSH=false
 SKIP_BUILD=false
-MODELS_TO_TEST=""
+MODELS_TO_TEST="1DivideAndConquer"  #,2BCN_AIM,3agaldran,4LME_ABMIL,5Pimed"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -106,22 +107,37 @@ print_warning() {
 
 # Function to run test for a model
 run_model_test() {
-    local model=$1
-    local mode=$2
+    local model=$1 # model name (e.g. "3agaldran")
+    local mode=$2  # preflight_check or local_training
     
     echo -e "${YELLOW}Testing $model - $mode mode...${NC}"
     
     # Set environment variables
+    export SITE_NAME=UKA_1
+    export DATA_DIR=/home/swarm/Documents/ODELIA/LocalSL/ChallengeData/
+    export SCRATCH_DIR="/home/swarm/Documents/MediSwarmChallenge/MediSwarm/tests/results/${mode}_uka_${model}"
+    mkdir -p $SCRATCH_DIR
+
     export TRAINING_MODE="$mode"
-    export SITE_NAME="TEST_SITE"
     export MODEL_NAME="challenge_$model"
-    export MODEL_VARIANT="$model"
+    export MODEL_VARIANT="challenge_$model"
     export NUM_EPOCHS="1"
+    echo "Environment: TRAINING_MODE=$TRAINING_MODE, SITE_NAME=$SITE_NAME, MODEL_NAME=$MODEL_NAME, MODEL_VARIANT=$MODEL_VARIANT, NUM_EPOCHS=$NUM_EPOCHS"
     
     cd "${ODELIA_APP_DIR}/custom"
-    
+    docker rm -f "odelia_swarm_client_${SITE_NAME}_$(git rev-parse --short HEAD)" 2>/dev/null || true  # remove any existing container before next test
+
     # Run with timeout
-    timeout 600 python3 application/jobs/ODELIA_ternary_classification/app/custom/main.py > "/tmp/test_${model}_${mode}.log" 2>&1
+    timeout 600 $python_env/bin/python3 main.py > "/tmp/test_${model}_${mode}.log" 2>&1
+    
+    cd $DOCKER_DIR
+    if [ "$mode" = "local_training" ]; then
+        ./docker.sh --scratch_dir $SCRATCH_DIR --GPU device=0 --dummy_training 2>&1 | tee $SCRATCH_DIR/dummy_training_console_output.txt
+    fi
+    if [ "$mode" = "preflight_check" ]; then
+        ./docker.sh --data_dir $DATA_DIR --scratch_dir $SCRATCH_DIR --GPU device=0 --preflight_check  2>&1 | tee $SCRATCH_DIR/preflight_check_console_output.txt
+    fi
+
     local exit_code=$?
     
     if [ $exit_code -eq 0 ]; then
@@ -132,18 +148,10 @@ run_model_test() {
         return 1
     else
         print_status 1 "$model - $mode"
-        echo "  Last 10 lines of log:"
-        tail -10 "/tmp/test_${model}_${mode}.log" | sed 's/^/    /'
+        echo "  Last 20 lines of log:"
+        tail -20 "/tmp/test_${model}_${mode}.log" | sed 's/^/    /'
         return 1
     fi
-}
-
-# Function to update config for model
-update_config_for_model() {
-    # Config is now static - uses dynamic model factory
-    # No longer need to update config for each model
-    print_status 0 "Config update skipped (using dynamic factory)"
-    return 0
 }
 
 # Function to commit and push changes
@@ -158,16 +166,17 @@ build_startup_kits() {
     print_section "Building Startup Kits"
     
     cd "$PROJECT_ROOT"
+    echo "Current directory: $PROJECT_ROOT"
     
     # Check if build script exists
-    if [ ! -f "./buildDockerImageAndStartupKits.sh" ]; then
+    if [ ! -f "./buildDockerImageAndStartupKits2.sh" ]; then
         print_warning "Build script not found"
         return 1
     fi
     
     echo -e "${YELLOW}Running build script...${NC}"
     
-    timeout 1800 ./buildDockerImageAndStartupKits.sh > /tmp/build.log 2>&1
+    timeout 1800 ./buildDockerImageAndStartupKits2.sh > /tmp/build.log 2>&1
     local exit_code=$?
     
     if [ $exit_code -eq 0 ]; then
@@ -218,7 +227,7 @@ main() {
         fi
     done
     
-    # Section 2: Build startup kits (no config updates needed)
+    # Section 2: Build startup kits 
     if [ "$SKIP_BUILD" = false ]; then
         print_section "Phase 2: Building Startup Kits"
         build_startup_kits

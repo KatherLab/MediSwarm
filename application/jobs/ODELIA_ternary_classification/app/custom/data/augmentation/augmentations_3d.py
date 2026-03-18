@@ -1,7 +1,12 @@
 from typing import Union, Optional, Sequence
 
 import torchio as tio
-from torchio.typing import TypeRangeFloat, TypeTripletInt
+try:
+    from torchio.typing import TypeRangeFloat, TypeTripletInt
+except ModuleNotFoundError:
+    from typing import Tuple, Union
+    TypeRangeFloat = Union[float, Tuple[float, float]]
+    TypeTripletInt = Tuple[int, int, int]
 from torchio.transforms.transform import TypeMaskingMethod
 from torchio import Subject, Image
 
