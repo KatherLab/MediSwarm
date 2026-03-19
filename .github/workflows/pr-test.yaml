@@ -87,7 +87,7 @@ jobs:
         run: |
           ./runIntegrationTests.sh run_docker_gpu_preflight_check
 
-      - name: Run integration test Data access preflight check
+      - name: Run integration test data access preflight check
         continue-on-error: false
         run: |
           ./runIntegrationTests.sh run_data_access_preflight_check
