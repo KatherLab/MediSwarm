@@ -2,7 +2,7 @@ from typing import List, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
-from ..base_model import BasicClassifier
+from models.base_model import BasicClassifier
 from dynamic_network_architectures.building_blocks.helper import (
     convert_conv_op_to_dim,
     get_matching_dropout,
