@@ -40,7 +40,7 @@ source "$python_env/bin/activate"
 
 # Parse arguments
 NO_PUSH=false
-SKIP_BUILD=false
+SKIP_BUILD=true
 MODELS_TO_TEST="1DivideAndConquer,2BCN_AIM,3agaldran,4LME_ABMIL,5Pimed"
 
 while [[ $# -gt 0 ]]; do
@@ -131,7 +131,7 @@ run_model_test() {
     timeout 600 $python_env/bin/python3 main.py > "/tmp/test_${model}_${mode}.log" 2>&1
     
     cd $DOCKER_DIR
-    docker ps -a --filter "name=odelia_swarm_client_${SITE_NAME}" -q | xargs -r docker rm -f
+    # docker ps -a --filter "name=odelia_swarm_client_${SITE_NAME}" -q | xargs -r docker rm -f
     # in case you want to test a local docker image: Change the version number here: 
     # export DOCKER_IMAGE="odelia_challenge_jefftud/odelia_challenge:1.0.2-dev.260318.71f1cab"
     if [ "$mode" = "local_training" ]; then
@@ -216,9 +216,9 @@ main() {
         fi
         
         # Test local_training
-        #if ! run_model_test "$model" "local_training"; then
-        #    all_passed=false
-        #fi
+        if ! run_model_test "$model" "local_training"; then
+            all_passed=false
+        fi
         
         if [ "$all_passed" = true ]; then
             test_results+=("$model:PASS")
