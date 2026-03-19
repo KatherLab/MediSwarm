@@ -309,9 +309,9 @@ run_data_access_preflight_check_log_details () {
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" ; then
-        echo "Expected output (including expected warnings and errors) of Docker/GPU preflight check found"
+        echo "Expected output (including expected warnings and errors) of data access preflight check found"
     else
-        echo "Missing expected output of Docker/GPU preflight check"
+        echo "Missing expected output of data access preflight check"
         exit 1
     fi
 
@@ -439,16 +439,16 @@ verify_wrong_certificates_are_rejected () {
     CONSOLE_OUTPUT_CLIENT=client_A/startup/nohup.out
 
     if grep -q "Total clients: 1" $CONSOLE_OUTPUT_SERVER; then
-        echo "Connection with non-authorized client"
+        echo "Could not verify that connection to unauthorized client was rejected"
         exit 1
     else
-        echo "Connection rejected successfully by server"
+        echo "Connection to unauthorized client rejected successfully by server"
     fi
 
     if grep -q "SSLCertVerificationError" $CONSOLE_OUTPUT_CLIENT; then
-        echo "Connection rejected successfully by client"
+        echo "Connection to unauthorized server rejected successfully by client"
     else
-        echo "Could not verify that connection was rejected"
+        echo "Could not verify that connection to unauthorized server was rejected"
         exit 1
     fi
 
@@ -456,7 +456,7 @@ verify_wrong_certificates_are_rejected () {
     cd admin@test.odelia/startup
     CONSOLE_OUTPUT_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
     if echo "$CONSOLE_OUTPUT_ADMIN" | grep -q "Communication Error - please try later"; then
-        echo "Connection rejected successfully"
+        echo "Connection by unauthorized admin console rejected successfully"
     else
         echo "Connection with non-authorized admin console"
         exit 1
