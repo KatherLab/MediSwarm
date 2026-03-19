@@ -34,6 +34,12 @@ verify_files () {
 copy_files() {
     cp -r $SOURCE_DIR/docker_config/torch_home_cache $TARGET_DIR/torch_home_cache
     chmod a+rX $TARGET_DIR/torch_home_cache -R
+    # Copy challenge model weights
+    CHALLENGE_MODEL_DIR="$TARGET_DIR/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge"
+    cp $SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/1DivideAndConquer/checkpoint_final.pth \
+       $CHALLENGE_MODEL_DIR/1DivideAndConquer/
+    cp $SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/mvit_v2_s-ae3be167.pth \
+       $CHALLENGE_MODEL_DIR/3agaldran/
 }
 
 cache_files
