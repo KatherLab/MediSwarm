@@ -560,6 +560,25 @@ kill_server_and_clients () {
 }
 
 
+run_3dcnn_local_training () {
+    # requires having built a startup kit and synthetic dataset
+    echo "[Run] 3DCNN local training..."
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    CONSOLE_OUTPUT=local_training_console_output.txt
+    timeout --signal=kill 60m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+
+    if grep -q "Epoch 99: 100%" "$CONSOLE_OUTPUT" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT"; then
+        echo "✅ Expected output of 3DCNN local training found"
+    else
+        echo "❌ Missing expected output of 3DCNN local training"
+        exit 1
+    fi
+
+    cd "$CWD"
+}
+
+
 cleanup_synthetic_data () {
     echo "[Cleanup] Removing synthetic data ..."
     rm -rf "$SYNTHETIC_DATA_DIR"/*
@@ -651,6 +670,13 @@ case "$1" in
         start_server_and_clients
         run_dummy_training_in_swarm
         kill_server_and_clients
+        cleanup_temporary_data
+        ;;
+
+    run_3dcnn_local_training)
+        create_startup_kits_and_check_contained_files
+        create_synthetic_data
+        run_3dcnn_local_training
         cleanup_temporary_data
         ;;
 
