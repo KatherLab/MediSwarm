@@ -237,11 +237,18 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                     "1DivideAndConquer",
                     "model.py",
                 )
+                pretrained_path = os.path.join(
+                    os.path.dirname(Path(__file__)),
+                    "models",
+                    "challenge",
+                    "1DivideAndConquer",
+                    "checkpoint_final.pth",
+                )
                 spec = importlib.util.spec_from_file_location("divide_model", model_creator_path)
                 divide_model_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(divide_model_module)
                 model = divide_model_module.ResidualEncoderClsLightning(in_ch=1, out_ch=2)
-                model.load_pretrained_unet_encoder("checkpoint_final.pth", verbose=True)
+                model.load_pretrained_unet_encoder(pretrained_path, verbose=True)
 
             elif team_name == "2BCN_AIM":
                 model_creator_path = os.path.join(
@@ -264,11 +271,18 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                     "3agaldran",
                     "model_factory.py",
                 )
+                pretrained_path = os.path.join(
+                    os.path.dirname(__file__),
+                    "models",
+                    "challenge",
+                    "3agaldran",
+                    "mvit_v2_s-ae3be167.pth",
+                )
                 spec = importlib.util.spec_from_file_location("agaldran_model_factory", factory_path)
                 agaldran_factory = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(agaldran_factory)
                 model = agaldran_factory.model_factory(arch="mvit_v2_s",
-                                                    pretrained_path=os.path.join(Path(factory_path).parent, "mvit_v2_s-ae3be167.pth"),
+                                                    pretrained_path=os.path.join(Path(factory_path).parent, pretrained_path),
                                                     num_classes=3,
                                                     in_ch=1,
                                                     seed=123)
