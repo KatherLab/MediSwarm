@@ -245,6 +245,10 @@ RUN apt install -y \
     unzip \
     zip
 
+# challenge model import
+RUN python3 -m pip install \
+    dynamic-network-architectures
+
 # Clean up apt cache
 RUN rm -rf /var/lib/apt/lists/*
 

@@ -28,7 +28,7 @@ python_env="/home/swarm/Documents/ODELIA/.venv"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ODELIA_APP_DIR="${PROJECT_ROOT}/application/jobs/ODELIA_ternary_classification/app"
 PROVISION_FILE="${PROJECT_ROOT}/application/provision/project_Challenge_test.yml"
-DOCKER_DIR="${PROJECT_ROOT}/workspace/odelia_challenge_test_1.0.2-dev.260319.20ff2bc_model_test/prod_00/UKA_1/startup/" 
+DOCKER_DIR="${PROJECT_ROOT}/workspace/odelia_challenge_test_1.0.2-dev.260319.d7e0125_model_test/prod_00/UKA_1/startup/" 
 
 CONFIG_PATH="${ODELIA_APP_DIR}/config/config_fed_client.conf"
 CHALLENGE_CONFIG_PATH="${ODELIA_APP_DIR}/custom/models/challenge/challenge_models_config.sh"
