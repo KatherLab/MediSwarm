@@ -319,6 +319,26 @@ run_data_access_preflight_check_log_details () {
 }
 
 
+run_data_access_preflight_without_data () {
+    # requires having built a startup kit and _not_ having a synthetic dataset
+    echo "[Run] Data access preflight check with logging dataset details..."
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
+    # also check that it finishes the single round within one minute
+    timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+
+    if grep -q "No such file or directory: '/data/client_A/metadata_unilateral/split.csv'" "$CONSOLE_OUTPUT" ; then
+        echo "Expected error output of data access preflight check found if no data is present"
+    else
+        echo "Missing expected output of data access preflight check found if no data is present"
+        exit 1
+    fi
+
+    cd "$CWD"
+}
+
+
 run_3dcnn_simulation_mode () {
     # requires having built a startup kit and synthetic dataset
     echo "[Run] Simulation mode of 3DCNN training in Docker"
@@ -606,6 +626,8 @@ case "$1" in
         create_synthetic_data
         run_data_access_preflight_check
         run_data_access_preflight_check_log_details
+        cleanup_synthetic_data
+        run_data_access_preflight_without_data
         cleanup_temporary_data
         ;;
 
