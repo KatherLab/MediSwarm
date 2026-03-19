@@ -28,7 +28,7 @@ python_env="/home/swarm/Documents/ODELIA/.venv"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ODELIA_APP_DIR="${PROJECT_ROOT}/application/jobs/ODELIA_ternary_classification/app"
 PROVISION_FILE="${PROJECT_ROOT}/application/provision/project_Challenge_test.yml"
-DOCKER_DIR="${PROJECT_ROOT}/workspace/odelia_challenge_model_test/prod_00/UKA_1/startup/"
+DOCKER_DIR="${PROJECT_ROOT}/workspace/odelia_challenge_model_test/prod_02/UKA_1/startup/"
 
 CONFIG_PATH="${ODELIA_APP_DIR}/config/config_fed_client.conf"
 CHALLENGE_CONFIG_PATH="${ODELIA_APP_DIR}/custom/models/challenge/challenge_models_config.sh"
@@ -133,12 +133,12 @@ run_model_test() {
     cd $DOCKER_DIR
     docker ps -a --filter "name=odelia_challenge_test" -q | xargs -r docker rm -f
     # in case you want to test a local docker image: Change the version number here: 
-    #export DOCKER_IMAGE="odelia_challenge_jefftud/odelia_challenge:1.0.2-dev.260318.71f1cab"
+    export DOCKER_IMAGE="odelia_challenge_jefftud/odelia_challenge:1.0.2-dev.260318.71f1cab"
     if [ "$mode" = "local_training" ]; then
-        ./docker.sh --scratch_dir $SCRATCH_DIR --GPU device=0 --dummy_training 2>&1 | tee $SCRATCH_DIR/dummy_training_console_output.txt
+        ./docker.sh --scratch_dir $SCRATCH_DIR --GPU device=0 --dummy_training --no_pull 2>&1 | tee $SCRATCH_DIR/dummy_training_console_output.txt
     fi
     if [ "$mode" = "preflight_check" ]; then
-        ./docker.sh --data_dir $DATA_DIR --scratch_dir $SCRATCH_DIR --GPU device=0 --preflight_check  2>&1 | tee $SCRATCH_DIR/preflight_check_console_output.txt
+        ./docker.sh --data_dir $DATA_DIR --scratch_dir $SCRATCH_DIR --GPU device=0 --preflight_check --no_pull  2>&1 | tee $SCRATCH_DIR/preflight_check_console_output.txt
     fi
 
     local exit_code=$?
