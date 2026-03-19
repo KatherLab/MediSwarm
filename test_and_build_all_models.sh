@@ -131,9 +131,9 @@ run_model_test() {
     timeout 600 $python_env/bin/python3 main.py > "/tmp/test_${model}_${mode}.log" 2>&1
     
     cd $DOCKER_DIR
-    docker ps -a --filter "name=odelia_challenge_" -q | xargs -r docker rm -f
+    docker ps -a --filter "name=odelia_challenge_test" -q | xargs -r docker rm -f
     # in case you want to test a local docker image: Change the version number here: 
-    export DOCKER_IMAGE="odelia_challenge_jefftud/odelia_challenge:1.0.2-dev.260318.71f1cab"
+    #export DOCKER_IMAGE="odelia_challenge_jefftud/odelia_challenge:1.0.2-dev.260318.71f1cab"
     if [ "$mode" = "local_training" ]; then
         ./docker.sh --scratch_dir $SCRATCH_DIR --GPU device=0 --dummy_training 2>&1 | tee $SCRATCH_DIR/dummy_training_console_output.txt
     fi
