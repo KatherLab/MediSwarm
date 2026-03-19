@@ -188,6 +188,7 @@ docker_config/torch_home_cache
 
 # Build output and logs
 challenge_docker_generation.txt
+tests/results/
 
 runs
 *.bak
