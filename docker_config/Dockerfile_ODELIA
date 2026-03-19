@@ -174,7 +174,7 @@ RUN apt install -y \
     bash=5.1-6ubuntu1.1 \
     bsdutils=1:2.37.2-4ubuntu3.5 \
     ca-certificates=20240203~22.04.1 \
-    coreutils=8.32-4.1ubuntu1.2 \
+    coreutils=8.32-4.1ubuntu1.3 \
     dpkg=1.21.1ubuntu2.6 \
     e2fsprogs=1.46.5-2ubuntu1.2 \
     gpgv=2.2.27-3ubuntu2.5 \
