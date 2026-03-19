@@ -241,7 +241,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
                 divide_model_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(divide_model_module)
                 model = divide_model_module.ResidualEncoderClsLightning(in_ch=1, out_ch=2)
-                model.load_pretrained_unet_encoder("./models/challenge/1DivideAndConquer/checkpoint_final.pth", verbose=True)
+                model.load_pretrained_unet_encoder("checkpoint_final.pth", verbose=True)
 
             elif team_name == "2BCN_AIM":
                 model_creator_path = os.path.join(
