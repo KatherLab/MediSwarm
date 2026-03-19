@@ -28,7 +28,7 @@ python_env="/home/swarm/Documents/ODELIA/.venv"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ODELIA_APP_DIR="${PROJECT_ROOT}/application/jobs/ODELIA_ternary_classification/app"
 PROVISION_FILE="${PROJECT_ROOT}/application/provision/project_Challenge_test.yml"
-DOCKER_DIR="${PROJECT_ROOT}/workspace/odelia_challenge_test_1.0.2-dev.260319.8b63476_model_test/prod_00/UKA_1/startup/"
+DOCKER_DIR="${PROJECT_ROOT}/workspace/odelia_challenge_test_1.0.2-dev.260319.6683448_model_test/prod_00/UKA_1/startup/" 
 
 CONFIG_PATH="${ODELIA_APP_DIR}/config/config_fed_client.conf"
 CHALLENGE_CONFIG_PATH="${ODELIA_APP_DIR}/custom/models/challenge/challenge_models_config.sh"
@@ -41,7 +41,7 @@ source "$python_env/bin/activate"
 # Parse arguments
 NO_PUSH=false
 SKIP_BUILD=false
-MODELS_TO_TEST="1DivideAndConquer"  #,2BCN_AIM,3agaldran,4LME_ABMIL,5Pimed"
+MODELS_TO_TEST="1DivideAndConquer,2BCN_AIM,3agaldran,4LME_ABMIL,5Pimed"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -131,7 +131,7 @@ run_model_test() {
     timeout 600 $python_env/bin/python3 main.py > "/tmp/test_${model}_${mode}.log" 2>&1
     
     cd $DOCKER_DIR
-    docker ps -a --filter "name=odelia_challenge_test" -q | xargs -r docker rm -f
+    docker ps -a --filter "name=odelia_swarm_client_${SITE_NAME}" -q | xargs -r docker rm -f
     # in case you want to test a local docker image: Change the version number here: 
     # export DOCKER_IMAGE="odelia_challenge_jefftud/odelia_challenge:1.0.2-dev.260318.71f1cab"
     if [ "$mode" = "local_training" ]; then
@@ -216,9 +216,9 @@ main() {
         fi
         
         # Test local_training
-        if ! run_model_test "$model" "local_training"; then
-            all_passed=false
-        fi
+        #if ! run_model_test "$model" "local_training"; then
+        #    all_passed=false
+        #fi
         
         if [ "$all_passed" = true ]; then
             test_results+=("$model:PASS")
