@@ -19,7 +19,7 @@ check_files_on_github () {
     echo "[Run] Test whether expected content is available on github"
 
     LICENSE_ON_GITHUB=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/LICENSE)
-    if echo "$LICENSE_ON_GITHUB" | grep -q "MIT License" ; then
+    if echo "$LICENSE_ON_GITHUB" | grep -q "BSD License" ; then
         echo "✅ Downloaded and verified license from github"
     else
         echo "❌ Could not download and verify license"
