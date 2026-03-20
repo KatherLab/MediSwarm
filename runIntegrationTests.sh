@@ -579,14 +579,14 @@ run_3dcnn_local_training () {
 }
 
 
-run_3dcnn_training_in_swarm() {
-    echo "[Run] 3DCNN training in swarm (result will be checked after 30 minutes) ..."
+run_3dcnn_training_in_swarm () {
+    echo "[Run] 3DCNN training in swarm (result will be checked after 60 minutes) ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
     expect -f "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
-    sleep 120
+    sleep 3600
     cd "$CWD"
 
     # check for expected output in server log (clients joined, job ID assigned, 20 rounds)
@@ -740,6 +740,7 @@ case "$1" in
 
     run_3dcnn_training_in_swarm)
         create_startup_kits_and_check_contained_files
+        create_synthetic_data
         start_server_and_clients
         run_3dcnn_training_in_swarm
         kill_server_and_clients
