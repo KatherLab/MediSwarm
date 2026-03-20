@@ -154,11 +154,17 @@ To make sure your code is swarm-compatible and to isolate potential issues, we r
    * Having adapted the code to be NVFlare-compatible, it should still be able to run outside a swarm and should provide the possibility for swarm participants to check if their data is compatible with the training.
      * A local data access preflight check can simply be a local training for one epoch.
    * Adapt the `docker_cln_sh` section of [master_template.yml](../../docker_config/master_template.yml) to enable these.
+   * Adapt the `run_data_access_preflight_check` and `run_3dcnn_local_training` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh) to check these.
    * Debug, commit, rebuild containers, run until this succeeds.
    * Make sure the code stays NVFlare-compatible when making changes.
-7. Make sure the code runs in an actual swarm training.
+7. Check if your code runs in an actual, local swarm.
+   * Adapt what is called from the `run_dummy_training_in_swarm` or `run_3dcnn_training_in_swarm` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh)
+     * Adapt [_submitDummyTraining.exp](../../tests/integration_tests/_submitDummyTraining.exp) or [_submit3DCNNTraining.exp](../../tests/integration_tests/_submit3DCNNTraining.exp) as needed
+     * This will run two clients using the same GPU, you may run out of RAM even if a single training runs fine.
+     * If the training fails, you may need to clean up docker containers continuing to run.
+8. Make sure the code runs in an actual, distributed swarm training.
    * Check results against the baseline to make sure the code still trains a useful model.
-8. Clean up the implementation
+9. Clean up the implementation
    * Go through the points postponed for later.
    * Prepare a pull request for merging your branch.
 
