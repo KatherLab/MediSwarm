@@ -43,6 +43,7 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 * If you have a sliced multiple GPUs, use `GPU_FOR_TESTING="device=0:0" (or another slice)
 * Otherwise, leave this environment variable unset to use all GPUs.
 * To run only specific tests, look at the options at the end of the script.
+  * The whole test suite takes over an hour.
 
    ```bash
    ./runIntegrationTests.sh
@@ -59,8 +60,10 @@ You should see output of
 7. pushing the Docker image to a local registry and pulling it from there (takes several minutes)
 8. a Docker/GPU preflight check using one of the startup kits
 9. a data access preflight check using one of the startup kits
-10. an outdated client startup kit failing to connect to the server
-11. a dummy training run in a swarm consisting of one server and two client nodes
+10. a local 3D CNN training
+11. an outdated client startup kit failing to connect to the server
+12. a dummy training run in a swarm consisting of one server and two client nodes
+13. a 3D CNN swarm training run in a two-client swarm
 
 If tests fail, you may need to clean up temporary directories or leftover Docker containers.
 
