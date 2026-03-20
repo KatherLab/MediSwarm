@@ -7,7 +7,6 @@ This guide explains how to use the automated testing scripts for all 5 challenge
 The testing suite provides:
 - **Automated model loading validation** - Ensures all models can be instantiated correctly
 - **Local training tests** - Runs preflight_check and local_training modes for each model
-- **Config management** - Updates config_fed_client.conf for each model
 - **Complete CI/CD workflow** - Tests, commits, pushes, and builds in one command
 
 ## Quick Start
@@ -55,9 +54,6 @@ All model configurations are centralized in `application/jobs/ODELIA_ternary_cla
 
 ```bash
 cd /home/swarm/Documents/MediSwarmChallenge/MediSwarm
-
-# Update config for a single model
-python3 scripts/update_config_fed_client.py 2BCN_AIM
 
 # List available models and their configs
 python3 scripts/update_config_fed_client.py --list
