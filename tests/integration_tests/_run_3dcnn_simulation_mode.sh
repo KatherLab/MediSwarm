@@ -14,7 +14,8 @@ run_3dcnn_simulation_mode () {
     export DATA_DIR=/data
     export SCRATCH_DIR=/scratch
     export TORCH_HOME=/torch_home
-    export MODEL_NAME=MST
+    export MODEL_NAME=2BCN_AIM
+    export MODEL_NAME=2BCN_AIM
     export CONFIG=unilateral
     nvflare simulator -w /tmp/ODELIA_ternary_classification -n 2 -t 2 ${TMPDIR}/ODELIA_ternary_classification -c client_A,client_B
     rm -rf ${TMPDIR}
