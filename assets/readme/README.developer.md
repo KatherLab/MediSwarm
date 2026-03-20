@@ -38,6 +38,7 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 
 ## Running Tests
 
+* Build a Docker image for testing using `./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml [--use_docker_cache]`
 * If you have multiple GPUs, use `GPU_FOR_TESTING="device=0" (or another device)
 * If you have a sliced multiple GPUs, use `GPU_FOR_TESTING="device=0:0" (or another slice)
 * Otherwise, leave this environment variable unset to use all GPUs.
