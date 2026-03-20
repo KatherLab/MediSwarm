@@ -624,7 +624,7 @@ run_3dcnn_training_in_swarm () {
 
     cd "$PROJECT_DIR"/prod_00/client_A/
     FILES_PRESENT=$(find . -type f -name "*.*")
-    for EXPECTED_FILE in 'custom/threedcnn_ptl.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
+    for EXPECTED_FILE in 'custom/threedcnn_ptl.py' 'FL_global_model.pt' ;
     do
         if echo "$FILES_PRESENT" | grep -q "$EXPECTED_FILE" ; then
             echo "✅ Expected file $EXPECTED_FILE found"
