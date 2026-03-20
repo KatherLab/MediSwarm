@@ -473,7 +473,7 @@ verify_wrong_certificates_are_rejected () {
 
 
 run_dummy_training_in_swarm () {
-    echo "[Run] Dummy training in swarm ..."
+    echo "[Run] Dummy training in swarm (result will be checked after 2 minutes) ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
@@ -518,7 +518,7 @@ run_dummy_training_in_swarm () {
                            'Got the new primary SP:' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
-                           'broadcasting learn task of round . to .*; aggr client is client_.'
+                           'broadcasting learn task of round . to .*; aggr client is client_.';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -579,10 +579,68 @@ run_3dcnn_local_training () {
 }
 
 
+run_3dcnn_training_in_swarm() {
+    echo "[Run] 3DCNN training in swarm (result will be checked after 30 minutes) ..."
+
+    cd "$PROJECT_DIR"/prod_00
+    cd admin@test.odelia/startup
+    expect -f "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
+    docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
+    sleep 120
+    cd "$CWD"
+
+    # check for expected output in server log (clients joined, job ID assigned, 20 rounds)
+    cd "$PROJECT_DIR"/prod_00/localhost/startup
+    CONSOLE_OUTPUT=nohup.out
+    for EXPECTED_OUTPUT in 'updated status of client client_A on round 19: .* action=start_learn_task, all_done=False' \
+                           'updated status of client client_B on round 19: .* action=start_learn_task, all_done=False' \
+                           'all_done=True';
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT found"
+        else
+            cat "$CONSOLE_OUTPUT"
+            echo "❌ Expected output $EXPECTED_OUTPUT missing"
+            exit 1
+        fi
+    done
+    cd "$CWD"
+
+    # check for expected output in client log
+    cd "$PROJECT_DIR"/prod_00/client_A/startup
+    CONSOLE_OUTPUT=nohup.out
+    for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
+                           'Epoch 99: 100%';
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT found"
+        else
+            cat "$CONSOLE_OUTPUT"
+            echo "❌ Expected output $EXPECTED_OUTPUT missing"
+            exit 1
+        fi
+    done
+    cd "$CWD"
+
+    cd "$PROJECT_DIR"/prod_00/client_A/
+    FILES_PRESENT=$(find . -type f -name "*.*")
+    for EXPECTED_FILE in 'custom/threedcnn_ptl.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
+    do
+        if echo "$FILES_PRESENT" | grep -q "$EXPECTED_FILE" ; then
+            echo "✅ Expected file $EXPECTED_FILE found"
+        else
+            echo "❌ Expected file $EXPECTED_FILE missing"
+            exit 1
+        fi
+    done
+}
+
+
 cleanup_synthetic_data () {
     echo "[Cleanup] Removing synthetic data ..."
     rm -rf "$SYNTHETIC_DATA_DIR"/*
 }
+
 
 cleanup_temporary_data () {
     echo "[Cleanup] Removing synthetic data directory, scratch directory, dummy workspace ..."
@@ -680,6 +738,14 @@ case "$1" in
         cleanup_temporary_data
         ;;
 
+    run_3dcnn_training_in_swarm)
+        create_startup_kits_and_check_contained_files
+        start_server_and_clients
+        run_3dcnn_training_in_swarm
+        kill_server_and_clients
+        cleanup_temporary_data
+        ;;
+
     kill_server_and_clients)
         kill_server_and_clients
         ;;
@@ -697,10 +763,12 @@ case "$1" in
         kill_registry_docker
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
+        run_3dcnn_local_training
         verify_wrong_certificates_are_rejected
         cleanup_synthetic_data
         start_server_and_clients
         run_dummy_training_in_swarm
+        run_3dcnn_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
         ;;

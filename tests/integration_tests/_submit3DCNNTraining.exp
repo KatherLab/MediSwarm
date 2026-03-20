@@ -1,0 +1,7 @@
+#!/usr/bin/env expect
+
+spawn ./docker.sh --no_pull
+expect "User Name: "
+send "admin@test.odelia\r"
+expect "> "
+send "submit_job MediSwarm/application/jobs/ODELIA_ternary_classification/\r"
