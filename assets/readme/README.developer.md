@@ -47,18 +47,21 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
    ./runIntegrationTests.sh
    ```
 
-You should see
+You should see output of
 
-1. several expected errors and warnings printed from unit tests that should succeed overall, and a coverage report
-2. output of a successful simulation run of a dummy training with two nodes
-3. output of a successful proof-of-concept run of a dummy training with two nodes
-4. output of a successful simulation run of a 3D CNN training using synthetic data with two nodes
-5. output of a set of startup kits being generated
-6. output of pushing the Docker image to a local registry and pulling it from there (takes several minutes)
-7. output of a Docker/GPU preflight check using one of the startup kits
-8. output of a data access preflight check using one of the startup kits
-9. output of an outdated client startup kit failing to connect to the server
-10. output of a dummy training run in a swarm consisting of one server and two client nodes
+1. a check that files are present on github
+2. a standalone minimal training run
+3. a simulation run of a dummy training with two nodes
+4. a proof-of-concept run of a dummy training with two nodes
+5. a simulation run of a 3D CNN training using synthetic data with two nodes
+6. a set of startup kits being created
+7. pushing the Docker image to a local registry and pulling it from there (takes several minutes)
+8. a Docker/GPU preflight check using one of the startup kits
+9. a data access preflight check using one of the startup kits
+10. an outdated client startup kit failing to connect to the server
+11. a dummy training run in a swarm consisting of one server and two client nodes
+
+If tests fail, you may need to clean up temporary directories or leftover Docker containers.
 
 ## Distributing Startup Kits
 
