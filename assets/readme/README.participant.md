@@ -160,6 +160,7 @@ To have a baseline for swarm training, train the same model in a comparable way 
 
 4. Output files are located in the directory of the startup kit (note: unlike local training results, this is *not* in the `startup` directory)
     * Training log: `<JOB_ID>/log.txt`
+      * Note: there is also a log.txt outside the job folders, it does not contain job-specific information.
     * Class probabilities for each round/epoch for training/validation data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/{aggregated,site}_model_gt_and_classprob_{train,validation}.csv`
     * Best checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/epoch=….ckpt`
     * Last checkpoint for local data: `<JOB_ID>/app_$SITE_NAME/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/last.ckpt`
@@ -211,3 +212,4 @@ ping dl3.tud.de
 * If you have partitioned your system to have a small system partition and a large data partition, you probably want to configure the container storage to happen on the data partition.
   * This can be configured via `echo '{"data-root": "/data/var_lib_docker", "features": {"containerd-snapshotter": true}}' > /etc/docker/daemon.json` (where the containerd-snapshotter may or may not be necessary).
   * If the `data-root` is on an external, network or otherwise slow drive, you need to make sure it is available when the container daemon is started, otherwise you will not see previous containers after a reboot. Maybe `sed -i "s/After=/After=SERVICE_PROVIDING_YOUR_DATA_DRIVE.service /g" /usr/lib/systemd/system/containerd.service` is also helpful for you to configure this.
+* The time zone may differ between accounts on the host and jobs run in Docker containers, so file modification dates may have an offset from time stamps in logs.
