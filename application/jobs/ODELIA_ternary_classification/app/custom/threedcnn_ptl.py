@@ -6,6 +6,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
 from models import ResNet, MST
 from env_config import load_environment_variables, prepare_odelia_dataset, prepare_odelia_dataset_without_augmentation, generate_run_directory
+from models.models_config import create_model, get_unified_model_name
 import torch.multiprocessing as mp
 from hashlib import sha3_224 as hash_function
 from typing import List, Tuple
@@ -189,134 +190,16 @@ class GT_PredProb_Output_Callback(Callback):
 
 def prepare_training(logger, max_epochs: int, model_variant: str):
     try:
-        # If model_variant is a challenge team name (without challenge_ prefix), add it
-        CHALLENGE_TEAMS = ["1DivideAndConquer", "2BCN_AIM", "3agaldran", "4LME_ABMIL", "5Pimed"]
-        if model_variant in CHALLENGE_TEAMS:
-            model_variant = f"challenge_{model_variant}"
-        
-        env_vars = load_environment_variables()
-        logger.info(f"Environment variables: {env_vars}")
-        model_name = model_variant if model_variant and len(model_variant) > 0 else env_vars.get('model_name', 'ResNet10')
-        data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, model_variant)
+        model_name = get_unified_model_name(model_variant)
+        model = create_model(logger, model_name)
+        data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, model_name)
 
         if not torch.cuda.is_available():
             raise RuntimeError("This example requires a GPU")
 
         logger.info(f"Running code version {env_vars['mediswarm_version']}")
         logger.info(f"Using GPU for training")
-        logger.info(f"Model variant: {model_name}")
-
-        model = None
-        if model_name in ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:
-            resnet_variant = int(model_name[6:])
-            model = ResNet(n_input_channels=1,
-                           num_classes=num_classes,
-                           spatial_dims=3,
-                           resnet_variant=resnet_variant,
-                           loss_kwargs=loss_kwargs)
-        elif model_name == 'MST':
-            model = MST(n_input_channels=1,
-                        num_classes=num_classes,
-                        spatial_dims=3,
-                        loss_kwargs=loss_kwargs)
-        elif model_name == "Swin3D":
-            print(f"Using Swin3D model:\nShould we include {loss_kwargs} here?")
-            model = Swin3D(n_input_channels=1,
-                           num_classes=num_classes,
-                           spatial_dims=3)
-        elif "challenge_" in model_name:
-            # The challenge model folder starts with a digit (3agaldran), which
-            # is not a valid Python identifier for standard imports. Load the
-            # factory by file path using importlib to avoid renaming directories.
-            team_name = "_".join(model_name.split('_')[1:])
-            if team_name == "1DivideAndConquer":
-                model_creator_path = os.path.join(
-                    os.path.dirname(Path(__file__)),
-                    "models",
-                    "challenge",
-                    "1DivideAndConquer",
-                    "model.py",
-                )
-                pretrained_path = os.path.join(
-                    os.path.dirname(Path(__file__)),
-                    "models",
-                    "challenge",
-                    "1DivideAndConquer",
-                    "checkpoint_final.pth",
-                )
-                spec = importlib.util.spec_from_file_location("divide_model", model_creator_path)
-                divide_model_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(divide_model_module)
-                model = divide_model_module.ResidualEncoderClsLightning(in_ch=1, out_ch=2)
-                model.load_pretrained_unet_encoder(pretrained_path, verbose=True)
-
-            elif team_name == "2BCN_AIM":
-                model_creator_path = os.path.join(
-                    os.path.dirname(Path(__file__)),
-                    "models",
-                    "challenge",
-                    "2bcnaim",
-                    "swinunetr.py",
-                )
-                spec = importlib.util.spec_from_file_location("swinunetr_model", model_creator_path)
-                swinunetr_model_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(swinunetr_model_module)
-                model = swinunetr_model_module.create_model(img_size=224, num_classes=num_classes, n_input_channels=1, spatial_dims=3)
-                
-            elif team_name == "3agaldran":
-                factory_path = os.path.join(
-                    os.path.dirname(__file__),
-                    "models",
-                    "challenge",
-                    "3agaldran",
-                    "model_factory.py",
-                )
-                pretrained_path = os.path.join(
-                    os.path.dirname(__file__),
-                    "models",
-                    "challenge",
-                    "3agaldran",
-                    "mvit_v2_s-ae3be167.pth",
-                )
-                spec = importlib.util.spec_from_file_location("agaldran_model_factory", factory_path)
-                agaldran_factory = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(agaldran_factory)
-                model = agaldran_factory.model_factory(arch="mvit_v2_s",
-                                                    pretrained_path=os.path.join(Path(factory_path).parent, pretrained_path),
-                                                    num_classes=3,
-                                                    in_ch=1,
-                                                    seed=123)
-            elif team_name == "4LME_ABMIL":
-                model_creator_path = os.path.join(
-                    os.path.dirname(Path(__file__)),
-                    "models",
-                    "challenge",
-                    "4abmil",
-                    "model.py",
-                )
-                spec = importlib.util.spec_from_file_location("abmil_model", model_creator_path)
-                abmil_model_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(abmil_model_module)
-                model = abmil_model_module.create_model(n_input_channels=3, num_classes=num_classes)
-
-            elif team_name == "5Pimed":
-                model_creator_path = os.path.join(
-                    os.path.dirname(__file__),
-                    "models",
-                    "challenge",
-                    "5pimed",
-                    "model.py",
-                )
-                spec = importlib.util.spec_from_file_location("pimed_model", model_creator_path)
-                pimed_model_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(pimed_model_module)
-                model = pimed_model_module.create_model(model_name="resnet18", num_classes=num_classes, norm="batch")
-            else:
-                raise ValueError(f"Unknown challenge team name: {team_name}")
-        else:
-            raise ValueError(f"Unsupported model name: {model_name}.")
-
-        logger.info(f"Using model: {model_name}")
+        logger.info(f"Model name: {model_name} from model variant: {model_variant}")
 
         to_monitor = "val/ACC"
         min_max = "max"
