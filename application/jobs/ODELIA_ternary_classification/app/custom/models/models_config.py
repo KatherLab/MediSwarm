@@ -107,7 +107,7 @@ def get_unified_model_name(logger, model_variant: str, env_vars):
     if model_variant is None:
         logger.info("No model variant defined. Read environment variables.")
         model_name = env_vars.get('model_name', 'MST')
-        logger.info(f"Using model {model_name} (MST as default if MODEL_NAME has not been set es environmental variable).")
+        logger.info(f"Using model {model_name} (MST as default if MODEL_NAME has not been set es environmental variable).")git 
     elif model_variant == "challenge":
         model_name = f"challenge_{get_all_model_names()[0]}"
         logger.info(f"Model variant {model_variant}; Select first challenge model as default: {model_name}.")
