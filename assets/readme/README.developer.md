@@ -44,6 +44,7 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 * If you have a sliced multiple GPUs, use `GPU_FOR_TESTING="device=0:0" (or another slice)
 * Otherwise, leave this environment variable unset to use all GPUs.
 * To run only specific tests, look at the options at the end of the script.
+  * The whole test suite takes over an hour.
 
    ```bash
    ./runIntegrationTests.sh
@@ -60,8 +61,10 @@ You should see output of
 7. pushing the Docker image to a local registry and pulling it from there (takes several minutes)
 8. a Docker/GPU preflight check using one of the startup kits
 9. a data access preflight check using one of the startup kits
-10. an outdated client startup kit failing to connect to the server
-11. a dummy training run in a swarm consisting of one server and two client nodes
+10. a local 3D CNN training
+11. an outdated client startup kit failing to connect to the server
+12. a dummy training run in a swarm consisting of one server and two client nodes
+13. a 3D CNN swarm training run in a two-client swarm
 
 If tests fail, you may need to clean up temporary directories or leftover Docker containers.
 
@@ -152,11 +155,17 @@ To make sure your code is swarm-compatible and to isolate potential issues, we r
    * Having adapted the code to be NVFlare-compatible, it should still be able to run outside a swarm and should provide the possibility for swarm participants to check if their data is compatible with the training.
      * A local data access preflight check can simply be a local training for one epoch.
    * Adapt the `docker_cln_sh` section of [master_template.yml](../../docker_config/master_template.yml) to enable these.
+   * Adapt the `run_data_access_preflight_check` and `run_3dcnn_local_training` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh) to check these.
    * Debug, commit, rebuild containers, run until this succeeds.
    * Make sure the code stays NVFlare-compatible when making changes.
-7. Make sure the code runs in an actual swarm training.
+7. Check if your code runs in an actual, local swarm.
+   * Adapt what is called from the `run_dummy_training_in_swarm` or `run_3dcnn_training_in_swarm` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh)
+     * Adapt [_submitDummyTraining.exp](../../tests/integration_tests/_submitDummyTraining.exp) or [_submit3DCNNTraining.exp](../../tests/integration_tests/_submit3DCNNTraining.exp) as needed
+     * This will run two clients using the same GPU, you may run out of RAM even if a single training runs fine.
+     * If the training fails, you may need to clean up docker containers continuing to run.
+8. Make sure the code runs in an actual, distributed swarm training.
    * Check results against the baseline to make sure the code still trains a useful model.
-8. Clean up the implementation
+9. Clean up the implementation
    * Go through the points postponed for later.
    * Prepare a pull request for merging your branch.
 
