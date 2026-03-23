@@ -1,3 +1,10 @@
+import torch
+from env_config import load_environment_variables
+import os
+from pathlib import Path
+import importlib.util
+from models import ResNet, MST, Swin3D
+
 """
 Shared configuration for challenge models.
 Used by both testing scripts and config updaters.
@@ -6,15 +13,17 @@ Used by both testing scripts and config updaters.
 CHALLENGE_MODELS = {
     "1DivideAndConquer": {
         "team_name": "1DivideAndConquer",
-        "persistor_path": "models.challenge.1DivideAndConquer.model.create_model",
+        "persistor_path": "challenge.1DivideAndConquer.model.create_model",
         "persistor_args": {
-            "n_input_channels": 3,
-            "num_classes": 3
+            "num_classes": 3,
+            "n_input_channels": 1,
+            "spatial_dims": 3,  # must be three
+            "pretrained_path": "challenge.1DivideAndConquer.checkpoint_final.pth"  # "challenge.1DivideAndConquer.checkpoint_final.pth."
         }
     },
     "2BCN_AIM": {
         "team_name": "2BCN_AIM",
-        "persistor_path": "models.challenge.2bcnaim.swinunetr.create_model",
+        "persistor_path": "challenge.2bcnaim.swinunetr.create_model",
         "persistor_args": {
             "img_size": 224,
             "num_classes": 3,
@@ -24,9 +33,10 @@ CHALLENGE_MODELS = {
     },
     "3agaldran": {
         "team_name": "3agaldran",
-        "persistor_path": "models.challenge.3agaldran.model_factory.model_factory",
+        "persistor_path": "challenge.3agaldran.model_factory.model_factory",
         "persistor_args": {
             "arch": "mvit_v2_s",
+            "pretrained_path": "challenge.3agaldran.mvit_v2_s-ae3be167.pth",
             "num_classes": 3,
             "in_ch": 1,
             "seed": 123
@@ -34,15 +44,16 @@ CHALLENGE_MODELS = {
     },
     "4LME_ABMIL": {
         "team_name": "4LME_ABMIL",
-        "persistor_path": "models.challenge.4abmil.model.create_model",
+        "persistor_path": "challenge.4abmil.model.create_model",
         "persistor_args": {
+            "model_type": "swin",
             "n_input_channels": 3,
             "num_classes": 3
         }
     },
     "5Pimed": {
         "team_name": "5Pimed",
-        "persistor_path": "models.challenge.5pimed.model.create_model",
+        "persistor_path": "challenge.5pimed.model.create_model",
         "persistor_args": {
             "model_name": "resnet18",
             "num_classes": 3,
@@ -54,8 +65,7 @@ CHALLENGE_MODELS = {
 }
 DEFAULT_MODEL = {
     "MST": {
-        "team_name": "4LME_ABMIL",
-        "persistor_path": "models.mst.MST",
+        "persistor_path": "mst.MST",
         "persistor_args": {
             "n_input_channels": 1,
             "num_classes": 3, 
@@ -63,7 +73,6 @@ DEFAULT_MODEL = {
         }
     }
 }
-from env_config import load_environment_variables 
 
 
 def get_model_config(logger, model_name: str):
@@ -88,8 +97,7 @@ def get_persistor_config(logger, model_name: str):
         }
     return None
 
-def get_unified_model_name(logger, model_variant: str):
-    env_vars = load_environment_variables()
+def get_unified_model_name(logger, model_variant: str, env_vars):
     logger.info(f"Environment variables: {env_vars}")
     if model_variant is None:
         logger.info("No model variant defined. Read environment variables.")
@@ -109,12 +117,14 @@ def get_unified_model_name(logger, model_variant: str):
 
     return model_name
 
-def create_model(logger, model_name: str = None, **kwargs):
+def create_model(logger, model_name: str = None, num_classes: int = 3, 
+                 loss_kwargs: dict = None):
     """
     Factory function to create any model.
     Can be called with explicit model_name or reads from MODEL_NAME env var.
     """
-    model_name = get_unified_model_name(model_name)
+    env_vars = load_environment_variables()
+    model_name = get_unified_model_name(logger, model_name, env_vars)
 
     if not torch.cuda.is_available():
         raise RuntimeError("This example requires a GPU")
@@ -147,21 +157,27 @@ def create_model(logger, model_name: str = None, **kwargs):
         
         persistor_path = config["persistor_path"]
         persistor_args = config["persistor_args"].copy()
-        persistor_args.update(kwargs)  # allow overrides
+        persistor_args["num_classes"] = num_classes  # allow overrides
 
         # Dynamic import: split into module path and function name
         module_path, func_name = persistor_path.rsplit(".", 1)
         
         # Use importlib by file path since module names start with digits
-        base_dir = os.path.dirname(Path(__file__))
-        # e.g. "models.challenge.1DivideAndConquer.model" -> file path
+        base_dir = os.path.dirname(Path(__file__)) # is already in directory models
+        # e.g. "challenge.1DivideAndConquer.model" -> file path
         file_path = os.path.join(base_dir, *module_path.split(".")) + ".py"
         
         spec = importlib.util.spec_from_file_location(module_path, file_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         
+        if "pretrained_path" in persistor_args:
+            rel_path = persistor_args["pretrained_path"].rstrip(".")
+            persistor_args["pretrained_path"] = os.path.join(
+                base_dir, "challenge", team_name, rel_path
+            )
         factory_fn = getattr(module, func_name)
+        logger.info(f"Now access {persistor_args} from module {module}")
         return factory_fn(**persistor_args)
     else:
         raise ValueError(f"Unsupported model name: {model_name}.")
