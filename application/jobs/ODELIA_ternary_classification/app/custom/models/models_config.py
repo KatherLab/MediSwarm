@@ -3,6 +3,7 @@ from env_config import load_environment_variables
 import os
 from pathlib import Path
 import importlib.util
+import logging
 from models import ResNet, MST, Swin3D
 
 """
@@ -74,6 +75,10 @@ DEFAULT_MODEL = {
     }
 }
 
+def set_up_logging():
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    return logger
 
 def get_model_config(logger, model_name: str):
     """Get configuration for a specific model."""
@@ -117,12 +122,15 @@ def get_unified_model_name(logger, model_variant: str, env_vars):
 
     return model_name
 
-def create_model(logger, model_name: str = None, num_classes: int = 3, 
+def create_model(logger=None, model_name: str = None, num_classes: int = 3, 
                  loss_kwargs: dict = None):
     """
     Factory function to create any model.
     Can be called with explicit model_name or reads from MODEL_NAME env var.
     """
+    if logger == None:
+        logger = set_up_logging()
+        
     env_vars = load_environment_variables()
     model_name = get_unified_model_name(logger, model_name, env_vars)
 
