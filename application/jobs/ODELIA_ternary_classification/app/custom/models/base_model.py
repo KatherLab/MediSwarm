@@ -195,6 +195,7 @@ class ModelWrapper(BasicClassifier):
             spatial_dims=spatial_dims,
             **kwargs
         )
+        self.save_hyperparameters(ignore=['backbone'])
         self.backbone = backbone
 
     def forward(self, x):
