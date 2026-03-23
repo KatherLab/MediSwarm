@@ -284,11 +284,7 @@ def load_mvit_v2_s(pretrained_path: str | None = None,
     # -------- 2) optional checkpoint -------------------------------------
     if pretrained_path:
         ckpt = (pretrained_path if os.path.isfile(pretrained_path)
-                else os.path.join(
-                     pretrained_path,
-                     next(f for f in os.listdir(pretrained_path)
-                          if f.lower().endswith(
-                             (".pth", ".pt", ".ckpt", ".pyth")))))
+                else os.path.join(pretrained_path, next(f for f in os.listdir(pretrained_path) if f.lower().endswith((".pth", ".pt", ".ckpt", ".pyth")))))
         print("🚀 loading MViT-V2 weights from", ckpt)
         state = torch.load(ckpt, map_location="cpu")
         core.load_state_dict(state, strict=False)
