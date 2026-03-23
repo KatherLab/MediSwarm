@@ -18,7 +18,7 @@ CHALLENGE_MODELS = {
             "num_classes": 3,
             "n_input_channels": 1,
             "spatial_dims": 3,  # must be three
-            "pretrained_path": "challenge.1DivideAndConquer.checkpoint_final.pth"  # "challenge.1DivideAndConquer.checkpoint_final.pth."
+            "pretrained_path": "checkpoint_final.pth"  # "challenge.1DivideAndConquer.checkpoint_final.pth."
         }
     },
     "2BCN_AIM": {
@@ -36,7 +36,7 @@ CHALLENGE_MODELS = {
         "persistor_path": "challenge.3agaldran.model_factory.model_factory",
         "persistor_args": {
             "arch": "mvit_v2_s",
-            "pretrained_path": "challenge.3agaldran.mvit_v2_s-ae3be167.pth",
+            "pretrained_path": "mvit_v2_s-ae3be167.pth",
             "num_classes": 3,
             "in_ch": 1,
             "seed": 123
@@ -176,6 +176,8 @@ def create_model(logger, model_name: str = None, num_classes: int = 3,
             persistor_args["pretrained_path"] = os.path.join(
                 base_dir, "challenge", team_name, rel_path
             )
+            logger.info(f'__________ model path is : {persistor_args["pretrained_path"]}')
+
         factory_fn = getattr(module, func_name)
         logger.info(f"Now access {persistor_args} from module {module}")
         return factory_fn(**persistor_args)
