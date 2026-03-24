@@ -6,7 +6,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
 from models import swinunetr
 from env_config import load_environment_variables, prepare_odelia_dataset, prepare_odelia_dataset_without_augmentation, generate_run_directory
-from models.models_config import create_model, get_unified_model_name
+from models.models_config import get_unified_model_name
 import torch.multiprocessing as mp
 from hashlib import sha3_224 as hash_function
 from typing import List, Tuple

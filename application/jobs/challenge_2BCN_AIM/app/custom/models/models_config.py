@@ -6,7 +6,6 @@ from env_config import load_environment_variables
 from pathlib import Path
 import importlib.util
 import logging
-from models import ResNet, MST, Swin3D
 
 
 def set_up_logging():
