@@ -34,23 +34,25 @@ verify_files () {
 copy_files() {
     cp -r $SOURCE_DIR/docker_config/torch_home_cache $TARGET_DIR/torch_home_cache
     chmod a+rX $TARGET_DIR/torch_home_cache -R
-    # Copy challenge model weights
-    echo "Copy pretrained model weights for challenge models... "
-    CHALLENGE_MODEL_DIR="$TARGET_DIR/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge"
     
-    echo "1DivideAndConquer: from $SOURCE_DIR/.../checkpoint_final.pth to $CHALLENGE_MODEL_DIR/1DivideAndConquer/"
-    mkdir -p "$CHALLENGE_MODEL_DIR/1DivideAndConquer"
-    cp "$SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/1DivideAndConquer/checkpoint_final.pth" \
-       "$CHALLENGE_MODEL_DIR/1DivideAndConquer/"
+    # # Copy challenge model weights
+    # echo "Copy pretrained model weights for challenge models... "
+    # CHALLENGE_MODEL_DIR="$TARGET_DIR/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge"
+    
+    # echo "1DivideAndConquer: from $SOURCE_DIR/.../checkpoint_final.pth to $CHALLENGE_MODEL_DIR/1DivideAndConquer/"
+    # mkdir -p "$CHALLENGE_MODEL_DIR/1DivideAndConquer"
+    # cp "$SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/1DivideAndConquer/checkpoint_final.pth" \
+    #    "$CHALLENGE_MODEL_DIR/1DivideAndConquer/"
 
-    echo "3agaldran: from $SOURCE_DIR/.../mvit_v2_s-ae3be167.pth to $CHALLENGE_MODEL_DIR/3agaldran/"
-    mkdir -p "$CHALLENGE_MODEL_DIR/3agaldran"
-    #CKPT_3A="$SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/mvit_v2_s-ae3be167.pth"
-    #if [[ ! -f "$CKPT_3A" ]]; then
-    echo "Downloading 3agaldran checkpoint..."
-    wget https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth -O "$CHALLENGE_MODEL_DIR/3agaldran/mvit_v2_s-ae3be167.pth"
-    #fi
-    #cp "$CKPT_3A" "$CHALLENGE_MODEL_DIR/3agaldran/"
+    # echo "3agaldran: from $SOURCE_DIR/.../mvit_v2_s-ae3be167.pth to $CHALLENGE_MODEL_DIR/3agaldran/"
+    # mkdir -p "$CHALLENGE_MODEL_DIR/3agaldran"
+    # #CKPT_3A="$SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/mvit_v2_s-ae3be167.pth"
+    # #if [[ ! -f "$CKPT_3A" ]]; then
+    # echo "Downloading 3agaldran checkpoint..."
+    # wget https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth -O "$CHALLENGE_MODEL_DIR/3agaldran/mvit_v2_s-ae3be167.pth"
+    # #fi
+    # #cp "$CKPT_3A" "$CHALLENGE_MODEL_DIR/3agaldran/"
+    
 }
 
 cache_files
