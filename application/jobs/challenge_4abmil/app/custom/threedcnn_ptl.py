@@ -4,7 +4,6 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 from data.datamodules import DataModule
-from models import ResNet, MST
 from env_config import load_environment_variables, prepare_odelia_dataset, prepare_odelia_dataset_without_augmentation, generate_run_directory
 from models.models_config import get_unified_model_name
 import torch.multiprocessing as mp
