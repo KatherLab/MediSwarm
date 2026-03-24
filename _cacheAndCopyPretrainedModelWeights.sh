@@ -45,8 +45,12 @@ copy_files() {
 
     echo "3agaldran: from $SOURCE_DIR/.../mvit_v2_s-ae3be167.pth to $CHALLENGE_MODEL_DIR/3agaldran/"
     mkdir -p "$CHALLENGE_MODEL_DIR/3agaldran"
-    cp "$SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/mvit_v2_s-ae3be167.pth" \
-       "$CHALLENGE_MODEL_DIR/3agaldran/"
+    #CKPT_3A="$SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/mvit_v2_s-ae3be167.pth"
+    #if [[ ! -f "$CKPT_3A" ]]; then
+    echo "Downloading 3agaldran checkpoint..."
+    wget https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth -O "$CHALLENGE_MODEL_DIR/3agaldran/mvit_v2_s-ae3be167.pth"
+    #fi
+    #cp "$CKPT_3A" "$CHALLENGE_MODEL_DIR/3agaldran/"
 }
 
 cache_files

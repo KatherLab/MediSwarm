@@ -72,7 +72,7 @@ class ModelTester:
             
             # Run main.py
             cmd = [sys.executable, "main.py"]
-            logger.info(f"Running: {str(self.custom_dir).join(cmd)}")
+            logger.info(f"Running: {cmd} in {str(self.custom_dir)}")
             
             result = subprocess.run(
                 cmd,
@@ -91,7 +91,10 @@ class ModelTester:
             else:
                 logger.error(f"✗ {model_variant} {training_mode} FAILED")
                 logger.error(f"Return code: {result.returncode}")
-                
+
+                logger.error(f"STDOUT: {result.stdout[-2000:]}")
+                logger.error(f"STDERR: {result.stderr[-2000:]}")
+                            
             return success, output
             
         except subprocess.TimeoutExpired:
@@ -182,6 +185,7 @@ def main():
         sys.exit(1)
     
     # Run tests
+    logger.info(f"init Model Tester with app dir: {odelia_app_dir}")
     tester = ModelTester(str(odelia_app_dir))
     results = tester.run_all_tests()
     
