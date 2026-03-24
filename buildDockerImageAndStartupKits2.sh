@@ -34,8 +34,8 @@ CLEAN_SOURCE_DIR=`mktemp -d`
 mkdir $CLEAN_SOURCE_DIR/MediSwarm
 git archive --format=tar HEAD | tar x -C $CLEAN_SOURCE_DIR/MediSwarm/
 # add model files manually:
-TARGET_MODEL_DIR="$CLEAN_SOURCE_DIR/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge"
-mkdir -p "$TARGET_MODEL_DIR"
+#TARGET_MODEL_DIR="$CLEAN_SOURCE_DIR/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge"
+#mkdir -p "$TARGET_MODEL_DIR"
 #cp -vr $CWD/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/. "$TARGET_MODEL_DIR/"
 
 cd docker_config/NVFlare
