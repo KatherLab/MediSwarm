@@ -278,10 +278,10 @@ run_data_access_preflight_check () {
     fi
 
     if grep -q  "ID_0" "$CONSOLE_OUTPUT" ; then
-        echo "✅ Unexpected output of data access preflight check without logging dataset details found"
+        echo "❌ Unexpected output of data access preflight check without logging dataset details found"
         exit 1
     else
-        echo "❌ Output of data access preflight check contains no unexpected UIDs."
+        echo "✅ Output of data access preflight check contains no unexpected UIDs."
     fi
 
     cd "$CWD"
