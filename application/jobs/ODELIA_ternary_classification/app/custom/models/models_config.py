@@ -1,6 +1,8 @@
 import torch
-from env_config import load_environment_variables
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # add custom to sys path
+from env_config import load_environment_variables
 from pathlib import Path
 import importlib.util
 import logging

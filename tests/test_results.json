@@ -1,0 +1,51 @@
+{
+  "summary": {
+    "1DivideAndConquer": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    },
+    "2BCN_AIM": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    },
+    "3agaldran": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    },
+    "4LME_ABMIL": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    },
+    "5Pimed": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    }
+  },
+  "details": {
+    "1DivideAndConquer": {
+      "preflight_check": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}",
+      "local_training": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}"
+    },
+    "2BCN_AIM": {
+      "preflight_check": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}",
+      "local_training": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}"
+    },
+    "3agaldran": {
+      "preflight_check": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}",
+      "local_training": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}"
+    },
+    "4LME_ABMIL": {
+      "preflight_check": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}",
+      "local_training": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}"
+    },
+    "5Pimed": {
+      "preflight_check": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}",
+      "local_training": "{'success': False, 'output': \"'PosixPath' object has no attribute 'join'\"}"
+    }
+  }
+}
