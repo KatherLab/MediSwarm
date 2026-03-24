@@ -1,7 +1,7 @@
 from pathlib import Path
 
 # Pretrained model checkpoint
-PRETRAINED_CHECKPOINT = Path(__file__).resolve().parent / "pretrained_weights" / "checkpoint_final.pth"
+PRETRAINED_CHECKPOINT = Path(__file__).resolve().parent / "checkpoint_final.pth"
 
 # Data configuration
 NUM_CLASSES = 3  # healthy, benign, malignant

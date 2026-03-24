@@ -19,7 +19,7 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'application', 'jobs', 'ODELIA_ternary_classification', 'app', 'custom', 'models'))
-from challenge.challenge_models_config import CHALLENGE_MODELS, get_model_config
+from models_config import CHALLENGE_MODELS, create_model
 
 # Setup logging
 logging.basicConfig(
@@ -44,7 +44,7 @@ class ModelTester:
         env["TRAINING_MODE"] = training_mode
         env["SITE_NAME"] = site_name
         env["MODEL_NAME"] = f"challenge_{model_variant}"
-        env["MODEL_VARIANT"] = model_variant
+        #env["MODEL_VARIANT"] = model_variant
         env["NUM_EPOCHS"] = "1"  # Minimal epochs for testing
         env["PYTHONUNBUFFERED"] = "1"
         # Add required environment variables for instantiation
@@ -72,7 +72,7 @@ class ModelTester:
             
             # Run main.py
             cmd = [sys.executable, "main.py"]
-            logger.info(f"Running: {' '.join(cmd)}")
+            logger.info(f"Running: {str(self.custom_dir).join(cmd)}")
             
             result = subprocess.run(
                 cmd,
