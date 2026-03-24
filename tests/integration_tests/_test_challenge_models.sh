@@ -34,7 +34,7 @@ test_model() {
     export TRAINING_MODE="$mode"
     export SITE_NAME="TEST_SITE"
     export MODEL_NAME="challenge_$model"
-    export MODEL_VARIANT="$model"
+    #export MODEL_VARIANT="$model"
     export NUM_EPOCHS="1"
     
     echo -n "Testing $model - $mode ... "
