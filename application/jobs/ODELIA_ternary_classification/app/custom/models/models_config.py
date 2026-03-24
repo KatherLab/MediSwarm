@@ -19,7 +19,7 @@ CHALLENGE_MODELS = {
             "num_classes": 3,
             "n_input_channels": 1,
             "spatial_dims": 3,  # must be three
-            "pretrained_path": "checkpoint_final.pth"  # "challenge.1DivideAndConquer.checkpoint_final.pth."
+            "pretrained_path": "checkpoint_final.pth"  # will be converted into relative path by create_model
         }
     },
     "2BCN_AIM": {
@@ -37,7 +37,7 @@ CHALLENGE_MODELS = {
         "persistor_path": "challenge.3agaldran.model_factory.model_factory",
         "persistor_args": {
             "arch": "mvit_v2_s",
-            "pretrained_path": "mvit_v2_s-ae3be167.pth",
+            "pretrained_path": "mvit_v2_s-ae3be167.pth", # will be converted into relative path by create_model
             "num_classes": 3,
             "in_ch": 1,
             "seed": 123
@@ -122,7 +122,7 @@ def get_unified_model_name(logger, model_variant: str, env_vars):
     return model_name
 
 def create_model(logger=None, model_name: str = None, num_classes: int = 3, 
-                 loss_kwargs: dict = None):
+                 loss_kwargs: dict = None, env_vars = None):
     """
     Factory function to create any model.
     Can be called with explicit model_name or reads from MODEL_NAME env var.
@@ -130,7 +130,8 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
     if logger == None:
         logger = set_up_logging()
 
-    env_vars = load_environment_variables()
+    if env_vars == None:
+        env_vars = load_environment_variables()
     model_name = get_unified_model_name(logger, model_name, env_vars)
 
     if not torch.cuda.is_available():

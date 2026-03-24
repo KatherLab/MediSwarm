@@ -195,13 +195,13 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
         model_name = get_unified_model_name(logger, model_variant, env_vars)
         data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, model_name)
         
-        # delegate model creation to the shared factory
         from models.models_config import create_model
         model = create_model(
             logger, 
             model_name=model_name,
             num_classes=num_classes,
             loss_kwargs=loss_kwargs,
+            env_vars=env_vars
         )
 
         if not torch.cuda.is_available():
