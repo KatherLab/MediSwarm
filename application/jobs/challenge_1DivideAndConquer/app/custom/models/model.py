@@ -409,6 +409,6 @@ def create_model(num_classes: int = 3, n_input_channels = 1, spatial_dims=3, pre
     model = ResidualEncoderClsLightning(in_ch=n_input_channels, out_ch=num_classes, spatial_dims=spatial_dims)
     if pretrained_path:
         if not os.path.isabs(pretrained_path):
-            checkpoint_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), checkpoint_path)
+            pretrained_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), pretrained_path)
         model.load_pretrained_unet_encoder(pretrained_path, verbose=True)
     return model
