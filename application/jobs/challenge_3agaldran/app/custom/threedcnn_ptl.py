@@ -1,3 +1,4 @@
+from __future__ import annotations
 from sklearn.model_selection import train_test_split
 import torch
 from pytorch_lightning import Trainer
@@ -16,7 +17,6 @@ import logging
 import csv
 import importlib.util
 import os
-from __future__ import annotations
 
 import hashlib
 import os
@@ -321,10 +321,11 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
             expected_sha256="ae3be16733081f6d1cd40e4ab980ca23d6df6dc6486d15ada05a5e8ab8c9b975",
             cache_dir="./models",
             output_filename="mvit_v2_s-ae3be167.pth",
+        )
         from models.model_factory import model_factory
         model = model_factory(
             arch="mvit_v2_s",
-            pretrained_path="pretrained_path",
+            pretrained_path=pretrained_path,
             num_classes=num_classes,
             in_ch=1,
             classifier_kwargs=loss_kwargs

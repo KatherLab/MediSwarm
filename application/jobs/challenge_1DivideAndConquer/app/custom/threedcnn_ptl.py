@@ -1,3 +1,5 @@
+
+from __future__ import annotations
 from sklearn.model_selection import train_test_split
 import torch
 from pytorch_lightning import Trainer
@@ -11,7 +13,6 @@ import torch.multiprocessing as mp
 from hashlib import sha3_224 as hash_function
 from typing import List, Tuple
 from pathlib import Path
-from __future__ import annotations
 
 import hashlib
 import os
@@ -321,13 +322,13 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
             expected_sha256="ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758",
             cache_dir="./models",
             output_filename="checkpoint_final.pth",
-
+        )
         from models.model import create_model
         model = create_model(
             num_classes=num_classes,
             n_input_channels=1,
             spatial_dims=3,  # must be three
-            pretrained_path="pretrained_path"
+            pretrained_path=pretrained_path
         )
 
         if not torch.cuda.is_available():
