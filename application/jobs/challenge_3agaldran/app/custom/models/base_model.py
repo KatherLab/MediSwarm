@@ -187,13 +187,13 @@ class ModelWrapper(BasicClassifier):
         in_ch: int,
         num_classes: int,
         spatial_dims: int = 3,
-        **kwargs
+        **loss_kwargs
     ):
         super().__init__(
             in_ch=in_ch,
             out_ch=num_classes,
             spatial_dims=spatial_dims,
-            **kwargs
+            **loss_kwargs
         )
         self.save_hyperparameters(ignore=['backbone'])
         self.backbone = backbone
