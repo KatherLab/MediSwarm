@@ -526,10 +526,13 @@ def download_verify_pretrained_model(
 
 def create_model(num_classes: int = 3, n_input_channels = 1, spatial_dims=3, pretrained_path=None) -> BasicClassifier:
     model = ResidualEncoderClsLightning(in_ch=n_input_channels, out_ch=num_classes, spatial_dims=spatial_dims)
-    pretrained_path = download_verify_pretrained_model(output_filename=pretrained_path)
 
     if pretrained_path:
+        cache_dir = './models'
         if not os.path.isabs(pretrained_path):
-            pretrained_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), pretrained_path)
+            cache_dir = os.path.dirname(os.path.abspath(__file__))
+            pretrained_path = os.path.join(cache_dir, pretrained_path)
+
+        pretrained_path = download_verify_pretrained_model(cache_dir=cache_dir, output_filename=pretrained_path)
         model.load_pretrained_unet_encoder(pretrained_path, verbose=True)
     return model
