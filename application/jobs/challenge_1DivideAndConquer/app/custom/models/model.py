@@ -15,6 +15,9 @@ from dynamic_network_architectures.initialization.weight_init import InitWeights
 from torch.nn.modules.conv import _ConvNd
 from torch.nn.modules.dropout import _DropoutNd
 
+import os
+import gdown
+
 
 class ClassificationHead(nn.Module):
     """Global average pooling followed by linear classification layer."""
@@ -404,9 +407,86 @@ class ResidualEncoderClsLightning(BasicClassifier):
                 print("No matching encoder weights found.")
             return self
 
+
+def download_verify_pretrained_model(
+    google_drive_path: str = "https://drive.google.com/file/d/1bVmZHvI7H1H9YTIMy11zwU2p95W4Y_W6/view?usp=sharing",
+    expected_sha256: str = "ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758",
+    cache_dir: str | Path = "./models",
+    output_filename: str = "checkpoint_final.pth",
+    force_download: bool = False,
+) -> str:
+    """
+    Download a pretrained model from Google Drive, verify its SHA-256 hash,
+    and return the local file path.
+
+    Args:
+        google_drive_path:
+            Google Drive file URL or file ID.
+        expected_sha256:
+            Expected SHA-256 checksum of the model file.
+        cache_dir:
+            Local directory where the model will be stored.
+        output_filename:
+            Local filename for the downloaded model.
+        force_download:
+            If True, re-download even if the file already exists.
+
+    Returns:
+        str: Local path to the verified checkpoint file.
+
+    Raises:
+        ValueError: If the downloaded file hash does not match expected_sha256.
+        FileNotFoundError: If download did not produce the expected file.
+    """
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = cache_dir / output_filename
+    expected_sha256 = expected_sha256.lower().strip()
+
+    # Reuse existing file if present and valid
+    if output_path.exists() and not force_download:
+        actual_sha256 = _sha256sum(output_path)
+        if actual_sha256 == expected_sha256:
+            return str(output_path)
+        else:
+            print(
+                f"Existing file hash mismatch for {output_path}. "
+                f"Expected {expected_sha256}, got {actual_sha256}. Re-downloading."
+            )
+            output_path.unlink()
+
+    file_id = _extract_google_drive_id(google_drive_path)
+
+    # Use gdown's uc URL form
+    download_url = f"https://drive.google.com/uc?id={file_id}"
+
+    gdown.download(
+        url=download_url,
+        output=str(output_path),
+        quiet=False,
+        fuzzy=True,
+    )
+
+    if not output_path.exists():
+        raise FileNotFoundError(f"Download failed, file not found: {output_path}")
+
+    actual_sha256 = _sha256sum(output_path)
+    if actual_sha256 != expected_sha256:
+        # Remove bad file so it is not reused accidentally
+        output_path.unlink(missing_ok=True)
+        raise ValueError(
+            "Downloaded model hash mismatch.\n"
+            f"Expected: {expected_sha256}\n"
+            f"Actual:   {actual_sha256}"
+        )
+
+    return str(output_path)
+
 def create_model(num_classes: int = 3, n_input_channels = 1, spatial_dims=3, pretrained_path=None) -> BasicClassifier:
-    import os
     model = ResidualEncoderClsLightning(in_ch=n_input_channels, out_ch=num_classes, spatial_dims=spatial_dims)
+    pretrained_path = download_verify_pretrained_model(output_filename=pretrained_path)
+    
     if pretrained_path:
         if not os.path.isabs(pretrained_path):
             pretrained_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), pretrained_path)
