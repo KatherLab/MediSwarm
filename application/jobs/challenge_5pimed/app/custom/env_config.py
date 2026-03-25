@@ -29,6 +29,7 @@ def load_prediction_modules(prediction_flag):
 def prepare_odelia_dataset(model_name: str = ''):
     # parser removed, now read from environment
     institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])  # TODO think about how this should be handled
+    model_name = "challenge_5pimed"
     model = model_name if (model_name is not None and model_name != "") else os.environ.get('MODEL_NAME', 'MST')
     config = os.environ.get('CONFIG', 'unilateral')
 
