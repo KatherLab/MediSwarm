@@ -20,7 +20,7 @@ def get_model_config(logger, model_name: str):
         "persistor_path": "models.model_factory.model_factory",
         "persistor_args": {
             "arch": "mvit_v2_s",
-            "pretrained_path": "mvit_v2_s-ae3be167.pth", # will be converted into relative path by create_model
+            "pretrained_path": "mvit_v2_s-ae3be167.pth", # will be converted into relative path by model_factory
             "num_classes": 3,
             "in_ch": 1,
             "seed": 123

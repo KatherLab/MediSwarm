@@ -18,127 +18,6 @@ import csv
 import importlib.util
 import os
 
-import hashlib
-import os
-from pathlib import Path
-from typing import Optional
-
-import gdown
-def _extract_google_drive_id(google_drive_path: str) -> str:
-    """
-    Accept either a Google Drive file ID or a typical Google Drive sharing URL,
-    and return the file ID.
-    """
-    google_drive_path = google_drive_path.strip()
-
-    # If it already looks like a raw file ID, use it directly
-    if "/" not in google_drive_path and "http" not in google_drive_path:
-        return google_drive_path
-
-    patterns = [
-        "/file/d/",
-        "id=",
-    ]
-
-    if "/file/d/" in google_drive_path:
-        return google_drive_path.split("/file/d/")[1].split("/")[0]
-
-    if "id=" in google_drive_path:
-        return google_drive_path.split("id=")[1].split("&")[0]
-
-    raise ValueError(
-        f"Could not extract Google Drive file ID from: {google_drive_path}"
-    )
-
-
-def _sha256sum(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:
-    """
-    Compute SHA-256 for a file.
-    """
-    file_path = Path(file_path)
-    sha256 = hashlib.sha256()
-
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(chunk_size), b""):
-            sha256.update(chunk)
-
-    return sha256.hexdigest()
-
-
-def download_verify_pretrained_model(
-    google_drive_path: str,
-    expected_sha256: str,
-    cache_dir: str | Path = "./models",
-    output_filename: str = "checkpoint_final.pth",
-    force_download: bool = False,
-) -> str:
-    """
-    Download a pretrained model from Google Drive, verify its SHA-256 hash,
-    and return the local file path.
-
-    Args:
-        google_drive_path:
-            Google Drive file URL or file ID.
-        expected_sha256:
-            Expected SHA-256 checksum of the model file.
-        cache_dir:
-            Local directory where the model will be stored.
-        output_filename:
-            Local filename for the downloaded model.
-        force_download:
-            If True, re-download even if the file already exists.
-
-    Returns:
-        str: Local path to the verified checkpoint file.
-
-    Raises:
-        ValueError: If the downloaded file hash does not match expected_sha256.
-        FileNotFoundError: If download did not produce the expected file.
-    """
-    cache_dir = Path(cache_dir)
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    output_path = cache_dir / output_filename
-    expected_sha256 = expected_sha256.lower().strip()
-
-    # Reuse existing file if present and valid
-    if output_path.exists() and not force_download:
-        actual_sha256 = _sha256sum(output_path)
-        if actual_sha256 == expected_sha256:
-            return str(output_path)
-        else:
-            print(
-                f"Existing file hash mismatch for {output_path}. "
-                f"Expected {expected_sha256}, got {actual_sha256}. Re-downloading."
-            )
-            output_path.unlink()
-
-    file_id = _extract_google_drive_id(google_drive_path)
-
-    # Use gdown's uc URL form
-    download_url = f"https://drive.google.com/uc?id={file_id}"
-
-    gdown.download(
-        url=download_url,
-        output=str(output_path),
-        quiet=False,
-        fuzzy=True,
-    )
-
-    if not output_path.exists():
-        raise FileNotFoundError(f"Download failed, file not found: {output_path}")
-
-    actual_sha256 = _sha256sum(output_path)
-    if actual_sha256 != expected_sha256:
-        # Remove bad file so it is not reused accidentally
-        output_path.unlink(missing_ok=True)
-        raise ValueError(
-            "Downloaded model hash mismatch.\n"
-            f"Expected: {expected_sha256}\n"
-            f"Actual:   {actual_sha256}"
-        )
-
-    return str(output_path)
 FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN = 'aggregated_model_gt_and_classprob_train.csv'
 FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
 
@@ -316,12 +195,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
         env_vars = load_environment_variables()
         model_name = get_unified_model_name(logger, model_variant, env_vars)
         data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, model_name)
-        pretrained_path = download_verify_pretrained_model(
-            google_drive_path="https://drive.google.com/file/d/1gFLJmwWsfGAXnApacKjf6jnL3pVkaF5j/view?usp=sharing",
-            expected_sha256="ae3be16733081f6d1cd40e4ab980ca23d6df6dc6486d15ada05a5e8ab8c9b975",
-            cache_dir="./models",
-            output_filename="mvit_v2_s-ae3be167.pth",
-        )
+        
         from models.model_factory import model_factory
         model = model_factory(
             arch="mvit_v2_s",
