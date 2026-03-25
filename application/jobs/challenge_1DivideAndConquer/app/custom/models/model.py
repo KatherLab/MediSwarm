@@ -271,9 +271,10 @@ class ResidualEncoderClsLightning(BasicClassifier):
         from pathlib import Path
 
         checkpoint_path = Path(checkpoint_path)
-        print(checkpoint_path)
         if not checkpoint_path.exists():
-            raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+            checkpoint_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), checkpoint_path)
+            if not checkpoint_path.exists():
+                raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
         # Verbose mode intentionally kept concise for clean training logs.
 
