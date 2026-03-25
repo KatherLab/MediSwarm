@@ -209,6 +209,7 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
             num_classes=num_classes,
             n_input_channels=1,
             spatial_dims=3,  # must be three
+            pretrained_path="checkpoint_final.pth"
         )
 
         if not torch.cuda.is_available():
