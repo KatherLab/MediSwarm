@@ -195,14 +195,13 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
         env_vars = load_environment_variables()
         model_name = get_unified_model_name(logger, model_variant, env_vars)
         data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, model_name)
-        
+
         from models.model_factory import model_factory
         model = model_factory(
             arch="mvit_v2_s",
-            pretrained_path=pretrained_path,
             num_classes=num_classes,
             in_ch=1,
-            classifier_kwargs=loss_kwargs
+            **loss_kwargs
         )
 
         if not torch.cuda.is_available():

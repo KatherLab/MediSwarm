@@ -1114,7 +1114,7 @@ def model_factory(
     in_ch: int = 3,
     freeze_backbone: bool = False,
     seed: int | None = 42,
-    **classifier_kwargs,
+    **loss_kwargs,
 ) -> BasicClassifier:  # TODO adaption: previous -> nn.Module:
     """
     Builds and returns a video classification model for 3D medical volumes.
@@ -1131,12 +1131,16 @@ def model_factory(
     if arch not in VIDEO_BACKBONES:
         raise ValueError(f"Unknown architecture '{arch}'. Available: {list(VIDEO_BACKBONES.keys())}")
     
-    cache_dir = './models'
-    if not os.path.isabs(pretrained_path):
-        cache_dir = os.path.dirname(os.path.abspath(__file__))
-        pretrained_path = os.path.join(cache_dir, pretrained_path)
+    if pretrained_path:
+        cache_dir = './models'
+        if not os.path.isabs(pretrained_path):
+            cache_dir = os.path.dirname(os.path.abspath(__file__))
+            pretrained_path = os.path.join(cache_dir, pretrained_path)
 
-    pretrained_path = download_verify_pretrained_model(cache_dir=cache_dir, output_filename=pretrained_path)
+        pretrained_path = download_verify_pretrained_model(cache_dir=cache_dir, output_filename=pretrained_path)
+    else:
+        pretrained_path = download_verify_pretrained_model()  # use default values
+
     model = VIDEO_BACKBONES[arch](pretrained_path=pretrained_path, num_classes=num_classes, in_ch=in_ch)
     
     def freeze_backbone_only(model: nn.Module) -> None:
@@ -1160,7 +1164,7 @@ def model_factory(
     #             param.requires_grad = False    
 
     # TODO adaption: added: 
-    wrapped_model = ModelWrapper(backbone=model, in_ch=in_ch, num_classes=num_classes, **classifier_kwargs)        
+    wrapped_model = ModelWrapper(backbone=model, in_ch=in_ch, num_classes=num_classes, **loss_kwargs)        
     return wrapped_model   # TODO adaption: previous -> model
 
 # ----------------------- CLI Smoke Test -----------------------
