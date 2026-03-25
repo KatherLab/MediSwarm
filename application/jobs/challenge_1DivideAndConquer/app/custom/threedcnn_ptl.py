@@ -66,8 +66,8 @@ def _sha256sum(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:
 
 
 def download_verify_pretrained_model(
-    google_drive_path: str,
-    expected_sha256: str,
+    google_drive_path: str = "https://drive.google.com/file/d/1bVmZHvI7H1H9YTIMy11zwU2p95W4Y_W6/view?usp=sharing",
+    expected_sha256: str = "ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758",
     cache_dir: str | Path = "./models",
     output_filename: str = "checkpoint_final.pth",
     force_download: bool = False,
