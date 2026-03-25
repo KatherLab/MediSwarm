@@ -407,6 +407,45 @@ class ResidualEncoderClsLightning(BasicClassifier):
             if verbose:
                 print("No matching encoder weights found.")
             return self
+def _extract_google_drive_id(google_drive_path: str) -> str:
+    """
+    Accept either a Google Drive file ID or a typical Google Drive sharing URL,
+    and return the file ID.
+    """
+    google_drive_path = google_drive_path.strip()
+
+    # If it already looks like a raw file ID, use it directly
+    if "/" not in google_drive_path and "http" not in google_drive_path:
+        return google_drive_path
+
+    patterns = [
+        "/file/d/",
+        "id=",
+    ]
+
+    if "/file/d/" in google_drive_path:
+        return google_drive_path.split("/file/d/")[1].split("/")[0]
+
+    if "id=" in google_drive_path:
+        return google_drive_path.split("id=")[1].split("&")[0]
+
+    raise ValueError(
+        f"Could not extract Google Drive file ID from: {google_drive_path}"
+    )
+
+
+def _sha256sum(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:
+    """
+    Compute SHA-256 for a file.
+    """
+    file_path = Path(file_path)
+    sha256 = hashlib.sha256()
+
+    with file_path.open("rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            sha256.update(chunk)
+
+    return sha256.hexdigest()
 
 
 def download_verify_pretrained_model(
