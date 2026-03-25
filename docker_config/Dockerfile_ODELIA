@@ -151,7 +151,8 @@ RUN python3 -m pip install \
     smmap==5.0.2 \
     typing-extensions==4.13.2 \
     typing-inspection==0.4.1 \
-    xxhash==3.5.0
+    xxhash==3.5.0 \
+    gdown==5.2.1
 
 # Install packages needed for listing licenses of installed pip packages
 RUN python3 -m pip install \
