@@ -7,16 +7,8 @@ run_3dcnn_simulation_mode () {
     # change training configuration to run 2 rounds
     cd /MediSwarm
     export TMPDIR=$(mktemp -d)
-    if [[ $MODEL_NAME =~ ^[0-9] ]]; then
-        if [[ $MODEL_NAME == challenge* ]]; then
-            APP_DIR=$MODEL_NAME
-        else
-            APP_DIR="ODELIA_ternary_classification"
-    else
-        APP_DIR="challenge_"$MODEL_NAME
-    fi
-    cp -R application/jobs/$APP_DIR ${TMPDIR}/$APP_DIR
-    sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/$APP_DIR/app/config/config_fed_server.conf
+    cp -R application/jobs/${MODEL_NAME} ${TMPDIR}/${MODEL_NAME}
+    sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/ODELIA_ternary_classification/app/config/config_fed_server.conf
     export TRAINING_MODE="swarm"
     export SITE_NAME="client_A"
     export DATA_DIR=/data
@@ -24,7 +16,7 @@ run_3dcnn_simulation_mode () {
     export TORCH_HOME=/torch_home
     export MODEL_NAME=$MODEL_NAME
     export CONFIG=unilateral
-    nvflare simulator -w /tmp/$APP_DIR -n 2 -t 2 ${TMPDIR}/$APP_DIR -c client_A,client_B
+    nvflare simulator -w /tmp/ODELIA_ternary_classification -n 2 -t 2 ${TMPDIR}/ODELIA_ternary_classification -c client_A,client_B
     rm -rf ${TMPDIR}
 }
 
