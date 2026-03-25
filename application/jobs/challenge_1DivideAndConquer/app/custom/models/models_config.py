@@ -22,7 +22,7 @@ def get_model_config(logger, model_name: str):
             "num_classes": 3,
             "n_input_channels": 1,
             "spatial_dims": 3,  # must be three
-            "pretrained_path": "checkpoint_final.pth"  # will be converted into relative path by create_model
+            "pretrained_path": "checkpoint_final.pth" 
         }
     }
 
