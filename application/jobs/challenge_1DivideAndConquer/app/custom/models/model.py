@@ -405,6 +405,7 @@ class ResidualEncoderClsLightning(BasicClassifier):
             return self
 
 def create_model(num_classes: int = 3, n_input_channels = 1, spatial_dims=3, pretrained_path=None) -> BasicClassifier:
+    import os
     model = ResidualEncoderClsLightning(in_ch=n_input_channels, out_ch=num_classes, spatial_dims=spatial_dims)
     if pretrained_path:
         if not os.path.isabs(pretrained_path):
