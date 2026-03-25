@@ -272,9 +272,7 @@ class ResidualEncoderClsLightning(BasicClassifier):
 
         checkpoint_path = Path(checkpoint_path)
         if not checkpoint_path.exists():
-            checkpoint_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), checkpoint_path)
-            if not checkpoint_path.exists():
-                raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+            raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
         # Verbose mode intentionally kept concise for clean training logs.
 
@@ -409,5 +407,7 @@ class ResidualEncoderClsLightning(BasicClassifier):
 def create_model(num_classes: int = 3, n_input_channels = 1, spatial_dims=3, pretrained_path=None) -> BasicClassifier:
     model = ResidualEncoderClsLightning(in_ch=n_input_channels, out_ch=num_classes, spatial_dims=spatial_dims)
     if pretrained_path:
+        if not os.path.isabs(pretrained_path):
+            checkpoint_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), checkpoint_path)
         model.load_pretrained_unet_encoder(pretrained_path, verbose=True)
     return model
