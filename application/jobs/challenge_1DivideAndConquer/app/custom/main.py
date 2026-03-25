@@ -26,7 +26,7 @@ if TRAINING_MODE == TM_SWARM:
     MODEL_NAME = os.getenv("MODEL_NAME", '1DivideAndConquer')
 elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
     SITE_NAME = os.getenv("SITE_NAME")
-    MODEL_NAME = os.getenv("MODEL_NAME")  # e.g. 'mst or 'challenge_2BCN_AIM'
+    MODEL_NAME = "challenge_1DivideAndConquer"  # e.g. 'mst or 'challenge_2BCN_AIM'
     if not SITE_NAME:
         raise ValueError("SITE_NAME environment variable must be set for local training")
     if not MODEL_NAME:
