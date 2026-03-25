@@ -18,6 +18,7 @@ from torch.nn.modules.dropout import _DropoutNd
 import os
 import gdown
 from pathlib import Path
+import hashlib
 
 
 class ClassificationHead(nn.Module):
