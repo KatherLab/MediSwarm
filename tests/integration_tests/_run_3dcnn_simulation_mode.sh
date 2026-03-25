@@ -12,6 +12,7 @@ run_3dcnn_simulation_mode () {
             APP_DIR=$MODEL_NAME
         else
             APP_DIR="ODELIA_ternary_classification"
+        fi
     else
         APP_DIR="challenge_"$MODEL_NAME
     fi
