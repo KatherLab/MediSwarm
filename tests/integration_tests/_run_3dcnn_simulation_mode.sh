@@ -19,6 +19,7 @@ run_3dcnn_simulation_mode () {
             APP_DIR="ODELIA_ternary_classification"
         fi
     fi
+    echo "RUN "$APP_DIR 
     cp -R application/jobs/${APP_DIR} ${TMPDIR}/${APP_DIR}
     sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
     export TRAINING_MODE="swarm"
@@ -26,7 +27,7 @@ run_3dcnn_simulation_mode () {
     export DATA_DIR=/data
     export SCRATCH_DIR=/scratch
     export TORCH_HOME=/torch_home
-    export MODEL_NAME=$MODEL_NAME
+    export MODEL_NAME=${MODEL_NAME}
     export CONFIG=unilateral
     nvflare simulator -w /tmp/${APP_DIR} -n 2 -t 2 ${TMPDIR}/${APP_DIR} -c client_A,client_B
     rm -rf ${TMPDIR}
