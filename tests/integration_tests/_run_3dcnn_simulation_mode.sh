@@ -8,13 +8,16 @@ run_3dcnn_simulation_mode () {
     cd /MediSwarm
     export TMPDIR=$(mktemp -d)
     if [[ $MODEL_NAME =~ ^[0-9] ]]; then
+        # this is a challenges team members name without challenge prefix
+        APP_DIR="challenge_"${MODEL_NAME}
+    else
         if [[ $MODEL_NAME == challenge* ]]; then
+            # already correct app folder name
             APP_DIR=${MODEL_NAME}
         else
+            # probably either resnet or mst, use usual ternary folder
             APP_DIR="ODELIA_ternary_classification"
         fi
-    else
-        APP_DIR="challenge_"${MODEL_NAME}
     fi
     cp -R application/jobs/${APP_DIR} ${TMPDIR}/${APP_DIR}
     sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
