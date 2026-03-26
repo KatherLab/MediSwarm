@@ -209,8 +209,8 @@ RUN apt install -y \
     logsave \
     mount \
     openssl \
-    util-linux
-
+    util-linux \
+    openssh-client
 # Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
 RUN apt install -y \
     apt-transport-https \
