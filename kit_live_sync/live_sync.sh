@@ -13,41 +13,22 @@ SCRATCHDIR=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --mode)
-      MODE="${2:-}"
-      shift 2
-      ;;
-    --site-name)
-      SITE_NAME="${2:-}"
-      shift 2
-      ;;
-    --kit-root)
-      KIT_ROOT="${2:-}"
-      shift 2
-      ;;
-    --startup-dir)
-      STARTUP_DIR="${2:-}"
-      shift 2
-      ;;
-    --scratch-dir)
-      SCRATCHDIR="${2:-}"
-      shift 2
-      ;;
-    *)
-      echo "Unknown argument: $1" >&2
-      exit 1
-      ;;
+    --mode) MODE="${2:-}"; shift 2 ;;
+    --site-name) SITE_NAME="${2:-}"; shift 2 ;;
+    --kit-root) KIT_ROOT="${2:-}"; shift 2 ;;
+    --startup-dir) STARTUP_DIR="${2:-}"; shift 2 ;;
+    --scratch-dir) SCRATCHDIR="${2:-}"; shift 2 ;;
+    *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 
-if [ -z "$MODE" ] || [ -z "$SITE_NAME" ] || [ -z "$KIT_ROOT" ] || [ -z "$STARTUP_DIR" ]; then
-  echo "Missing required arguments" >&2
-  exit 1
-fi
+[ -n "$MODE" ] || { echo "MODE missing" >&2; exit 1; }
+[ -n "$SITE_NAME" ] || { echo "SITE_NAME missing" >&2; exit 1; }
+[ -n "$KIT_ROOT" ] || { echo "KIT_ROOT missing" >&2; exit 1; }
+[ -n "$STARTUP_DIR" ] || { echo "STARTUP_DIR missing" >&2; exit 1; }
 
 STATE_DIR="$STARTUP_DIR/.mediswarm_sync"
 mkdir -p "$STATE_DIR"
-
 LAST_CKPT_SYNC_FILE="$STATE_DIR/${MODE}_last_ckpt_sync_ts"
 touch "$LAST_CKPT_SYNC_FILE"
 
@@ -64,123 +45,189 @@ ensure_remote_dir() {
   ssh_cmd "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p '${remote_dir}'"
 }
 
-find_local_run_dir() {
-  local local_base="$STARTUP_DIR/runs/$SITE_NAME"
-  if [ ! -d "$local_base" ]; then
-    return 0
-  fi
-  find "$local_base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -n 1 || true
-}
-
-find_swarm_job_dir() {
-  find "$KIT_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name startup 2>/dev/null | while read -r d; do
-    if [ -f "$d/log.txt" ] || find "$d" -maxdepth 2 -type d -name "app_${SITE_NAME}" | grep -q .; then
-      printf '%s\n' "$d"
-    fi
+find_latest_job_id() {
+  find "$KIT_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name startup ! -name local ! -name transfer 2>/dev/null | while read -r d; do
+    b="$(basename "$d")"
+    case "$b" in
+      *-*-*-*-*) printf '%s\n' "$b" ;;
+    esac
   done | sort | tail -n 1 || true
 }
 
-resolve_run_dir() {
-  if [ "$MODE" = "local" ]; then
-    find_local_run_dir
-  else
-    find_swarm_job_dir
-  fi
+extract_run_name_from_nohup() {
+  local nohup_file="$STARTUP_DIR/nohup.out"
+  [ -f "$nohup_file" ] || return 0
+
+  grep -E 'Run name: |Run directory:' "$nohup_file" 2>/dev/null | tail -n 1 | \
+    sed -E 's#.*Run name: ##; s#.*Run directory: .*/##' || true
 }
 
-sync_console_and_log() {
-  local run_dir="$1"
-  local remote_dir="$2"
-  local hb_file="$3"
-
-  [ -f "$hb_file" ] && rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat.json"
-
-  if [ "$MODE" = "local" ]; then
-    [ -f "$STARTUP_DIR/local_training_console_output.txt" ] && \
-      rsync_cmd "$STARTUP_DIR/local_training_console_output.txt" \
-      "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/local_training_console_output.txt"
-  else
-    [ -f "$STARTUP_DIR/nohup.out" ] && \
-      rsync_cmd "$STARTUP_DIR/nohup.out" \
-      "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/nohup.out"
-
-    [ -f "$run_dir/log.txt" ] && \
-      rsync_cmd "$run_dir/log.txt" \
-      "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/log.txt"
-  fi
+find_latest_local_run_name() {
+  local base="$STARTUP_DIR/runs/$SITE_NAME"
+  [ -d "$base" ] || return 0
+  find "$base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed 's#.*/##' | sort | tail -n 1 || true
 }
 
-sync_tensorboard() {
-  local run_dir="$1"
-  local remote_dir="$2"
+build_remote_dir() {
+  local run_id="$1"
+  printf '%s/%s/%s/%s' "$REMOTE_BASE" "$SITE_NAME" "$MODE" "$run_id"
+}
+
+sync_local() {
+  local run_name run_dir remote_dir hb_file now last
+
+  run_name="$(find_latest_local_run_name || true)"
+  [ -n "$run_name" ] || return 0
+  run_dir="$STARTUP_DIR/runs/$SITE_NAME/$run_name"
+  [ -d "$run_dir" ] || return 0
+
+  remote_dir="$(build_remote_dir "$run_name")"
+  ensure_remote_dir "$remote_dir"
+
+  export SCRATCHDIR=""
+  hb_file="$STATE_DIR/local_heartbeat.json"
+  "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "running" "$hb_file" >/dev/null
+
+  rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat.json" || true
+
+  [ -f "$STARTUP_DIR/local_training_console_output.txt" ] && \
+    rsync_cmd "$STARTUP_DIR/local_training_console_output.txt" \
+      "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/local_training_console_output.txt" || true
+
+  now="$(date +%s)"
+  last="$(cat "$LAST_CKPT_SYNC_FILE" 2>/dev/null || echo 0)"
 
   rsync_cmd \
     --include='*/' \
     --include='events.out.tfevents*' \
     --exclude='*' \
-    "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/"
+    "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+
+  if [ $((now - last)) -ge "$CKPT_SYNC_INTERVAL" ]; then
+    rsync_cmd \
+      --include='*/' \
+      --include='last.ckpt' \
+      --include='epoch=*.ckpt' \
+      --include='*_model_gt_and_classprob_*.csv' \
+      --exclude='*' \
+      "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+    echo "$now" > "$LAST_CKPT_SYNC_FILE"
+  fi
 }
 
-sync_checkpoints_if_due() {
-  local run_dir="$1"
-  local remote_dir="$2"
-  local now last
+sync_swarm() {
+  local job_id run_name remote_dir hb_file now last scratch_run_dir
 
-  now="$(date +%s)"
-  last="$(cat "$LAST_CKPT_SYNC_FILE" 2>/dev/null || echo 0)"
+  job_id="$(find_latest_job_id || true)"
+  [ -n "$job_id" ] || return 0
 
-  if [ $((now - last)) -lt "$CKPT_SYNC_INTERVAL" ]; then
-    return 0
+  run_name="$(extract_run_name_from_nohup || true)"
+  remote_dir="$(build_remote_dir "$job_id")"
+  ensure_remote_dir "$remote_dir"
+
+  export SCRATCHDIR
+  hb_file="$STATE_DIR/swarm_heartbeat.json"
+  "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "swarm" "$KIT_ROOT" "$job_id" "$run_name" "running" "$hb_file" >/dev/null
+
+  rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat.json" || true
+
+  [ -f "$STARTUP_DIR/nohup.out" ] && \
+    rsync_cmd "$STARTUP_DIR/nohup.out" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/nohup.out" || true
+
+  [ -f "$KIT_ROOT/log.txt" ] && \
+    rsync_cmd "$KIT_ROOT/log.txt" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/log.txt" || true
+
+  [ -f "$KIT_ROOT/$job_id/app_${SITE_NAME}/FL_global_model.pt" ] && \
+    rsync_cmd "$KIT_ROOT/$job_id/app_${SITE_NAME}/FL_global_model.pt" \
+      "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/FL_global_model.pt" || true
+
+  [ -f "$KIT_ROOT/$job_id/app_${SITE_NAME}/best_FL_global_model.pt" ] && \
+    rsync_cmd "$KIT_ROOT/$job_id/app_${SITE_NAME}/best_FL_global_model.pt" \
+      "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/best_FL_global_model.pt" || true
+
+  if [ -n "$SCRATCHDIR" ] && [ -n "$run_name" ]; then
+    scratch_run_dir="$SCRATCHDIR/runs/$SITE_NAME/$run_name"
+  else
+    scratch_run_dir=""
   fi
 
-  rsync_cmd \
-    --include='*/' \
-    --include='last.ckpt' \
-    --include='epoch=*.ckpt' \
-    --include='FL_global_model.pt' \
-    --include='*_model_gt_and_classprob_*.csv' \
-    --exclude='*' \
-    "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/"
+  if [ -n "$scratch_run_dir" ] && [ -d "$scratch_run_dir" ]; then
+    rsync_cmd \
+      --include='*/' \
+      --include='events.out.tfevents*' \
+      --exclude='*' \
+      "$scratch_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
 
-  echo "$now" > "$LAST_CKPT_SYNC_FILE"
+    now="$(date +%s)"
+    last="$(cat "$LAST_CKPT_SYNC_FILE" 2>/dev/null || echo 0)"
+    if [ $((now - last)) -ge "$CKPT_SYNC_INTERVAL" ]; then
+      rsync_cmd \
+        --include='*/' \
+        --include='last.ckpt' \
+        --include='epoch=*.ckpt' \
+        --include='*_model_gt_and_classprob_*.csv' \
+        --exclude='*' \
+        "$scratch_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+      echo "$now" > "$LAST_CKPT_SYNC_FILE"
+    fi
+  fi
 }
 
 final_sync() {
-  local run_dir
-  run_dir="$(resolve_run_dir || true)"
+  if [ "$MODE" = "local" ]; then
+    sync_local || true
+    local run_name
+    run_name="$(find_latest_local_run_name || true)"
+    if [ -n "$run_name" ]; then
+      remote_dir="$(build_remote_dir "$run_name")"
+      hb_file="$STATE_DIR/local_heartbeat_final.json"
+      export SCRATCHDIR=""
+      "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "finished" "$hb_file" >/dev/null
+      rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
+      rsync_cmd "$STARTUP_DIR/runs/$SITE_NAME/$run_name/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+    fi
+  else
+    sync_swarm || true
+    local job_id run_name remote_dir hb_file scratch_run_dir
+    job_id="$(find_latest_job_id || true)"
+    run_name="$(extract_run_name_from_nohup || true)"
+    if [ -n "$job_id" ]; then
+      remote_dir="$(build_remote_dir "$job_id")"
+      hb_file="$STATE_DIR/swarm_heartbeat_final.json"
+      export SCRATCHDIR
+      "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "swarm" "$KIT_ROOT" "$job_id" "$run_name" "finished" "$hb_file" >/dev/null
+      rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
 
-  if [ -z "$run_dir" ] || [ ! -d "$run_dir" ]; then
-    exit 0
+      [ -f "$STARTUP_DIR/nohup.out" ] && \
+        rsync_cmd "$STARTUP_DIR/nohup.out" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/nohup.out" || true
+
+      [ -f "$KIT_ROOT/log.txt" ] && \
+        rsync_cmd "$KIT_ROOT/log.txt" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/log.txt" || true
+
+      [ -f "$KIT_ROOT/$job_id/app_${SITE_NAME}/FL_global_model.pt" ] && \
+        rsync_cmd "$KIT_ROOT/$job_id/app_${SITE_NAME}/FL_global_model.pt" \
+          "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/FL_global_model.pt" || true
+
+      [ -f "$KIT_ROOT/$job_id/app_${SITE_NAME}/best_FL_global_model.pt" ] && \
+        rsync_cmd "$KIT_ROOT/$job_id/app_${SITE_NAME}/best_FL_global_model.pt" \
+          "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/best_FL_global_model.pt" || true
+
+      if [ -n "$SCRATCHDIR" ] && [ -n "$run_name" ]; then
+        scratch_run_dir="$SCRATCHDIR/runs/$SITE_NAME/$run_name"
+        [ -d "$scratch_run_dir" ] && \
+          rsync_cmd "$scratch_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+      fi
+    fi
   fi
-
-  local remote_dir
-  remote_dir="${REMOTE_BASE}/${SITE_NAME}/${MODE}/$(basename "$run_dir")"
-  ensure_remote_dir "$remote_dir"
-
-  local hb_file="$STATE_DIR/${MODE}_heartbeat_final.json"
-  "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "$MODE" "$run_dir" "finished" "$hb_file" >/dev/null
-
-  rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
-  sync_console_and_log "$run_dir" "$remote_dir" "$hb_file" || true
-  rsync_cmd "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
 }
 
 trap final_sync EXIT
 
 while true; do
-  run_dir="$(resolve_run_dir || true)"
-
-  if [ -n "$run_dir" ] && [ -d "$run_dir" ]; then
-    remote_dir="${REMOTE_BASE}/${SITE_NAME}/${MODE}/$(basename "$run_dir")"
-    ensure_remote_dir "$remote_dir"
-
-    hb_file="$STATE_DIR/${MODE}_heartbeat.json"
-    "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "$MODE" "$run_dir" "running" "$hb_file" >/dev/null
-
-    sync_console_and_log "$run_dir" "$remote_dir" "$hb_file" || true
-    sync_tensorboard "$run_dir" "$remote_dir" || true
-    sync_checkpoints_if_due "$run_dir" "$remote_dir" || true
+  if [ "$MODE" = "local" ]; then
+    sync_local || true
+  else
+    sync_swarm || true
   fi
-
   sleep "$LOG_SYNC_INTERVAL"
 done
