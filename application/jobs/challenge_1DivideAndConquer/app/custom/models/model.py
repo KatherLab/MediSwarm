@@ -17,8 +17,9 @@ from torch.nn.modules.dropout import _DropoutNd
 
 import os
 import gdown
-from pathlib import Path
 import hashlib
+import subprocess
+from pathlib import Path
 
 
 class ClassificationHead(nn.Module):
@@ -132,15 +133,6 @@ class ResidualEncoderClsNetwork(nn.Module):
 class ResidualEncoderClsLightning(BasicClassifier):
     """
     PyTorch Lightning wrapper for ResidualEncoderCls.
-
-    This class inherits from BasicClassifier and provides the training/validation
-    infrastructure while using the ResidualEncoderClsNetwork as the backbone.
-
-    The architecture is hardcoded based on the provided config:
-    - 6 stages with features [32, 64, 128, 256, 320, 320]
-    - Conv3d operations
-    - InstanceNorm3d normalization
-    - LeakyReLU activation
     """
 
     def __init__(
@@ -158,16 +150,6 @@ class ResidualEncoderClsLightning(BasicClassifier):
         save_hyperparameters: bool = True,
         final_layer_dropout: float = 0.0,
     ):
-        """
-        Initialize the ResidualEncoderCls Lightning module.
-
-        Args:
-            in_ch: Number of input channels (default: 1 for single-modal MRI)
-            out_ch: Number of output classes
-            spatial_dims: Number of spatial dimensions (must be 3)
-            final_layer_dropout: Dropout probability before classification head
-            Other args: See BasicClassifier documentation
-        """
         super().__init__(
             in_ch=in_ch,
             out_ch=out_ch,
@@ -182,7 +164,6 @@ class ResidualEncoderClsLightning(BasicClassifier):
             save_hyperparameters=save_hyperparameters,
         )
 
-        # Hardcoded architecture configuration
         self.network_config = {
             "n_stages": 6,
             "features_per_stage": [32, 64, 128, 256, 320, 320],
@@ -214,7 +195,6 @@ class ResidualEncoderClsLightning(BasicClassifier):
             "nonlin_kwargs": {"inplace": True},
         }
 
-        # Build the network
         self.model = ResidualEncoderClsNetwork(
             input_channels=in_ch,
             num_classes=out_ch,
@@ -222,20 +202,9 @@ class ResidualEncoderClsLightning(BasicClassifier):
             **self.network_config,
         )
 
-        # Initialize weights
         self.model.apply(self.model.initialize)
 
     def forward(self, x, cond=None):
-        """
-        Forward pass through the network.
-
-        Args:
-            x: Input tensor of shape (B, C, D, H, W)
-            cond: Conditioning (unused, kept for API compatibility)
-
-        Returns:
-            Logits of shape (B, num_classes)
-        """
         return self.model(x)
 
     def load_pretrained_unet_encoder(
@@ -247,31 +216,6 @@ class ResidualEncoderClsLightning(BasicClassifier):
         print_not_loaded_layers: bool = False,
         max_not_loaded_to_print: int = 20,
     ):
-        """
-        Load pretrained weights from a U-Net checkpoint, filtering for encoder layers only.
-
-        Since the U-Net has decoder and segmentation head layers that don't exist in the
-        classifier, we filter to only load matching encoder weights.
-
-        Args:
-            checkpoint_path: Path to the U-Net checkpoint (.pth file)
-            strict: If True, require all keys to match (will likely fail for U-Net)
-            map_location: Device to map tensors to (e.g., 'cpu', 'cuda:0')
-            verbose: Print information about loaded/skipped layers
-            print_not_loaded_layers: If True, print non-loaded layer names.
-            max_not_loaded_to_print: Maximum number of not-loaded layers to print.
-                Set to -1 to print all.
-
-        Returns:
-            Self (for method chaining)
-
-        Example:
-            >>> model = ResidualEncoderClsLightning(in_ch=1, out_ch=2)
-            >>> model.load_pretrained_unet_encoder(
-            ...     "/path/to/checkpoint_final.pth",
-            ...     verbose=True
-            ... )
-        """
         import re
         from pathlib import Path
 
@@ -279,16 +223,12 @@ class ResidualEncoderClsLightning(BasicClassifier):
         if not checkpoint_path.exists():
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-        # Verbose mode intentionally kept concise for clean training logs.
-
-        # Load checkpoint (weights_only=False for PyTorch 2.6+ compatibility)
         checkpoint = torch.load(
             checkpoint_path,
             map_location=map_location or "cpu",
-            weights_only=False,  # Trust nnU-Net checkpoints
+            weights_only=False,
         )
 
-        # Extract state dict (handle different checkpoint formats)
         if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
             pretrained_state_dict = checkpoint["state_dict"]
         elif isinstance(checkpoint, dict) and "network_weights" in checkpoint:
@@ -296,51 +236,36 @@ class ResidualEncoderClsLightning(BasicClassifier):
         else:
             pretrained_state_dict = checkpoint
 
-        # Get current model state
         current_state_dict = self.state_dict()
 
-        # Filter to only encoder weights
-        # U-Net structure: network.encoder.*, network.decoder.*, network.seg_layers.*
-        # Classifier structure: model.encoder.*, model.cls_head.*, model.final_layer_dropout.*
-
         def filter_encoder_weights(key):
-            """Filter function to only keep encoder weights"""
-            # Match encoder layers from U-Net to classifier
             patterns_to_keep = [
-                r"^network\.encoder\.",  # U-Net encoder -> model.encoder
-                r"^encoder\.",  # Direct encoder (if no 'network' prefix)
+                r"^network\.encoder\.",
+                r"^encoder\.",
             ]
-
             patterns_to_skip = [
-                r"decoder",  # Skip decoder
-                r"seg_layers",  # Skip segmentation head
-                r"seg_head",  # Skip segmentation head (alternative name)
-                r"output",  # Skip output layers
+                r"decoder",
+                r"seg_layers",
+                r"seg_head",
+                r"output",
             ]
 
-            # Skip if matches exclusion patterns
             for pattern in patterns_to_skip:
                 if re.search(pattern, key, re.IGNORECASE):
                     return False
 
-            # Keep if matches inclusion patterns
             for pattern in patterns_to_keep:
                 if re.search(pattern, key):
                     return True
 
             return False
 
-        # Map U-Net keys to classifier keys
         def map_key(unet_key):
-            """Map U-Net encoder key to classifier encoder key"""
-            # network.encoder.* -> model.encoder.*
             mapped_key = unet_key.replace("network.encoder.", "model.encoder.")
-            # encoder.* -> model.encoder.* (if no 'network' prefix)
             if mapped_key.startswith("encoder."):
                 mapped_key = "model." + mapped_key
             return mapped_key
 
-        # Filter and map weights
         filtered_weights = {}
         skipped_details = []
 
@@ -348,7 +273,6 @@ class ResidualEncoderClsLightning(BasicClassifier):
             if filter_encoder_weights(key):
                 mapped_key = map_key(key)
                 if mapped_key in current_state_dict:
-                    # Check shape compatibility
                     if current_state_dict[mapped_key].shape == value.shape:
                         filtered_weights[mapped_key] = value
                     else:
@@ -392,7 +316,6 @@ class ResidualEncoderClsLightning(BasicClassifier):
                 else:
                     print(f"skip: {source_key} -> {mapped_key}")
 
-        # Load the filtered weights using the parent class method
         if len(filtered_weights) > 0:
             result = self.load_weights(
                 filtered_weights,
@@ -408,21 +331,13 @@ class ResidualEncoderClsLightning(BasicClassifier):
             if verbose:
                 print("No matching encoder weights found.")
             return self
+
+
 def _extract_google_drive_id(google_drive_path: str) -> str:
-    """
-    Accept either a Google Drive file ID or a typical Google Drive sharing URL,
-    and return the file ID.
-    """
     google_drive_path = google_drive_path.strip()
 
-    # If it already looks like a raw file ID, use it directly
     if "/" not in google_drive_path and "http" not in google_drive_path:
         return google_drive_path
-
-    patterns = [
-        "/file/d/",
-        "id=",
-    ]
 
     if "/file/d/" in google_drive_path:
         return google_drive_path.split("/file/d/")[1].split("/")[0]
@@ -436,9 +351,6 @@ def _extract_google_drive_id(google_drive_path: str) -> str:
 
 
 def _sha256sum(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:
-    """
-    Compute SHA-256 for a file.
-    """
     file_path = Path(file_path)
     sha256 = hashlib.sha256()
 
@@ -449,57 +361,99 @@ def _sha256sum(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:
     return sha256.hexdigest()
 
 
+def _scp_fetch_from_cosmos(
+    remote_filename: str,
+    local_path: str | Path,
+    remote_user: str = "jeff",
+    remote_host: str = "172.24.4.65",
+    remote_dir: str = "/home/mediswarm-upload/odelia_challenge_ckpt",
+    port: int = 22,
+) -> str:
+    """
+    Fetch checkpoint from 172.24.4.65 using SSH public key authentication.
+    """
+    local_path = Path(local_path)
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+
+    remote_path = f"{remote_user}@{remote_host}:{remote_dir.rstrip('/')}/{remote_filename}"
+
+    cmd = [
+        "scp",
+        "-P", str(port),
+        "-o", "BatchMode=yes",
+        "-o", "StrictHostKeyChecking=accept-new",
+        remote_path,
+        str(local_path),
+    ]
+
+    print(f"Fetching checkpoint via SCP: {remote_path} -> {local_path}")
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"SCP failed for remote file {remote_path}. "
+            f"Make sure the SSH key is available in this environment and the file exists."
+        ) from e
+
+    if not local_path.exists():
+        raise FileNotFoundError(f"SCP finished but file not found locally: {local_path}")
+
+    return str(local_path)
+
+
 def download_verify_pretrained_model(
     google_drive_path: str = "https://drive.google.com/file/d/1bVmZHvI7H1H9YTIMy11zwU2p95W4Y_W6/view?usp=sharing",
     expected_sha256: str = "ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758",
     cache_dir: str | Path = "./models",
     output_filename: str = "checkpoint_final.pth",
     force_download: bool = False,
+    try_scp_first: bool = True,
 ) -> str:
     """
-    Download a pretrained model from Google Drive, verify its SHA-256 hash,
-    and return the local file path.
-
-    Args:
-        google_drive_path:
-            Google Drive file URL or file ID.
-        expected_sha256:
-            Expected SHA-256 checksum of the model file.
-        cache_dir:
-            Local directory where the model will be stored.
-        output_filename:
-            Local filename for the downloaded model.
-        force_download:
-            If True, re-download even if the file already exists.
-
-    Returns:
-        str: Local path to the verified checkpoint file.
-
-    Raises:
-        ValueError: If the downloaded file hash does not match expected_sha256.
-        FileNotFoundError: If download did not produce the expected file.
+    Resolve a pretrained model in this order:
+    1) existing local file with valid SHA256
+    2) SCP from 172.24.4.65 via public-key SSH
+    3) Google Drive download
     """
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
+    output_filename = Path(output_filename).name
     output_path = cache_dir / output_filename
     expected_sha256 = expected_sha256.lower().strip()
 
-    # Reuse existing file if present and valid
     if output_path.exists() and not force_download:
         actual_sha256 = _sha256sum(output_path)
         if actual_sha256 == expected_sha256:
+            print(f"Using existing verified checkpoint: {output_path}")
             return str(output_path)
         else:
             print(
                 f"Existing file hash mismatch for {output_path}. "
-                f"Expected {expected_sha256}, got {actual_sha256}. Re-downloading."
+                f"Expected {expected_sha256}, got {actual_sha256}. Removing and re-resolving."
             )
             output_path.unlink()
 
-    file_id = _extract_google_drive_id(google_drive_path)
+    if try_scp_first:
+        try:
+            _scp_fetch_from_cosmos(
+                remote_filename=output_filename,
+                local_path=output_path,
+            )
+            actual_sha256 = _sha256sum(output_path)
+            if actual_sha256 == expected_sha256:
+                print(f"Using SCP-fetched verified checkpoint: {output_path}")
+                return str(output_path)
+            else:
+                print(
+                    f"SCP-fetched file hash mismatch for {output_path}. "
+                    f"Expected {expected_sha256}, got {actual_sha256}. Removing and falling back to Google Drive."
+                )
+                output_path.unlink(missing_ok=True)
+        except Exception as e:
+            print(f"SCP fetch skipped/failed: {e}")
 
-    # Use gdown's uc URL form
+    file_id = _extract_google_drive_id(google_drive_path)
     download_url = f"https://drive.google.com/uc?id={file_id}"
 
     gdown.download(
@@ -514,7 +468,6 @@ def download_verify_pretrained_model(
 
     actual_sha256 = _sha256sum(output_path)
     if actual_sha256 != expected_sha256:
-        # Remove bad file so it is not reused accidentally
         output_path.unlink(missing_ok=True)
         raise ValueError(
             "Downloaded model hash mismatch.\n"
@@ -524,15 +477,40 @@ def download_verify_pretrained_model(
 
     return str(output_path)
 
-def create_model(num_classes: int = 3, n_input_channels = 1, spatial_dims=3, pretrained_path=None) -> BasicClassifier:
-    model = ResidualEncoderClsLightning(in_ch=n_input_channels, out_ch=num_classes, spatial_dims=spatial_dims)
+
+def create_model(
+    num_classes: int = 3,
+    n_input_channels: int = 1,
+    spatial_dims: int = 3,
+    pretrained_path=None,
+) -> BasicClassifier:
+    model = ResidualEncoderClsLightning(
+        in_ch=n_input_channels,
+        out_ch=num_classes,
+        spatial_dims=spatial_dims,
+    )
 
     if pretrained_path:
-        cache_dir = './models'
-        if not os.path.isabs(pretrained_path):
-            cache_dir = os.path.dirname(os.path.abspath(__file__))
-            pretrained_path = os.path.join(cache_dir, pretrained_path)
+        model_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+        requested_path = Path(pretrained_path)
 
-        pretrained_path = download_verify_pretrained_model(cache_dir=cache_dir, output_filename=pretrained_path)
-        model.load_pretrained_unet_encoder(pretrained_path, verbose=True)
+        # 1) local file first
+        if requested_path.is_absolute():
+            resolved_path = requested_path
+        else:
+            resolved_path = model_dir / requested_path
+
+        if resolved_path.exists():
+            print(f"Using local checkpoint: {resolved_path}")
+            model.load_pretrained_unet_encoder(str(resolved_path), verbose=True)
+            return model
+
+        # 2) otherwise resolve by filename through SCP -> GDrive fallback
+        resolved_path = download_verify_pretrained_model(
+            cache_dir=model_dir,
+            output_filename=requested_path.name,
+            try_scp_first=True,
+        )
+        model.load_pretrained_unet_encoder(resolved_path, verbose=True)
+
     return model
