@@ -1,6 +1,5 @@
 import argparse
 import contextlib
-import hashlib
 import math
 import os
 import random
@@ -8,7 +7,6 @@ import subprocess
 import time
 from pathlib import Path
 
-import gdown
 import numpy as np
 import torch
 import torch.nn as nn
@@ -26,45 +24,6 @@ from torchvision.models.video import (
 )
 
 from models.base_model import BasicClassifier, ModelWrapper
-
-
-# ---------------------------------------------------------------------
-# Checkpoint resolution helpers
-# ---------------------------------------------------------------------
-
-DEFAULT_PRETRAINED = {
-    "mvit_v2_s": {
-        "google_drive_path": "https://drive.google.com/file/d/1gFLJmwWsfGAXnApacKjf6jnL3pVkaF5j/view?usp=sharing",
-        "expected_sha256": "ae3be16733081f6d1cd40e4ab980ca23d6df6dc6486d15ada05a5e8ab8c9b975",
-        "filename": "mvit_v2_s-ae3be167.pth",
-    },
-}
-
-
-def _extract_google_drive_id(google_drive_path: str) -> str:
-    google_drive_path = google_drive_path.strip()
-
-    if "/" not in google_drive_path and "http" not in google_drive_path:
-        return google_drive_path
-
-    if "/file/d/" in google_drive_path:
-        return google_drive_path.split("/file/d/")[1].split("/")[0]
-
-    if "id=" in google_drive_path:
-        return google_drive_path.split("id=")[1].split("&")[0]
-
-    raise ValueError(f"Could not extract Google Drive file ID from: {google_drive_path}")
-
-
-def _sha256sum(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:
-    file_path = Path(file_path)
-    sha256 = hashlib.sha256()
-
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(chunk_size), b""):
-            sha256.update(chunk)
-
-    return sha256.hexdigest()
 
 
 def _resolve_checkpoint_file(path_like: str) -> str:
@@ -135,61 +94,6 @@ def _scp_fetch_from_cosmos(
     return str(local_path)
 
 
-def _download_from_gdrive_with_optional_hash(
-    google_drive_path: str,
-    cache_dir: str | Path,
-    output_filename: str,
-    expected_sha256: str | None = None,
-    force_download: bool = False,
-) -> str:
-    cache_dir = Path(cache_dir)
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    output_filename = Path(output_filename).name
-    output_path = cache_dir / output_filename
-
-    if output_path.exists() and not force_download:
-        if expected_sha256 is None:
-            print(f"✓ Using existing cached file: {output_path}")
-            return str(output_path)
-
-        actual_sha256 = _sha256sum(output_path)
-        if actual_sha256 == expected_sha256.lower().strip():
-            print(f"✓ Using existing verified checkpoint: {output_path}")
-            return str(output_path)
-
-        print(
-            f"Existing file hash mismatch for {output_path}. "
-            f"Expected {expected_sha256}, got {actual_sha256}. Re-downloading."
-        )
-        output_path.unlink()
-
-    file_id = _extract_google_drive_id(google_drive_path)
-    download_url = f"https://drive.google.com/uc?id={file_id}"
-
-    gdown.download(
-        url=download_url,
-        output=str(output_path),
-        quiet=False,
-        fuzzy=True,
-    )
-
-    if not output_path.exists():
-        raise FileNotFoundError(f"Download failed, file not found: {output_path}")
-
-    if expected_sha256 is not None:
-        actual_sha256 = _sha256sum(output_path)
-        if actual_sha256 != expected_sha256.lower().strip():
-            output_path.unlink(missing_ok=True)
-            raise ValueError(
-                "Downloaded model hash mismatch.\n"
-                f"Expected: {expected_sha256}\n"
-                f"Actual:   {actual_sha256}"
-            )
-
-    return str(output_path)
-
-
 def resolve_pretrained_path(
     arch: str,
     pretrained_path: str | None,
@@ -200,69 +104,36 @@ def resolve_pretrained_path(
 
     1) explicit local file/directory if it exists
     2) SCP by filename from 172.24.4.65
-    3) Google Drive fallback only if the architecture is configured in DEFAULT_PRETRAINED
-    4) None
+    3) fail with FileNotFoundError
+
+    `arch` is kept for interface compatibility.
     """
+    del arch  # unused, kept to preserve function signature
     base_dir = Path(base_dir)
 
-    if pretrained_path:
-        candidate = Path(pretrained_path)
-        if not candidate.is_absolute():
-            candidate = (base_dir / candidate).resolve()
+    if not pretrained_path:
+        return None
 
-        if candidate.exists():
-            resolved = _resolve_checkpoint_file(str(candidate))
-            print(f"✓ Using local pretrained checkpoint: {resolved}")
-            return resolved
+    candidate = Path(pretrained_path)
+    if not candidate.is_absolute():
+        candidate = (base_dir / candidate).resolve()
 
-        print(f"Local pretrained path not found: {candidate}")
+    if candidate.exists():
+        resolved = _resolve_checkpoint_file(str(candidate))
+        print(f"✓ Using local pretrained checkpoint: {resolved}")
+        return resolved
 
-        requested_name = Path(pretrained_path).name
-        scp_target = base_dir / requested_name
+    print(f"Local pretrained path not found: {candidate}")
 
-        try:
-            fetched = _scp_fetch_from_cosmos(
-                remote_filename=requested_name,
-                local_path=scp_target,
-            )
-            print(f"✓ Using SCP-fetched checkpoint: {fetched}")
-            return fetched
-        except Exception as e:
-            print(f"SCP fallback failed for {requested_name}: {e}")
+    requested_name = Path(pretrained_path).name
+    scp_target = base_dir / requested_name
 
-    spec = DEFAULT_PRETRAINED.get(arch)
-    if spec is not None:
-        local_target = base_dir / spec["filename"]
-
-        try:
-            fetched = _scp_fetch_from_cosmos(
-                remote_filename=spec["filename"],
-                local_path=local_target,
-            )
-
-            actual_sha256 = _sha256sum(fetched)
-            if actual_sha256 == spec["expected_sha256"].lower().strip():
-                print(f"✓ Using verified SCP-fetched checkpoint: {fetched}")
-                return fetched
-
-            print(
-                f"SCP-fetched file hash mismatch for {fetched}. "
-                f"Expected {spec['expected_sha256']}, got {actual_sha256}. "
-                f"Falling back to Google Drive."
-            )
-            Path(fetched).unlink(missing_ok=True)
-        except Exception as e:
-            print(f"SCP fallback failed for default {arch} checkpoint: {e}")
-
-        return _download_from_gdrive_with_optional_hash(
-            google_drive_path=spec["google_drive_path"],
-            cache_dir=base_dir,
-            output_filename=spec["filename"],
-            expected_sha256=spec["expected_sha256"],
-            force_download=False,
-        )
-
-    return None
+    fetched = _scp_fetch_from_cosmos(
+        remote_filename=requested_name,
+        local_path=scp_target,
+    )
+    print(f"✓ Using SCP-fetched checkpoint: {fetched}")
+    return fetched
 
 
 def bn_to_in(module: nn.Module) -> None:
