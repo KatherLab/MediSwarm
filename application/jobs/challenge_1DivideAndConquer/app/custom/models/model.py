@@ -1,8 +1,12 @@
 from typing import List, Tuple, Type, Union
 
+import hashlib
+import os
+import subprocess
+from pathlib import Path
+
 import torch
 import torch.nn as nn
-from models.base_model import BasicClassifier, ModelWrapper
 from dynamic_network_architectures.building_blocks.helper import (
     convert_conv_op_to_dim,
     get_matching_dropout,
@@ -12,14 +16,9 @@ from dynamic_network_architectures.building_blocks.residual_encoders import (
     ResidualEncoder,
 )
 from dynamic_network_architectures.initialization.weight_init import InitWeights_He
+from models.base_model import BasicClassifier
 from torch.nn.modules.conv import _ConvNd
 from torch.nn.modules.dropout import _DropoutNd
-
-import os
-import gdown
-import hashlib
-import subprocess
-from pathlib import Path
 
 
 class ClassificationHead(nn.Module):
@@ -40,9 +39,6 @@ class ClassificationHead(nn.Module):
 class ResidualEncoderClsNetwork(nn.Module):
     """
     3D Residual Encoder for Classification.
-
-    This is the core network architecture extracted from the nnunet4cls framework.
-    It consists of a ResidualEncoder backbone with a classification head.
     """
 
     def __init__(
@@ -217,7 +213,6 @@ class ResidualEncoderClsLightning(BasicClassifier):
         max_not_loaded_to_print: int = 20,
     ):
         import re
-        from pathlib import Path
 
         checkpoint_path = Path(checkpoint_path)
         if not checkpoint_path.exists():
@@ -282,7 +277,8 @@ class ResidualEncoderClsLightning(BasicClassifier):
                                 "mapped_key": mapped_key,
                                 "reason": (
                                     "shape_mismatch: "
-                                    f"pretrained={tuple(value.shape)} model={tuple(current_state_dict[mapped_key].shape)}"
+                                    f"pretrained={tuple(value.shape)} "
+                                    f"model={tuple(current_state_dict[mapped_key].shape)}"
                                 ),
                             }
                         )
@@ -324,30 +320,14 @@ class ResidualEncoderClsLightning(BasicClassifier):
             )
             if verbose:
                 print(
-                    f"Loaded encoder weights: {len(filtered_weights)}/{len(pretrained_state_dict)}"
+                    f"Loaded encoder weights: "
+                    f"{len(filtered_weights)}/{len(pretrained_state_dict)}"
                 )
             return result
         else:
             if verbose:
                 print("No matching encoder weights found.")
             return self
-
-
-def _extract_google_drive_id(google_drive_path: str) -> str:
-    google_drive_path = google_drive_path.strip()
-
-    if "/" not in google_drive_path and "http" not in google_drive_path:
-        return google_drive_path
-
-    if "/file/d/" in google_drive_path:
-        return google_drive_path.split("/file/d/")[1].split("/")[0]
-
-    if "id=" in google_drive_path:
-        return google_drive_path.split("id=")[1].split("&")[0]
-
-    raise ValueError(
-        f"Could not extract Google Drive file ID from: {google_drive_path}"
-    )
 
 
 def _sha256sum(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:
@@ -389,6 +369,8 @@ def _scp_fetch_from_cosmos(
     print(f"Fetching checkpoint via SCP: {remote_path} -> {local_path}")
     try:
         subprocess.run(cmd, check=True)
+    except FileNotFoundError as e:
+        raise RuntimeError("scp is not installed in this runtime.") from e
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
             f"SCP failed for remote file {remote_path}. "
@@ -401,81 +383,56 @@ def _scp_fetch_from_cosmos(
     return str(local_path)
 
 
-def download_verify_pretrained_model(
-    google_drive_path: str = "https://drive.google.com/file/d/1bVmZHvI7H1H9YTIMy11zwU2p95W4Y_W6/view?usp=sharing",
-    expected_sha256: str = "ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758",
-    cache_dir: str | Path = "./models",
-    output_filename: str = "checkpoint_final.pth",
-    force_download: bool = False,
-    try_scp_first: bool = True,
-) -> str:
+def resolve_pretrained_checkpoint(
+    pretrained_path: str | None,
+    base_dir: str | Path,
+    expected_sha256: str | None = None,
+) -> str | None:
     """
-    Resolve a pretrained model in this order:
-    1) existing local file with valid SHA256
-    2) SCP from 172.24.4.65 via public-key SSH
-    3) Google Drive download
+    Resolve checkpoint in this order:
+    1) explicit local file
+    2) SCP by filename from remote host
+    3) fail
     """
-    cache_dir = Path(cache_dir)
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    if not pretrained_path:
+        return None
 
-    output_filename = Path(output_filename).name
-    output_path = cache_dir / output_filename
-    expected_sha256 = expected_sha256.lower().strip()
+    base_dir = Path(base_dir)
+    requested_path = Path(pretrained_path)
 
-    if output_path.exists() and not force_download:
-        actual_sha256 = _sha256sum(output_path)
-        if actual_sha256 == expected_sha256:
-            print(f"Using existing verified checkpoint: {output_path}")
-            return str(output_path)
-        else:
-            print(
-                f"Existing file hash mismatch for {output_path}. "
-                f"Expected {expected_sha256}, got {actual_sha256}. Removing and re-resolving."
-            )
-            output_path.unlink()
+    if requested_path.is_absolute():
+        resolved_path = requested_path
+    else:
+        resolved_path = (base_dir / requested_path).resolve()
 
-    if try_scp_first:
-        try:
-            _scp_fetch_from_cosmos(
-                remote_filename=output_filename,
-                local_path=output_path,
-            )
-            actual_sha256 = _sha256sum(output_path)
-            if actual_sha256 == expected_sha256:
-                print(f"Using SCP-fetched verified checkpoint: {output_path}")
-                return str(output_path)
-            else:
-                print(
-                    f"SCP-fetched file hash mismatch for {output_path}. "
-                    f"Expected {expected_sha256}, got {actual_sha256}. Removing and falling back to Google Drive."
+    if resolved_path.exists():
+        if expected_sha256 is not None:
+            actual_sha256 = _sha256sum(resolved_path)
+            if actual_sha256 != expected_sha256.lower().strip():
+                raise ValueError(
+                    f"Local checkpoint hash mismatch for {resolved_path}. "
+                    f"Expected {expected_sha256}, got {actual_sha256}"
                 )
-                output_path.unlink(missing_ok=True)
-        except Exception as e:
-            print(f"SCP fetch skipped/failed: {e}")
+        print(f"Using local checkpoint: {resolved_path}")
+        return str(resolved_path)
 
-    file_id = _extract_google_drive_id(google_drive_path)
-    download_url = f"https://drive.google.com/uc?id={file_id}"
-
-    gdown.download(
-        url=download_url,
-        output=str(output_path),
-        quiet=False,
-        fuzzy=True,
+    scp_target = base_dir / requested_path.name
+    fetched = _scp_fetch_from_cosmos(
+        remote_filename=requested_path.name,
+        local_path=scp_target,
     )
 
-    if not output_path.exists():
-        raise FileNotFoundError(f"Download failed, file not found: {output_path}")
+    if expected_sha256 is not None:
+        actual_sha256 = _sha256sum(fetched)
+        if actual_sha256 != expected_sha256.lower().strip():
+            Path(fetched).unlink(missing_ok=True)
+            raise ValueError(
+                f"SCP-fetched checkpoint hash mismatch for {fetched}. "
+                f"Expected {expected_sha256}, got {actual_sha256}"
+            )
 
-    actual_sha256 = _sha256sum(output_path)
-    if actual_sha256 != expected_sha256:
-        output_path.unlink(missing_ok=True)
-        raise ValueError(
-            "Downloaded model hash mismatch.\n"
-            f"Expected: {expected_sha256}\n"
-            f"Actual:   {actual_sha256}"
-        )
-
-    return str(output_path)
+    print(f"Using SCP-fetched checkpoint: {fetched}")
+    return fetched
 
 
 def create_model(
@@ -492,24 +449,10 @@ def create_model(
 
     if pretrained_path:
         model_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-        requested_path = Path(pretrained_path)
-
-        # 1) local file first
-        if requested_path.is_absolute():
-            resolved_path = requested_path
-        else:
-            resolved_path = model_dir / requested_path
-
-        if resolved_path.exists():
-            print(f"Using local checkpoint: {resolved_path}")
-            model.load_pretrained_unet_encoder(str(resolved_path), verbose=True)
-            return model
-
-        # 2) otherwise resolve by filename through SCP -> GDrive fallback
-        resolved_path = download_verify_pretrained_model(
-            cache_dir=model_dir,
-            output_filename=requested_path.name,
-            try_scp_first=True,
+        resolved_path = resolve_pretrained_checkpoint(
+            pretrained_path=pretrained_path,
+            base_dir=model_dir,
+            expected_sha256="ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758",
         )
         model.load_pretrained_unet_encoder(resolved_path, verbose=True)
 
