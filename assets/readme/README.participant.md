@@ -11,16 +11,7 @@ This guide is for data scientists and medical research sites participating in a 
 ## Setup
 0. Add this line to your `/etc/hosts`: `172.24.4.65 dl3.tud.de dl3`
 1. Make sure your compute node satisfies the specification and has the necessary software installed.
-2. Set up the VPN. A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose,
-    1. Install OpenVPN
-       ```bash
-       sudo apt-get install openvpn
-       ```
-    2. If you have a graphical user interface(GUI), follow this guide to connect to the
-       VPN: [VPN setup guide(GUI).pdf](../VPN%20setup%20guide%28GUI%29.pdf)
-    3. If you have a command line interface(CLI), follow this guide to connect to the
-       VPN: [VPN setup guide(CLI).md](../VPN%20setup%20guide%28CLI%29.md)
-    4. You may want to clone this repository or selectively download VPN-related scripts for this purpose.
+2. Set up the VPN. A VPN is necessary so that the swarm nodes can communicate with each other securely across firewalls. For that purpose, follow the instructions in [openvpn_always_on_setup_guide.md](../openvpn_always_on_setup_guide.md).
 
 ## Prepare Dataset
 
