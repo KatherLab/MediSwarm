@@ -10,6 +10,15 @@ send "sys_info client\r"
 expect "> "
 send "sys_info server\r"
 expect "> "
+
 send "list_jobs\r"
-expect "> "
+expect -re ".*SUBMITTED.*"
+sleep 5
+
 send "list_jobs\r"
+expect -re ".*RUNNING.*"
+sleep 105
+
+send "list_jobs\r"
+expect -re ".*FINISHED:COMPLETED.*"
+sleep 5
