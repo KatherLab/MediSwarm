@@ -496,10 +496,10 @@ run_dummy_training_in_swarm () {
                            'Server runner finished.';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
-            echo "✅ Expected output $EXPECTED_OUTPUT found"
+            echo "✅ Expected output $EXPECTED_OUTPUT from server found"
         else
             cat "$CONSOLE_OUTPUT"
-            echo "❌ Expected output $EXPECTED_OUTPUT missing"
+            echo "❌ Expected output $EXPECTED_OUTPUT from server missing"
             exit 1
         fi
     done
@@ -521,10 +521,10 @@ run_dummy_training_in_swarm () {
                            'broadcasting learn task of round . to .*; aggr client is client_.';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
-            echo "✅ Expected output $EXPECTED_OUTPUT found"
+            echo "✅ Expected output $EXPECTED_OUTPUT from client found"
         else
             cat "$CONSOLE_OUTPUT"
-            echo "❌ Expected output $EXPECTED_OUTPUT missing"
+            echo "❌ Expected output $EXPECTED_OUTPUT from client missing"
             exit 1
         fi
     done
