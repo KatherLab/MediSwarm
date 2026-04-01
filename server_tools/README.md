@@ -1,4 +1,4 @@
-# Sinple version
+# Simple version
 Run it on your server:
 
 sudo mkdir -p /srv/mediswarm/live
