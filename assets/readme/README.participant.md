@@ -81,7 +81,9 @@ The dataset must be in the following format.
    ```bash
    export SITE_NAME=<name of your site, e.g., UKA_1>
    export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data in the structure described above is stored>
-   export SCRATCHDIR=<path to where the training can store temporary files>
+   export MODEL_NAME="2BCN_AIM"  # 1DivideAndConquer 2BCN_AIM 3agaldran 4LME_ABMIL 5Pimed 
+   export SCRATCHDIR=<path to where the training can store temporary files>/challenge_$SITE_NAME_$MODEL_NAME
+   mkdir $SCRATCHDIR
    ```
 2. From the directory where you unpacked the startup kit,
    ```bash
