@@ -23,10 +23,10 @@ if TRAINING_MODE == TM_SWARM:
     flare_util.init()
     SITE_NAME = flare.get_site_name()
     NUM_EPOCHS = threedcnn_ptl.get_num_epochs_per_round(SITE_NAME)
-    MODEL_NAME = os.getenv("MODEL_NAME", "challenge_2BCN_AIM")
+    MODEL_NAME = "challenge_2BCN_AIM"  # Hardcoded: ignore global MODEL_NAME env var (defaults to MST)
 elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
     SITE_NAME = os.getenv("SITE_NAME")
-    MODEL_NAME = os.getenv("MODEL_NAME", "challenge_2BCN_AIM") 
+    MODEL_NAME = "challenge_2BCN_AIM"
     if not SITE_NAME:
         raise ValueError("SITE_NAME environment variable must be set for local training")
     if not MODEL_NAME:
