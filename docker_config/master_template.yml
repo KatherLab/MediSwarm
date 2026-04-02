@@ -79,6 +79,8 @@ local_client_resources: |
     "format_version": 2,
     "client": {
       "retry_timeout": 30,
+      "communication_timeout": 600,
+      "maint_msg_timeout": 600,
       "compression": "Gzip"
     },
     "components": [
@@ -643,11 +645,15 @@ docker_cln_sh: |
           --list_licenses)       LIST_LICENSES="1";;
           --interactive)         INTERACTIVE="1" ;;
           --run_script)          SCRIPT_TO_RUN="$2"; shift ;;
+          --job)                 JOB_NAME="$2"; shift ;;
           --log_dataset_details) LOG_DATASET_DETAILS="1";;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
   done
+
+  # Default job for preflight_check and local_training
+  : ${JOB_NAME:="ODELIA_ternary_classification"}
 
   # Prompt for parameters if missing
   if [[ -z "$DUMMY_TRAINING" && -z "$LIST_LICENSES" && -z "$MY_DATA_DIR" ]]; then
@@ -699,7 +705,8 @@ docker_cln_sh: |
             --env SCRATCH_DIR=/scratch \
             --env TORCH_HOME=/torch_home \
             --env GPU_DEVICE=$GPU2USE \
-            --env MODEL_NAME=MST \
+            --env MODEL_NAME=${MODEL_NAME:-MST} \
+            --env NUM_EPOCHS=${NUM_EPOCHS:-100} \
             --env CONFIG=unilateral \
             --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__"
 
@@ -713,12 +720,14 @@ docker_cln_sh: |
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
 
   elif [ -n "$PREFLIGHT_CHECK" ]; then
+      echo "[INFO] Preflight check using job: $JOB_NAME"
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=preflight_check --env NUM_EPOCHS=1 $DOCKER_IMAGE \
-      /bin/bash -c "/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/main.py"
+      /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py"
 
   elif [ -n "$LOCAL_TRAINING" ]; then
+      echo "[INFO] Local training using job: $JOB_NAME"
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=100 $DOCKER_IMAGE \
-      /bin/bash -c "/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/main.py"
+      /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py"
 
   elif [ -n "$START_CLIENT" ]; then
       docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
@@ -737,13 +746,20 @@ docker_cln_sh: |
 
   else
       echo "❗ One of the following options must be passed:"
-      echo "--dummy_training      minimal sanity check for Docker/GPU"
-      echo "--preflight_check     verify data access & local training"
-      echo "--local_training      train a local model"
-      echo "--start_client        launch FL client in swarm mode"
-      echo "--list_licenses       list licenses of installed packages"
-      echo "--interactive         drop into interactive container (for debugging)"
-      echo "--run_script          execute script in container (for testing)"
+      echo "--dummy_training         minimal sanity check for Docker/GPU"
+      echo "--preflight_check        verify data access & local training (use --job to select model)"
+      echo "--local_training         train a local model (use --job to select model)"
+      echo "--start_client           launch FL client in swarm mode"
+      echo "--list_licenses          list licenses of installed packages"
+      echo "--interactive            drop into interactive container (for debugging)"
+      echo "--run_script             execute script in container (for testing)"
+      echo "--log_dataset_details    log detailed dataset information (UIDs, hashes)"
+      echo ""
+      echo "Optional:"
+      echo "--job <name>             select job/model for preflight_check or local_training"
+      echo "                         (default: ODELIA_ternary_classification)"
+      echo "                         Available: ODELIA_ternary_classification, challenge_1DivideAndConquer,"
+      echo "                         challenge_2BCN_AIM, challenge_3agaldran, challenge_4abmil, challenge_5pimed"
       exit 1
   fi
 

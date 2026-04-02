@@ -87,8 +87,10 @@ class ODELIA_Dataset3D(data.Dataset):
 
                 ImageOrSubjectToTensor() if to_tensor else tio.Lambda(lambda x: x)
             ])
+
         elif transform == 'USE_UNPROCESSED_IMAGES':
             self.transform = tio.Compose([tio.Lambda(lambda x: x)])
+
         else:
             self.transform = transform
 
@@ -133,6 +135,7 @@ class ODELIA_Dataset3D(data.Dataset):
         path_folder = self.path_root / institution / self.data_dir / uid
         # img = self.load_img([path_folder/f'{name}.nii.gz' for name in [ 'Pre', 'Sub_1', 'T2']])
         img = self.load_img(path_folder / 'Sub_1.nii.gz')
+        # img = self.load_img([path_folder/f'{name}.nii.gz' for name in [ 'Pre', 'Post_1', 'Sub_1']])
         img = self.transform(img)
 
         return {'uid': uid, 'source': img, 'target': target}

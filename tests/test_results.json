@@ -1,0 +1,51 @@
+{
+  "summary": {
+    "1DivideAndConquer": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    },
+    "2BCN_AIM": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    },
+    "3agaldran": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    },
+    "4LME_ABMIL": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    },
+    "5Pimed": {
+      "preflight_check": false,
+      "local_training": false,
+      "overall": false
+    }
+  },
+  "details": {
+    "1DivideAndConquer": {
+      "preflight_check": "{'success': False, 'output': 'enge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_1DivideAndConquer_unilateral_2026_03_24_131346\\'\\n'}",
+      "local_training": "{'success': False, 'output': 'enge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_1DivideAndConquer_unilateral_2026_03_24_131415\\'\\n'}"
+    },
+    "2BCN_AIM": {
+      "preflight_check": "{'success': False, 'output': 'warmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_2BCN_AIM_unilateral_2026_03_24_131444\\'\\n'}",
+      "local_training": "{'success': False, 'output': 'warmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_2BCN_AIM_unilateral_2026_03_24_131513\\'\\n'}"
+    },
+    "3agaldran": {
+      "preflight_check": "{'success': False, 'output': 'armChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_3agaldran_unilateral_2026_03_24_131542\\'\\n'}",
+      "local_training": "{'success': False, 'output': 'armChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_3agaldran_unilateral_2026_03_24_131612\\'\\n'}"
+    },
+    "4LME_ABMIL": {
+      "preflight_check": "{'success': False, 'output': 'rmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_4LME_ABMIL_unilateral_2026_03_24_131641\\'\\n'}",
+      "local_training": "{'success': False, 'output': 'rmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_4LME_ABMIL_unilateral_2026_03_24_131711\\'\\n'}"
+    },
+    "5Pimed": {
+      "preflight_check": "{'success': False, 'output': 'iSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_5Pimed_unilateral_2026_03_24_131740\\'\\n'}",
+      "local_training": "{'success': False, 'output': 'iSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/env_config.py\", line 38, in prepare_odelia_dataset\\n    path_run_dir.mkdir(parents=True, exist_ok=True)\\n  File \"/usr/lib/python3.10/pathlib.py\", line 1175, in mkdir\\n    self._accessor.mkdir(self, mode)\\nPermissionError: [Errno 13] Permission denied: \\'/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/runs/UKA_1/challenge_5Pimed_unilateral_2026_03_24_131809\\'\\n'}"
+    }
+  }
+}
