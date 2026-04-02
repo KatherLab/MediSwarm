@@ -4,7 +4,7 @@ import torch.utils.data as data
 import torchio as tio
 import torch
 import numpy as np
-from sklearn.preprocessing import OneHotEncoder
+from typing import List, Dict, Tuple, Any
 
 from data.augmentation.augmentations_3d import ImageOrSubjectToTensor, ZNormalization, CropOrPad
 
@@ -13,12 +13,12 @@ class ODELIA_Dataset3D(data.Dataset):
     PATH_ROOT = Path('/data')
     ALL_INSTITUTIONS = ['CAM', 'MHA', 'RSH', 'UKA', 'UMCU', 'VHIO', 'RUMC', 'USZ']
     DATA_DIR = {
-        "original": "data",
-        "unilateral": "data_unilateral"
+        'original': 'data',
+        'unilateral': 'data_unilateral'
     }
     META_DIR = {
-        "original": "metadata",
-        "unilateral": "metadata_unilateral"
+        'original': 'metadata',
+        'unilateral': 'metadata_unilateral'
     }
     CLASS_LABELS = {
         'original': {
@@ -98,16 +98,16 @@ class ODELIA_Dataset3D(data.Dataset):
         dfs = []
         for institution in self.institutions:
             path_metadata = self.path_root / institution / self.meta_dir
-            df = self.load_split(path_metadata / 'split.csv', fold=fold, split=split, fraction=fraction)
-            df['Institution'] = institution
 
-            # Verify files exist
-            # uids = self.run_item_crawler(self.path_root/institution/'data_unilateral')
-            # df = df[df['UID'].isin(uids)]
+            df_split = self.load_split(path_metadata / 'split.csv', fold=fold, split=split, fraction=fraction)
+            df_split['Institution'] = institution
 
-            # Merge with annotations
-            df_anno = pd.read_csv(path_metadata / 'annotation.csv', dtype={'UID': str, 'PatientID': str})
-            df = df.merge(df_anno, on='UID', how='inner')
+            df_annot = pd.read_csv(path_metadata / 'annotation.csv', dtype={'UID': str, 'PatientID': str})
+
+            df = df_split.merge(df_annot, on='UID', how='inner')  # uses only UIDs present in both dataframes
+
+            uids_in_imags = self.run_item_crawler(self.path_root/institution/self.DATA_DIR[config])
+            df = df[df['UID'].isin(uids_in_imags)]  # limit to UIDs for which an image is present
 
             dfs.append(df)
         df = pd.concat(dfs).reset_index(drop=True)
@@ -154,3 +154,94 @@ class ODELIA_Dataset3D(data.Dataset):
     @classmethod
     def run_item_crawler(cls, path_root, **kwargs):
         return [path.relative_to(path_root).name for path in Path(path_root).iterdir() if path.is_dir()]
+
+    @classmethod
+    def log_UID_discrepancies(cls,
+                              logger,
+                              path_root=None,
+                              institutions=None,
+                              fold=0,
+                              log_dataset_details=False) -> None:
+
+        def _get_uids_in_annotation(path_metadata: Path):
+            df_annotation = pd.read_csv(path_metadata / 'annotation.csv', dtype={'UID': str, 'PatientID': str})
+            uids_in_annotation = list(df_annotation['UID'])
+            uids_in_annotation.sort()
+            return uids_in_annotation
+
+        def _get_uids_in_split(path_metadata: Path, fold) -> Dict[str|None, List[str]]:
+            df_split = {split: cls.load_split(path_metadata / 'split.csv', fold=fold, split=split, fraction=None) for split in (None, 'train', 'val', 'test')}
+            uids_split = {s: list(df_split[s]['UID']) for s in df_split.keys()}
+            for l in uids_split.values():
+                l.sort()
+            return uids_split
+
+        def _get_uids_of_images_present(path_root: Path, config) -> List[str]:
+            uids_in_images = cls.run_item_crawler(path_root / institution / cls.DATA_DIR[config])
+            uids_in_images.sort()
+            return uids_in_images
+
+        def _get_uids(path_metadata: Path, path_root: Path, config) -> Tuple[List[str], Dict[str|None, List[str]], List[str]]:
+            return _get_uids_in_annotation(path_metadata), _get_uids_in_split(path_metadata, fold), _get_uids_of_images_present(path_root, config)
+
+        def _log_duplicates(uids: List[str], where: str, logger, log_dataset_details) -> None:
+            if len(uids) != len(set(uids)):
+                logger.error(f'Duplicates among {where} UIDs detected, they should be unique')
+                if log_dataset_details:
+                    for u in set(uids):
+                        count = uids.count(u)
+                        if count > 1:
+                            logger.error(f'{u} appears {count} times')
+
+        def _log_difference(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
+            difference = set(uids_a).difference(set(uids_b))
+            if difference:
+                logger.warning(f'UIDs in {where_a} but not in {where_b} detected, make sure this was intended.')
+                if log_dataset_details:
+                    difference = list(difference)
+                    difference.sort()
+                    logger.warning(f'Difference {where_a}\\{where_b}: ' + ', '.join(difference))
+
+        def _log_differences(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
+            _log_difference(uids_a, uids_b, where_a, where_b, logger, log_dataset_details)
+            _log_difference(uids_b, uids_a, where_b, where_a, logger, log_dataset_details)
+
+        def _log_intersection(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
+            intersection = set(uids_a).intersection(set(uids_b))
+            if intersection:
+                logger.error(f'Entries in {where_a}∩{where_b} detected, they should be in one set only.')
+                if log_dataset_details:
+                    intersection = list(intersection)
+                    intersection.sort()
+                    logger.error(f'Entries in {where_a}∩{where_b}: ' + ', '.join(intersection))
+
+        config = 'unilateral'
+        path_root = Path(cls.PATH_ROOT if path_root is None else path_root)
+        meta_dir = cls.META_DIR[config]
+        for institution in institutions:
+            path_metadata = path_root / institution / meta_dir
+            uids_in_annotation, uids_in_split, uids_in_images = _get_uids(path_metadata, path_root, config)
+
+            if log_dataset_details:
+                logger.info('Annoation UIDs: ' + ' '.join(uids_in_annotation))
+                logger.info('All split UIDs: ' + ' '.join(uids_in_split[None]))
+                logger.info('Training UIDs: ' + ' '.join(uids_in_split['train']))
+                logger.info('Validation UIDs: ' + ' '.join(uids_in_split['val']))
+                logger.info('Test UIDs: ' + ' '.join(uids_in_split['test']))
+                logger.info('Image UIDs ' + ' '.join(uids_in_images))
+
+            for uids, where in ((uids_in_annotation, 'annotation'),
+                                (uids_in_split[None], 'all split'),
+                                (uids_in_split['train'], 'training'),
+                                (uids_in_split['val'], 'validation'),
+                                (uids_in_split['test'], 'test'),
+                                (uids_in_images, 'image'),) :
+                _log_duplicates(uids, where, logger, log_dataset_details)
+
+            _log_differences(uids_in_annotation, uids_in_split[None], 'annotation', 'split', logger, log_dataset_details)
+            _log_differences(uids_in_split[None], uids_in_images,'split', 'images', logger, log_dataset_details)
+            _log_differences(uids_in_annotation, uids_in_images, 'annotation', 'images', logger, log_dataset_details)
+
+            _log_intersection(uids_in_split['train'], uids_in_split['val'], 'training', 'validation', logger, log_dataset_details)
+            _log_intersection(uids_in_split['train'], uids_in_split['test'], 'training', 'test', logger, log_dataset_details)
+            _log_intersection(uids_in_split['val'], uids_in_split['test'], 'validation', 'test', logger, log_dataset_details)

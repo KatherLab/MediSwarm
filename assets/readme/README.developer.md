@@ -29,7 +29,8 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
  ```
 
 1. Make sure you have no uncommitted changes.
-2. If package versions are still not available, you may have to check what the current version is and update the
+   If you have changes, commit them. This ensures that any image built corresponds to a code revision available later.
+2. If package versions are no longer available, you may have to check what the current version is and update the
    `Dockerfile` accordingly. Version numbers are hard-coded to avoid issues due to silently different versions being
    installed.
 3. After successful build (and after verifying that everything works as expected, i.e., local tests, building startup
@@ -38,27 +39,34 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 
 ## Running Tests
 
+* Build a Docker image for testing using `./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml [--use_docker_cache]`
 * If you have multiple GPUs, use `GPU_FOR_TESTING="device=0" (or another device)
 * If you have a sliced multiple GPUs, use `GPU_FOR_TESTING="device=0:0" (or another slice)
 * Otherwise, leave this environment variable unset to use all GPUs.
 * To run only specific tests, look at the options at the end of the script.
+  * The whole test suite takes over an hour.
 
    ```bash
    ./runIntegrationTests.sh
    ```
 
-You should see
+You should see output of
 
-1. several expected errors and warnings printed from unit tests that should succeed overall, and a coverage report
-2. output of a successful simulation run of a dummy training with two nodes
-3. output of a successful proof-of-concept run of a dummy training with two nodes
-4. output of a successful simulation run of a 3D CNN training using synthetic data with two nodes
-5. output of a set of startup kits being generated
-6. output of pushing the Docker image to a local registry and pulling it from there (takes several minutes)
-7. output of a Docker/GPU preflight check using one of the startup kits
-8. output of a data access preflight check using one of the startup kits
-9. output of an outdated client startup kit failing to connect to the server
-10. output of a dummy training run in a swarm consisting of one server and two client nodes
+1. a check that files are present on github
+2. a standalone minimal training run
+3. a simulation run of a dummy training with two nodes
+4. a proof-of-concept run of a dummy training with two nodes
+5. a simulation run of a 3D CNN training using synthetic data with two nodes
+6. a set of startup kits being created
+7. pushing the Docker image to a local registry and pulling it from there (takes several minutes)
+8. a Docker/GPU preflight check using one of the startup kits
+9. a data access preflight check using one of the startup kits
+10. a local 3D CNN training
+11. an outdated client startup kit failing to connect to the server
+12. a dummy training run in a swarm consisting of one server and two client nodes
+13. a 3D CNN swarm training run in a two-client swarm
+
+If tests fail, you may need to clean up temporary directories or leftover Docker containers.
 
 ## Distributing Startup Kits
 
@@ -139,18 +147,53 @@ Each challenge job has its own `config_fed_client.conf`, model code, and `main.p
 
 To make sure your code is swarm-compatible and to isolate potential issues, we recommend the following steps.
 
-1. Create a small dataset (potentially a synthetic one; see, e.g., [create_synthetic_dataset.py](../../application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py)).
+1. Start with a working version outside the swarm framework in a known environment.
+   This way, you have a known-to-work baseline and results you can later compare to.
+2. Create a small dataset.
    This avoids data issues and allows faster feedback cycles.
-2. Start with a working version outside the swarm framework in a known environment.
-   This way, you have a known-to-work baseline.
-3. Make sure the code runs in the Docker container in "local training" mode, i.e., without the swarm learning framework, either manually or like in [_run_minimal_example_standalone.sh](../../tests/integration_tests/_run_minimal_example_standalone.sh)
-   This will tell you if the code is compatible with the Docker container at hand.
-4. Make sure the code runs in NVFlare simulation mode, see [_run_3dcnn_simulation_mode.sh](../../tests/integration_tests/_run_3dcnn_simulation_mode.sh).
-   This checks compatibility of the code with the swarm training framework by running different clients in different threads.
-5. Make sure the code runs in NVFlare proof-of-concept mode, see [_run_minimal_example_proof_of_concept_mode.sh](../../tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh).
-   Proof-of-concept mode runs different clients in different processes.
-   This step probably provides few additional insights if simulation mode has already succeeded and can possibly be skipped.
-6. Make sure the code runs in an actual swarm training.
+   * For this purpose,
+     * either use a subset of your data or
+     * write code to create a synthetic dataset similar to [create_synthetic_dataset.py](../../application/jobs/ODELIA_ternary_classification/app/scripts/create_synthetic_dataset/create_synthetic_dataset.py)
+       * This will be needed for a self-contained test suite without the need to share any data, but can also be implemented later.
+3. Create a git branch of MediSwarm and verify that you can build a Docker image and run the integration tests.
+   * This ensures you start with a working version and do not search for issues in your code that are actually problems elsewhere.
+   * In the following, you can either start with a subdirectory of [application/jobs/](../../application/jobs/)
+     * from scratch
+     * adapting `ODELIA_ternary_classification` if your code is similar to what the ODELIA consortium has been doing
+     * extending the minimal example `minimal_training_pytorch_cnn` if your code is largely different from the above
+4. Make your code Docker-ready.
+   * Compare your local system and python environment to what is defined in the MediSwarm [Dockerfile](../../docker_config/Dockerfile_ODELIA) and adapt the Dockerfile to install dependencies of your code.
+   * You can drop the package version numbers and do not need to list all dependencies until everything works, but should do so later. This is to avoid changes or incompatibilities due to silently changed versions.
+   * See above for instructions on building the Docker image.
+   * Adapt the `run_dummy_training_standalone` test in [runIntegrationTests.sh](../../runIntegrationTests.sh), which uses [_run_minimal_example_standalone.sh](../../tests/integration_tests/_run_minimal_example_standalone.sh), to run the code in the Docker container.
+   * Debug, commit, rebuild containers, run until this succeeds.
+     * Consider running the container interactively for debugging.
+5. Make your code NVFlare-ready.
+   * NVFlare needs to control the training loop, so your training needs adaptations similar to the minimal and ODELIA ternary classification examples. For details, please consult the NVFlare documentation (for the version used in MediSwarm).
+   * NVFlare provides the simulation mode (running separate clients in separate threads) and proof-of-concept mode (running clients in separate processes). These can be used for testing NVFlare-compatibility.
+   * Adapt the `run_dummy_training_simulation_mode` or `run_3dcnn_simulation_mode` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh), which uses [_run_3dcnn_simulation_mode.sh](../../tests/integration_tests/_run_3dcnn_simulation_mode.sh), to run your code in simulation mode.
+     * Debug, commit, rebuild containers, run until this succeeds.
+       * Consider running the container interactively for debugging.
+   * Adapt the `run_dummy_training_poc_mode` test in [runIntegrationTests.sh](../../runIntegrationTests.sh), which uses [_run_minimal_example_proof_of_concept_mode.sh](../../tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh), to run your code in proof-of-concept mode.
+     * Debug, commit, rebuild containers, run until this succeeds.
+     * If your code runs successfully in simulation mode, you can skip this step, unless later steps fail.
+6. Enable local training and local data access preflight check
+   * Having adapted the code to be NVFlare-compatible, it should still be able to run outside a swarm and should provide the possibility for swarm participants to check if their data is compatible with the training.
+     * A local data access preflight check can simply be a local training for one epoch.
+   * Adapt the `docker_cln_sh` section of [master_template.yml](../../docker_config/master_template.yml) to enable these.
+   * Adapt the `run_data_access_preflight_check` and `run_3dcnn_local_training` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh) to check these.
+   * Debug, commit, rebuild containers, run until this succeeds.
+   * Make sure the code stays NVFlare-compatible when making changes.
+7. Check if your code runs in an actual, local swarm.
+   * Adapt what is called from the `run_dummy_training_in_swarm` or `run_3dcnn_training_in_swarm` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh)
+     * Adapt [_submitDummyTraining.exp](../../tests/integration_tests/_submitDummyTraining.exp) or [_submit3DCNNTraining.exp](../../tests/integration_tests/_submit3DCNNTraining.exp) as needed
+     * This will run two clients using the same GPU, you may run out of RAM even if a single training runs fine.
+     * If the training fails, you may need to clean up docker containers continuing to run.
+8. Make sure the code runs in an actual, distributed swarm training.
+   * Check results against the baseline to make sure the code still trains a useful model.
+9. Clean up the implementation
+   * Go through the points postponed for later.
+   * Prepare a pull request for merging your branch.
 
 TODO iterate instructions and add missing details
 
