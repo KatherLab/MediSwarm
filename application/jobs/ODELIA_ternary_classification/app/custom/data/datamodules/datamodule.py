@@ -96,4 +96,4 @@ class DataModule(pl.LightningDataModule):
                 pin_memory=self.pin_memory
             )
 
-        raise AssertionError("A test test set was not initialized.")
+        raise AssertionError("A test set was not initialized.")
