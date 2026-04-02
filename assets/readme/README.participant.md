@@ -81,9 +81,8 @@ The dataset must be in the following format.
    ```bash
    export SITE_NAME=<name of your site, e.g., UKA_1>
    export DATADIR=<path to the folder in which the directory $SITE_NAME containing your local data in the structure described above is stored>
-   export MODEL_NAME="2BCN_AIM"  # 1DivideAndConquer 2BCN_AIM 3agaldran 4LME_ABMIL 5Pimed 
-   export SCRATCHDIR=<path to where the training can store temporary files>/challenge_$SITE_NAME_$MODEL_NAME
-   mkdir $SCRATCHDIR
+   export SCRATCHDIR=<path to where the training can store temporary files>
+   mkdir -p $SCRATCHDIR
    ```
 2. From the directory where you unpacked the startup kit,
    ```bash
@@ -101,6 +100,11 @@ The dataset must be in the following format.
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check  2>&1 | tee preflight_check_console_output.txt
    ```
     * Training time depends on the size of the local dataset.
+    * To test a specific challenge model, use the `--job` flag:
+      ```bash
+      ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --job challenge_5pimed
+      ```
+    * Available jobs: `ODELIA_ternary_classification` (default), `challenge_1DivideAndConquer`, `challenge_2BCN_AIM`, `challenge_3agaldran`, `challenge_4abmil`, `challenge_5pimed`
 
 ### Run Local Training
 
@@ -115,6 +119,10 @@ To have a baseline for swarm training, train the same model in a comparable way 
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training  2>&1 | tee local_training_console_output.txt
    ```
     * This currently runs 100 epochs (somewhat comparable to 20 rounds with 5 epochs each in the swarm case).
+    * To train a specific challenge model locally, use the `--job` flag:
+      ```bash
+      ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training --job challenge_2BCN_AIM 2>&1 | tee local_training_console_output.txt
+      ```
 3. Output files are located in the directory of the startup kit:
     * Logged output during training: `startup/local_training_console_output.txt`
     * Class probabilities for each round/epoch for training/validation data: `startup/runs/$SITE_NAME/<MODEL_TASK_CONFIG_TIMESTAMP>/site_model_gt_and_classprob_{train,validation}.csv`

@@ -16,6 +16,7 @@ Choose your role and follow the instructions:
 - [Swarm Participant (Medical Site / Data Scientist)](assets/readme/README.participant.md)
 - [Developer (Docker, Code, Pipeline)](assets/readme/README.developer.md)
 - [Swarm Operator (Provisioning, VPN, Server)](assets/readme/README.operator.md)
+- [Automated Deploy & Test Workflow](DEPLOY_README.md)
 
 ## Overview
 
