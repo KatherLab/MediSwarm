@@ -1,26 +1,11 @@
 #!/usr/bin/env bash
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-export OLD_ODELIA_DOCKER_IMAGES=$(docker image list | grep jefftud/odelia | sed 's|jefftud/odelia *[0-9a-z.-]* *||' | sed 's|  *.*||' | tail -n +2)
-export OLD_ODELIA_DOCKER_IMAGES_LOCAL=$(docker image list | grep localhost:5000/odelia | sed 's|localhost:5000/odelia *[0-9a-z.-]* *||' | sed 's|  *.*||' | tail -n +2)
-
-echo "All docker images:"
-
-docker image list
-=======
-=======
->>>>>>> upstream/main
 export OLD_ODELIA_DOCKER_IMAGES=$(docker image list --no-trunc | grep jefftud/odelia | sed 's|jefftud/odelia *[0-9a-z.-]* *sha256:||' | sed 's|  *.*||' | tail -n +2)
 export OLD_ODELIA_DOCKER_IMAGES_LOCAL=$(docker image list --no-trunc | grep localhost:5000/odelia | sed 's|localhost:5000/odelia *[0-9a-z.-]* *sha256:||' | sed 's|  *.*||' | tail -n +2)
 
 echo "All docker images:"
 
 docker image list --no-trunc
-<<<<<<< HEAD
->>>>>>> upstream/main
-=======
->>>>>>> upstream/main
 
 echo "The following Docker images are old ODELIA docker images:"
 

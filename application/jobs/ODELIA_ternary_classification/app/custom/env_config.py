@@ -26,37 +26,39 @@ def load_prediction_modules(prediction_flag):
     return predict, prediction_flag
 
 
-def prepare_odelia_dataset(model_name: str = ''):
+def prepare_odelia_dataset(logger, log_dataset_details: bool = False):
     # parser removed, now read from environment
     institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])  # TODO think about how this should be handled
-    model = model_name if (model_name is not None and model_name != "") else os.environ.get('MODEL_NAME', 'MST')
+    model = os.environ.get('MODEL_NAME', 'MST')
     config = os.environ.get('CONFIG', 'unilateral')
 
     current_time = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     run_name = f'{model}_{config}_{current_time}'
-    path_run_dir = Path(os.environ.get('SCRATCH_DIR')) / 'runs' / institution / run_name
+    path_run_dir = Path.cwd() / 'runs' / institution / run_name
     path_run_dir.mkdir(parents=True, exist_ok=True)
 
-    from data.datasets import ODELIA_Dataset3D
-    ds_train = ODELIA_Dataset3D(path_root=os.environ['DATA_DIR'], institutions=institution, split='train', config=config,
+    ODELIA_Dataset3D.log_UID_discrepancies(logger, institutions=[institution], log_dataset_details=log_dataset_details)
+
+    ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config,
                                 random_flip=True, random_rotate=True, random_inverse=False, noise=True)
-    ds_val = ODELIA_Dataset3D(path_root=os.environ['DATA_DIR'], institutions=institution, split='val', config=config)
+    ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config)
+    ds_test = ODELIA_Dataset3D(institutions=institution, split='test', config=config)
 
     print(f"Total samples loaded: {len(ds_train)} (train) + {len(ds_val)} (val)")
     print(f"Train set: {len(ds_train)}, Val set: {len(ds_val)}")
-    # print(f"Labels in val: {[sample['label'] for sample in ds_val]}")
 
-    return ds_train, ds_val, path_run_dir, run_name
+    return ds_train, ds_val, ds_test, path_run_dir, run_name
 
 
 def prepare_odelia_dataset_without_augmentation():
     institution = os.environ.get('INSTITUTION', os.environ['SITE_NAME'])
     config = os.environ.get('CONFIG', 'unilateral')
 
-    ds_train = ODELIA_Dataset3D(path_root=os.environ['DATA_DIR'], institutions=institution, split='train', config=config, transform='USE_UNPROCESSED_IMAGES')
-    ds_val = ODELIA_Dataset3D(path_root=os.environ['DATA_DIR'], institutions=institution, split='val', config=config, transform='USE_UNPROCESSED_IMAGES')
+    ds_train = ODELIA_Dataset3D(institutions=institution, split='train', config=config, transform='USE_UNPROCESSED_IMAGES')
+    ds_val = ODELIA_Dataset3D(institutions=institution, split='val', config=config, transform='USE_UNPROCESSED_IMAGES')
+    ds_test = ODELIA_Dataset3D(institutions=institution, split='test', config=config, transform='USE_UNPROCESSED_IMAGES')
 
-    return ds_train, ds_val
+    return ds_train, ds_val, ds_test
 
 
 def generate_run_directory(scratch_dir, task_data_name, model_name, local_compare_flag):
