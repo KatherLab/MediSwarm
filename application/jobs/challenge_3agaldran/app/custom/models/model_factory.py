@@ -3,7 +3,6 @@ import contextlib
 import math
 import os
 import random
-import subprocess
 import time
 from pathlib import Path
 
@@ -51,60 +50,14 @@ def _resolve_checkpoint_file(path_like: str) -> str:
     raise FileNotFoundError(f"Checkpoint path not found: {path_like}")
 
 
-def _scp_fetch_from_cosmos(
-    remote_filename: str,
-    local_path: str | Path,
-    remote_user: str = "jeff",
-    remote_host: str = "172.24.4.65",
-    remote_dir: str = "/home/mediswarm-upload/odelia_challenge_ckpt",
-    port: int = 22,
-) -> str:
-    """
-    Fetch a checkpoint from 172.24.4.65 using SSH public-key authentication.
-    """
-    local_path = Path(local_path)
-    local_path.parent.mkdir(parents=True, exist_ok=True)
-
-    remote_path = f"{remote_user}@{remote_host}:{remote_dir.rstrip('/')}/{remote_filename}"
-
-    cmd = [
-        "scp",
-        "-P", str(port),
-        "-o", "BatchMode=yes",
-        "-o", "StrictHostKeyChecking=accept-new",
-        remote_path,
-        str(local_path),
-    ]
-
-    print(f"⇣ Fetching checkpoint via SCP: {remote_path}")
-    try:
-        subprocess.run(cmd, check=True)
-    except FileNotFoundError as e:
-        raise RuntimeError("scp is not installed in this runtime.") from e
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(
-            f"SCP failed for {remote_path}. "
-            f"Make sure this runtime has the private SSH key and access to the file."
-        ) from e
-
-    if not local_path.exists():
-        raise FileNotFoundError(f"SCP finished but local file is missing: {local_path}")
-
-    print(f"✓ SCP checkpoint saved to: {local_path}")
-    return str(local_path)
-
-
 def resolve_pretrained_path(
     arch: str,
     pretrained_path: str | None,
     base_dir: str | Path,
 ) -> str | None:
     """
-    Resolve pretrained checkpoint in this order:
-
-    1) explicit local file/directory if it exists
-    2) SCP by filename from 172.24.4.65
-    3) fail with FileNotFoundError
+    Resolve pretrained checkpoint from local filesystem only.
+    The checkpoint must be cached in the Docker image.
 
     `arch` is kept for interface compatibility.
     """
@@ -120,20 +73,13 @@ def resolve_pretrained_path(
 
     if candidate.exists():
         resolved = _resolve_checkpoint_file(str(candidate))
-        print(f"✓ Using local pretrained checkpoint: {resolved}")
+        print(f"Using local pretrained checkpoint: {resolved}")
         return resolved
 
-    print(f"Local pretrained path not found: {candidate}")
-
-    requested_name = Path(pretrained_path).name
-    scp_target = base_dir / requested_name
-
-    fetched = _scp_fetch_from_cosmos(
-        remote_filename=requested_name,
-        local_path=scp_target,
+    raise FileNotFoundError(
+        f"Pretrained checkpoint not found: {candidate}. "
+        f"Make sure it is cached in the Docker image."
     )
-    print(f"✓ Using SCP-fetched checkpoint: {fetched}")
-    return fetched
 
 
 def bn_to_in(module: nn.Module) -> None:
@@ -717,10 +663,8 @@ def model_factory(
     """
     Builds and returns a video classification model for 3D medical volumes.
 
-    Resolution order for pretrained weights:
-      1) local file/directory
-      2) SCP from 172.24.4.65 by filename
-      3) arch-specific Google Drive fallback (only if configured)
+    Pretrained weights are loaded from the local filesystem only.
+    Ensure the checkpoint file is cached in the Docker image at build time.
     """
     set_global_seed(seed)
     arch = arch.lower()
