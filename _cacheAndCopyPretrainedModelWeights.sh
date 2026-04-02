@@ -34,17 +34,21 @@ verify_files () {
 copy_files() {
     cp -r $SOURCE_DIR/docker_config/torch_home_cache $TARGET_DIR/torch_home_cache
     chmod a+rX $TARGET_DIR/torch_home_cache -R
-    
-    # Copy challenge model weights
-    echo "Copy pretrained model weights for challenge models... "
+
+    # Copy challenge model weights to a SEPARATE directory outside the job folders.
+    # This is critical: NVFlare packages the entire job folder when submitting a job,
+    # so .pth files inside job dirs would be transferred over the network to every client.
+    # Instead we store them at /MediSwarm/pretrained_weights/ in the Docker image, and
+    # the model code falls back to that path at runtime.
+    WEIGHTS_DIR="$TARGET_DIR/MediSwarm/pretrained_weights"
+    mkdir -p "$WEIGHTS_DIR"
+    echo "Copy pretrained model weights to $WEIGHTS_DIR/ ..."
 
     # challenge_1DivideAndConquer: checkpoint_final.pth
-    CHALLENGE_1_DIR="$TARGET_DIR/MediSwarm/application/jobs/challenge_1DivideAndConquer/app/custom/models"
-    echo "1DivideAndConquer: caching checkpoint_final.pth to $CHALLENGE_1_DIR/"
-    mkdir -p "$CHALLENGE_1_DIR"
+    echo "1DivideAndConquer: caching checkpoint_final.pth"
     if [[ -f "$SOURCE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth" ]]; then
         cp "$SOURCE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth" \
-           "$CHALLENGE_1_DIR/"
+           "$WEIGHTS_DIR/"
     else
         echo "Downloading 1DivideAndConquer checkpoint from Google Drive..."
         GDOWN_CMD=$(command -v gdown || echo "$SOURCE_DIR/.venv/bin/gdown")
@@ -52,20 +56,20 @@ copy_files() {
             echo "ERROR: gdown not found. Install it with: python3 -m venv .venv && .venv/bin/pip install gdown"
             exit 1
         fi
-        "$GDOWN_CMD" 1bVmZHvI7H1H9YTIMy11zwU2p95W4Y_W6 -O "$CHALLENGE_1_DIR/checkpoint_final.pth"
+        "$GDOWN_CMD" 1bVmZHvI7H1H9YTIMy11zwU2p95W4Y_W6 -O "$WEIGHTS_DIR/checkpoint_final.pth"
     fi
 
     # challenge_3agaldran: mvit_v2_s-ae3be167.pth (PyTorch pretrained weights)
-    CHALLENGE_3_DIR="$TARGET_DIR/MediSwarm/application/jobs/challenge_3agaldran/app/custom/models"
-    echo "3agaldran: caching mvit_v2_s-ae3be167.pth to $CHALLENGE_3_DIR/"
-    mkdir -p "$CHALLENGE_3_DIR"
+    echo "3agaldran: caching mvit_v2_s-ae3be167.pth"
     if [[ -f "$SOURCE_DIR/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth" ]]; then
         cp "$SOURCE_DIR/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth" \
-           "$CHALLENGE_3_DIR/"
+           "$WEIGHTS_DIR/"
     else
         echo "Downloading 3agaldran checkpoint..."
-        wget https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth -O "$CHALLENGE_3_DIR/mvit_v2_s-ae3be167.pth"
+        wget https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth -O "$WEIGHTS_DIR/mvit_v2_s-ae3be167.pth"
     fi
+
+    chmod a+rX "$WEIGHTS_DIR" -R
 }
 
 cache_files

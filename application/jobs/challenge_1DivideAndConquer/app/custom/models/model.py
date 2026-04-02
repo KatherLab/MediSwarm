@@ -347,9 +347,11 @@ def create_model(
 
         if not resolved_path.exists():
             # Fallback: NVFlare workspace copy won't contain the .pth file;
-            # try the Docker baked-in location instead.
+            # try the Docker baked-in pretrained_weights directory instead.
+            # (Weights are stored outside job dirs so NVFlare doesn't bundle
+            # them into the ~800 MB job deployment payload.)
             docker_path = Path(
-                "/MediSwarm/application/jobs/challenge_1DivideAndConquer/app/custom/models"
+                "/MediSwarm/pretrained_weights"
             ) / requested.name
             if docker_path.exists():
                 resolved_path = docker_path
