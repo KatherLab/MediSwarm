@@ -46,7 +46,13 @@ copy_files() {
         cp "$SOURCE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth" \
            "$CHALLENGE_1_DIR/"
     else
-        echo "WARNING: checkpoint_final.pth not found locally for 1DivideAndConquer, will need to be fetched at runtime"
+        echo "Downloading 1DivideAndConquer checkpoint from Google Drive..."
+        GDOWN_CMD=$(command -v gdown || echo "$SOURCE_DIR/.venv/bin/gdown")
+        if [[ ! -x "$GDOWN_CMD" ]]; then
+            echo "ERROR: gdown not found. Install it with: python3 -m venv .venv && .venv/bin/pip install gdown"
+            exit 1
+        fi
+        "$GDOWN_CMD" 1bVmZHvI7H1H9YTIMy11zwU2p95W4Y_W6 -O "$CHALLENGE_1_DIR/checkpoint_final.pth"
     fi
 
     # challenge_3agaldran: mvit_v2_s-ae3be167.pth (PyTorch pretrained weights)
