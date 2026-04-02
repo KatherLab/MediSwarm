@@ -82,9 +82,11 @@ def resolve_pretrained_path(
         return resolved
 
     # Fallback: NVFlare workspace copy won't contain the .pth file;
-    # try the Docker baked-in location instead.
+    # try the Docker baked-in pretrained_weights directory instead.
+    # (Weights are stored outside job dirs so NVFlare doesn't bundle
+    # them into the job deployment payload.)
     docker_path = Path(
-        "/MediSwarm/application/jobs/challenge_3agaldran/app/custom/models"
+        "/MediSwarm/pretrained_weights"
     ) / Path(pretrained_path).name
     if docker_path.exists():
         resolved = _resolve_checkpoint_file(str(docker_path))
