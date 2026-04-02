@@ -32,10 +32,16 @@ docker run -it --rm \
 Before running a swarm dummy training, first make sure the code works in non-swarm mode.
 
 ```bash
+export SCRATCH_DIR="/workspace/tmp_scratch"
+mkdir "$SCRATCH_DIR"
 cd application/jobs/ODELIA_ternary_classification/app/custom/
 export TRAINING_MODE="local_training"
+export MODEL_VARIANT="challenge_5Pimed"
+export MODEL_NAME="challenge_5Pimed"
 export SITE_NAME=<your site name, i.e., the subfolder of $DATADIR where your data is located>
 export NUM_EPOCHS=1
+export DATA_DIR="/data/"
+
 ./main.py
 cd /workspace
 ```
@@ -54,6 +60,77 @@ nvflare simulator -w /tmp/ODELIA_ternary_classification -n 2 -t 2 application/jo
 * `-c simulated_node_0,simulated_node_1`: Names the two simulated nodes.
 
 For more details, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/2.4.1/getting_started.html#quick-start-with-simulator).
+
+For different models adapt the config in `application/jobs/ODELIA_ternary_classification/app/config/config_fed_client.conf` at persistor.
+
+* MST:
+```conf
+args {
+    model {
+    path = "models.mst.MST"
+    args {
+        n_input_channels = 1
+        num_classes = 3
+        spatial_dims = 3
+    }
+    }
+}
+```
+*BMC_AIM:
+```conf
+args {
+    model {
+    path = "models.challenge.2bcnaim.model.create_model"
+    args {
+        n_input_channels = 1
+        num_classes = 3
+        spatial_dims = 3
+    }
+    }
+}
+
+```
+* PIMED:
+```conf
+args {
+    model {
+    path = "models.challenge.pimed.model.create_model"
+    args {
+        model_name = "resnet18"
+        n_input_channels = 1
+        num_classes = 3
+        spatial_dims = 3
+    }
+    }
+}
+```
+* abmil:
+```conf
+args {
+    model {
+    path = "models.challenge.abmil.model.create_model"
+    args {
+        n_input_channels = 1
+        num_classes = 3
+    }
+    }
+}
+```
+* agaldran: (Note need to include pretrained weights)
+```conf
+args {
+    model {
+    path = "models.challenge.agaldran.model_factory.model_factory"
+    args {
+        arch="mvit_v2_s",
+        pretrained_path="custom/models/challenge/3agaldran/mvit_v2_s-ae3be167.pth",
+        num_classes=3,
+        in_ch=1,
+        seed=123
+    }
+    }
+}
+```
 
 ## Run Proof-of-Concept Mode
 

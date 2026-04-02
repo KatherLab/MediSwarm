@@ -94,6 +94,7 @@ _run_test_in_docker() {
            -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
            -v "$SYNTHETIC_DATA_DIR":/data \
            -v "$SCRATCH_DIR":/scratch \
+           -e MODEL_NAME=${MODEL_NAME:-} \
            --gpus="$GPU_FOR_TESTING" \
            --entrypoint=/MediSwarm/$1 \
            "$DOCKER_IMAGE"

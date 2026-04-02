@@ -30,10 +30,10 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 
 1. Make sure you have no uncommitted changes.
    If you have changes, commit them. This ensures that any image built corresponds to a code revision available later.
-3. If package versions are no longer available, you may have to check what the current version is and update the
+2. If package versions are no longer available, you may have to check what the current version is and update the
    `Dockerfile` accordingly. Version numbers are hard-coded to avoid issues due to silently different versions being
    installed.
-4. After successful build (and after verifying that everything works as expected, i.e., local tests, building startup
+3. After successful build (and after verifying that everything works as expected, i.e., local tests, building startup
    kits, running local trainings in the startup kit), you can manually push the image to DockerHub, provided you have
    the necessary rights. Make sure you are not re-using a version number for this purpose.
 
@@ -88,7 +88,7 @@ See [README.participant.md](./README.participant.md).
 | `DATA_DIR`           | *from flag*     | Path to the host folder that contains your local data                |
 | `SCRATCH_DIR`        | *from flag*     | Path for saving training outputs and temporary files                 |
 | `GPU_DEVICE`         | `device=0`      | GPU identifier to use inside the container (or `all`)                |
-| `MODEL`              | `MST`           | Model architecture, choices: `MST`, `ResNet`                         |
+| `MODEL_NAME`         | `MST`           | Model architecture (note: challenge jobs hardcode this in main.py)   |
 | `INSTITUTION`        | `ODELIA`        | Institution name, used to group experiment logs                      |
 | `CONFIG`             | `unilateral`    | Configuration schema for dataset (e.g. label scheme)                 |
 | `NUM_EPOCHS`         | `1` (test mode) | Number of training epochs (used in preflight/local training)         |
@@ -97,10 +97,23 @@ See [README.participant.md](./README.participant.md).
 These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or exporting before run:
 
 ```bash
-export MODEL=ResNet
 export CONFIG=original
 ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=1 --start_client
 ```
+
+### The `--job` Flag
+
+For `--preflight_check` and `--local_training` modes, the `--job` flag selects which model to run:
+
+```bash
+# Default (ODELIA_ternary_classification)
+./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check
+
+# Specific challenge model
+./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --job challenge_5pimed
+```
+
+**Note:** Each challenge job hardcodes its `MODEL_NAME` in `main.py` to avoid the Docker env var override (`MODEL_NAME=${MODEL_NAME:-MST}`). The `--job` flag changes which job's `main.py` is executed, not the `MODEL_NAME` env var.
 
 ## Running the Application
 
@@ -111,7 +124,20 @@ export CONFIG=original
 3. **3D CNN for classifying breast tumors:**
    See [README.md](../../application/jobs/ODELIA_ternary_classification/README.md)
 
+### Available Challenge Jobs
+
+| Job Name | Model | Job Directory |
+|----------|-------|---------------|
+| `challenge_1DivideAndConquer` | ResidualEncoder | `application/jobs/challenge_1DivideAndConquer` |
+| `challenge_2BCN_AIM` | SwinUNETR | `application/jobs/challenge_2BCN_AIM` |
+| `challenge_3agaldran` | MViT v2 | `application/jobs/challenge_3agaldran` |
+| `challenge_4abmil` | CrossModalAttentionABMIL + Swin | `application/jobs/challenge_4abmil` |
+| `challenge_5pimed` | ResNet18 | `application/jobs/challenge_5pimed` |
+
+Each challenge job has its own `config_fed_client.conf`, model code, and `main.py` with a hardcoded `MODEL_NAME`.
+
 ## Contributing Application Code
+
 
 * Take a look at application/jobs/minimal_training_pytorch_cnn for a minimal example how pytorch code can be adapted to work with NVFlare
 * Take a look at application/jobs/ODELIA_ternary_classification for a more realistic example of pytorch code that can run in the swarm
@@ -171,7 +197,9 @@ To make sure your code is swarm-compatible and to isolate potential issues, we r
 
 TODO iterate instructions and add missing details
 
+
 ## Continuous Integration
 
 Tests to be executed after pushing to github are defined in `.github/workflows/pr-test.yaml`.
+
 This largely builds on the integration tests defined above, running those that finish within reasonable time.
