@@ -51,10 +51,16 @@ copy_files() {
            "$WEIGHTS_DIR/"
     else
         echo "Downloading 1DivideAndConquer checkpoint from Google Drive..."
-        GDOWN_CMD=$(command -v gdown || echo "$SOURCE_DIR/.venv/bin/gdown")
-        if [[ ! -x "$GDOWN_CMD" ]]; then
-            echo "ERROR: gdown not found. Install it with: python3 -m venv .venv && .venv/bin/pip install gdown"
-            exit 1
+        GDOWN_CMD=$(command -v gdown || echo "")
+        if [[ -z "$GDOWN_CMD" && -x "$SOURCE_DIR/.venv/bin/gdown" ]]; then
+            GDOWN_CMD="$SOURCE_DIR/.venv/bin/gdown"
+        fi
+        if [[ -z "$GDOWN_CMD" ]]; then
+            echo "gdown not found, installing into temporary venv..."
+            TMPVENV=$(mktemp -d)/gdown_venv
+            python3 -m venv "$TMPVENV"
+            "$TMPVENV/bin/pip" install --quiet gdown
+            GDOWN_CMD="$TMPVENV/bin/gdown"
         fi
         "$GDOWN_CMD" 1bVmZHvI7H1H9YTIMy11zwU2p95W4Y_W6 -O "$WEIGHTS_DIR/checkpoint_final.pth"
     fi
