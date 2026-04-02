@@ -35,24 +35,31 @@ copy_files() {
     cp -r $SOURCE_DIR/docker_config/torch_home_cache $TARGET_DIR/torch_home_cache
     chmod a+rX $TARGET_DIR/torch_home_cache -R
     
-    # # Copy challenge model weights
-    # echo "Copy pretrained model weights for challenge models... "
-    # CHALLENGE_MODEL_DIR="$TARGET_DIR/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge"
-    
-    # echo "1DivideAndConquer: from $SOURCE_DIR/.../checkpoint_final.pth to $CHALLENGE_MODEL_DIR/1DivideAndConquer/"
-    # mkdir -p "$CHALLENGE_MODEL_DIR/1DivideAndConquer"
-    # cp "$SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/1DivideAndConquer/checkpoint_final.pth" \
-    #    "$CHALLENGE_MODEL_DIR/1DivideAndConquer/"
+    # Copy challenge model weights
+    echo "Copy pretrained model weights for challenge models... "
 
-    # echo "3agaldran: from $SOURCE_DIR/.../mvit_v2_s-ae3be167.pth to $CHALLENGE_MODEL_DIR/3agaldran/"
-    # mkdir -p "$CHALLENGE_MODEL_DIR/3agaldran"
-    # #CKPT_3A="$SOURCE_DIR/application/jobs/ODELIA_ternary_classification/app/custom/models/challenge/3agaldran/mvit_v2_s-ae3be167.pth"
-    # #if [[ ! -f "$CKPT_3A" ]]; then
-    # echo "Downloading 3agaldran checkpoint..."
-    # wget https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth -O "$CHALLENGE_MODEL_DIR/3agaldran/mvit_v2_s-ae3be167.pth"
-    # #fi
-    # #cp "$CKPT_3A" "$CHALLENGE_MODEL_DIR/3agaldran/"
-    
+    # challenge_1DivideAndConquer: checkpoint_final.pth
+    CHALLENGE_1_DIR="$TARGET_DIR/MediSwarm/application/jobs/challenge_1DivideAndConquer/app/custom/models"
+    echo "1DivideAndConquer: caching checkpoint_final.pth to $CHALLENGE_1_DIR/"
+    mkdir -p "$CHALLENGE_1_DIR"
+    if [[ -f "$SOURCE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth" ]]; then
+        cp "$SOURCE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth" \
+           "$CHALLENGE_1_DIR/"
+    else
+        echo "WARNING: checkpoint_final.pth not found locally for 1DivideAndConquer, will need to be fetched at runtime"
+    fi
+
+    # challenge_3agaldran: mvit_v2_s-ae3be167.pth (PyTorch pretrained weights)
+    CHALLENGE_3_DIR="$TARGET_DIR/MediSwarm/application/jobs/challenge_3agaldran/app/custom/models"
+    echo "3agaldran: caching mvit_v2_s-ae3be167.pth to $CHALLENGE_3_DIR/"
+    mkdir -p "$CHALLENGE_3_DIR"
+    if [[ -f "$SOURCE_DIR/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth" ]]; then
+        cp "$SOURCE_DIR/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth" \
+           "$CHALLENGE_3_DIR/"
+    else
+        echo "Downloading 3agaldran checkpoint..."
+        wget https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth -O "$CHALLENGE_3_DIR/mvit_v2_s-ae3be167.pth"
+    fi
 }
 
 cache_files

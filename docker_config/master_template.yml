@@ -79,6 +79,8 @@ local_client_resources: |
     "format_version": 2,
     "client": {
       "retry_timeout": 30,
+      "communication_timeout": 600,
+      "maint_msg_timeout": 600,
       "compression": "Gzip"
     },
     "components": [
