@@ -1,4 +1,4 @@
 [submodule "docker_config/NVFlare"]
 	path = docker_config/NVFlare
 	url = https://github.com/KatherLab/NVFlare_MediSwarm.git
-	branch = MediSwarm
+	branch = MediSwarm-2.7.2
