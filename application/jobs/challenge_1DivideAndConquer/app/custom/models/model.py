@@ -1,8 +1,6 @@
 from typing import List, Tuple, Type, Union
 
-import hashlib
 import os
-import subprocess
 from pathlib import Path
 
 import torch
@@ -330,111 +328,6 @@ class ResidualEncoderClsLightning(BasicClassifier):
             return self
 
 
-def _sha256sum(file_path: str | Path, chunk_size: int = 1024 * 1024) -> str:
-    file_path = Path(file_path)
-    sha256 = hashlib.sha256()
-
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(chunk_size), b""):
-            sha256.update(chunk)
-
-    return sha256.hexdigest()
-
-
-def _scp_fetch_from_cosmos(
-    remote_filename: str,
-    local_path: str | Path,
-    remote_user: str = "jeff",
-    remote_host: str = "172.24.4.65",
-    remote_dir: str = "/home/mediswarm-upload/odelia_challenge_ckpt",
-    port: int = 22,
-) -> str:
-    """
-    Fetch checkpoint from 172.24.4.65 using SSH public key authentication.
-    """
-    local_path = Path(local_path)
-    local_path.parent.mkdir(parents=True, exist_ok=True)
-
-    remote_path = f"{remote_user}@{remote_host}:{remote_dir.rstrip('/')}/{remote_filename}"
-
-    cmd = [
-        "scp",
-        "-P", str(port),
-        "-o", "BatchMode=yes",
-        "-o", "StrictHostKeyChecking=accept-new",
-        remote_path,
-        str(local_path),
-    ]
-
-    print(f"Fetching checkpoint via SCP: {remote_path} -> {local_path}")
-    try:
-        subprocess.run(cmd, check=True)
-    except FileNotFoundError as e:
-        raise RuntimeError("scp is not installed in this runtime.") from e
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(
-            f"SCP failed for remote file {remote_path}. "
-            f"Make sure the SSH key is available in this environment and the file exists."
-        ) from e
-
-    if not local_path.exists():
-        raise FileNotFoundError(f"SCP finished but file not found locally: {local_path}")
-
-    return str(local_path)
-
-
-def resolve_pretrained_checkpoint(
-    pretrained_path: str | None,
-    base_dir: str | Path,
-    expected_sha256: str | None = None,
-) -> str | None:
-    """
-    Resolve checkpoint in this order:
-    1) explicit local file
-    2) SCP by filename from remote host
-    3) fail
-    """
-    if not pretrained_path:
-        return None
-
-    base_dir = Path(base_dir)
-    requested_path = Path(pretrained_path)
-
-    if requested_path.is_absolute():
-        resolved_path = requested_path
-    else:
-        resolved_path = (base_dir / requested_path).resolve()
-
-    if resolved_path.exists():
-        if expected_sha256 is not None:
-            actual_sha256 = _sha256sum(resolved_path)
-            if actual_sha256 != expected_sha256.lower().strip():
-                raise ValueError(
-                    f"Local checkpoint hash mismatch for {resolved_path}. "
-                    f"Expected {expected_sha256}, got {actual_sha256}"
-                )
-        print(f"Using local checkpoint: {resolved_path}")
-        return str(resolved_path)
-
-    scp_target = base_dir / requested_path.name
-    fetched = _scp_fetch_from_cosmos(
-        remote_filename=requested_path.name,
-        local_path=scp_target,
-    )
-
-    if expected_sha256 is not None:
-        actual_sha256 = _sha256sum(fetched)
-        if actual_sha256 != expected_sha256.lower().strip():
-            Path(fetched).unlink(missing_ok=True)
-            raise ValueError(
-                f"SCP-fetched checkpoint hash mismatch for {fetched}. "
-                f"Expected {expected_sha256}, got {actual_sha256}"
-            )
-
-    print(f"Using SCP-fetched checkpoint: {fetched}")
-    return fetched
-
-
 def create_model(
     num_classes: int = 3,
     n_input_channels: int = 1,
@@ -449,11 +342,16 @@ def create_model(
 
     if pretrained_path:
         model_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-        resolved_path = resolve_pretrained_checkpoint(
-            pretrained_path=pretrained_path,
-            base_dir=model_dir,
-            expected_sha256="ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758",
-        )
-        model.load_pretrained_unet_encoder(resolved_path, verbose=True)
+        requested = Path(pretrained_path)
+        resolved_path = requested if requested.is_absolute() else (model_dir / requested).resolve()
+
+        if not resolved_path.exists():
+            raise FileNotFoundError(
+                f"Pretrained checkpoint not found: {resolved_path}. "
+                f"Make sure it is cached in the Docker image."
+            )
+
+        print(f"Using local checkpoint: {resolved_path}")
+        model.load_pretrained_unet_encoder(str(resolved_path), verbose=True)
 
     return model
