@@ -59,6 +59,11 @@ def resolve_pretrained_path(
     Resolve pretrained checkpoint from local filesystem only.
     The checkpoint must be cached in the Docker image.
 
+    NVFlare deploys jobs to a workspace directory, so the Python files
+    run from a copy — not the Docker baked-in path. When the checkpoint
+    is not found next to the workspace copy, we fall back to the known
+    Docker baked-in location.
+
     `arch` is kept for interface compatibility.
     """
     del arch  # unused, kept to preserve function signature
@@ -76,8 +81,19 @@ def resolve_pretrained_path(
         print(f"Using local pretrained checkpoint: {resolved}")
         return resolved
 
+    # Fallback: NVFlare workspace copy won't contain the .pth file;
+    # try the Docker baked-in location instead.
+    docker_path = Path(
+        "/MediSwarm/application/jobs/challenge_3agaldran/app/custom/models"
+    ) / Path(pretrained_path).name
+    if docker_path.exists():
+        resolved = _resolve_checkpoint_file(str(docker_path))
+        print(f"Using Docker baked-in pretrained checkpoint: {resolved}")
+        return resolved
+
     raise FileNotFoundError(
         f"Pretrained checkpoint not found: {candidate}. "
+        f"Also checked Docker path: {docker_path}. "
         f"Make sure it is cached in the Docker image."
     )
 

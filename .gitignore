@@ -186,6 +186,9 @@ docker_config/torch_home_cache
 *.pth
 *.zip
 
+# Deployment credentials (contains passwords — never commit)
+deploy_sites.conf
+
 # Build output and logs
 challenge_docker_generation.txt
 tests/results/
