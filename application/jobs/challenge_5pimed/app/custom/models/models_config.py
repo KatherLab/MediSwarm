@@ -43,11 +43,15 @@ def get_unified_model_name(logger, model_variant: str, env_vars):
     if model_variant is None:
         logger.info("No model variant defined. Read environment variables.")
         model_variant = env_vars.get('model_name', 'challenge_5Pimed')
-        logger.info(f"Using model variant {model_variant} (MST as default if MODEL_NAME has not been set es environmental variable).")
-    
-    if model_variant == "5Pimed":
-        model_name = f"challenge_{model_variant}"
-        logger.info(f"Model variant {model_variant}; Select challenge model: {model_name}.")
+        logger.info(f"Using model variant {model_variant} (MST as default if MODEL_NAME has not been set as environmental variable).")
+
+    # Resolve challenge model variants to their underlying architecture name
+    # e.g. "challenge_5Pimed" or "5Pimed" -> "resnet18" (from persistor_args)
+    challenge_variants = ["5Pimed", "challenge_5Pimed"]
+    if model_variant in challenge_variants:
+        config = get_model_config(logger, model_variant)
+        model_name = config["persistor_args"]["model_name"]
+        logger.info(f"Model variant '{model_variant}' resolved to architecture: {model_name}")
     else:
         model_name = model_variant
         logger.info(f"Use model variant as model name: {model_name}")
