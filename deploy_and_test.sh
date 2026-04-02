@@ -135,7 +135,10 @@ cmd_build() {
     info "Expected version: $VERSION"
     info "Expected image: $DOCKER_IMAGE"
 
-    "$SCRIPT_DIR/buildDockerImageAndStartupKits.sh" -p "$SCRIPT_DIR/$PROJECT_FILE"
+    # buildDockerImageAndStartupKits.sh must be invoked from the repo root
+    # with a RELATIVE project file path (it passes the path into a Docker
+    # container where the absolute host path doesn't exist).
+    (cd "$SCRIPT_DIR" && ./buildDockerImageAndStartupKits.sh -p "$PROJECT_FILE")
 
     # Verify
     local prod_dir
