@@ -346,12 +346,23 @@ def create_model(
         resolved_path = requested if requested.is_absolute() else (model_dir / requested).resolve()
 
         if not resolved_path.exists():
-            raise FileNotFoundError(
-                f"Pretrained checkpoint not found: {resolved_path}. "
-                f"Make sure it is cached in the Docker image."
-            )
+            # Fallback: NVFlare workspace copy won't contain the .pth file;
+            # try the Docker baked-in location instead.
+            docker_path = Path(
+                "/MediSwarm/application/jobs/challenge_1DivideAndConquer/app/custom/models"
+            ) / requested.name
+            if docker_path.exists():
+                resolved_path = docker_path
+                print(f"Using Docker baked-in checkpoint: {resolved_path}")
+            else:
+                raise FileNotFoundError(
+                    f"Pretrained checkpoint not found: {resolved_path}. "
+                    f"Also checked Docker path: {docker_path}. "
+                    f"Make sure it is cached in the Docker image."
+                )
+        else:
+            print(f"Using local checkpoint: {resolved_path}")
 
-        print(f"Using local checkpoint: {resolved_path}")
         model.load_pretrained_unet_encoder(str(resolved_path), verbose=True)
 
     return model
