@@ -55,7 +55,7 @@ class Resnet(nn.Module):
         return self.net(x)
     
 
-def create_model(model_name: str, num_classes: int = 3, n_input_channels = 1, spatial_dims = 3, norm: str = "batch") -> nn.Module:
+def create_model(logger=None, model_name: str = "resnet18", num_classes: int = 3, n_input_channels = 1, spatial_dims = 3, norm: str = "batch", loss_kwargs: dict = None, env_vars = None, **kwargs) -> nn.Module:
     model = Resnet(model_name=model_name, num_classes=num_classes, norm=norm)
     wrapped_model = ModelWrapper(backbone=model, in_ch=n_input_channels, num_classes=num_classes)
     return wrapped_model
