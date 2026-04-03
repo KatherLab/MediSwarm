@@ -132,6 +132,9 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
     if logger == None:
         logger = set_up_logging()
 
+    if loss_kwargs is None:
+        loss_kwargs = {}
+
     if env_vars == None:
         env_vars = load_environment_variables()
     model_name = get_unified_model_name(logger, model_name, env_vars)
