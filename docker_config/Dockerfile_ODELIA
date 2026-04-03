@@ -3,7 +3,7 @@ ARG PYTORCH_IMAGE=pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime
 FROM ${PYTORCH_IMAGE}
 
 # Specify the NVFlare version
-ARG NVF_VERSION=2.4.1
+ARG NVF_VERSION=2.7.2
 ENV NVF_BRANCH=${NVF_VERSION}
 
 # Set the Python version
@@ -134,6 +134,7 @@ RUN python3 -m pip install \
     annotated-types==0.7.0 \
     dill==0.3.8 \
     docker-pycreds==0.4.0 \
+    dynamic-network-architectures==0.4.3 \
     einx==0.3.0 \
     frozendict==2.4.6 \
     gitdb==4.0.12 \
@@ -251,8 +252,8 @@ RUN rm -rf /var/lib/apt/lists/*
 # install ODELIA fork of NVFlare from local source
 WORKDIR /workspace/
 COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
-## use startup kit template in the dashboard
-COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
+## Override with MediSwarm master_template.yml (contains version placeholders injected by build script)
+COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/templates/
 RUN python3 -m pip install /workspace/nvflare
 RUN rm -rf /workspace/nvflare
 

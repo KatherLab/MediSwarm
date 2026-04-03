@@ -490,7 +490,7 @@ run_dummy_training_in_swarm () {
                            'Client: New client client_B.* joined.*' \
                            'Client: New client client_.* joined. Sent token: .* Total clients: 1' \
                            'Client: New client client_.* joined. Sent token: .* Total clients: 2' \
-                           'Start to the run Job: [0-9a-f\-]\+' \
+                           'Job: [0-9a-f\-]\+ started to run, status changed to RUNNING.' \
                            'updated status of client client_A on round 4: .* action=start_learn_task, all_done=False' \
                            'updated status of client client_B on round 4: .* action=start_learn_task, all_done=False' \
                            'all_done=True' \
@@ -519,7 +519,7 @@ run_dummy_training_in_swarm () {
                            'Got the new primary SP:' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
-                           'broadcasting learn task of round . to .*; aggr client is client_.';
+                           'broadcasting learn task of round . to .*; aggregation happens on client_.';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
