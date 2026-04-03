@@ -730,6 +730,9 @@ docker_cln_sh: |
           --run_script)          SCRIPT_TO_RUN="$2"; shift ;;
           --job)                 JOB_NAME="$2"; shift ;;
           --log_dataset_details) LOG_DATASET_DETAILS="1";;
+          --model_name)          CLI_MODEL_NAME="$2"; shift ;;
+          --num_epochs)          CLI_NUM_EPOCHS="$2"; shift ;;
+          --config)              CLI_CONFIG="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -783,14 +786,17 @@ docker_cln_sh: |
   DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
 
   # Common ENV vars
+  # CLI flags (--model_name, --num_epochs, --config) take priority over env vars,
+  # which in turn take priority over defaults. This ensures values survive "sudo"
+  # (which resets the environment) when passed as CLI arguments.
   ENV_VARS="--env SITE_NAME={~~client_name~~} \
             --env DATA_DIR=/data \
             --env SCRATCH_DIR=/scratch \
             --env TORCH_HOME=/torch_home \
             --env GPU_DEVICE=$GPU2USE \
-            --env MODEL_NAME=${MODEL_NAME:-MST} \
-            --env NUM_EPOCHS=${NUM_EPOCHS:-100} \
-            --env CONFIG=unilateral \
+            --env MODEL_NAME=${CLI_MODEL_NAME:-${MODEL_NAME:-MST}} \
+            --env NUM_EPOCHS=${CLI_NUM_EPOCHS:-${NUM_EPOCHS:-100}} \
+            --env CONFIG=${CLI_CONFIG:-${CONFIG:-unilateral}} \
             --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__"
 
   if [ -n "$LOG_DATASET_DETAILS" ]; then
@@ -843,6 +849,10 @@ docker_cln_sh: |
       echo "                         (default: ODELIA_ternary_classification)"
       echo "                         Available: ODELIA_ternary_classification, challenge_1DivideAndConquer,"
       echo "                         challenge_2BCN_AIM, challenge_3agaldran, challenge_4abmil, challenge_5pimed"
+      echo "--model_name <name>      set model name (default: MST). Use this instead of 'export MODEL_NAME=...'"
+      echo "                         when running with sudo, as sudo resets environment variables"
+      echo "--num_epochs <n>         set number of training epochs (default: 100)"
+      echo "--config <name>          set config name (default: unilateral)"
       exit 1
   fi
 
@@ -858,6 +868,7 @@ docker_svr_sh: |
           --start_server)   START_SERVER="1";;
           --list_licenses)  LIST_LICENSES="1";;
           --interactive)    INTERACTIVE="1";;
+          --svr_name)       CLI_SVR_NAME="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -875,7 +886,8 @@ docker_svr_sh: |
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
   fi
-  svr_name="${SVR_NAME:-flserver}"
+  # CLI flag --svr_name takes priority over env var SVR_NAME (survives sudo)
+  svr_name="${CLI_SVR_NAME:-${SVR_NAME:-flserver}}"
   CONTAINER_NAME=odelia_swarm_server_${svr_name}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
   rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
