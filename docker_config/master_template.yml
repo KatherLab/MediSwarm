@@ -8,9 +8,9 @@ readme_am: |
   client.crt
   client.key
   fl_admin.sh
-  docker.sh
 
-  Use the docker.sh script to start the admin console in the intended docker container.
+  Please install the nvflare package by 'python3 -m pip nvflare.'  This will install a set of Python codes
+  in your environment.  After installation, you can run the fl_admin.sh file to start communicating to the admin server.
 
   The rootCA.pem file is pointed by "ca_cert" in fl_admin.sh.  If you plan to move/copy it to a different place,
   you will need to modify fl_admin.sh.  The same applies to the other two files, client.crt and client.key.
@@ -31,9 +31,8 @@ readme_fc: |
   start.sh
   sub_start.sh
   stop_fl.sh
-  docker.sh
 
-  Use the docker.sh script with appropriate options to run preflight checks or to start the client in the intended docker container.
+  Run start.sh to start the client.
 
   The rootCA.pem file is pointed by "ssl_root_cert" in fed_client.json.  If you plan to move/copy it to a different place,
   you will need to modify fed_client.json.  The same applies to the other two files, client.crt and client.key.
@@ -56,31 +55,19 @@ readme_fs: |
   sub_start.sh
   stop_fl.sh
   signature.json
-  docker.sh
 
-  Use the docker.sh script to start the server in the intended docker container.
+  Run start.sh to start the server.
 
   The rootCA.pem file is pointed by "ssl_root_cert" in fed_server.json.  If you plan to move/copy it to a different place,
   you will need to modify fed_server.json.  The same applies to the other two files, server.crt and server.key.
 
   Please always safeguard the server.key.
 
-gunicorn_conf_py: |
-  bind="0.0.0.0:{~~port~~}"
-  cert_reqs=2
-  do_handshake_on_connect=True
-  timeout=30
-  worker_class="nvflare.ha.overseer.worker.ClientAuthWorker"
-  workers=1
-  wsgi_app="nvflare.ha.overseer.overseer:app"
-
 local_client_resources: |
   {
     "format_version": 2,
     "client": {
       "retry_timeout": 30,
-      "communication_timeout": 600,
-      "maint_msg_timeout": 600,
       "compression": "Gzip"
     },
     "components": [
@@ -88,14 +75,24 @@ local_client_resources: |
         "id": "resource_manager",
         "path": "nvflare.app_common.resource_managers.gpu_resource_manager.GPUResourceManager",
         "args": {
-          "num_of_gpus": 0,
-          "mem_per_gpu_in_GiB": 0
+          "num_of_gpus": {~~num_gpus~~},
+          "mem_per_gpu_in_GiB": {~~gpu_mem~~}
         }
       },
       {
         "id": "resource_consumer",
         "path": "nvflare.app_common.resource_consumers.gpu_resource_consumer.GPUResourceConsumer",
         "args": {}
+      },
+      {
+        "id": "process_launcher",
+        "path": "nvflare.app_common.job_launcher.client_process_launcher.ClientProcessJobLauncher",
+        "args": {}
+      },
+      {
+          "id": "error_log_sender",
+          "path": "nvflare.app_common.logging.log_sender.ErrorLogSender",
+          "args": {}
       }
     ]
   }
@@ -105,15 +102,26 @@ fed_client: |
     "format_version": 2,
     "servers": [
       {
-        "name": "spleen_segmentation",
+        "name": "{~~name~~}",
         "service": {
-        }
+          "scheme": "{~~scheme~~}"
+        },
+        "identity": "{~~server_identity~~}"
       }
     ],
     "client": {
       "ssl_private_key": "client.key",
       "ssl_cert": "client.crt",
-      "ssl_root_cert": "rootCA.pem"
+      "ssl_root_cert": "rootCA.pem",
+      "fqsn": "{~~fqsn~~}",
+      "is_leaf": {~~is_leaf~~},
+      "connection_security": "{~~conn_sec~~}"
+    },
+    "overseer_agent": {
+      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
+      "args": {
+        "sp_end_point": "{~~sp_end_point~~}"
+      }
     }
   }
 
@@ -183,9 +191,8 @@ local_server_resources: |
               "admin_storage": "transfer",
               "max_num_clients": 100,
               "heart_beat_timeout": 600,
-              "num_server_workers": 4,
               "download_job_url": "http://download.server.com/",
-              "compression": "Gzip"
+              "admin_timeout": 10.0
           }
       ],
       "snapshot_persistor": {
@@ -220,8 +227,32 @@ local_server_resources: |
           {
               "id": "job_store",
               "path": "nvflare.app_common.storages.filesystem_storage.FilesystemStorage"
+          },
+          {
+              "id": "process_launcher",
+              "path": "nvflare.app_common.job_launcher.server_process_launcher.ServerProcessJobLauncher",
+              "args": {}
+          },
+          {
+              "id": "log_receiver",
+              "path": "nvflare.app_common.logging.log_receiver.LogReceiver",
+              "args": {}
           }
       ]
+  }
+
+comm_config: |
+  {
+    "allow_adhoc_conns": false,
+    "backbone_conn_gen": {~~conn_gen~~},
+    "internal": {
+      "scheme": "{~~scheme~~}",
+      "resources": {
+        "host": "{~~host~~}",
+        "port": {~~port~~},
+        "connection_security": "{~~conn_sec~~}"
+      }
+    }
   }
 
 fed_server: |
@@ -229,32 +260,56 @@ fed_server: |
     "format_version": 2,
     "servers": [
         {
-            "name": "spleen_segmentation",
+            "name": "{~~name~~}",
             "service": {
-                "target": "localhost:8002"
+                "target": "{~~target~~}",
+                "scheme": "{~~scheme~~}"
             },
-            "admin_host": "localhost",
-            "admin_port": 5005,
+            "admin_server": "{~~admin_server~~}",
+            "admin_port": {~~admin_port~~},
             "ssl_private_key": "server.key",
             "ssl_cert": "server.crt",
-            "ssl_root_cert": "rootCA.pem"
+            "ssl_root_cert": "rootCA.pem",
+            "connection_security": "{~~conn_sec~~}"
         }
-    ]
+    ],
+    "overseer_agent": {
+      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
+      "args": {
+        "sp_end_point": "{~~sp_end_point~~}"
+      }
+    }
   }
 
 fed_admin: |
   {
     "format_version": 1,
     "admin": {
+      "project_name": "{~~project_name~~}",
+      "username": "{~~username~~}",
+      "server_identity": "{~~server_identity~~}",
+      "scheme": "{~~scheme~~}",
+      "host": "{~~host~~}",
+      "port": {~~port~~},
+      "connection_security": "{~~conn_sec~~}",
+      "uid_source": "{~~uid_source~~}",
       "with_file_transfer": true,
       "upload_dir": "transfer",
       "download_dir": "transfer",
-      "with_login": true,
-      "with_ssl": true,
-      "cred_type": "cert",
       "client_key": "client.key",
       "client_cert": "client.crt",
-      "ca_cert": "rootCA.pem",
+      "ca_cert": "rootCA.pem"
+    }
+  }
+
+default_admin_resources: |
+  {
+    "format_version": 1,
+    "admin": {
+      "idle_timeout": 900.0,
+      "login_timeout": 10.0,
+      "with_debug": false,
+      "authenticate_msg_timeout": 2.0,
       "prompt": "> "
     }
   }
@@ -290,82 +345,122 @@ default_authz: |
     }
   }
 
-authz_def: |
+cc_authz: |
   {
-    "rules": {
-      "allow_byoc": {
-        "desc": "allow BYOC in APP",
-        "type": "bool",
-        "default": false
+    "format_version": "1.0",
+    "permissions": {
+      "project_admin": "any",
+      "org_admin": {
+        "submit_job": "none",
+        "clone_job": "none",
+        "manage_job": "o:submitter",
+        "download_job": "none",
+        "view": "any",
+        "operate": "none",
+        "shell_commands": "none",
+        "byoc": "none"
       },
-      "allow_custom_datalist": {
-        "desc": "allow custom datalist",
-        "default": true
-      }
-    },
-    "rights": {
-      "train_self": {
-        "desc": "do training operations on own site",
-        "default": false,
-        "precond": "selfOrg"
+      "lead": {
+        "submit_job": "any",
+        "clone_job": "n:submitter",
+        "manage_job": "n:submitter",
+        "download_job": "none",
+        "view": "any",
+        "operate": "none",
+        "shell_commands": "none",
+        "byoc": "none"
       },
-      "train_all": {
-        "desc": "do training ops on all sites",
-        "default": false
-      },
-      "view_self": {
-        "desc": "view log files of own org",
-        "default": true,
-        "precond": "selfOrg"
-      },
-      "view_all": {
-        "desc": "view log files of all sites",
-        "default": false
-      },
-      "operate_all": {
-        "desc": "start/stop all sites",
-        "default": false
-      },
-      "operate_self": {
-        "desc": "start/stop own site",
-        "default": false,
-        "precond": "selfOrg"
+      "member": {
+        "view": "any"
       }
     }
   }
 
+
 fl_admin_sh: |
   #!/usr/bin/env bash
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+  mkdir -p $DIR/../transfer
   python3 -m nvflare.fuel.hci.tools.admin -m $DIR/.. -s fed_admin.json
 
 log_config: |
-  [loggers]
-  keys=root
-
-  [handlers]
-  keys=consoleHandler
-
-  [formatters]
-  keys=fullFormatter
-
-  [logger_root]
-  level=INFO
-  handlers=consoleHandler
-
-  [handler_consoleHandler]
-  class=StreamHandler
-  level=DEBUG
-  formatter=fullFormatter
-  args=(sys.stdout,)
-
-  [formatter_fullFormatter]
-  format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
-
-start_ovsr_sh: |
-  #!/usr/bin/env bash
-  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  NVFL_OVERSEER_HEARTBEAT_TIMEOUT=10 AUTHZ_FILE=$DIR/privilege.yml gunicorn -c $DIR/gunicorn.conf.py --keyfile $DIR/overseer.key --certfile $DIR/overseer.crt --ca-certs $DIR/rootCA.pem
+  {
+      "version": 1,
+      "disable_existing_loggers": false,
+      "formatters": {
+          "baseFormatter": {
+              "()": "nvflare.fuel.utils.log_utils.BaseFormatter",
+              "fmt": "%(asctime)s - %(name)s - %(levelname)s - %(fl_ctx)s - %(message)s"
+          },
+          "consoleFormatter": {
+              "()": "nvflare.fuel.utils.log_utils.ColorFormatter",
+              "fmt": "%(asctime)s - %(name)s - %(levelname)s - %(fl_ctx)s - %(message)s"
+          },
+          "jsonFormatter": {
+              "()": "nvflare.fuel.utils.log_utils.JsonFormatter",
+              "fmt": "%(asctime)s - %(name)s - %(fullName)s - %(levelname)s - %(fl_ctx)s - %(message)s"
+          }
+      },
+      "filters": {
+          "FLFilter": {
+              "()": "nvflare.fuel.utils.log_utils.LoggerNameFilter",
+              "logger_names": ["custom", "nvflare.app_common", "nvflare.app_opt"]
+          }
+      },
+      "handlers": {
+          "consoleHandler": {
+              "class": "logging.StreamHandler",
+              "level": "DEBUG",
+              "formatter": "consoleFormatter",
+              "filters": [],
+              "stream": "ext://sys.stdout"
+          },
+          "logFileHandler": {
+              "class": "logging.handlers.RotatingFileHandler",
+              "level": "DEBUG",
+              "formatter": "baseFormatter",
+              "filename": "log.txt",
+              "mode": "a",
+              "maxBytes": 20971520,
+              "backupCount": 10
+          },
+          "errorFileHandler": {
+              "class": "logging.handlers.RotatingFileHandler",
+              "level": "ERROR",
+              "formatter": "baseFormatter",
+              "filename": "log_error.txt",
+              "mode": "a",
+              "maxBytes": 20971520,
+              "backupCount": 10
+          },
+          "jsonFileHandler": {
+              "class": "logging.handlers.RotatingFileHandler",
+              "level": "DEBUG",
+              "formatter": "jsonFormatter",
+              "filename": "log.json",
+              "mode": "a",
+              "maxBytes": 20971520,
+              "backupCount": 10
+          },
+          "FLFileHandler": {
+              "class": "logging.handlers.RotatingFileHandler",
+              "level": "DEBUG",
+              "formatter": "baseFormatter",
+              "filters": ["FLFilter"],
+              "filename": "log_fl.txt",
+              "mode": "a",
+              "maxBytes": 20971520,
+              "backupCount": 10,
+              "delay": true
+          }
+      },
+      "loggers": {
+          "root": {
+              "level": "INFO",
+              "handlers": ["consoleHandler", "logFileHandler", "errorFileHandler", "jsonFileHandler", "FLFileHandler"]
+          }
+      }
+  }
 
 start_cln_sh: |
   #!/usr/bin/env bash
@@ -379,15 +474,25 @@ start_cln_sh: |
       case $key in
         --cloud)
           doCloud=true
+          csp=$2
           shift
         ;;
       esac
       shift
   done
 
-  if [ $doCloud = true ]
+  if [ $doCloud == true ]
   then
-    echo "Only on-prem is currently supported."
+    case $csp in
+      azure)
+        $DIR/azure_start.sh ${all_arguments}
+        ;;
+      aws)
+        $DIR/aws_start.sh ${all_arguments}
+        ;;
+      *)
+        echo "Only on-prem or azure or aws is currently supported."
+    esac
   else
     $DIR/sub_start.sh &
   fi
@@ -404,9 +509,10 @@ start_svr_sh: |
     key="$1"
     case $key in
       --cloud)
-        if [ $ha_mode = false ]
+        if [ $ha_mode == false ]
         then
           doCloud=true
+          csp=$2
           shift
         else
           echo "Cloud launch does not support NVFlare HA mode."
@@ -417,9 +523,18 @@ start_svr_sh: |
     shift
   done
 
-  if [ $doCloud = true ]
+  if [ $doCloud == true ]
   then
-    echo "Only on-prem is currently supported."
+    case $csp in
+      azure)
+        $DIR/azure_start.sh ${all_arguments}
+        ;;
+      aws)
+        $DIR/aws_start.sh ${all_arguments}
+        ;;
+      *)
+        echo "Only on-prem or azure or aws is currently supported."
+    esac
   else
     $DIR/sub_start.sh &
   fi
@@ -444,7 +559,7 @@ stop_fl_sh: |
       ;;
   esac
 
-sub_start_cln_sh: |
+sub_start_sh: |
   #!/usr/bin/env bash
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   echo "WORKSPACE set to $DIR/.."
@@ -452,9 +567,48 @@ sub_start_cln_sh: |
   export PYTHONPATH=/local/custom:$PYTHONPATH
   echo "PYTHONPATH is $PYTHONPATH"
 
+  # Memory management configuration
+  # Opt-in jemalloc preload for PyTorch workloads.
+  # Enable by setting NVFLARE_ENABLE_JEMALLOC_PRELOAD=true.
+  if [ "${NVFLARE_ENABLE_JEMALLOC_PRELOAD:-false}" = "true" ]; then
+    for JEMALLOC in /usr/lib/x86_64-linux-gnu/libjemalloc.so.2 \
+                    /usr/lib64/libjemalloc.so.2 \
+                    /usr/local/lib/libjemalloc.so; do
+        if [ -f "$JEMALLOC" ]; then
+            export LD_PRELOAD="${LD_PRELOAD:+$LD_PRELOAD:}$JEMALLOC"
+            export MALLOC_CONF="${MALLOC_CONF:-dirty_decay_ms:5000,muzzy_decay_ms:5000}"
+            echo "Using jemalloc: $JEMALLOC"
+            break
+        fi
+    done
+  fi
+
+  # Limit glibc memory arenas to reduce RSS fragmentation (ignored by jemalloc)
+  # Recommended: MALLOC_ARENA_MAX=2 for clients, MALLOC_ARENA_MAX=4 for servers
+  export MALLOC_ARENA_MAX=${MALLOC_ARENA_MAX:-4}
+
+  while [[ $# -gt 0 ]]
+  do
+    key="$1"
+    case $key in
+      --verify)
+        doVerify=true
+      ;;
+      --once)
+        doOnce=true
+      ;;
+    esac
+    shift
+  done
+
   SECONDS=0
   lst=-400
   restart_count=0
+
+  start_python() {
+    python3 -u -m nvflare.private.fed.app.{~~type~~}.{~~app_name~~} -m $DIR/.. -s fed_{~~type~~}.json --set secure_train=true {~~cln_uid~~} org={~~org_name~~} config_folder={~~config_folder~~}
+  }
+
   start_fl() {
     if [[ $(( $SECONDS - $lst )) -lt 300 ]]; then
       ((restart_count++))
@@ -467,7 +621,7 @@ sub_start_cln_sh: |
       exit
     fi
     lst=$SECONDS
-  ((python3 -u -m nvflare.private.fed.app.client.client_train -m $DIR/.. -s fed_client.json --set secure_train=true uid={~~client_name~~} org={~~org_name~~} config_folder={~~config_folder~~} 2>&1 & echo $! >&3 ) 3>$DIR/../pid.fl )
+    (start_python 2>&1 & echo $! >&3 ) 3>$DIR/../pid.fl
     pid=`cat $DIR/../pid.fl`
     echo "new pid ${pid}"
   }
@@ -488,92 +642,21 @@ sub_start_cln_sh: |
     rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl 2> /dev/null 1>&2
   }
 
-  if [[ -f "$DIR/../daemon_pid.fl" ]]; then
-    dpid=`cat $DIR/../daemon_pid.fl`
-    kill -0 ${dpid} 2> /dev/null 1>&2
-    if [[ $? -eq 0 ]]; then
-      echo "There seems to be one instance, pid=$dpid, running."
-      echo "If you are sure it's not the case, please kill process $dpid and then remove daemon_pid.fl in $DIR/.."
-      exit
+  if [[ "$doVerify" == "true" ]]; then
+    python3 -m nvflare.tool.verify_startup_kits -f $DIR/../ -c $DIR/rootCA.pem
+    verification_status=$?
+    if [[ $verification_status -ne 0 ]]; then
+      echo "verification failed"
+      exit 1
     fi
-    rm -f $DIR/../daemon_pid.fl
   fi
 
-  echo $BASHPID > $DIR/../daemon_pid.fl
-
-  while true
-  do
-    sleep 5
-    if [[ ! -f "$DIR/../pid.fl" ]]; then
-      echo "start fl because of no pid.fl"
-      start_fl
-      continue
-    fi
-    pid=`cat $DIR/../pid.fl`
-    kill -0 ${pid} 2> /dev/null 1>&2
-    if [[ $? -ne 0 ]]; then
-      if [[ -f "$DIR/../shutdown.fl" ]]; then
-        echo "Gracefully shutdown."
-        break
-      fi
-      echo "start fl because process of ${pid} does not exist"
-      start_fl
-      continue
-    fi
-    if [[ -f "$DIR/../shutdown.fl" ]]; then
-      echo "About to shutdown."
-      stop_fl
-      break
-    fi
-    if [[ -f "$DIR/../restart.fl" ]]; then
-      echo "About to restart."
-      stop_fl
-    fi
-  done
-
-  rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl $DIR/../daemon_pid.fl
-
-sub_start_svr_sh: |
-  #!/usr/bin/env bash
-  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  echo "WORKSPACE set to $DIR/.."
-  mkdir -p $DIR/../transfer
-
-  SECONDS=0
-  lst=-400
-  restart_count=0
-  start_fl() {
-    if [[ $(( $SECONDS - $lst )) -lt 300 ]]; then
-      ((restart_count++))
-    else
-      restart_count=0
-    fi
-    if [[ $(($SECONDS - $lst )) -lt 300 && $restart_count -ge 5 ]]; then
-      echo "System is in trouble and unable to start the task!!!!!"
-      rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl $DIR/../daemon_pid.fl
-      exit
-    fi
-    lst=$SECONDS
-  ((python3 -u -m nvflare.private.fed.app.server.server_train -m $DIR/.. -s fed_server.json --set secure_train=true org={~~org_name~~} config_folder={~~config_folder~~} 2>&1 & echo $! >&3 ) 3>$DIR/../pid.fl )
-    pid=`cat $DIR/../pid.fl`
-    echo "new pid ${pid}"
-  }
-
-  stop_fl() {
-    if [[ ! -f "$DIR/../pid.fl" ]]; then
-      echo "No pid.fl.  No need to kill process."
-      return
-    fi
-    pid=`cat $DIR/../pid.fl`
-    sleep 5
-    kill -0 ${pid} 2> /dev/null 1>&2
-    if [[ $? -ne 0 ]]; then
-      echo "Process already terminated"
-      return
-    fi
-    kill -9 $pid
-    rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl
-  }
+  if [[ "$doOnce" == "true" ]]; then
+    echo "Start NVFlare directly"
+    rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl 2> /dev/null 1>&2
+    start_python
+    exit $?
+  fi
 
   if [[ -f "$DIR/../daemon_pid.fl" ]]; then
     dpid=`cat $DIR/../daemon_pid.fl`
@@ -1074,11 +1157,42 @@ cloud_script_header: |
   }
 
   function prompt() {
-    local __default="$1"
-    read -p "$2" ans
-    if [[ ! -z "$ans" ]]
-    then
-      eval $__default="'$ans'"
+    # usage:  prompt NEW_VAR "Prompt message" ["${PROMPT_VALUE}"]
+    local __resultvar=$1
+    local __prompt=$2
+    local __default=${3:-}
+    local __result
+    if [[ ${BASH_VERSINFO[0]} -ge 4 && -n "$__default" ]]
+      then
+      read -e -i "$__default" -p "$__prompt: " __result
+    else
+      __default=${3:-${!__resultvar:-}}
+      if [[ -n $__default ]]
+        then
+        printf "%s [%s]: " "$__prompt" "$__default"
+      else
+        printf "%s: " "$__prompt"
+      fi
+      IFS= read -r __result
+      if [[ -z "$__result" && -n "$__default" ]]
+        then
+        __result="$__default"
+      fi
+    fi
+    eval $__resultvar="'$__result'"
+  }
+
+  function get_resources_file() {
+    local rfile="${DIR}/../local/resources.json"
+    if [ -f "${rfile}" ]
+      then
+      echo "${rfile}"
+    elif [ -f "${rfile}.default" ]
+      then
+      echo "${rfile}.default"
+    else
+      echo ""
+      exit 1
     fi
   }
 
@@ -1223,4 +1337,31 @@ adm_notebook: |
   },
   "nbformat": 4,
   "nbformat_minor": 5
+  }
+
+relay_resources_json: |
+  {
+    "format_version": 2,
+    "relay_config": {
+      "scheme": "{~~scheme~~}",
+      "identity": "{~~identity~~}",
+      "address": "{~~address~~}",
+      "fqcn": "{~~fqcn~~}",
+      "connection_security": "{~~conn_sec~~}"
+    }
+  }
+
+fed_relay: |
+  {
+    "format_version": 2,
+    "project_name": "{~~project_name~~}",
+    "identity": "{~~identity~~}",
+    "server_identity": "{~~server_identity~~}",
+    "connect_to": {
+      "scheme": "{~~scheme~~}",
+      "identity": "{~~parent_identity~~}",
+      "address": "{~~address~~}",
+      "fqcn": "{~~fqcn~~}",
+      "connection_security": "{~~conn_sec~~}"
+    }
   }

@@ -11,7 +11,7 @@ import minimal_training
 TRAINING_MODE = os.getenv("TRAINING_MODE")
 
 if TRAINING_MODE == "swarm":
-    flare_util.init()
+    flare_util.init(rank="0")
     SITE_NAME=flare.get_site_name()
 elif TRAINING_MODE == "local_training":
     SITE_NAME="site_name_unset"

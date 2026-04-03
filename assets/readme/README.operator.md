@@ -4,7 +4,7 @@
 
 Production mode is designed for secure, real-world deployments. It supports both local and remote setups, whether
 on-premise or in the cloud. For more details, refer to
-the [NVFLARE Production Mode](https://nvflare.readthedocs.io/en/2.4.1/real_world_fl.html).
+the [NVFLARE Production Mode](https://nvflare.readthedocs.io/en/2.7/real_world_fl.html).
 
 To set up production mode, follow these steps:
 
