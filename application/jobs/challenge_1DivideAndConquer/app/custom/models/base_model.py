@@ -129,6 +129,9 @@ class BasicClassifier(BasicModel):
         self.out_ch = out_ch
         self.spatial_dims = spatial_dims
 
+        if loss_kwargs is None:
+            loss_kwargs = {}
+
         loss = torch.nn.CrossEntropyLoss
 
         self.loss = loss(**loss_kwargs)
