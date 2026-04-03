@@ -83,14 +83,14 @@ parse_args() {
   done
 }
 
+parse_args "$@"
+
 SITE_NAME_FALLBACK="$(basename "$KIT_ROOT")"
 if [ -n "$SITE_NAME_FROM_ARGS" ]; then
   export SITE_NAME="$SITE_NAME_FROM_ARGS"
 elif [ -z "${SITE_NAME:-}" ]; then
   export SITE_NAME="$SITE_NAME_FALLBACK"
 fi
-
-parse_args "$@"
 
 start_local_sync() {
   "$SCRIPT_DIR/live_sync.sh" \
