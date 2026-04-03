@@ -40,11 +40,11 @@ nvflare simulator ./application/jobs/cifar10 -w /tmp/nvflare/cifar10 -n 2 -t 2
 - `-n 2`: Sets the number of clients.
 - `-t 2`: Defines the number of threads.
 
-For detailed instructions on how to use the simulator, refer to the official [NVFLARE Quick Start with Simulator Guide](https://nvflare.readthedocs.io/en/2.4.1/getting_started.html#quick-start-with-simulator).
+For detailed instructions on how to use the simulator, refer to the official [NVFLARE Quick Start with Simulator Guide](https://nvflare.readthedocs.io/en/2.7/getting_started.html#quick-start-with-simulator).
 
 
 ## 4. Run Proof-of-Concept Mode
-To run this application code in NVFlare [proof-of-concept](https://nvflare.readthedocs.io/en/2.4.0/user_guide/nvflare_cli/poc_command.html) mode, the dataset first needs to be downloaded (see above).
+To run this application code in NVFlare [proof-of-concept](https://nvflare.readthedocs.io/en/2.7/user_guide/nvflare_cli/poc_command.html) mode, the dataset first needs to be downloaded (see above).
 
 Then, subsets need to be prepared. You can re-use the ones created by running the simulator as above (TODO how can they be created without running the full simulation?)
 
