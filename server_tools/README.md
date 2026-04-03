@@ -39,24 +39,38 @@ The monitor scans the uploaded artifact tree:
 /srv/mediswarm/live/<SITE_NAME>/<MODE>/<RUN_OR_JOB_ID>/
 ```
 
-and shows:
+### Overview page (`/`)
 
-- site name
-- mode (`local` or `swarm`)
-- run or job ID
-- latest heartbeat status
-- heartbeat age
-- whether console/log files exist
-- whether key artifacts exist:
-    - `last.ckpt`
-    - `epoch=*.ckpt`
-    - `FL_global_model.pt`
+The main dashboard shows a styled table with auto-refresh (every 30 s):
 
-It also provides links to view:
+- site name, mode (`local` or `swarm`), run name and run/job ID
+- status badge (running / finished / unknown)
+- heartbeat age (color-coded: green < 2 min, orange < 10 min, red > 10 min)
+- artifact indicators: `last.ckpt`, `epoch.ckpt`, `FL_global_model.pt`, `best_FL_global_model.pt`, CSV count, TFEvents
+- links to detail page, raw heartbeat, console output, and log
 
-- `heartbeat.json`
-- `nohup.out` or `local_training_console_output.txt`
-- `log.txt`
+### Detail page (`/detail/{site}/{mode}/{run_id}`)
+
+- all heartbeat fields (run name, job ID, timestamps, artifact paths)
+- **training metric charts** (ACC and AUC_ROC per epoch, parsed from console output, rendered with Chart.js)
+- links to CSV result files (rendered as HTML tables)
+- last 200 lines of console output
+- TensorBoard metrics (if `tbparse` is installed)
+
+### API endpoints
+
+- `GET /api/runs` — all runs as JSON
+- `GET /api/metrics/{site}/{mode}/{run_id}` — parsed training metrics as JSON
+- `GET /api/heartbeat/{site}/{mode}/{run_id}` — heartbeat data as JSON
+- `GET /metrics/{site}/{mode}/{run_id}` — same as `/api/metrics`
+- `GET /tb_metrics/{site}/{mode}/{run_id}` — TensorBoard scalars as JSON (requires `tbparse`)
+- `GET /csv/{site}/{mode}/{run_id}/{filename}` — CSV file rendered as HTML table
+
+### Raw file endpoints (unchanged)
+
+- `GET /heartbeat/{site}/{mode}/{run_id}` — raw heartbeat JSON
+- `GET /console/{site}/{mode}/{run_id}` — `nohup.out` or `local_training_console_output.txt`
+- `GET /log/{site}/{mode}/{run_id}` — `log.txt`
 
 ---
 
@@ -143,27 +157,17 @@ http://localhost:8080/
 
 ## 6) What you should see
 
-The main page shows a table with columns:
+The main page shows a styled table (auto-refreshes every 30 seconds) with columns:
 
-- Site
-- Mode
-- Run
-- Status
-- Timestamp
-- Age
-- Artifacts
-- Links
+- **Site** — e.g. `MHA_1`
+- **Mode** — `local` or `swarm`
+- **Run** — run name (e.g. `MST_unilateral_2026_04_03_120000`) and run/job ID
+- **Status** — color-coded badge: green (running), blue (finished), gray (unknown)
+- **Age** — time since last heartbeat, color-coded orange/red when stale
+- **Artifacts** — which artifacts are present (checkpoints, models, CSVs, TFEvents)
+- **Links** — Detail page, heartbeat, console, log
 
-Typical entries look like:
-
-- `MHA_1`
-- `swarm`
-- `db98789c-746b-4be3-a1b6-c50473b42ed8`
-
-The links open:
-- heartbeat JSON
-- console output
-- log output
+Click **Details** on any run to see training metric charts, heartbeat info, CSV results, and console output.
 
 ---
 
