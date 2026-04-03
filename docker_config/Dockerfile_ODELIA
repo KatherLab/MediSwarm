@@ -251,7 +251,8 @@ RUN rm -rf /var/lib/apt/lists/*
 # install ODELIA fork of NVFlare from local source
 WORKDIR /workspace/
 COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
-## NVFlare fork already contains MediSwarm-customized templates in lighter/templates/
+## Override with MediSwarm master_template.yml (contains version placeholders injected by build script)
+COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/templates/
 RUN python3 -m pip install /workspace/nvflare
 RUN rm -rf /workspace/nvflare
 
