@@ -63,9 +63,22 @@ extract_run_name_from_nohup() {
 }
 
 find_latest_local_run_name() {
-  local base="$STARTUP_DIR/runs/$SITE_NAME"
-  [ -d "$base" ] || return 0
-  find "$base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed 's#.*/##' | sort | tail -n 1 || true
+  local base result=""
+  # Check scratch dir first (primary location since all jobs now use SCRATCH_DIR)
+  if [ -n "$SCRATCHDIR" ]; then
+    base="$SCRATCHDIR/runs/$SITE_NAME"
+    if [ -d "$base" ]; then
+      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed 's#.*/##' | sort | tail -n 1 || true)"
+    fi
+  fi
+  # Fall back to startup dir (backward compatibility with older builds)
+  if [ -z "$result" ]; then
+    base="$STARTUP_DIR/runs/$SITE_NAME"
+    if [ -d "$base" ]; then
+      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed 's#.*/##' | sort | tail -n 1 || true)"
+    fi
+  fi
+  printf '%s' "$result"
 }
 
 build_remote_dir() {
@@ -78,13 +91,19 @@ sync_local() {
 
   run_name="$(find_latest_local_run_name || true)"
   [ -n "$run_name" ] || return 0
-  run_dir="$STARTUP_DIR/runs/$SITE_NAME/$run_name"
-  [ -d "$run_dir" ] || return 0
+
+  # Determine run_dir: check scratch dir first, fall back to startup dir
+  run_dir=""
+  if [ -n "$SCRATCHDIR" ] && [ -d "$SCRATCHDIR/runs/$SITE_NAME/$run_name" ]; then
+    run_dir="$SCRATCHDIR/runs/$SITE_NAME/$run_name"
+  elif [ -d "$STARTUP_DIR/runs/$SITE_NAME/$run_name" ]; then
+    run_dir="$STARTUP_DIR/runs/$SITE_NAME/$run_name"
+  fi
+  [ -n "$run_dir" ] || return 0
 
   remote_dir="$(build_remote_dir "$run_name")"
   ensure_remote_dir "$remote_dir"
 
-  export SCRATCHDIR=""
   hb_file="$STATE_DIR/local_heartbeat.json"
   "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "running" "$hb_file" >/dev/null
 
@@ -116,7 +135,7 @@ sync_local() {
 }
 
 sync_swarm() {
-  local job_id run_name remote_dir hb_file now last scratch_run_dir
+  local job_id run_name remote_dir hb_file now last
 
   job_id="$(find_latest_job_id || true)"
   [ -n "$job_id" ] || return 0
@@ -145,18 +164,20 @@ sync_swarm() {
     rsync_cmd "$KIT_ROOT/$job_id/app_${SITE_NAME}/best_FL_global_model.pt" \
       "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/best_FL_global_model.pt" || true
 
-  if [ -n "$SCRATCHDIR" ] && [ -n "$run_name" ]; then
-    scratch_run_dir="$SCRATCHDIR/runs/$SITE_NAME/$run_name"
-  else
-    scratch_run_dir=""
+  # Determine run dir: check scratch dir first, fall back to startup dir
+  local run_dir_for_sync=""
+  if [ -n "$SCRATCHDIR" ] && [ -n "$run_name" ] && [ -d "$SCRATCHDIR/runs/$SITE_NAME/$run_name" ]; then
+    run_dir_for_sync="$SCRATCHDIR/runs/$SITE_NAME/$run_name"
+  elif [ -n "$run_name" ] && [ -d "$STARTUP_DIR/runs/$SITE_NAME/$run_name" ]; then
+    run_dir_for_sync="$STARTUP_DIR/runs/$SITE_NAME/$run_name"
   fi
 
-  if [ -n "$scratch_run_dir" ] && [ -d "$scratch_run_dir" ]; then
+  if [ -n "$run_dir_for_sync" ]; then
     rsync_cmd \
       --include='*/' \
       --include='events.out.tfevents*' \
       --exclude='*' \
-      "$scratch_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+      "$run_dir_for_sync/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
 
     now="$(date +%s)"
     last="$(cat "$LAST_CKPT_SYNC_FILE" 2>/dev/null || echo 0)"
@@ -167,7 +188,7 @@ sync_swarm() {
         --include='epoch=*.ckpt' \
         --include='*_model_gt_and_classprob_*.csv' \
         --exclude='*' \
-        "$scratch_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+        "$run_dir_for_sync/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
       echo "$now" > "$LAST_CKPT_SYNC_FILE"
     fi
   fi
@@ -176,19 +197,28 @@ sync_swarm() {
 final_sync() {
   if [ "$MODE" = "local" ]; then
     sync_local || true
-    local run_name
+    local run_name run_dir
     run_name="$(find_latest_local_run_name || true)"
     if [ -n "$run_name" ]; then
+      # Determine run_dir: check scratch dir first, fall back to startup dir
+      run_dir=""
+      if [ -n "$SCRATCHDIR" ] && [ -d "$SCRATCHDIR/runs/$SITE_NAME/$run_name" ]; then
+        run_dir="$SCRATCHDIR/runs/$SITE_NAME/$run_name"
+      elif [ -d "$STARTUP_DIR/runs/$SITE_NAME/$run_name" ]; then
+        run_dir="$STARTUP_DIR/runs/$SITE_NAME/$run_name"
+      fi
+
       remote_dir="$(build_remote_dir "$run_name")"
       hb_file="$STATE_DIR/local_heartbeat_final.json"
-      export SCRATCHDIR=""
       "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "finished" "$hb_file" >/dev/null
       rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
-      rsync_cmd "$STARTUP_DIR/runs/$SITE_NAME/$run_name/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+      if [ -n "$run_dir" ]; then
+        rsync_cmd "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+      fi
     fi
   else
     sync_swarm || true
-    local job_id run_name remote_dir hb_file scratch_run_dir
+    local job_id run_name remote_dir hb_file
     job_id="$(find_latest_job_id || true)"
     run_name="$(extract_run_name_from_nohup || true)"
     if [ -n "$job_id" ]; then
@@ -212,10 +242,15 @@ final_sync() {
         rsync_cmd "$KIT_ROOT/$job_id/app_${SITE_NAME}/best_FL_global_model.pt" \
           "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/best_FL_global_model.pt" || true
 
-      if [ -n "$SCRATCHDIR" ] && [ -n "$run_name" ]; then
-        scratch_run_dir="$SCRATCHDIR/runs/$SITE_NAME/$run_name"
-        [ -d "$scratch_run_dir" ] && \
-          rsync_cmd "$scratch_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+      # Sync run dir: check scratch dir first, fall back to startup dir
+      local final_run_dir=""
+      if [ -n "$SCRATCHDIR" ] && [ -n "$run_name" ] && [ -d "$SCRATCHDIR/runs/$SITE_NAME/$run_name" ]; then
+        final_run_dir="$SCRATCHDIR/runs/$SITE_NAME/$run_name"
+      elif [ -n "$run_name" ] && [ -d "$STARTUP_DIR/runs/$SITE_NAME/$run_name" ]; then
+        final_run_dir="$STARTUP_DIR/runs/$SITE_NAME/$run_name"
+      fi
+      if [ -n "$final_run_dir" ]; then
+        rsync_cmd "$final_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
       fi
     fi
   fi
