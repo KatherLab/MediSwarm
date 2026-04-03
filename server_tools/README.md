@@ -169,6 +169,10 @@ The links open:
 
 ## 7) Uploaded directory layout expected by the monitor
 
+The `live_sync` daemon on each training site uploads artifacts here via rsync.
+All training jobs (ODELIA and challenge models) write results to `$SCRATCHDIR/runs/$SITE_NAME/<RUN_NAME>/` on the host,
+and `live_sync` uploads them to the `run_dir/` subdirectory below.
+
 The monitor expects uploads in this structure:
 
 ```text
