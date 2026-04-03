@@ -3,12 +3,29 @@ import sys
 from pathlib import Path
 sys.path.append(Path(__file__))
 import os
+import signal
+import traceback
 import torch
 
 import nvflare.client.lightning as flare
 import nvflare.client as flare_util
 
 import threedcnn_ptl
+
+
+def _signal_handler(signum, frame):
+    """Catch signals and print a traceback before dying."""
+    sig_name = signal.Signals(signum).name
+    print(f"\n[SIGNAL] Received {sig_name} ({signum})", flush=True)
+    traceback.print_stack(frame)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    sys.exit(128 + signum)
+
+
+# Register signal handlers so we get a traceback instead of silent death
+for _sig in (signal.SIGTERM, signal.SIGINT, signal.SIGUSR1, signal.SIGUSR2):
+    signal.signal(_sig, _signal_handler)
 
 TRAINING_MODE = os.getenv("TRAINING_MODE")
 
@@ -54,21 +71,36 @@ def main():
     logger = threedcnn_ptl.set_up_logging()
 
     try:
+        logger.info("[DEBUG] Starting prepare_training...")
+        sys.stdout.flush()
         data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(
             logger, NUM_EPOCHS, model_variant=MODEL_NAME
         )
+        logger.info("[DEBUG] prepare_training complete.")
+        sys.stdout.flush()
 
         if TRAINING_MODE == TM_SWARM:
             flare.patch(trainer)  # Patch trainer to enable swarm learning
             torch.autograd.set_detect_anomaly(True)
 
             logger.info(f"Site name: {SITE_NAME}")
+            sys.stdout.flush()
 
             while flare.is_running():
+                logger.info("[DEBUG] flare.is_running() returned True, calling flare.receive()...")
+                sys.stdout.flush()
                 input_model = flare.receive()
-                logger.info(f"Current round: {input_model.current_round}")
+                logger.info(f"[DEBUG] flare.receive() returned. Current round: {input_model.current_round}")
+                logger.info(f"[DEBUG] input_model type: {type(input_model)}, params type: {type(input_model.params) if input_model.params else None}")
+                if input_model.params:
+                    logger.info(f"[DEBUG] input_model.params keys count: {len(input_model.params)}")
+                sys.stdout.flush()
 
+                logger.info("[DEBUG] Calling validate_and_train...")
+                sys.stdout.flush()
                 threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
+                logger.info("[DEBUG] validate_and_train complete.")
+                sys.stdout.flush()
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
@@ -78,6 +110,9 @@ def main():
 
     except Exception as e:
         logger.error(f"Error in main function: {e}")
+        logger.error(traceback.format_exc())
+        sys.stdout.flush()
+        sys.stderr.flush()
         raise
 
 
