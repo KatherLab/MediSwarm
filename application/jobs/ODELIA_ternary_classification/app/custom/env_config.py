@@ -34,7 +34,7 @@ def prepare_odelia_dataset(logger, log_dataset_details: bool = False):
 
     current_time = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     run_name = f'{model}_{config}_{current_time}'
-    path_run_dir = Path.cwd() / 'runs' / institution / run_name
+    path_run_dir = Path(os.environ.get('SCRATCH_DIR')) / 'runs' / institution / run_name
     path_run_dir.mkdir(parents=True, exist_ok=True)
 
     ODELIA_Dataset3D.log_UID_discrepancies(logger, institutions=[institution], log_dataset_details=log_dataset_details)
