@@ -43,11 +43,11 @@ else:
 def main():
     """
     Main function for training and evaluating the model using NVFlare and PyTorch Lightning.
-    The following variables are expect to be set: 
+    The following variables are expect to be set:
     SITE_NAME
-    MODEL_NAME: can be 
-       - MST or 
-       - challenge_<model name as defined in ./challenge/challenge_models_config.sh> or 
+    MODEL_NAME: can be
+       - MST or
+       - challenge_<model name as defined in ./challenge/challenge_models_config.sh> or
        - challenge (that will select the first mentioned model in ./challenge/challenge_models_config.sh.)
     NUM_EPOCHS
     """
@@ -59,14 +59,28 @@ def main():
         )
 
         if TRAINING_MODE == TM_SWARM:
+            print("[DIAG] About to call flare.patch(trainer)...", flush=True)
             flare.patch(trainer)  # Patch trainer to enable swarm learning
+            print("[DIAG] flare.patch(trainer) done", flush=True)
             torch.autograd.set_detect_anomaly(True)
 
-            logger.info(f"Site name: {SITE_NAME}")
+            print(f"[DIAG] Site name: {SITE_NAME}", flush=True)
 
+            print("[DIAG] Entering flare.is_running() loop...", flush=True)
             while flare.is_running():
+                print("[DIAG] flare.is_running() returned True, calling flare.receive()...", flush=True)
                 input_model = flare.receive()
-                logger.info(f"Current round: {input_model.current_round}")
+                print(f"[DIAG] flare.receive() returned, current_round={input_model.current_round}", flush=True)
+                print(f"[DIAG] input_model.params keys: {len(input_model.params) if input_model.params else 'None'}", flush=True)
+
+                print("[DIAG] About to call validate_and_train...", flush=True)
+                # Print CUDA state before validate_and_train
+                print(f"[DIAG] torch.cuda.is_available()={torch.cuda.is_available()}", flush=True)
+                if torch.cuda.is_available():
+                    print(f"[DIAG] torch.cuda.device_count()={torch.cuda.device_count()}", flush=True)
+                    print(f"[DIAG] CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', 'not set')}", flush=True)
+                    # Check if CUDA is already initialized
+                    print(f"[DIAG] torch.cuda.is_initialized()={torch.cuda.is_initialized()}", flush=True)
 
                 threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
 
