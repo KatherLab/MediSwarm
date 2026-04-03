@@ -20,7 +20,7 @@ if not TRAINING_MODE:
     raise ValueError("TRAINING_MODE environment variable must be set")
 
 if TRAINING_MODE == TM_SWARM:
-    flare_util.init()
+    flare_util.init(rank="0")
     SITE_NAME = flare.get_site_name()
     NUM_EPOCHS = threedcnn_ptl.get_num_epochs_per_round(SITE_NAME)
     MODEL_NAME = "challenge_4LME_ABMIL"  # Hardcoded: ignore global MODEL_NAME env var (defaults to MST)
