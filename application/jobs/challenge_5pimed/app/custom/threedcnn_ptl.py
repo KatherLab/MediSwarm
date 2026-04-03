@@ -252,22 +252,15 @@ def prepare_training(logger, max_epochs: int, model_variant: str):
 
 
 def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=True) -> None:
-    import time as _time
     logger.info("--- Validate global model ---")
-    print("[DIAG] validate_and_train: about to call trainer.validate()...", flush=True)
-    _t0 = _time.monotonic()
     trainer.validate(model, datamodule=data_module)
-    print(f"[DIAG] validate_and_train: trainer.validate() done in {_time.monotonic()-_t0:.2f}s", flush=True)
     if output_GT_and_classprob:
         output_GT_and_classprobs_csv(model, data_module, trainer.current_epoch,
                                      path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN,
                                      path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION)
 
     logger.info("--- Train new model ---")
-    print("[DIAG] validate_and_train: about to call trainer.fit()...", flush=True)
-    _t1 = _time.monotonic()
     trainer.fit(model, datamodule=data_module)
-    print(f"[DIAG] validate_and_train: trainer.fit() done in {_time.monotonic()-_t1:.2f}s", flush=True)
 
 
 def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
