@@ -52,6 +52,11 @@ copy_files() {
     else
         echo "Downloading 1DivideAndConquer checkpoint from Google Drive..."
         GDOWN_CMD=$(command -v gdown || echo "")
+        # Verify gdown actually works (not just a stale shim with missing module)
+        if [[ -n "$GDOWN_CMD" ]] && ! "$GDOWN_CMD" --version &>/dev/null; then
+            echo "Found gdown at $GDOWN_CMD but it is broken, ignoring..."
+            GDOWN_CMD=""
+        fi
         if [[ -z "$GDOWN_CMD" && -x "$SOURCE_DIR/.venv/bin/gdown" ]]; then
             GDOWN_CMD="$SOURCE_DIR/.venv/bin/gdown"
         fi
