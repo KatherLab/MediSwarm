@@ -134,6 +134,7 @@ RUN python3 -m pip install \
     annotated-types==0.7.0 \
     dill==0.3.8 \
     docker-pycreds==0.4.0 \
+    dynamic-network-architectures==0.4.3 \
     einx==0.3.0 \
     frozendict==2.4.6 \
     gitdb==4.0.12 \

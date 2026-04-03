@@ -59,7 +59,7 @@ nvflare simulator -w /tmp/ODELIA_ternary_classification -n 2 -t 2 application/jo
 * `-t 2`: Specifies the number of threads.
 * `-c simulated_node_0,simulated_node_1`: Names the two simulated nodes.
 
-For more details, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/2.4.1/getting_started.html#quick-start-with-simulator).
+For more details, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/2.7/getting_started.html#quick-start-with-simulator).
 
 For different models adapt the config in `application/jobs/ODELIA_ternary_classification/app/config/config_fed_client.conf` at persistor.
 
@@ -144,6 +144,6 @@ nvflare poc prepare-jobs-dir -j application/jobs/
 nvflare poc start
 ```
 
-For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
+For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.7/user_guide/nvflare_cli/poc_command.html).
 
 TODO It should also be possible to run the proof of concept mode in separate Docker containers, requiring Docker in Docker. `nvflare poc prepare -c poc_client_0 poc_client_1 -d <name of the Docker image>`. This is currently not working.

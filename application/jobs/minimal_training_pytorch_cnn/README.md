@@ -56,7 +56,7 @@ nvflare simulator -w /tmp/minimal_training_pytorch_cnn -n 2 -t 2 application/job
 * `-t 2`: Specifies the number of threads.
 * `-c simulated_node_0,simulated_node_1`: Names the two simulated nodes.
 
-For more details, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/2.4.1/getting_started.html#quick-start-with-simulator).
+For more details, refer to the [NVFLARE Quick Start with Simulator](https://nvflare.readthedocs.io/en/2.7/getting_started.html#quick-start-with-simulator).
 
 ## Run Proof-of-Concept Mode
 
@@ -70,4 +70,4 @@ nvflare poc prepare-jobs-dir -j application/jobs/
 nvflare poc start
 ```
 
-For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.4.1/user_guide/nvflare_cli/poc_command.html).
+For more information on POC mode, see the [NVFLARE POC Commands](https://nvflare.readthedocs.io/en/2.7/user_guide/nvflare_cli/poc_command.html).
