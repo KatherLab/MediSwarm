@@ -196,7 +196,7 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 
 ```bash
 cd MediSwarm
-./buildDockerImageAndStartupKits.sh -p application/provision/<PROJECT DESCRIPTION.yml>
+./scripts/build/buildDockerImageAndStartupKits.sh -p application/provision/<PROJECT DESCRIPTION.yml>
 ```
 
 1. Make sure you have no uncommitted changes.
