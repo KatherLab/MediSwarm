@@ -132,10 +132,20 @@ class BasicClassifier(BasicModel):
         if loss_kwargs is None:
             loss_kwargs = {}
 
-        loss = torch.nn.CrossEntropyLoss
+        # Store class weights as a buffer so they move to the correct device
+        # with the model (e.g. GPU).  nn.CrossEntropyLoss.weight is NOT an
+        # nn.Parameter, so Lightning's .to(device) won't move it automatically.
+        class_weight = loss_kwargs.pop('weight', None)
+        if class_weight is not None:
+            if not isinstance(class_weight, torch.Tensor):
+                class_weight = torch.tensor(class_weight, dtype=torch.float32)
+            self.register_buffer('_class_weight', class_weight)
+        else:
+            self._class_weight = None
 
-        self.loss = loss(**loss_kwargs)
         self.loss_kwargs = loss_kwargs
+        # Build loss; actual weight will be injected at forward time via compute_loss
+        self.loss = torch.nn.CrossEntropyLoss(**loss_kwargs)
 
         aucroc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
         acc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
@@ -173,6 +183,9 @@ class BasicClassifier(BasicModel):
 
     def compute_loss(self, pred, target):
         target_squeezed = torch.squeeze(target, 1)  # TODO Why is this necessary and is it the right thing to do?
+        # Inject class weights (registered as buffer → auto-moved to device)
+        if self._class_weight is not None:
+            self.loss.weight = self._class_weight
         return self.loss(pred, target_squeezed)
 
     def logits2labels(self, logits):
