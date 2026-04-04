@@ -14,7 +14,7 @@ git config user.name "GitHub CI"
 git commit "$DOCKERFILE_PATH" -m "WIP: remove apt versions for rebuild" || echo "[INFO] No version pin removal change to commit."
 
 echo "[INFO] Rebuilding Docker image and capturing logs..."
-if ! ./buildDockerImageAndStartupKits.sh -p "$PROJECT_YML" > "$LOG_PATH" 2>&1; then
+if ! ./scripts/build/buildDockerImageAndStartupKits.sh -p "$PROJECT_YML" > "$LOG_PATH" 2>&1; then
   echo "Build failed. Output:"
   cat "$LOG_PATH"
   exit 1

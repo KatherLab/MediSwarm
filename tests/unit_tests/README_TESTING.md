@@ -17,19 +17,19 @@ The testing suite provides:
 cd /home/swarm/Documents/MediSwarmChallenge/MediSwarm
 
 # Test all models, update configs, and build startup kits
-./test_and_build_all_models.sh
+./scripts/build/test_and_build_all_models.sh
 
 # Test specific models only
-./test_and_build_all_models.sh --models "2BCN_AIM,3agaldran"
+./scripts/build/test_and_build_all_models.sh --models "2BCN_AIM,3agaldran"
 
 # Test without pushing changes to git
-./test_and_build_all_models.sh --no-push
+./scripts/build/test_and_build_all_models.sh --no-push
 
 # Test without building startup kits
-./test_and_build_all_models.sh --skip-build
+./scripts/build/test_and_build_all_models.sh --skip-build
 
 # Test specific models, skip push and build
-./test_and_build_all_models.sh --models "1DivideAndConquer" --no-push --skip-build
+./scripts/build/test_and_build_all_models.sh --models "1DivideAndConquer" --no-push --skip-build
 ```
 
 ### Challenge Models Tested
@@ -181,7 +181,7 @@ The complete workflow now goes like this:
 
 ### After (Automated)
 ```bash
-./test_and_build_all_models.sh
+./scripts/build/test_and_build_all_models.sh
 ```
 1. ✓ Tests all 5 models automatically
 2. ✓ Updates config files automatically  
@@ -195,7 +195,7 @@ The complete workflow now goes like this:
 
 If tests timeout (>600 seconds), the model may be loading a large pretrained weight file. You can:
 
-1. Increase timeout in `test_and_build_all_models.sh` (change `600` to higher value)
+1. Increase timeout in `scripts/build/test_and_build_all_models.sh` (change `600` to higher value)
 2. Pre-download weights in the container
 3. Check `/tmp/test_<model>_<mode>.log` for detailed error messages
 
@@ -255,7 +255,7 @@ cd /home/swarm/Documents/MediSwarmChallenge/MediSwarm
 python3 tests/unit_tests/test_challenge_models.py
 
 # Update all configs and build
-./test_and_build_all_models.sh
+./scripts/build/test_and_build_all_models.sh
 
 # Check results
 if [ -f "application/jobs/ODELIA_ternary_classification/test_results.json" ]; then
@@ -278,7 +278,7 @@ fi
 
 ## Files Created
 
-- `/test_and_build_all_models.sh` - Main automation script
+- `/scripts/build/test_and_build_all_models.sh` - Main automation script
 - `/scripts/update_config_fed_client.py` - Config updater utility
 - `/tests/unit_tests/test_challenge_models.py` - Unit test suite
 - `/tests/unit_tests/README_TESTING.md` - This file
