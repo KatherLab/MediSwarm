@@ -178,6 +178,28 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
     _log_dataset_stats(ds_train, ds_val, ds_test, path_run_dir, run_name, logger)
     num_classes = sum(ds_train.class_labels_num)
 
+    # ---------------------------------------------------------------------------
+    # Compute class weights from training set label distribution
+    # ---------------------------------------------------------------------------
+    class_weights = None
+    try:
+        classes_in_train = list(ds_train.df['Lesion'])
+        class_counts = {}
+        for c in classes_in_train:
+            class_counts[c] = class_counts.get(c, 0) + 1
+        n_samples = len(classes_in_train)
+        n_classes = len(class_counts)
+        # Inverse frequency weighting: w_i = n_samples / (n_classes * count_i)
+        class_weights = torch.zeros(n_classes)
+        for cls_idx in range(n_classes):
+            count = class_counts.get(cls_idx, 1)  # avoid division by zero
+            class_weights[cls_idx] = n_samples / (n_classes * count)
+        logger.info(f"Computed class weights from training set: {class_weights.tolist()}")
+        logger.info(f"Class counts: {class_counts}")
+    except Exception as e:
+        logger.warning(f"Could not compute class weights: {e}. Using uniform weights.")
+        class_weights = None
+
     dm = DataModule(
         ds_train=ds_train,
         ds_val=ds_val,
@@ -189,6 +211,8 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
     )
 
     loss_kwargs = {}
+    if class_weights is not None:
+        loss_kwargs['weight'] = class_weights
 
     return dm, path_run_dir, run_name, num_classes, loss_kwargs
 
@@ -286,14 +310,6 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
         min_max = "max"
         log_every_n_steps = 50
 
-        '''
-        early_stopping = EarlyStopping(
-            monitor=to_monitor,
-            min_delta=0.0,
-            patience=25,
-            mode=min_max
-        )
-        '''
         checkpointing = ModelCheckpoint(
             dirpath=str(path_run_dir),
             monitor=to_monitor,
@@ -306,9 +322,15 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
                                                          path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
                                                          path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
 
+        # Gradient accumulation: with batch_size=1, accumulate 8 steps for
+        # an effective batch size of 8.  This stabilises training considerably
+        # compared to pure SGD updates every sample.
+        accumulate_grad_batches = 8
+
         trainer = Trainer(
             accelerator='gpu',
-            accumulate_grad_batches=1,
+            accumulate_grad_batches=accumulate_grad_batches,
+            gradient_clip_val=1.0,
             precision='16-mixed',
             default_root_dir=str(path_run_dir),
             callbacks=[checkpointing, gt_predprob_output],
