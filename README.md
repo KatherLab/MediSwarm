@@ -1,7 +1,4 @@
 # MediSwarm
-git clone https://github.com/KatherLab/MediSwarm.git
-cd MediSwarm
-git submodule update --init --recursive  
 
 An open-source platform advancing medical AI via privacy-preserving swarm learning, based on NVFlare and developed with
 the ODELIA consortium.
