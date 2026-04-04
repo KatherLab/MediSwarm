@@ -19,15 +19,47 @@ FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
 FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION = 'aggregated_model_gt_and_classprob_validation.csv'
 FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_validation.csv'
 
-def get_num_epochs_per_round(site_name: str) -> int:
-    NUM_EPOCHS_FOR_SITE = {
-        "TUD_1": 2, "TUD_2": 4, "TUD_3": 8,
-        "MEVIS_1": 2, "MEVIS_2": 4,
-    }
-    max_epochs = NUM_EPOCHS_FOR_SITE.get(site_name, 5)
-    print(f"Site name: {site_name}")
-    print(f"Max epochs set to: {max_epochs}")
-    return max_epochs
+import os
+
+
+def compute_weighted_epochs(num_train_samples: int, site_name: str = "") -> int:
+    """Compute per-round epoch count weighted by local dataset size.
+
+    Sites with fewer training samples get more local epochs per round so
+    that every site contributes roughly the same number of gradient updates
+    to each aggregation round.  The formula is::
+
+        epochs = base_epochs * (reference_size / num_train_samples)
+
+    clamped to [1, max_cap].
+
+    Environment variables:
+        EPOCHS_PER_ROUND              Base epoch count (default 5).
+        EPOCHS_REFERENCE_DATASET_SIZE Reference dataset size — a site with
+                                      exactly this many samples trains for
+                                      base_epochs (default 500).
+        EPOCHS_MAX_CAP                Upper bound on computed epochs to
+                                      prevent very small sites from running
+                                      excessively many epochs (default 20).
+    """
+    logger = logging.getLogger(__name__)
+    base_epochs = int(os.environ.get("EPOCHS_PER_ROUND", "5"))
+    reference_size = int(os.environ.get("EPOCHS_REFERENCE_DATASET_SIZE", "500"))
+    max_cap = int(os.environ.get("EPOCHS_MAX_CAP", "20"))
+
+    if num_train_samples <= 0:
+        logger.warning(f"num_train_samples={num_train_samples}; falling back to base_epochs={base_epochs}")
+        return base_epochs
+
+    raw = base_epochs * (reference_size / num_train_samples)
+    epochs = max(1, min(int(round(raw)), max_cap))
+
+    logger.info(
+        f"Weighted epochs — site={site_name}, train_samples={num_train_samples}, "
+        f"reference_size={reference_size}, base={base_epochs}, "
+        f"raw={raw:.1f}, clamped={epochs}"
+    )
+    return epochs
 
 
 def set_up_logging():
@@ -274,17 +306,24 @@ class GT_PredProb_Output_Callback(Callback):
 
 
 def prepare_training(logger, max_epochs: int, site_name: str = None,
-                     log_dataset_details: bool = False, model_variant: str = None):
+                     log_dataset_details: bool = False, model_variant: str = None,
+                     weighted_epochs: bool = False):
     """
     Unified prepare_training that supports both ODELIA and challenge job patterns.
 
     Args:
         logger: Logger instance
-        max_epochs: Maximum training epochs
+        max_epochs: Maximum training epochs (used as-is for local/preflight,
+                    or as base_epochs for weighted computation)
         site_name: Site name (used for logging, read from env if not provided)
         log_dataset_details: Whether to log detailed dataset information
         model_variant: Optional model variant override. If provided, overrides MODEL_NAME env var.
                        Can be 'MST', 'ResNet101', 'challenge', '1DivideAndConquer', etc.
+        weighted_epochs: If True, compute per-round epoch count from training
+                         data size via compute_weighted_epochs(). The max_epochs
+                         parameter is ignored in this case; configuration comes
+                         from EPOCHS_PER_ROUND / EPOCHS_REFERENCE_DATASET_SIZE
+                         environment variables instead.
     """
     try:
         env_vars = load_environment_variables()
@@ -294,6 +333,11 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
             env_vars['model_name'] = model_variant
 
         data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, log_dataset_details)
+
+        # Compute weighted epochs based on training data size
+        if weighted_epochs:
+            num_train_samples = len(data_module.ds_train)
+            max_epochs = compute_weighted_epochs(num_train_samples, site_name or "")
 
         # Use the centralized model factory for all models
         model = create_model(
@@ -362,8 +406,26 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
 
 
 def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
-    model.save_best_checkpoint(trainer.logger.log_dir, checkpointing.best_model_path)
+    """Save best and latest checkpoints after training completes."""
+    import shutil
 
-    logger.info('Prediction currently not implemented.')
+    # Save best checkpoint (highest val/ACC)
+    best_path = checkpointing.best_model_path
+    if best_path:
+        model.save_best_checkpoint(trainer.logger.log_dir, best_path)
+        logger.info(f'Best model checkpoint: {best_path}')
+    else:
+        logger.warning('No best checkpoint found.')
+
+    # Save latest (last) checkpoint — useful for resuming training or when
+    # the best checkpoint was from an early round and the final aggregated
+    # model is preferred for deployment.
+    last_path = checkpointing.last_model_path
+    if last_path:
+        final_last = path_run_dir / "last_global_model.ckpt"
+        shutil.copy(last_path, final_last)
+        logger.info(f'Last model saved to: {final_last}')
+    else:
+        logger.warning('No last checkpoint found.')
 
     logger.info('Training completed successfully.')
