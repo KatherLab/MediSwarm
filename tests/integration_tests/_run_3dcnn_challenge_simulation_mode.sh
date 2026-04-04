@@ -7,7 +7,7 @@ run_3dcnn_simulation_mode () {
     # change training configuration to run 2 rounds
     cd /MediSwarm
     export TMPDIR=$(mktemp -d)
-    cp -R application/jobs/${MODEL_NAME} ${TMPDIR}/${MODEL_NAME}
+    cp -RL application/jobs/${MODEL_NAME} ${TMPDIR}/${MODEL_NAME}
     sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/ODELIA_ternary_classification/app/config/config_fed_server.conf
     export TRAINING_MODE="swarm"
     export SITE_NAME="client_A"
