@@ -20,7 +20,7 @@ run_3dcnn_simulation_mode () {
         fi
     fi
     echo "RUN "$APP_DIR 
-    cp -R application/jobs/${APP_DIR} ${TMPDIR}/${APP_DIR}
+    cp -RL application/jobs/${APP_DIR} ${TMPDIR}/${APP_DIR}
     sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
     export TRAINING_MODE="swarm"
     export SITE_NAME="client_A"
