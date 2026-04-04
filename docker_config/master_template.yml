@@ -819,7 +819,10 @@ docker_cln_sh: |
       /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py"
 
   elif [ -n "$START_CLIENT" ]; then
-      docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
+      docker run -d -t --restart=on-failure:5 \
+      --health-cmd="nvidia-smi > /dev/null 2>&1 || exit 1" \
+      --health-interval=120s --health-start-period=180s --health-retries=3 \
+      $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
   elif [ -n "$LIST_LICENSES" ]; then
@@ -895,7 +898,7 @@ docker_svr_sh: |
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
   if [ -n "$START_SERVER" ]; then
-      docker run -d -t --rm --name=$CONTAINER_NAME \
+      docker run -d -t --restart=on-failure:5 --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
