@@ -21,8 +21,23 @@ jobs:
 
 
     steps:
+      - name: Clean up root-owned files from previous Docker runs
+        run: |
+          # Docker-based tests create root-owned files (owned by root inside the
+          # container) in the workspace/ directory.  The runner process cannot
+          # remove them, which causes the checkout action's "clean" step to fail
+          # with EACCES.  We use a disposable Docker container (which runs as
+          # root) to delete those files before checkout runs.
+          if [ -d "$GITHUB_WORKSPACE/workspace" ]; then
+            echo "Removing root-owned workspace/ via Docker..."
+            docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine rm -rf /ws/workspace
+          fi
+          # Also remove any other root-owned files that Docker tests may have created
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
+            'find /ws -mindepth 1 -maxdepth 1 -not -name ".git" -exec chown -R '"$(id -u):$(id -g)"' {} + 2>/dev/null || true'
+
       - name: Checkout repository (with submodules)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 0
@@ -98,7 +113,12 @@ jobs:
           ./scripts/ci/runIntegrationTests.sh run_dummy_training_in_swarm
 
       - name: Kill orphaned containers from this run (if any)
-        continue-on-error: false
         if: always()
         run: |
-          ./scripts/ci/runIntegrationTests.sh kill_server_and_clients
+          # Kill any odelia Docker containers that may still be running
+          docker ps --format '{{.Names}}' | grep -E 'odelia|nvflare' | xargs -r docker kill 2>/dev/null || true
+          docker ps -a --format '{{.Names}}' | grep -E 'odelia|nvflare' | xargs -r docker rm -f 2>/dev/null || true
+          # Also clean up root-owned workspace files so next run's checkout succeeds
+          if [ -d "$GITHUB_WORKSPACE/workspace" ]; then
+            docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c "rm -rf /ws/workspace"
+          fi
