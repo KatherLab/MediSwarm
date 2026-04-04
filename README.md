@@ -1,5 +1,5 @@
 # MediSwarm
-git clone https://github.com/deboraJ1/MediSwarm.git 
+git clone [https://github.com/deboraJ1/MediSwarm.git ](https://github.com/KatherLab/MediSwarm.git)
 cd MediSwarm
 git submodule update --init --recursive  
 
