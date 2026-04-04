@@ -1,0 +1,366 @@
+"""
+STAMP training pipeline adapted for MediSwarm/NVFlare swarm learning.
+
+This module bridges STAMP's data loading and model creation with NVFlare's
+federated training loop. Only the training section of STAMP is integrated
+here — preprocessing, deployment, and statistics remain standalone workflows.
+
+Key differences from standalone STAMP training:
+1. Data loading uses STAMP's pipeline (H5 features + clinical tables)
+2. Model creation uses STAMP's registry (VIT, MLP, TransMIL, etc.)
+3. Training loop is controlled by NVFlare via flare.patch(trainer)
+4. No internal train/val split — each site has its own data
+"""
+
+import csv
+import logging
+import os
+import shutil
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+
+import torch
+import torch.multiprocessing as mp
+from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint, Callback, EarlyStopping
+from pytorch_lightning.loggers import TensorBoardLogger
+from torch.utils.data import DataLoader
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Environment configuration
+# ---------------------------------------------------------------------------
+
+def load_stamp_environment():
+    """Load STAMP-specific environment variables for MediSwarm.
+
+    Returns a dict with all configuration needed for STAMP training.
+    Environment variables use the STAMP_ prefix to avoid collision with
+    ODELIA-specific variables.
+    """
+    env = {
+        # Core paths
+        "site_name": os.environ["SITE_NAME"],
+        "scratch_dir": os.environ["SCRATCH_DIR"],
+        "mediswarm_version": os.environ.get("MEDISWARM_VERSION", "unset"),
+
+        # STAMP data paths
+        "clini_table": os.environ["STAMP_CLINI_TABLE"],
+        "feature_dir": os.environ["STAMP_FEATURE_DIR"],
+        "slide_table": os.environ.get("STAMP_SLIDE_TABLE", ""),
+        "output_dir": os.environ.get("STAMP_OUTPUT_DIR", ""),
+
+        # STAMP task configuration
+        "task": os.environ.get("STAMP_TASK", "classification"),
+        "ground_truth_label": os.environ.get("STAMP_GROUND_TRUTH_LABEL", ""),
+        "patient_label": os.environ.get("STAMP_PATIENT_LABEL", "PATIENT"),
+        "filename_label": os.environ.get("STAMP_FILENAME_LABEL", "FILENAME"),
+        "time_label": os.environ.get("STAMP_TIME_LABEL", ""),
+        "status_label": os.environ.get("STAMP_STATUS_LABEL", ""),
+
+        # STAMP model configuration
+        "model_name": os.environ.get("STAMP_MODEL_NAME", "vit"),
+        "feature_type": os.environ.get("STAMP_FEATURE_TYPE", ""),  # auto-detect if empty
+        "dim_input": int(os.environ.get("STAMP_DIM_INPUT", "1024")),
+        "num_classes": int(os.environ.get("STAMP_NUM_CLASSES", "3")),
+
+        # Training hyperparameters
+        "bag_size": int(os.environ.get("STAMP_BAG_SIZE", "512")),
+        "batch_size": int(os.environ.get("STAMP_BATCH_SIZE", "64")),
+        "max_epochs": int(os.environ.get("STAMP_MAX_EPOCHS", "32")),
+        "patience": int(os.environ.get("STAMP_PATIENCE", "16")),
+        "max_lr": float(os.environ.get("STAMP_MAX_LR", "1e-4")),
+        "div_factor": float(os.environ.get("STAMP_DIV_FACTOR", "25.0")),
+        "num_workers": int(os.environ.get("STAMP_NUM_WORKERS", str(min(mp.cpu_count(), 8)))),
+        "seed": int(os.environ.get("STAMP_SEED", "42")),
+    }
+
+    # Derive output_dir if not explicitly set
+    if not env["output_dir"]:
+        current_time = datetime.now().strftime("%Y_%m_%d_%H%M%S")
+        env["output_dir"] = str(
+            Path(env["scratch_dir"]) / "runs" / env["site_name"]
+            / f"STAMP_{env['model_name']}_{current_time}"
+        )
+
+    return env
+
+
+# ---------------------------------------------------------------------------
+# Data loading
+# ---------------------------------------------------------------------------
+
+def load_stamp_data(env: dict) -> Tuple[DataLoader, DataLoader, Any, int, list, list]:
+    """Load STAMP data and create train/val dataloaders.
+
+    Uses STAMP's data pipeline:
+    1. Load patient data from clinical table + H5 feature files
+    2. Detect feature type (tile/slide/patient) from H5 metadata
+    3. Create stratified train/val split
+    4. Build dataloaders with appropriate collation
+
+    Returns:
+        train_dl, valid_dl, categories, dim_feats, train_patients, valid_patients
+    """
+    from stamp.modeling.data import load_patient_data_, detect_feature_type
+    from stamp.modeling.train import setup_dataloaders_for_training
+    from stamp.modeling.transforms import VaryPrecisionTransform
+
+    clini_table = Path(env["clini_table"])
+    feature_dir = Path(env["feature_dir"])
+    slide_table = Path(env["slide_table"]) if env["slide_table"] else None
+    task = env["task"]
+    ground_truth_label = env["ground_truth_label"] if env["ground_truth_label"] else None
+    patient_label = env["patient_label"]
+    filename_label = env["filename_label"]
+    time_label = env["time_label"] if env["time_label"] else None
+    status_label = env["status_label"] if env["status_label"] else None
+
+    # Load patient data
+    patient_to_data, feature_type = load_patient_data_(
+        feature_dir=feature_dir,
+        clini_table=clini_table,
+        slide_table=slide_table,
+        task=task,
+        ground_truth_label=ground_truth_label,
+        time_label=time_label,
+        status_label=status_label,
+        patient_label=patient_label,
+        filename_label=filename_label,
+        drop_patients_with_missing_ground_truth=True,
+    )
+
+    # Override feature type if explicitly set
+    if env["feature_type"]:
+        feature_type = env["feature_type"]
+
+    logger.info(f"Loaded {len(patient_to_data)} patients, feature_type={feature_type}")
+    logger.info(f"Task: {task}, model: {env['model_name']}")
+
+    # Create train/val dataloaders with stratified split
+    train_dl, valid_dl, categories, dim_feats, train_patients, valid_patients = (
+        setup_dataloaders_for_training(
+            patient_to_data=patient_to_data,
+            task=task,
+            categories=None,  # auto-infer from data
+            bag_size=env["bag_size"],
+            batch_size=env["batch_size"],
+            num_workers=env["num_workers"],
+            train_transform=VaryPrecisionTransform(min_fraction_bits=1),
+            feature_type=feature_type,
+        )
+    )
+
+    logger.info(
+        f"Train: {len(train_patients)} patients, Val: {len(valid_patients)} patients, "
+        f"dim_feats={dim_feats}, categories={categories}"
+    )
+
+    return train_dl, valid_dl, categories, dim_feats, train_patients, valid_patients
+
+
+# ---------------------------------------------------------------------------
+# Model creation
+# ---------------------------------------------------------------------------
+
+def create_stamp_training_model(
+    env: dict,
+    train_dl: DataLoader,
+    valid_dl: DataLoader,
+    categories: Any,
+    dim_feats: int,
+    train_patients: list,
+    valid_patients: list,
+):
+    """Create a STAMP model configured for training.
+
+    Uses STAMP's setup_model_from_dataloaders() which:
+    1. Computes class weights from training data
+    2. Selects correct Lightning wrapper + backbone via registry
+    3. Calculates OneCycleLR scheduler steps from data size
+    """
+    from stamp.modeling.config import AdvancedConfig, ModelParams
+    from stamp.modeling.train import setup_model_from_dataloaders
+    from stamp.modeling.registry import ModelName
+
+    # Build AdvancedConfig from environment
+    advanced = AdvancedConfig(
+        seed=env["seed"],
+        max_epochs=env["max_epochs"],
+        patience=env["patience"],
+        batch_size=env["batch_size"],
+        bag_size=env["bag_size"],
+        max_lr=env["max_lr"],
+        div_factor=env["div_factor"],
+        model_name=ModelName(env["model_name"]),
+        num_workers=env["num_workers"],
+    )
+
+    clini_table = Path(env["clini_table"])
+    feature_dir = Path(env["feature_dir"])
+    slide_table = Path(env["slide_table"]) if env["slide_table"] else None
+    ground_truth_label = env["ground_truth_label"] if env["ground_truth_label"] else None
+    time_label = env["time_label"] if env["time_label"] else None
+    status_label = env["status_label"] if env["status_label"] else None
+    feature_type = env.get("feature_type", "tile") or "tile"
+
+    model = setup_model_from_dataloaders(
+        train_dl=train_dl,
+        valid_dl=valid_dl,
+        task=env["task"],
+        train_categories=categories,
+        dim_feats=dim_feats,
+        train_patients=train_patients,
+        valid_patients=valid_patients,
+        feature_type=feature_type,
+        advanced=advanced,
+        ground_truth_label=ground_truth_label,
+        time_label=time_label,
+        status_label=status_label,
+        clini_table=clini_table,
+        slide_table=slide_table,
+        feature_dir=feature_dir,
+    )
+
+    logger.info(f"Created STAMP model: {env['model_name']} with {sum(p.numel() for p in model.parameters()):,} parameters")
+
+    return model
+
+
+# ---------------------------------------------------------------------------
+# Training preparation
+# ---------------------------------------------------------------------------
+
+class ValidationMetricCallback(Callback):
+    """Callback to log validation metrics in a format NVFlare can consume."""
+
+    def __init__(self):
+        super().__init__()
+        self.last_val_loss = None
+        self.last_val_auroc = None
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        metrics = trainer.callback_metrics
+        self.last_val_loss = metrics.get("validation_loss")
+        if self.last_val_loss is not None:
+            self.last_val_loss = self.last_val_loss.item()
+
+        # Try to get AUROC if available (classification only)
+        for key in ["val_auroc", "val_MulticlassAUROC"]:
+            val = metrics.get(key)
+            if val is not None:
+                self.last_val_auroc = val.item()
+                break
+
+
+def get_num_epochs_per_round(site_name: str) -> int:
+    """Get the number of training epochs per swarm round.
+
+    STAMP models are lightweight (H5 features are pre-extracted), so we can
+    afford more epochs per round than ODELIA's 3D CNN training.
+    """
+    default_epochs = int(os.environ.get("STAMP_EPOCHS_PER_ROUND", "5"))
+    NUM_EPOCHS_FOR_SITE = {}  # can be customized per site if needed
+
+    max_epochs = NUM_EPOCHS_FOR_SITE.get(site_name, default_epochs)
+    logger.info(f"Site: {site_name}, epochs per round: {max_epochs}")
+    return max_epochs
+
+
+def prepare_training(env: dict, max_epochs: int):
+    """Set up everything needed for STAMP training.
+
+    Returns:
+        train_dl, valid_dl, model, checkpointing, trainer, output_dir, metric_callback
+    """
+    torch.set_float32_matmul_precision("high")
+
+    output_dir = Path(env["output_dir"])
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info(f"MediSwarm version: {env['mediswarm_version']}")
+    logger.info(f"Output directory: {output_dir}")
+
+    # Load data
+    train_dl, valid_dl, categories, dim_feats, train_patients, valid_patients = (
+        load_stamp_data(env)
+    )
+
+    # Create model
+    model = create_stamp_training_model(
+        env, train_dl, valid_dl, categories, dim_feats,
+        train_patients, valid_patients,
+    )
+
+    # Determine monitor metric based on task
+    task = env["task"]
+    if task == "survival":
+        monitor_metric, mode = "val_cindex", "max"
+    elif task == "classification":
+        monitor_metric, mode = "validation_loss", "min"
+    else:
+        monitor_metric, mode = "validation_loss", "min"
+
+    # Set up callbacks
+    checkpointing = ModelCheckpoint(
+        dirpath=str(output_dir),
+        monitor=monitor_metric,
+        save_last=True,
+        save_top_k=1,
+        mode=mode,
+    )
+
+    metric_callback = ValidationMetricCallback()
+
+    # STAMP models train on pre-extracted features, so training is fast.
+    # No gradient accumulation needed (batch_size is already 64).
+    trainer = Trainer(
+        accelerator="gpu" if torch.cuda.is_available() else "cpu",
+        precision="16-mixed",
+        default_root_dir=str(output_dir),
+        callbacks=[checkpointing, metric_callback],
+        enable_checkpointing=True,
+        check_val_every_n_epoch=1,
+        log_every_n_steps=max(len(train_dl), 1),
+        max_epochs=max_epochs,
+        num_sanity_val_steps=0,
+        logger=TensorBoardLogger(save_dir=output_dir),
+        devices=1,
+    )
+
+    return train_dl, valid_dl, model, checkpointing, trainer, output_dir, metric_callback
+
+
+# ---------------------------------------------------------------------------
+# Training execution
+# ---------------------------------------------------------------------------
+
+def validate_and_train(
+    train_dl: DataLoader,
+    valid_dl: DataLoader,
+    model,
+    trainer: Trainer,
+):
+    """Run one round of validation + training (called each swarm round)."""
+    logger.info("--- Validate global model ---")
+    trainer.validate(model, dataloaders=valid_dl)
+
+    logger.info("--- Train new model ---")
+    trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=valid_dl)
+
+
+def finalize_training(model, checkpointing, trainer, output_dir: Path):
+    """Save best checkpoint after training completes."""
+    best_path = checkpointing.best_model_path
+    if best_path:
+        final_path = output_dir / "model.ckpt"
+        shutil.copy(best_path, final_path)
+        logger.info(f"Best model saved to: {final_path}")
+    else:
+        logger.warning("No best checkpoint found")
+
+    logger.info("STAMP training completed successfully.")
