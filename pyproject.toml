@@ -1,0 +1,9 @@
+[tool.pytest.ini_options]
+testpaths = ["tests/unit_tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "gpu: marks tests that require a CUDA GPU (deselect with '-m \"not gpu\"')",
+]
