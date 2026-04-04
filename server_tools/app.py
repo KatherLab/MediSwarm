@@ -8,6 +8,7 @@ from pathlib import Path
 import csv
 import io
 import json
+import os
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -50,12 +51,19 @@ def _resolve_run_dir(site: str, mode: str, run_id: str) -> Path:
     """Build and validate a run directory path under BASE.
 
     Ensures the resolved path is strictly under BASE to prevent traversal.
+    Uses os.path.commonpath for robust containment checking.
     """
     site = _safe_segment(site)
     mode = _safe_segment(mode)
     run_id = _safe_segment(run_id)
     run_dir = (BASE / site / mode / run_id).resolve()
-    if not str(run_dir).startswith(str(BASE.resolve())):
+    base_resolved = BASE.resolve()
+    # Verify that the resolved path is actually under BASE
+    try:
+        common = os.path.commonpath([str(base_resolved), str(run_dir)])
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid path")
+    if common != str(base_resolved):
         raise HTTPException(status_code=400, detail="Invalid path")
     return run_dir
 
@@ -167,13 +175,14 @@ def _html_page(title: str, body: str, *, refresh: int = 0) -> str:
     refresh_tag = (
         f'<meta http-equiv="refresh" content="{refresh}">' if refresh else ""
     )
+    safe_title = html_escape(title)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {refresh_tag}
-  <title>{title}</title>
+  <title>{safe_title}</title>
   <style>{CSS}</style>
 </head>
 <body>
