@@ -112,5 +112,23 @@ def validate_and_train(logger, data_module, model, trainer) -> None:
     trainer.fit(model, datamodule=data_module)
 
 def finalize_training(logger, model, checkpointing, trainer) -> None:
-    model.save_best_checkpoint(trainer.logger.log_dir, checkpointing.best_model_path)
+    import shutil
+
+    # Save best checkpoint
+    best_path = checkpointing.best_model_path
+    if best_path:
+        model.save_best_checkpoint(trainer.logger.log_dir, best_path)
+        logger.info(f'Best model checkpoint: {best_path}')
+    else:
+        logger.warning('No best checkpoint found.')
+
+    # Save latest (last) checkpoint
+    last_path = checkpointing.last_model_path
+    if last_path:
+        final_last = os.path.join(os.path.dirname(last_path), "last_global_model.ckpt")
+        shutil.copy(last_path, final_last)
+        logger.info(f'Last model saved to: {final_last}')
+    else:
+        logger.warning('No last checkpoint found.')
+
     logger.info('Training completed successfully')
