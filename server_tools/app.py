@@ -12,7 +12,9 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI
+from html import escape as html_escape
+
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 # Optional: TensorBoard event parsing via tbparse
@@ -25,6 +27,38 @@ except ImportError:
 
 BASE = Path("/srv/mediswarm/live")
 app = FastAPI(title="MediSwarm Live Monitor")
+
+# ---------------------------------------------------------------------------
+# Security helpers
+# ---------------------------------------------------------------------------
+
+_SAFE_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-]*$")
+
+
+def _safe_segment(value: str) -> str:
+    """Validate that a URL path segment is safe (no traversal, no slashes).
+
+    Raises HTTPException 400 if the segment looks like a traversal attempt
+    or contains characters that could escape the BASE directory.
+    """
+    if not value or not _SAFE_SEGMENT_RE.match(value) or ".." in value:
+        raise HTTPException(status_code=400, detail="Invalid path segment")
+    return value
+
+
+def _resolve_run_dir(site: str, mode: str, run_id: str) -> Path:
+    """Build and validate a run directory path under BASE.
+
+    Ensures the resolved path is strictly under BASE to prevent traversal.
+    """
+    site = _safe_segment(site)
+    mode = _safe_segment(mode)
+    run_id = _safe_segment(run_id)
+    run_dir = (BASE / site / mode / run_id).resolve()
+    if not str(run_dir).startswith(str(BASE.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    return run_dir
+
 
 # ---------------------------------------------------------------------------
 # CSS & HTML helpers
@@ -113,7 +147,7 @@ def _status_badge(status: str) -> str:
         cls = "badge-finished"
     elif status in ("error", "failed"):
         cls = "badge-error"
-    return f'<span class="badge {cls}">{status}</span>'
+    return f'<span class="badge {cls}">{html_escape(status)}</span>'
 
 
 def _age_class(age_str: str) -> str:
@@ -274,8 +308,9 @@ def parse_console_metrics(text: str) -> dict[str, Any]:
 
 
 def _get_console_text(site: str, mode: str, run_id: str) -> str:
+    run_dir = _resolve_run_dir(site, mode, run_id)
     for name in ["nohup.out", "local_training_console_output.txt"]:
-        p = BASE / site / mode / run_id / name
+        p = run_dir / name
         if p.exists():
             return read_text(p, limit=500_000)
     return ""
@@ -340,8 +375,8 @@ def index():
         # Run display
         run_display = ""
         if x["run_name"]:
-            run_display = f'<span class="run-name">{x["run_name"]}</span><br>'
-        run_display += f'<span class="run-id">{x["run_id"]}</span>'
+            run_display = f'<span class="run-name">{html_escape(x["run_name"])}</span><br>'
+        run_display += f'<span class="run-id">{html_escape(x["run_id"])}</span>'
 
         age_cls = _age_class(x["age"])
         age_td = (
@@ -350,8 +385,8 @@ def index():
 
         table_rows.append(
             f"""<tr>
-  <td>{x['site']}</td>
-  <td>{x['mode']}</td>
+  <td>{html_escape(x['site'])}</td>
+  <td>{html_escape(x['mode'])}</td>
   <td>{run_display}</td>
   <td>{_status_badge(x['status'])}</td>
   <td>{age_td}</td>
@@ -388,7 +423,7 @@ def index():
 
 @app.get("/detail/{site}/{mode}/{run_id}", response_class=HTMLResponse)
 def detail(site: str, mode: str, run_id: str):
-    run_dir = BASE / site / mode / run_id
+    run_dir = _resolve_run_dir(site, mode, run_id)
     hb = _read_heartbeat(run_dir)
     console_text = _get_console_text(site, mode, run_id)
     metrics = parse_console_metrics(console_text)
@@ -413,7 +448,7 @@ def detail(site: str, mode: str, run_id: str):
     ]:
         val = hb.get(key, "")
         if val:
-            hb_rows += f"<tr><td>{key}</td><td>{val}</td></tr>\n"
+            hb_rows += f"<tr><td>{html_escape(str(key))}</td><td>{html_escape(str(val))}</td></tr>\n"
     if not hb_rows:
         hb_rows = '<tr><td colspan="2">No heartbeat data available</td></tr>'
 
@@ -421,7 +456,7 @@ def detail(site: str, mode: str, run_id: str):
     csv_links = ""
     if csv_files:
         csv_items = "".join(
-            f'<li><a href="/csv/{site}/{mode}/{run_id}/{f}">{f}</a></li>'
+            f'<li><a href="/csv/{site}/{mode}/{run_id}/{f}">{html_escape(f)}</a></li>'
             for f in csv_files
         )
         csv_links = f"<ul>{csv_items}</ul>"
@@ -507,7 +542,7 @@ new Chart(ctx, {{
 </header>
 <main>
 <div class="breadcrumb">
-  <a href="/">Home</a> &rsaquo; {site} &rsaquo; {mode} &rsaquo; {run_id}
+  <a href="/">Home</a> &rsaquo; {html_escape(site)} &rsaquo; {html_escape(mode)} &rsaquo; {html_escape(run_id)}
 </div>
 
 <div class="detail-grid">
@@ -535,7 +570,7 @@ new Chart(ctx, {{
   </div>
 </div>
 </main>"""
-    return _html_page(f"{site}/{mode}/{run_id} — MediSwarm", body)
+    return _html_page(f"{html_escape(site)}/{html_escape(mode)}/{html_escape(run_id)} — MediSwarm", body)
 
 
 # ---------------------------------------------------------------------------
@@ -545,8 +580,9 @@ new Chart(ctx, {{
 
 @app.get("/heartbeat/{site}/{mode}/{run_id}", response_class=PlainTextResponse)
 def heartbeat(site: str, mode: str, run_id: str):
+    run_dir = _resolve_run_dir(site, mode, run_id)
     for name in ["heartbeat_final.json", "heartbeat.json"]:
-        p = BASE / site / mode / run_id / name
+        p = run_dir / name
         if p.exists():
             return read_text(p)
     return ""
@@ -559,7 +595,8 @@ def console(site: str, mode: str, run_id: str):
 
 @app.get("/log/{site}/{mode}/{run_id}", response_class=PlainTextResponse)
 def log(site: str, mode: str, run_id: str):
-    return read_text(BASE / site / mode / run_id / "log.txt")
+    run_dir = _resolve_run_dir(site, mode, run_id)
+    return read_text(run_dir / "log.txt")
 
 
 # ---------------------------------------------------------------------------
@@ -582,7 +619,8 @@ def tb_metrics(site: str, mode: str, run_id: str):
             {"error": "tbparse is not installed"}, status_code=501
         )
 
-    run_dir = BASE / site / mode / run_id / "run_dir"
+    validated_dir = _resolve_run_dir(site, mode, run_id)
+    run_dir = validated_dir / "run_dir"
     events = sorted(run_dir.rglob("events.out.tfevents*")) if run_dir.exists() else []
     if not events:
         return {"scalars": []}
@@ -599,8 +637,10 @@ def tb_metrics(site: str, mode: str, run_id: str):
                 "values": subset["value"].tolist(),
             }
         return result
-    except Exception as exc:
-        return JSONResponse({"error": str(exc)}, status_code=500)
+    except Exception:
+        return JSONResponse(
+            {"error": "Failed to parse TensorBoard events"}, status_code=500
+        )
 
 
 @app.get("/csv/{site}/{mode}/{run_id}/{filename}", response_class=HTMLResponse)
@@ -611,7 +651,8 @@ def csv_view(site: str, mode: str, run_id: str, filename: str):
     if not safe_name or safe_name != filename or ".." in filename or "/" in filename:
         return HTMLResponse("<p>Invalid filename</p>", status_code=400)
 
-    rd = BASE / site / mode / run_id / "run_dir"
+    validated_dir = _resolve_run_dir(site, mode, run_id)
+    rd = validated_dir / "run_dir"
     # Search recursively for the file
     matches = list(rd.rglob(safe_name)) if rd.exists() else []
     if not matches:
@@ -628,10 +669,10 @@ def csv_view(site: str, mode: str, run_id: str, filename: str):
     headers = all_rows[0]
     data_rows = all_rows[1:]
 
-    th = "".join(f"<th>{h}</th>" for h in headers)
+    th = "".join(f"<th>{html_escape(h)}</th>" for h in headers)
     trs = ""
     for row in data_rows[:500]:  # limit display to 500 rows
-        tds = "".join(f"<td>{cell}</td>" for cell in row)
+        tds = "".join(f"<td>{html_escape(cell)}</td>" for cell in row)
         trs += f"<tr>{tds}</tr>\n"
 
     truncated = (
@@ -648,18 +689,18 @@ def csv_view(site: str, mode: str, run_id: str, filename: str):
 <main>
 <div class="breadcrumb">
   <a href="/">Home</a> &rsaquo;
-  <a href="/detail/{site}/{mode}/{run_id}">{site}/{mode}/{run_id}</a> &rsaquo;
-  {safe_name}
+  <a href="/detail/{site}/{mode}/{run_id}">{html_escape(site)}/{html_escape(mode)}/{html_escape(run_id)}</a> &rsaquo;
+  {html_escape(safe_name)}
 </div>
 <div class="card">
-  <h2>{safe_name}</h2>
+  <h2>{html_escape(safe_name)}</h2>
   {truncated}
   <div style="overflow-x:auto;">
   <table><thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>
   </div>
 </div>
 </main>"""
-    return _html_page(f"{safe_name} — MediSwarm", body)
+    return _html_page(f"{html_escape(safe_name)} — MediSwarm", body)
 
 
 # ---------------------------------------------------------------------------
@@ -683,5 +724,5 @@ def api_metrics(site: str, mode: str, run_id: str):
 @app.get("/api/heartbeat/{site}/{mode}/{run_id}", response_class=JSONResponse)
 def api_heartbeat(site: str, mode: str, run_id: str):
     """Return heartbeat JSON directly."""
-    run_dir = BASE / site / mode / run_id
+    run_dir = _resolve_run_dir(site, mode, run_id)
     return _read_heartbeat(run_dir)
