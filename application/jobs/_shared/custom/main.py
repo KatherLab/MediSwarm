@@ -20,7 +20,11 @@ if not TRAINING_MODE:
 if TRAINING_MODE == TM_SWARM:
     flare_util.init(rank="0")
     SITE_NAME = flare.get_site_name()
-    NUM_EPOCHS = threedcnn_ptl.get_num_epochs_per_round(SITE_NAME)
+    # Epoch count will be computed from training data size inside
+    # prepare_training (weighted_epochs=True).  The placeholder value here
+    # is overridden before the Trainer is created.
+    NUM_EPOCHS = 1  # placeholder — replaced by weighted computation
+    USE_WEIGHTED_EPOCHS = True
 elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
     SITE_NAME = os.getenv("SITE_NAME")
     if not SITE_NAME:
@@ -29,6 +33,7 @@ elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
         NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", "1"))
     except ValueError:
         raise ValueError("NUM_EPOCHS must be an integer")
+    USE_WEIGHTED_EPOCHS = False
 else:
     raise ValueError(f"Unsupported TRAINING_MODE: {TRAINING_MODE}")
 
@@ -41,7 +46,8 @@ def main():
 
     try:
         data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(
-            logger, NUM_EPOCHS, SITE_NAME, LOG_DATASET_DETAILS
+            logger, NUM_EPOCHS, SITE_NAME, LOG_DATASET_DETAILS,
+            weighted_epochs=USE_WEIGHTED_EPOCHS,
         )
 
         if TRAINING_MODE == TM_SWARM:
