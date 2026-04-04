@@ -9,44 +9,40 @@ ENV NVF_BRANCH=${NVF_VERSION}
 # Set the Python version
 ENV PYTHON_VERSION=3.10.14
 
-# Install updates of installed packages
-RUN apt update
+# ===========================================================================
+# Layer ordering strategy for Docker build cache efficiency:
+#
+# 1. pip installs FIRST (most expensive to rebuild, change least often)
+# 2. apt installs AFTER (change more often due to CVE version bumps, but
+#    are fast to rebuild)
+# 3. NVFlare from source (changes with NVFlare updates)
+# 4. COPY pretrained weights (rarely changes)
+# 5. COPY source code (changes every build — must be last)
+#
+# The base pytorch image already includes python3 + pip, so pip installs
+# don't depend on the apt python packages below — those are just security
+# version updates.
+# ===========================================================================
 
-RUN apt install -y \
-    apt=2.4.14 \
-    apt-utils=2.4.14 \
-    libapt-pkg6.0=2.4.14
+# ---------------------------------------------------------------------------
+# Stage 1: Python packages (expensive, rarely changes)
+# ---------------------------------------------------------------------------
 
-# Install python and dependencies
-RUN apt install -y \
-    libexpat1=2.4.7-1ubuntu0.7 \
-    libmpdec3=2.5.1-2build2 \
-    libpython3-stdlib=3.10.6-1~22.04.1 \
-    libpython3.10-minimal=3.10.12-1~22.04.15 \
-    libpython3.10-stdlib=3.10.12-1~22.04.15 \
-    libreadline8=8.1.2-1 \
-    libsqlite3-0=3.37.2-2ubuntu0.5 \
-    media-types=7.0.0 \
-    python3-minimal=3.10.6-1~22.04.1 \
-    python3.10-minimal=3.10.12-1~22.04.15 \
-    python3.10=3.10.12-1~22.04.15 \
-    python3=3.10.6-1~22.04.1 \
-    readline-common=8.1.2-1
-
-# uninstall conda to prevent usage and avoid and potential repository license issues
+# uninstall conda to prevent usage and avoid potential repository license issues
 RUN python3 -m pip uninstall -y conda conda-package-handling conda_index
 
 # Install specific versions of pip and setuptools
-RUN python3 -m pip install \
+RUN python3 -m pip install --no-cache-dir \
     -U \
     pip==25.2 \
     setuptools==80.8.0
 
-# Install dependencies of NVFlare at fixed versions
-RUN python3 -m pip install \
+# Install dependencies of NVFlare and application packages in a single layer.
+# Using --no-cache-dir avoids writing pip's download cache to the layer,
+# reducing image size and eliminating the need for a separate cache purge.
+RUN python3 -m pip install --no-cache-dir \
     --upgrade \
-    psutil==7.0.0
-RUN python3 -m pip install \
+    psutil==7.0.0 \
     Flask==3.0.2 \
     Flask-JWT-Extended==4.6.0 \
     Flask-SQLAlchemy==3.1.1 \
@@ -66,7 +62,7 @@ RUN python3 -m pip install \
     websockets==15.0.1
 
 # Install additional Python packages for application code at defined versions
-RUN python3 -m pip install \
+RUN python3 -m pip install --no-cache-dir \
     Deprecated==1.2.18 \
     SimpleITK==2.5.0 \
     absl-py==2.2.2 \
@@ -154,23 +150,39 @@ RUN python3 -m pip install \
     typing-inspection==0.4.1 \
     xxhash==3.5.0
 
-# Install packages needed for listing licenses of installed pip packages
-RUN python3 -m pip install \
+# Install packages needed for listing licenses and creating SBOM
+RUN python3 -m pip install --no-cache-dir \
     pip-licenses==5.0.0 \
-    prettytable==3.16.0
-
-# Install packages needed for creating SBOM of apt packages
-RUN python3 -m pip install \
+    prettytable==3.16.0 \
     defusedxml==0.7.1 \
     distro2sbom==0.6.0 \
     lib4sbom==0.8.4 \
     semantic-version==2.10.0
 
-# Clean up pip cache
-RUN python3 -m pip cache purge
+# ---------------------------------------------------------------------------
+# Stage 2: apt packages (cheaper to rebuild, version-pinned for security)
+# ---------------------------------------------------------------------------
+# These layers change more often than pip packages (CVE version bumps),
+# but are fast to install. Placing them after pip installs means version
+# bumps here don't invalidate the expensive pip cache layers above.
 
-# Update versions of installed packages
-RUN apt install -y \
+RUN apt update && apt install -y \
+    apt=2.4.14 \
+    apt-utils=2.4.14 \
+    libapt-pkg6.0=2.4.14 \
+    libexpat1=2.4.7-1ubuntu0.7 \
+    libmpdec3=2.5.1-2build2 \
+    libpython3-stdlib=3.10.6-1~22.04.1 \
+    libpython3.10-minimal=3.10.12-1~22.04.15 \
+    libpython3.10-stdlib=3.10.12-1~22.04.15 \
+    libreadline8=8.1.2-1 \
+    libsqlite3-0=3.37.2-2ubuntu0.5 \
+    media-types=7.0.0 \
+    python3-minimal=3.10.6-1~22.04.1 \
+    python3.10-minimal=3.10.12-1~22.04.15 \
+    python3.10=3.10.12-1~22.04.15 \
+    python3=3.10.6-1~22.04.1 \
+    readline-common=8.1.2-1 \
     base-files=12ubuntu4.7 \
     bash=5.1-6ubuntu1.1 \
     bsdutils=1:2.37.2-4ubuntu3.5 \
@@ -209,10 +221,7 @@ RUN apt install -y \
     logsave=1.46.5-2ubuntu1.2 \
     mount=2.37.2-4ubuntu3.5 \
     openssl=3.0.2-0ubuntu1.21 \
-    util-linux=2.37.2-4ubuntu3.5
-
-# Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
-RUN apt install -y \
+    util-linux=2.37.2-4ubuntu3.5 \
     apt-transport-https=2.4.14 \
     curl=7.81.0-1ubuntu1.23 \
     dirmngr=2.2.27-3ubuntu2.5 \
@@ -244,26 +253,31 @@ RUN apt install -y \
     pinentry-curses=1.1.1-1build2 \
     publicsuffix=20211207.1025-1 \
     unzip=6.0-26ubuntu3.2 \
-    zip=3.0-12build2
+    zip=3.0-12build2 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Clean up apt cache
-RUN rm -rf /var/lib/apt/lists/*
+# ---------------------------------------------------------------------------
+# Stage 3: NVFlare from source (changes with NVFlare updates)
+# ---------------------------------------------------------------------------
 
 # install ODELIA fork of NVFlare from local source
 WORKDIR /workspace/
 COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
 ## Override with MediSwarm master_template.yml (contains version placeholders injected by build script)
 COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/templates/
-RUN python3 -m pip install /workspace/nvflare
-RUN rm -rf /workspace/nvflare
+RUN python3 -m pip install --no-cache-dir /workspace/nvflare && rm -rf /workspace/nvflare
+
+# ---------------------------------------------------------------------------
+# Stage 4: Pretrained weights + application code (ordered by change frequency)
+# ---------------------------------------------------------------------------
+
+# Copy pre-trained model weights BEFORE source code — weights rarely change,
+# so this layer stays cached even when source code changes every build.
+COPY ./torch_home_cache /torch_home
 
 # Copy the source code for local training and deploying to the swarm
 COPY ./MediSwarm /MediSwarm
-RUN mkdir -p /fl_admin/transfer
-RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
-
-# Copy pre-trained model weights to image
-COPY ./torch_home_cache /torch_home
+RUN mkdir -p /fl_admin/transfer && ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 
 # allow creating home directory for local user inside container if needed
 RUN chmod a+rwx /home
