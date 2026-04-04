@@ -17,6 +17,7 @@ Choose your role and follow the instructions:
 - [Developer (Docker, Code, Pipeline)](assets/readme/README.developer.md)
 - [Swarm Operator (Provisioning, VPN, Server)](assets/readme/README.operator.md)
 - [Automated Deploy & Test Workflow](DEPLOY_README.md)
+- [Making Your Training Code MediSwarm-Compatible](docs/MEDISWARM_COMPATIBILITY_GUIDE.md)
 
 ## Overview
 
