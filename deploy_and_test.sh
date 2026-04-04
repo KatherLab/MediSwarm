@@ -47,7 +47,7 @@ fi
 source "$CONF_FILE"
 
 # ── Derived Variables ───────────────────────────────────────────────────────
-VERSION=$("$SCRIPT_DIR/getVersionNumber.sh")
+VERSION=$("$SCRIPT_DIR/scripts/build/getVersionNumber.sh")
 DOCKER_IMAGE="jefftud/odelia:$VERSION"
 GIT_SHORT_HASH=$(git -C "$SCRIPT_DIR" rev-parse --short HEAD)
 
@@ -138,7 +138,7 @@ cmd_build() {
     # buildDockerImageAndStartupKits.sh must be invoked from the repo root
     # with a RELATIVE project file path (it passes the path into a Docker
     # container where the absolute host path doesn't exist).
-    (cd "$SCRIPT_DIR" && ./buildDockerImageAndStartupKits.sh -p "$PROJECT_FILE")
+    (cd "$SCRIPT_DIR" && ./scripts/build/buildDockerImageAndStartupKits.sh -p "$PROJECT_FILE")
 
     # Verify
     local prod_dir
