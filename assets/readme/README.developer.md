@@ -25,7 +25,7 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 
  ```bash
  cd MediSwarm
- ./buildDockerImageAndStartupKits.sh -p application/provision/<PROJECT DESCRIPTION.yml>
+ ./scripts/build/buildDockerImageAndStartupKits.sh -p application/provision/<PROJECT DESCRIPTION.yml>
  ```
 
 1. Make sure you have no uncommitted changes.
@@ -39,7 +39,7 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
 
 ## Running Tests
 
-* Build a Docker image for testing using `./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml [--use_docker_cache]`
+* Build a Docker image for testing using `./scripts/build/buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml [--use_docker_cache]`
 * If you have multiple GPUs, use `GPU_FOR_TESTING="device=0" (or another device)
 * If you have a sliced multiple GPUs, use `GPU_FOR_TESTING="device=0:0" (or another slice)
 * Otherwise, leave this environment variable unset to use all GPUs.
@@ -47,7 +47,7 @@ The project description specifies the swarm nodes etc. to be used for a swarm tr
   * The whole test suite takes over an hour.
 
    ```bash
-   ./runIntegrationTests.sh
+   ./scripts/ci/runIntegrationTests.sh
    ```
 
 You should see output of
@@ -143,7 +143,7 @@ Each challenge job has its own `config_fed_client.conf`, model code, and `main.p
 * Take a look at application/jobs/ODELIA_ternary_classification for a more realistic example of pytorch code that can run in the swarm
 * If your application code needs additonal/other/newer Python packages than installed via [Dockerfile_ODELIA](../../docker_config/Dockerfile_ODELIA), create and use an adapted Dockerfile for building the Docker image
   * Ensure (by checking against the installation log) that all packages and dependenciese are installed explicitly at pinned versions.
-* If your application code needs, e.g., other pre-trained weights in the image, adapt [_cacheAndCopyPretrainedModelWeights.sh](../../_cacheAndCopyPretrainedModelWeights.sh) and [_list_licenses.sh](../../scripts/_list_licenses.sh)
+* If your application code needs, e.g., other pre-trained weights in the image, adapt [_cacheAndCopyPretrainedModelWeights.sh](../../scripts/build/_cacheAndCopyPretrainedModelWeights.sh) and [_list_licenses.sh](../../scripts/_list_licenses.sh)
 
 To make sure your code is swarm-compatible and to isolate potential issues, we recommend the following steps.
 
@@ -165,27 +165,27 @@ To make sure your code is swarm-compatible and to isolate potential issues, we r
    * Compare your local system and python environment to what is defined in the MediSwarm [Dockerfile](../../docker_config/Dockerfile_ODELIA) and adapt the Dockerfile to install dependencies of your code.
    * You can drop the package version numbers and do not need to list all dependencies until everything works, but should do so later. This is to avoid changes or incompatibilities due to silently changed versions.
    * See above for instructions on building the Docker image.
-   * Adapt the `run_dummy_training_standalone` test in [runIntegrationTests.sh](../../runIntegrationTests.sh), which uses [_run_minimal_example_standalone.sh](../../tests/integration_tests/_run_minimal_example_standalone.sh), to run the code in the Docker container.
+   * Adapt the `run_dummy_training_standalone` test in [runIntegrationTests.sh](../../scripts/ci/runIntegrationTests.sh), which uses [_run_minimal_example_standalone.sh](../../tests/integration_tests/_run_minimal_example_standalone.sh), to run the code in the Docker container.
    * Debug, commit, rebuild containers, run until this succeeds.
      * Consider running the container interactively for debugging.
 5. Make your code NVFlare-ready.
    * NVFlare needs to control the training loop, so your training needs adaptations similar to the minimal and ODELIA ternary classification examples. For details, please consult the NVFlare documentation (for the version used in MediSwarm).
    * NVFlare provides the simulation mode (running separate clients in separate threads) and proof-of-concept mode (running clients in separate processes). These can be used for testing NVFlare-compatibility.
-   * Adapt the `run_dummy_training_simulation_mode` or `run_3dcnn_simulation_mode` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh), which uses [_run_3dcnn_simulation_mode.sh](../../tests/integration_tests/_run_3dcnn_simulation_mode.sh), to run your code in simulation mode.
+   * Adapt the `run_dummy_training_simulation_mode` or `run_3dcnn_simulation_mode` tests in [runIntegrationTests.sh](../../scripts/ci/runIntegrationTests.sh), which uses [_run_3dcnn_simulation_mode.sh](../../tests/integration_tests/_run_3dcnn_simulation_mode.sh), to run your code in simulation mode.
      * Debug, commit, rebuild containers, run until this succeeds.
        * Consider running the container interactively for debugging.
-   * Adapt the `run_dummy_training_poc_mode` test in [runIntegrationTests.sh](../../runIntegrationTests.sh), which uses [_run_minimal_example_proof_of_concept_mode.sh](../../tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh), to run your code in proof-of-concept mode.
+   * Adapt the `run_dummy_training_poc_mode` test in [runIntegrationTests.sh](../../scripts/ci/runIntegrationTests.sh), which uses [_run_minimal_example_proof_of_concept_mode.sh](../../tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh), to run your code in proof-of-concept mode.
      * Debug, commit, rebuild containers, run until this succeeds.
      * If your code runs successfully in simulation mode, you can skip this step, unless later steps fail.
 6. Enable local training and local data access preflight check
    * Having adapted the code to be NVFlare-compatible, it should still be able to run outside a swarm and should provide the possibility for swarm participants to check if their data is compatible with the training.
      * A local data access preflight check can simply be a local training for one epoch.
    * Adapt the `docker_cln_sh` section of [master_template.yml](../../docker_config/master_template.yml) to enable these.
-   * Adapt the `run_data_access_preflight_check` and `run_3dcnn_local_training` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh) to check these.
+   * Adapt the `run_data_access_preflight_check` and `run_3dcnn_local_training` tests in [runIntegrationTests.sh](../../scripts/ci/runIntegrationTests.sh) to check these.
    * Debug, commit, rebuild containers, run until this succeeds.
    * Make sure the code stays NVFlare-compatible when making changes.
 7. Check if your code runs in an actual, local swarm.
-   * Adapt what is called from the `run_dummy_training_in_swarm` or `run_3dcnn_training_in_swarm` tests in [runIntegrationTests.sh](../../runIntegrationTests.sh)
+   * Adapt what is called from the `run_dummy_training_in_swarm` or `run_3dcnn_training_in_swarm` tests in [runIntegrationTests.sh](../../scripts/ci/runIntegrationTests.sh)
      * Adapt [_submitDummyTraining.exp](../../tests/integration_tests/_submitDummyTraining.exp) or [_submit3DCNNTraining.exp](../../tests/integration_tests/_submit3DCNNTraining.exp) as needed
      * This will run two clients using the same GPU, you may run out of RAM even if a single training runs fine.
      * If the training fails, you may need to clean up docker containers continuing to run.
