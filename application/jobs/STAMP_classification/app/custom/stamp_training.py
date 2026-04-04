@@ -257,22 +257,52 @@ class ValidationMetricCallback(Callback):
                 break
 
 
-def get_num_epochs_per_round(site_name: str) -> int:
-    """Get the number of training epochs per swarm round.
+def compute_weighted_epochs(num_train_samples: int, site_name: str = "") -> int:
+    """Compute per-round epoch count weighted by local dataset size.
 
-    STAMP models are lightweight (H5 features are pre-extracted), so we can
-    afford more epochs per round than ODELIA's 3D CNN training.
+    Sites with fewer training samples get more local epochs per round so
+    that every site contributes roughly the same number of gradient updates
+    to each aggregation round.  The formula is::
+
+        epochs = base_epochs * (reference_size / num_train_samples)
+
+    clamped to [1, max_cap].
+
+    Environment variables (use STAMP_ prefix to avoid collision with ODELIA):
+        STAMP_EPOCHS_PER_ROUND              Base epoch count (default 5).
+        STAMP_EPOCHS_REFERENCE_DATASET_SIZE Reference dataset size — a site
+                                            with exactly this many patients
+                                            trains for base_epochs (default 200).
+        STAMP_EPOCHS_MAX_CAP                Upper bound (default 20).
     """
-    default_epochs = int(os.environ.get("STAMP_EPOCHS_PER_ROUND", "5"))
-    NUM_EPOCHS_FOR_SITE = {}  # can be customized per site if needed
+    base_epochs = int(os.environ.get("STAMP_EPOCHS_PER_ROUND", "5"))
+    reference_size = int(os.environ.get("STAMP_EPOCHS_REFERENCE_DATASET_SIZE", "200"))
+    max_cap = int(os.environ.get("STAMP_EPOCHS_MAX_CAP", "20"))
 
-    max_epochs = NUM_EPOCHS_FOR_SITE.get(site_name, default_epochs)
-    logger.info(f"Site: {site_name}, epochs per round: {max_epochs}")
-    return max_epochs
+    if num_train_samples <= 0:
+        logger.warning(f"num_train_samples={num_train_samples}; falling back to base_epochs={base_epochs}")
+        return base_epochs
+
+    raw = base_epochs * (reference_size / num_train_samples)
+    epochs = max(1, min(int(round(raw)), max_cap))
+
+    logger.info(
+        f"Weighted epochs — site={site_name}, train_samples={num_train_samples}, "
+        f"reference_size={reference_size}, base={base_epochs}, "
+        f"raw={raw:.1f}, clamped={epochs}"
+    )
+    return epochs
 
 
-def prepare_training(env: dict, max_epochs: int):
+def prepare_training(env: dict, max_epochs: int, weighted_epochs: bool = False):
     """Set up everything needed for STAMP training.
+
+    Args:
+        env: Environment configuration dict from load_stamp_environment().
+        max_epochs: Maximum training epochs (used as-is for local/preflight,
+                    or as base when weighted_epochs is False).
+        weighted_epochs: If True, compute per-round epoch count from training
+                         data size via compute_weighted_epochs().
 
     Returns:
         train_dl, valid_dl, model, checkpointing, trainer, output_dir, metric_callback
@@ -289,6 +319,12 @@ def prepare_training(env: dict, max_epochs: int):
     train_dl, valid_dl, categories, dim_feats, train_patients, valid_patients = (
         load_stamp_data(env)
     )
+
+    # Compute weighted epochs from training data size
+    if weighted_epochs:
+        max_epochs = compute_weighted_epochs(
+            len(train_patients), env.get("site_name", "")
+        )
 
     # Create model
     model = create_stamp_training_model(
@@ -354,13 +390,25 @@ def validate_and_train(
 
 
 def finalize_training(model, checkpointing, trainer, output_dir: Path):
-    """Save best checkpoint after training completes."""
+    """Save best and latest checkpoints after training completes."""
+    # Save best checkpoint (selected by monitor metric)
     best_path = checkpointing.best_model_path
     if best_path:
-        final_path = output_dir / "model.ckpt"
-        shutil.copy(best_path, final_path)
-        logger.info(f"Best model saved to: {final_path}")
+        final_best = output_dir / "best_model.ckpt"
+        shutil.copy(best_path, final_best)
+        logger.info(f"Best model saved to: {final_best}")
     else:
         logger.warning("No best checkpoint found")
+
+    # Save latest (last) checkpoint — useful for resuming training or when
+    # the best checkpoint was from an early round and the final aggregated
+    # model is preferred for deployment.
+    last_path = checkpointing.last_model_path
+    if last_path:
+        final_last = output_dir / "last_model.ckpt"
+        shutil.copy(last_path, final_last)
+        logger.info(f"Last model saved to: {final_last}")
+    else:
+        logger.warning("No last checkpoint found")
 
     logger.info("STAMP training completed successfully.")
