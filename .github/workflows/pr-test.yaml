@@ -30,14 +30,14 @@ jobs:
       - name: Get Docker image version
         id: get_version
         run: |
-          VERSION=$(./getVersionNumber.sh)
+          VERSION=$(./scripts/build/getVersionNumber.sh)
           echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build Docker image for real project (MEVIS)
         run: |
-          chmod +x buildDockerImageAndStartupKits.sh
-          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
+          chmod +x scripts/build/buildDockerImageAndStartupKits.sh
+          ./scripts/build/buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
 
       - name: Show workspace path for MEVIS project
         run: |
@@ -45,60 +45,60 @@ jobs:
           find workspace -maxdepth 1 -type d -name "odelia_*_MEVIS_test" || echo "No workspace found"
 
       - name: Build Docker image and dummy startup kits
-        run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
+        run: ./scripts/build/buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
       - name: Run integration test checking documentation on github
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh check_files_on_github
+          ./scripts/ci/runIntegrationTests.sh check_files_on_github
 
       - name: Run dummy training standalone
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_dummy_training_standalone
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_standalone
 
       - name: Run dummy training in simulation mode
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_dummy_training_simulation_mode
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_simulation_mode
 
       - name: Run dummy training in proof-of-concept mode
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_dummy_training_poc_mode
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_poc_mode
 
       - name: Run 3DCNN training in simulation mode
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_3dcnn_simulation_mode
+          ./scripts/ci/runIntegrationTests.sh run_3dcnn_simulation_mode
 
       - name: Run integration test creating startup kits
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh create_startup_kits
+          ./scripts/ci/runIntegrationTests.sh create_startup_kits
 
       - name: Run intergration test listing licenses
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_list_licenses
+          ./scripts/ci/runIntegrationTests.sh run_list_licenses
 
       - name: Run integration test Docker GPU preflight check
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_docker_gpu_preflight_check
+          ./scripts/ci/runIntegrationTests.sh run_docker_gpu_preflight_check
 
       - name: Run integration test data access preflight check
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_data_access_preflight_check
+          ./scripts/ci/runIntegrationTests.sh run_data_access_preflight_check
 
       - name: Run dummy training in swarm
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_dummy_training_in_swarm
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_in_swarm
 
       - name: Kill orphaned containers from this run (if any)
         continue-on-error: false
         if: always()
         run: |
-          ./runIntegrationTests.sh kill_server_and_clients
+          ./scripts/ci/runIntegrationTests.sh kill_server_and_clients
