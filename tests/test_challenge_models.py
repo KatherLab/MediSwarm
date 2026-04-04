@@ -2,6 +2,10 @@
 """
 Test suite for ODELIA challenge models.
 Tests all 5 challenge models with preflight_check and local_training modes.
+
+NOTE: This is an *integration*-level test — it actually runs main.py and
+requires a CUDA GPU, real training data, and the full dependency stack.
+For lightweight CI-friendly tests see tests/unit_tests/.
 """
 
 import os
@@ -14,11 +18,15 @@ from pathlib import Path
 from typing import Dict, Tuple, List
 import logging
 
-# Import shared model configurations
-import sys
-import os
+# ---------------------------------------------------------------------------
+# Dynamic path resolution — works from any checkout location
+# ---------------------------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SHARED_CUSTOM_DIR = REPO_ROOT / "application" / "jobs" / "_shared" / "custom"
+MODELS_DIR = SHARED_CUSTOM_DIR / "models"
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'application', 'jobs', 'ODELIA_ternary_classification', 'app', 'custom', 'models'))
+sys.path.insert(0, str(SHARED_CUSTOM_DIR))
+sys.path.insert(0, str(MODELS_DIR))
 from models_config import CHALLENGE_MODELS, create_model
 
 # Setup logging
@@ -44,16 +52,18 @@ class ModelTester:
         env["TRAINING_MODE"] = training_mode
         env["SITE_NAME"] = site_name
         env["MODEL_NAME"] = f"challenge_{model_variant}"
-        #env["MODEL_VARIANT"] = model_variant
         env["NUM_EPOCHS"] = "1"  # Minimal epochs for testing
         env["PYTHONUNBUFFERED"] = "1"
-        # Add required environment variables for instantiation
-        env["SCRATCH_DIR"] = f"./results/{model_variant}_{training_mode}"
-        env["DATA_DIR"] = '/home/swarm/Documents/ODELIA/LocalSL/ChallengeData/'
-        
+        # Use DATA_DIR from env if set, otherwise fall back to a sensible default
+        env.setdefault("SCRATCH_DIR", f"./results/{model_variant}_{training_mode}")
+        env.setdefault("DATA_DIR", os.environ.get(
+            "DATA_DIR",
+            str(REPO_ROOT / "data"),  # fallback — override via DATA_DIR env var
+        ))
+
         print(f"Currently set environment variables for {model_variant} - {training_mode}:")
-        for key in ["TRAINING_MODE", "SITE_NAME", "MODEL_NAME", "MODEL_VARIANT", "NUM_EPOCHS", "SCRATCH_DIR", "DATA_DIR"]:
-            print(f"  {key}: {env[key]}")
+        for key in ["TRAINING_MODE", "SITE_NAME", "MODEL_NAME", "NUM_EPOCHS", "SCRATCH_DIR", "DATA_DIR"]:
+            print(f"  {key}: {env.get(key, '<not set>')}")
         print(f"  Current dir: {os.getcwd()}")
         return env
     
@@ -173,15 +183,16 @@ class ModelTester:
 
 def main():
     """Main test entry point."""
-    # Determine ODELIA app directory
     test_dir = Path(__file__).parent
-    odelia_app_dir = Path(
-        "/home/swarm/Documents/MediSwarmChallenge/MediSwarm/"
-        "application/jobs/ODELIA_ternary_classification/app"
-    )
+
+    # Dynamically resolve the ODELIA app directory from the repo root.
+    # After code deduplication (PR 241), all jobs share custom/ via symlinks.
+    # We point at the ODELIA job (the canonical one).
+    odelia_app_dir = REPO_ROOT / "application" / "jobs" / "ODELIA_ternary_classification" / "app"
 
     if not odelia_app_dir.exists():
         logger.error(f"ODELIA app directory not found: {odelia_app_dir}")
+        logger.error("Make sure you are running from the repository root.")
         sys.exit(1)
     
     # Run tests

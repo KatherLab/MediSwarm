@@ -14,7 +14,7 @@ The testing suite provides:
 ### Run Complete Test & Build Workflow
 
 ```bash
-cd /home/swarm/Documents/MediSwarmChallenge/MediSwarm
+cd <repo-root>  # e.g. /home/user/Projects/MediSwarm
 
 # Test all models, update configs, and build startup kits
 ./scripts/build/test_and_build_all_models.sh
@@ -53,7 +53,7 @@ All model configurations are centralized in `application/jobs/ODELIA_ternary_cla
 ### Update Config for Specific Model
 
 ```bash
-cd /home/swarm/Documents/MediSwarmChallenge/MediSwarm
+cd <repo-root>  # e.g. /home/user/Projects/MediSwarm
 
 # List available models and their configs
 python3 scripts/update_config_fed_client.py --list
@@ -109,7 +109,7 @@ Args: model_name="resnet18", num_classes=3, n_input_channels=1, spatial_dims=3, 
 
 ```bash
 # Run Python unit tests
-cd /home/swarm/Documents/MediSwarmChallenge/MediSwarm
+cd <repo-root>  # e.g. /home/user/Projects/MediSwarm
 python3 tests/unit_tests/test_challenge_models.py
 
 # Or with pytest if available
@@ -119,7 +119,7 @@ pytest tests/unit_tests/test_challenge_models.py -v
 ### Test Results
 
 Test results are saved to:
-`/home/swarm/Documents/MediSwarmChallenge/MediSwarm/application/jobs/ODELIA_ternary_classification/test_results.json`
+`<repo-root>/application/jobs/ODELIA_ternary_classification/test_results.json`
 
 Example output:
 ```json
@@ -249,7 +249,7 @@ To integrate into CI/CD (GitHub Actions, GitLab CI, etc.):
 #!/bin/bash
 set -e
 
-cd /home/swarm/Documents/MediSwarmChallenge/MediSwarm
+cd <repo-root>  # e.g. /home/user/Projects/MediSwarm
 
 # Run tests
 python3 tests/unit_tests/test_challenge_models.py
