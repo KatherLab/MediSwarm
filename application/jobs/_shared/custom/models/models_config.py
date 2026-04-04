@@ -1,4 +1,5 @@
 import torch
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # add custom to sys path
@@ -146,6 +147,15 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
     logger.info(f"Using GPU for training")
     logger.info(f"Model name: {model_name}")
 
+    # Default LR scheduler: CosineAnnealingWarmRestarts gives a cyclical
+    # learning rate that helps escape local minima.  T_0=10 restarts the
+    # cosine schedule every 10 epochs; T_mult=2 doubles the period after
+    # each restart (10, 20, 40, …).
+    scheduler_kwargs = dict(
+        lr_scheduler=CosineAnnealingWarmRestarts,
+        lr_scheduler_kwargs={'T_0': 10, 'T_mult': 2},
+    )
+
     model = None
     if model_name in ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:
         resnet_variant = int(model_name[6:])
@@ -153,17 +163,20 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
                         num_classes=num_classes,
                         spatial_dims=3,
                         resnet_variant=resnet_variant,
-                        loss_kwargs=loss_kwargs)
+                        loss_kwargs=loss_kwargs,
+                        **scheduler_kwargs)
     elif model_name == 'MST':
         model = MST(n_input_channels=1,
                     num_classes=num_classes,
                     spatial_dims=3,
-                    loss_kwargs=loss_kwargs)
+                    loss_kwargs=loss_kwargs,
+                    **scheduler_kwargs)
     elif model_name == "Swin3D":
-        print(f"Using Swin3D model:\nShould we include {loss_kwargs} here?")
         model = Swin3D(n_input_channels=1,
                         num_classes=num_classes,
-                        spatial_dims=3)
+                        spatial_dims=3,
+                        loss_kwargs=loss_kwargs,
+                        **scheduler_kwargs)
     elif "challenge_" in model_name:
         team_name = "_".join(model_name.split('_')[1:])
         config = get_model_config(logger, team_name)
