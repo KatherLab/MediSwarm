@@ -39,6 +39,9 @@ if TRAINING_MODE == TM_SWARM:
     # prepare_training (weighted_epochs=True).
     NUM_EPOCHS = 1  # placeholder — replaced by weighted computation
     USE_WEIGHTED_EPOCHS = True
+    # Total federated rounds — needed to size OneCycleLR scheduler steps.
+    # Must match num_rounds in config_fed_server.conf (default 20).
+    TOTAL_ROUNDS = int(os.getenv("STAMP_NUM_ROUNDS", "20"))
 elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
     SITE_NAME = os.getenv("SITE_NAME")
     if not SITE_NAME:
@@ -48,6 +51,7 @@ elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
     except ValueError:
         raise ValueError("NUM_EPOCHS must be an integer")
     USE_WEIGHTED_EPOCHS = False
+    TOTAL_ROUNDS = 1
 else:
     raise ValueError(f"Unsupported TRAINING_MODE: {TRAINING_MODE}")
 
@@ -69,7 +73,11 @@ def main():
 
         # Prepare training (data, model, trainer)
         train_dl, valid_dl, model, checkpointing, trainer, output_dir, metric_callback = (
-            stamp_training.prepare_training(env, NUM_EPOCHS, weighted_epochs=USE_WEIGHTED_EPOCHS)
+            stamp_training.prepare_training(
+                env, NUM_EPOCHS,
+                weighted_epochs=USE_WEIGHTED_EPOCHS,
+                total_rounds=TOTAL_ROUNDS,
+            )
         )
 
         if TRAINING_MODE == TM_SWARM:

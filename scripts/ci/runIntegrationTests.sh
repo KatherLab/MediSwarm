@@ -9,8 +9,10 @@ cd "$REPO_ROOT"
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
 CONTAINER_VERSION_SUFFIX=$(git rev-parse --short HEAD)
 DOCKER_IMAGE=localhost:5000/odelia:$VERSION
+STAMP_DOCKER_IMAGE=${STAMP_DOCKER_IMAGE:-stamp-test:build-test}
 PROJECT_DIR="workspace/odelia_${VERSION}_dummy_project_for_testing"
 SYNTHETIC_DATA_DIR=$(mktemp -d)
+STAMP_SYNTHETIC_DATA_DIR=$(mktemp -d)
 SCRATCH_DIR=$(mktemp -d)
 CWD=$(pwd)
 PROJECT_FILE="tests/provision/dummy_project_for_testing.yml"
@@ -102,6 +104,53 @@ _run_test_in_docker() {
            --gpus="$GPU_FOR_TESTING" \
            --entrypoint=/MediSwarm/$1 \
            "$DOCKER_IMAGE"
+}
+
+
+_run_stamp_test_in_docker() {
+    echo "[Run]" $1 "inside STAMP Docker ..."
+    docker run --rm \
+           --shm-size=16g \
+           --ipc=host \
+           --ulimit memlock=-1 \
+           --ulimit stack=67108864 \
+           -u $(id -u):$(id -g) \
+           -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+           -v "$STAMP_SYNTHETIC_DATA_DIR":/data \
+           -v "$SCRATCH_DIR":/scratch \
+           --gpus="$GPU_FOR_TESTING" \
+           --entrypoint=/MediSwarm/$1 \
+           "$STAMP_DOCKER_IMAGE"
+}
+
+
+create_synthetic_stamp_data () {
+    echo "[Prepare] Synthetic STAMP data ..."
+    docker run --rm \
+           -u $(id -u):$(id -g) \
+           -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+           -v "$STAMP_SYNTHETIC_DATA_DIR":/data \
+           -w /MediSwarm \
+           "$STAMP_DOCKER_IMAGE" \
+           /bin/bash -c "python3 application/jobs/STAMP_classification/app/scripts/create_synthetic_dataset/create_synthetic_stamp_dataset.py /data"
+}
+
+
+run_stamp_preflight_check () {
+    echo "[Run] STAMP preflight check"
+    _run_stamp_test_in_docker tests/integration_tests/stamp/_run_stamp_preflight_check.sh
+}
+
+
+run_stamp_local_training () {
+    echo "[Run] STAMP local training"
+    _run_stamp_test_in_docker tests/integration_tests/stamp/_run_stamp_local_training.sh
+}
+
+
+run_stamp_simulation_mode () {
+    echo "[Run] STAMP simulation mode"
+    _run_stamp_test_in_docker tests/integration_tests/stamp/_run_stamp_simulation_mode.sh
 }
 
 
@@ -650,6 +699,7 @@ cleanup_synthetic_data () {
 cleanup_temporary_data () {
     echo "[Cleanup] Removing synthetic data directory, scratch directory, dummy workspace ..."
     rm -rf "$SYNTHETIC_DATA_DIR"
+    rm -rf "$STAMP_SYNTHETIC_DATA_DIR"
     rm -rf "$SCRATCH_DIR"
     rm -rf "$PROJECT_DIR"
 }
@@ -749,6 +799,32 @@ case "$1" in
         start_server_and_clients
         run_3dcnn_training_in_swarm
         kill_server_and_clients
+        cleanup_temporary_data
+        ;;
+
+    run_stamp_preflight_check)
+        create_synthetic_stamp_data
+        run_stamp_preflight_check
+        cleanup_temporary_data
+        ;;
+
+    run_stamp_local_training)
+        create_synthetic_stamp_data
+        run_stamp_local_training
+        cleanup_temporary_data
+        ;;
+
+    run_stamp_simulation_mode)
+        create_synthetic_stamp_data
+        run_stamp_simulation_mode
+        cleanup_temporary_data
+        ;;
+
+    run_stamp_all)
+        create_synthetic_stamp_data
+        run_stamp_preflight_check
+        run_stamp_local_training
+        run_stamp_simulation_mode
         cleanup_temporary_data
         ;;
 
