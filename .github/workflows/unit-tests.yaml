@@ -38,7 +38,9 @@ jobs:
           python -m pip install --upgrade pip
           # CPU-only PyTorch (much smaller download than full CUDA build)
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install pytorch-lightning scikit-learn pytest
+          # Install unified 'lightning' package — provides both lightning.*
+          # (needed by STAMP tests) and pytorch_lightning.* (needed by ODELIA tests)
+          pip install lightning scikit-learn pytest
 
       - name: Run unit tests
         run: |
