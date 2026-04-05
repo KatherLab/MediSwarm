@@ -11,6 +11,12 @@ on:
 permissions:
   contents: read
 
+# Only one validation run at a time on the self-hosted runner to prevent
+# resource contention (GPU, Docker, disk) that causes flaky test failures.
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-swarm:
     runs-on: self-hosted
@@ -35,6 +41,16 @@ jobs:
           # Also remove any other root-owned files that Docker tests may have created
           docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
             'find /ws -mindepth 1 -maxdepth 1 -not -name ".git" -exec chown -R '"$(id -u):$(id -g)"' {} + 2>/dev/null || true'
+
+      - name: Reclaim disk space (prune stale Docker resources)
+        run: |
+          echo "Disk usage before cleanup:"
+          df -h / | tail -1
+          # Remove stopped containers, dangling images, and build cache older
+          # than 24 h to prevent "no space left on device" failures.
+          docker system prune -f --filter "until=24h" || true
+          echo "Disk usage after cleanup:"
+          df -h / | tail -1
 
       - name: Checkout repository (with submodules)
         uses: actions/checkout@v4
