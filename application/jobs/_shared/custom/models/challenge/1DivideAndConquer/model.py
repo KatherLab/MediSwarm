@@ -405,8 +405,11 @@ class ResidualEncoderClsLightning(BasicClassifier):
                 print("No matching encoder weights found.")
             return self
 
-def create_model(num_classes: int = 3, n_input_channels = 1, spatial_dims=3, pretrained_path=None) -> BasicClassifier:
-    model = ResidualEncoderClsLightning(in_ch=n_input_channels, out_ch=num_classes, spatial_dims=spatial_dims)
+def create_model(num_classes: int = 3, n_input_channels = 1, spatial_dims=3, pretrained_path=None, loss_kwargs=None) -> BasicClassifier:
+    model = ResidualEncoderClsLightning(
+        in_ch=n_input_channels, out_ch=num_classes, spatial_dims=spatial_dims,
+        loss_kwargs=loss_kwargs if loss_kwargs is not None else {},
+    )
     if pretrained_path:
         model.load_pretrained_unet_encoder(pretrained_path, verbose=True)
     return model
