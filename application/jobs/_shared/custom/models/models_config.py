@@ -204,6 +204,14 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
             )
             logger.info(f'__________ model path is : {persistor_args["pretrained_path"]}')
 
+        # Forward loss_kwargs (e.g. class weights) so the challenge model
+        # registers the same buffers as the server-side persistor model.
+        # Without this, _class_weight may appear as a buffer on one side
+        # but not the other, causing state_dict mismatches during
+        # federated aggregation.
+        if loss_kwargs:
+            persistor_args["loss_kwargs"] = loss_kwargs
+
         factory_fn = getattr(module, func_name)
         logger.info(f"Now access {persistor_args} from module {module}")
         return factory_fn(**persistor_args)
