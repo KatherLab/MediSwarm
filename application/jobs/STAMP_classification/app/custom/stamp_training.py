@@ -362,6 +362,12 @@ def prepare_training(
 
     callbacks = [checkpointing, metric_callback]
 
+    # Per-epoch metrics summary CSV + per-patient prediction CSVs.
+    from stamp_metrics_callback import STAMPMetricsSummaryCallback, STAMPPredictionCallback
+    callbacks.append(STAMPMetricsSummaryCallback(output_dir))
+    callbacks.append(STAMPPredictionCallback(train_dl, valid_dl, output_dir))
+    logger.info(f"Metrics CSV output enabled in {output_dir}")
+
     # FedProx proximal term: penalise local model deviation from global model.
     # Enabled via STAMP_FEDPROX_MU env var (default 0 = disabled).
     fedprox_mu = float(os.environ.get("STAMP_FEDPROX_MU", "0"))
@@ -405,15 +411,55 @@ def prepare_training(
 # Training execution
 # ---------------------------------------------------------------------------
 
+def output_aggregated_predictions(
+    model,
+    train_dl: DataLoader,
+    valid_dl: DataLoader,
+    epoch: int,
+    output_dir: Path,
+):
+    """Write per-patient predictions for the aggregated (global) model.
+
+    Called before local training each swarm round to record predictions of
+    the globally aggregated model.  This mirrors ODELIA's
+    ``output_GT_and_classprobs_csv()`` for the aggregated model.
+    """
+    from stamp_metrics_callback import (
+        STAMPPredictionCallback,
+        FILENAME_GT_PREDPROB_AGGREGATED_TRAIN,
+        FILENAME_GT_PREDPROB_AGGREGATED_VALIDATION,
+    )
+
+    try:
+        cb = STAMPPredictionCallback.__new__(STAMPPredictionCallback)
+        cb.train_dl = train_dl
+        cb.valid_dl = valid_dl
+        cb.csv_train = output_dir / FILENAME_GT_PREDPROB_AGGREGATED_TRAIN
+        cb.csv_valid = output_dir / FILENAME_GT_PREDPROB_AGGREGATED_VALIDATION
+
+        cb._write_predictions(model, train_dl, epoch, cb.csv_train)
+        cb._write_predictions(model, valid_dl, epoch, cb.csv_valid)
+    except Exception as e:
+        logger.warning(f"Could not write aggregated model predictions: {e}")
+
+
 def validate_and_train(
     train_dl: DataLoader,
     valid_dl: DataLoader,
     model,
     trainer: Trainer,
+    output_dir: Path = None,
+    current_round: int = 0,
 ):
     """Run one round of validation + training (called each swarm round)."""
     logger.info("--- Validate global model ---")
     trainer.validate(model, dataloaders=valid_dl)
+
+    # Write aggregated model predictions (before local training)
+    if output_dir is not None:
+        output_aggregated_predictions(
+            model, train_dl, valid_dl, current_round, output_dir,
+        )
 
     logger.info("--- Train new model ---")
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=valid_dl)

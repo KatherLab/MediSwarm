@@ -90,7 +90,10 @@ def main():
                 input_model = flare.receive()
                 logger.info(f"Round {input_model.current_round}")
 
-                stamp_training.validate_and_train(train_dl, valid_dl, model, trainer)
+                stamp_training.validate_and_train(
+                    train_dl, valid_dl, model, trainer,
+                    output_dir=output_dir, current_round=input_model.current_round,
+                )
 
                 # Report validation metric to NVFlare for model selection
                 if metric_callback.last_val_loss is not None:
@@ -102,7 +105,10 @@ def main():
                     )
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
-            stamp_training.validate_and_train(train_dl, valid_dl, model, trainer)
+            stamp_training.validate_and_train(
+                train_dl, valid_dl, model, trainer,
+                output_dir=output_dir,
+            )
 
         if TRAINING_MODE in [TM_LOCAL_TRAINING, TM_SWARM]:
             stamp_training.finalize_training(model, checkpointing, trainer, output_dir)
