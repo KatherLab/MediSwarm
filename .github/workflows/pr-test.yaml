@@ -14,7 +14,7 @@ permissions:
 jobs:
   validate-swarm:
     runs-on: self-hosted
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     env:
       PYTHONUNBUFFERED: 1
@@ -87,6 +87,38 @@ jobs:
         run: |
           ./scripts/ci/runIntegrationTests.sh run_3dcnn_simulation_mode
 
+      # ---------------------------------------------------------------
+      # STAMP pipeline tests
+      # ---------------------------------------------------------------
+      - name: Build STAMP Docker image
+        run: |
+          chmod +x scripts/build/buildDockerImageAndStartupKits.sh
+          ./scripts/build/buildDockerImageAndStartupKits.sh \
+            -p tests/provision/dummy_stamp_project_for_testing.yml \
+            -d docker_config/Dockerfile_STAMP \
+            --use-docker-cache
+
+      - name: Run STAMP preflight check
+        continue-on-error: false
+        env:
+          STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_stamp_preflight_check
+
+      - name: Run STAMP local training
+        continue-on-error: false
+        env:
+          STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_stamp_local_training
+
+      - name: Run STAMP simulation mode
+        continue-on-error: false
+        env:
+          STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_stamp_simulation_mode
+
       - name: Run integration test creating startup kits
         continue-on-error: false
         run: |
@@ -115,9 +147,9 @@ jobs:
       - name: Kill orphaned containers from this run (if any)
         if: always()
         run: |
-          # Kill any odelia Docker containers that may still be running
-          docker ps --format '{{.Names}}' | grep -E 'odelia|nvflare' | xargs -r docker kill 2>/dev/null || true
-          docker ps -a --format '{{.Names}}' | grep -E 'odelia|nvflare' | xargs -r docker rm -f 2>/dev/null || true
+          # Kill any odelia/stamp Docker containers that may still be running
+          docker ps --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true
+          docker ps -a --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker rm -f 2>/dev/null || true
           # Also clean up root-owned workspace files so next run's checkout succeeds
           if [ -d "$GITHUB_WORKSPACE/workspace" ]; then
             docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c "rm -rf /ws/workspace"
