@@ -59,8 +59,11 @@ PROJECT_NAME=$(grep "^name: " "$SCRIPT_DIR/$PROJECT_FILE" \
     | sed "s/__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__/$VERSION/")
 WORKSPACE_DIR="$SCRIPT_DIR/workspace/$PROJECT_NAME"
 
-# All sites to deploy to (add more here if needed)
-SITES=(MHA RSH)
+# All sites to deploy to — configured in deploy_sites.conf via SITES=()
+# Falls back to (MHA RSH) if deploy_sites.conf doesn't define SITES.
+if [[ -z "${SITES+x}" || ${#SITES[@]} -eq 0 ]]; then
+    SITES=(MHA RSH)
+fi
 
 # SSH options for sshpass
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
@@ -216,7 +219,8 @@ cmd_start_server() {
 
     local prod_dir
     prod_dir=$(find_latest_prod)
-    local server_startup="$prod_dir/dl3.tud.de/startup"
+    local server_name="${SERVER_NAME:-dl3.tud.de}"
+    local server_startup="$prod_dir/$server_name/startup"
 
     if [[ ! -d "$server_startup" ]]; then
         err "Server startup kit not found: $server_startup"
@@ -232,7 +236,7 @@ cmd_start_server() {
     sleep 10
 
     # Verify
-    if docker ps --format '{{.Names}}' | grep -q "odelia_swarm_server"; then
+    if docker ps --format '{{.Names}}' | grep -qE "odelia_swarm|nvflare"; then
         ok "Server container is running"
     else
         warn "Server container not detected — it may still be starting"
@@ -320,7 +324,7 @@ cmd_status() {
 
     echo ""
     info "Local containers:"
-    docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | grep -E "odelia|NAMES" || echo "  (none)"
+    docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | grep -E "odelia|stamp|nvflare|NAMES" || echo "  (none)"
 
     check_dependencies
 
@@ -332,7 +336,7 @@ cmd_status() {
         echo ""
         info "$site ($site_name @ $host):"
         remote_exec "$site" \
-            "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null | grep -E 'odelia|NAMES' || echo '  (none)'" \
+            "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null | grep -E 'odelia|stamp|nvflare|NAMES' || echo '  (none)'" \
             2>/dev/null || warn "  Could not connect to $host"
     done
 }
@@ -341,7 +345,7 @@ cmd_logs() {
     local target="${1:-}"
     if [[ -z "$target" ]]; then
         err "Usage: ./deploy_and_test.sh logs <site>"
-        echo "  Sites: MHA, RSH, server"
+        echo "  Sites: ${SITES[*]}, server"
         exit 1
     fi
 
@@ -350,7 +354,8 @@ cmd_logs() {
     if [[ "$target" == "SERVER" ]]; then
         local prod_dir
         prod_dir=$(find_latest_prod)
-        local log_file="$prod_dir/dl3.tud.de/startup/nohup.out"
+        local server_name="${SERVER_NAME:-dl3.tud.de}"
+        local log_file="$prod_dir/$server_name/startup/nohup.out"
         if [[ -f "$log_file" ]]; then
             step "Server logs (last 50 lines)"
             tail -50 "$log_file"
@@ -393,7 +398,7 @@ cmd_stop() {
     info "Stopping local containers..."
     # Kill all odelia containers locally
     local local_containers
-    local_containers=$(docker ps --format '{{.Names}}' | grep "odelia_swarm" || true)
+    local_containers=$(docker ps --format '{{.Names}}' | grep -E "odelia_swarm|stamp|nvflare" || true)
     if [[ -n "$local_containers" ]]; then
         echo "$local_containers" | xargs docker kill 2>/dev/null || true
         ok "Stopped local containers"
@@ -411,7 +416,7 @@ cmd_stop() {
         echo ""
         info "Stopping containers on $site ($host)..."
         remote_exec "$site" \
-            "docker ps --format '{{.Names}}' | grep 'odelia_swarm' | xargs -r docker kill 2>/dev/null || true" \
+            "docker ps --format '{{.Names}}' | grep -E 'odelia_swarm|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true" \
             2>/dev/null || warn "  Could not connect to $host"
         ok "  Stopped containers on $site"
     done
@@ -466,6 +471,9 @@ usage() {
     echo "  $0 submit challenge_3agaldran          # Submit a different job"
     echo "  $0 logs MHA                            # Check MHA logs"
     echo "  $0 stop                                # Kill everything"
+    echo ""
+    echo "Sites are configured in deploy_sites.conf via SITES=(SITE1 SITE2 ...)."
+    echo "Server name is configured via SERVER_NAME=dl3.tud.de (default)."
 }
 
 COMMAND="${1:-}"
