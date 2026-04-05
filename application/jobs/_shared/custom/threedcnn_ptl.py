@@ -366,6 +366,16 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
                                                          path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
                                                          path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
 
+        callbacks = [checkpointing, gt_predprob_output]
+
+        # FedProx proximal term: penalise local model deviation from global model.
+        # Enabled via FEDPROX_MU env var (default 0 = disabled).
+        fedprox_mu = float(os.environ.get("FEDPROX_MU", "0"))
+        if fedprox_mu > 0:
+            from fedprox_callback import FedProxCallback
+            callbacks.append(FedProxCallback(mu=fedprox_mu))
+            logger.info(f"FedProx enabled with mu={fedprox_mu}")
+
         # Gradient accumulation: with batch_size=1, accumulate 8 steps for
         # an effective batch size of 8.  This stabilises training considerably
         # compared to pure SGD updates every sample.
@@ -377,7 +387,7 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
             gradient_clip_val=1.0,
             precision='16-mixed',
             default_root_dir=str(path_run_dir),
-            callbacks=[checkpointing, gt_predprob_output],
+            callbacks=callbacks,
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,

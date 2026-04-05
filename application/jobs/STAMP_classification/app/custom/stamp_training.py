@@ -360,6 +360,16 @@ def prepare_training(
 
     metric_callback = ValidationMetricCallback()
 
+    callbacks = [checkpointing, metric_callback]
+
+    # FedProx proximal term: penalise local model deviation from global model.
+    # Enabled via STAMP_FEDPROX_MU env var (default 0 = disabled).
+    fedprox_mu = float(os.environ.get("STAMP_FEDPROX_MU", "0"))
+    if fedprox_mu > 0:
+        from fedprox_callback import FedProxCallback
+        callbacks.append(FedProxCallback(mu=fedprox_mu))
+        logger.info(f"FedProx enabled with mu={fedprox_mu}")
+
     # TensorBoard logger is optional — gracefully degrade if tensorboard
     # is not installed (e.g. minimal Docker image, CI environments).
     try:
@@ -378,7 +388,7 @@ def prepare_training(
         accelerator="gpu" if use_gpu else "cpu",
         precision="16-mixed" if use_gpu else "32-true",
         default_root_dir=str(output_dir),
-        callbacks=[checkpointing, metric_callback],
+        callbacks=callbacks,
         enable_checkpointing=True,
         check_val_every_n_epoch=1,
         log_every_n_steps=max(len(train_dl), 1),
