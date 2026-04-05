@@ -13,10 +13,12 @@ if ! git diff --quiet || ! git diff --staged --quiet ; then
 fi
 
 DOCKER_BUILD_ARGS="--no-cache --progress=plain";
+DOCKERFILE="docker_config/Dockerfile_ODELIA"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -p)                  PROJECT_FILE="$2"; shift ;;
+        -d|--dockerfile)     DOCKERFILE="$2"; shift ;;
         --use-docker-cache)  DOCKER_BUILD_ARGS="";;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
@@ -24,7 +26,14 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 if [ -z "$PROJECT_FILE" ]; then
-    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [--use-docker-cache]"
+    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [-d <Dockerfile>] [--use-docker-cache]"
+    echo "  -d  Dockerfile to use (default: docker_config/Dockerfile_ODELIA)"
+    echo "      For STAMP builds, use: -d docker_config/Dockerfile_STAMP"
+    exit 1
+fi
+
+if [ ! -f "$DOCKERFILE" ]; then
+    echo "Dockerfile not found: $DOCKERFILE"
     exit 1
 fi
 
@@ -48,14 +57,18 @@ chmod a+rX . -R
 sed -i 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__#'$VERSION'#' docker_config/master_template.yml
 sed -i 's#__REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__#'$CONTAINER_VERSION_ID'#' docker_config/master_template.yml
 
-./scripts/build/_cacheAndCopyPretrainedModelWeights.sh $CWD $CLEAN_SOURCE_DIR
+# Only cache pretrained model weights for ODELIA builds (STAMP uses pre-extracted
+# H5 features and doesn't need DINOv2/challenge weights in the Docker image)
+if [[ "$DOCKERFILE" != *"Dockerfile_STAMP"* ]]; then
+    ./scripts/build/_cacheAndCopyPretrainedModelWeights.sh $CWD $CLEAN_SOURCE_DIR
+fi
 cd $CWD
 
 # build and print follow-up steps
 CONTAINER_NAME=`grep "      docker_image: " $PROJECT_FILE | sed 's/      docker_image: //' | sed 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__#'$VERSION'#'`
 echo $CONTAINER_NAME
 
-docker build $DOCKER_BUILD_ARGS -t $CONTAINER_NAME $CLEAN_SOURCE_DIR -f docker_config/Dockerfile_ODELIA
+docker build $DOCKER_BUILD_ARGS -t $CONTAINER_NAME $CLEAN_SOURCE_DIR -f $DOCKERFILE
 
 echo "Docker image $CONTAINER_NAME built successfully"
 echo "scripts/build/_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME"
