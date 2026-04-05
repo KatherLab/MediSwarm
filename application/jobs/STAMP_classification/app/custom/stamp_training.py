@@ -22,9 +22,15 @@ from typing import Any, Dict, Tuple
 
 import torch
 import torch.multiprocessing as mp
-from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback
-from pytorch_lightning.loggers import TensorBoardLogger
+# STAMP 2.4.0 models inherit from ``lightning.LightningModule`` (the unified
+# ``lightning`` package), which is a **different class** from
+# ``pytorch_lightning.LightningModule`` in lightning >= 2.0.  Using
+# ``pytorch_lightning.Trainer`` to fit a ``lightning.LightningModule`` raises
+# ``TypeError: model must be a LightningModule``.  Import from ``lightning``
+# to match STAMP's class hierarchy.
+from lightning import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint, Callback
+from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 
 logger = logging.getLogger(__name__)
@@ -145,6 +151,8 @@ def create_stamp_training_model(
     env: dict,
     patient_to_data: Dict[str, Any],
     feature_type: str,
+    max_epochs_per_round: int = 0,
+    total_rounds: int = 1,
 ) -> Tuple[Any, DataLoader, DataLoader]:
     """Create a STAMP model configured for training, along with dataloaders.
 
@@ -154,6 +162,18 @@ def create_stamp_training_model(
     3. Selects correct Lightning wrapper + backbone via registry
     4. Calculates OneCycleLR scheduler steps from data size
 
+    Args:
+        max_epochs_per_round: Actual per-round epoch count (after weighted
+            epoch computation, if applicable).  When > 0, this value is
+            used instead of ``env["max_epochs"]`` for scheduler sizing.
+        total_rounds: In swarm mode, the number of federated rounds.  STAMP's
+            OneCycleLR scheduler is configured once with ``total_steps =
+            max_epochs × steps_per_epoch``.  When NVFlare calls
+            ``trainer.fit()`` multiple times (once per round), the scheduler
+            must have enough total steps for **all** rounds.  Passing
+            ``total_rounds > 1`` multiplies the epoch count used to compute
+            ``total_steps`` so the scheduler doesn't overflow.
+
     Returns:
         model, train_dl, valid_dl
     """
@@ -162,11 +182,16 @@ def create_stamp_training_model(
     from stamp.modeling.transforms import VaryPrecisionTransform
     from stamp.modeling.registry import ModelName
 
-    # Build AdvancedConfig from environment
-    # ModelParams() uses factory defaults for each model type (VIT, MLP, etc.)
+    # Build AdvancedConfig from environment.
+    # For swarm mode, inflate max_epochs by total_rounds so that STAMP's
+    # OneCycleLR scheduler has enough total_steps for the entire training
+    # run.  The per-round epoch budget is controlled by the Trainer, not
+    # by AdvancedConfig.
+    epochs_for_scheduler = max_epochs_per_round if max_epochs_per_round > 0 else env["max_epochs"]
+    scheduler_epochs = epochs_for_scheduler * total_rounds
     advanced = AdvancedConfig(
         seed=env["seed"],
-        max_epochs=env["max_epochs"],
+        max_epochs=scheduler_epochs,
         patience=env["patience"],
         batch_size=env["batch_size"],
         bag_size=env["bag_size"],
@@ -267,15 +292,23 @@ def compute_weighted_epochs(num_train_samples: int, site_name: str = "") -> int:
     return epochs
 
 
-def prepare_training(env: dict, max_epochs: int, weighted_epochs: bool = False):
+def prepare_training(
+    env: dict,
+    max_epochs: int,
+    weighted_epochs: bool = False,
+    total_rounds: int = 1,
+):
     """Set up everything needed for STAMP training.
 
     Args:
         env: Environment configuration dict from load_stamp_environment().
-        max_epochs: Maximum training epochs (used as-is for local/preflight,
-                    or as base when weighted_epochs is False).
+        max_epochs: Maximum training epochs per round.
         weighted_epochs: If True, compute per-round epoch count from training
                          data size via compute_weighted_epochs().
+        total_rounds: Number of federated rounds (swarm mode).  Used to
+                      size the OneCycleLR scheduler correctly — see
+                      :func:`create_stamp_training_model` for details.
+                      For local / preflight training, leave at 1.
 
     Returns:
         train_dl, valid_dl, model, checkpointing, trainer, output_dir, metric_callback
@@ -298,8 +331,13 @@ def prepare_training(env: dict, max_epochs: int, weighted_epochs: bool = False):
         )
 
     # Create model and dataloaders (STAMP 2.4.0 creates both together)
+    # Pass the actual per-round epoch count so the scheduler is sized
+    # correctly.  In swarm mode with weighted epochs, max_epochs is the
+    # weighted value (possibly much larger than env["max_epochs"]).
     model, train_dl, valid_dl = create_stamp_training_model(
         env, patient_to_data, feature_type,
+        max_epochs_per_round=max_epochs,
+        total_rounds=total_rounds,
     )
 
     # Determine monitor metric based on task
@@ -322,11 +360,23 @@ def prepare_training(env: dict, max_epochs: int, weighted_epochs: bool = False):
 
     metric_callback = ValidationMetricCallback()
 
+    # TensorBoard logger is optional — gracefully degrade if tensorboard
+    # is not installed (e.g. minimal Docker image, CI environments).
+    try:
+        tb_logger = TensorBoardLogger(save_dir=output_dir)
+    except (ModuleNotFoundError, ImportError):
+        logger.warning("tensorboard not available — training will proceed without TensorBoard logging")
+        tb_logger = False  # Lightning accepts False to disable logging
+
     # STAMP models train on pre-extracted features, so training is fast.
     # No gradient accumulation needed (batch_size is already 64).
+    # Use mixed precision on GPU for speed; fall back to full precision on
+    # CPU because bf16/fp16 backward is not supported on all CPU platforms
+    # (e.g. DNNL with avx2_vnni_2 raises RuntimeError).
+    use_gpu = torch.cuda.is_available()
     trainer = Trainer(
-        accelerator="gpu" if torch.cuda.is_available() else "cpu",
-        precision="16-mixed",
+        accelerator="gpu" if use_gpu else "cpu",
+        precision="16-mixed" if use_gpu else "32-true",
         default_root_dir=str(output_dir),
         callbacks=[checkpointing, metric_callback],
         enable_checkpointing=True,
@@ -334,7 +384,7 @@ def prepare_training(env: dict, max_epochs: int, weighted_epochs: bool = False):
         log_every_n_steps=max(len(train_dl), 1),
         max_epochs=max_epochs,
         num_sanity_val_steps=0,
-        logger=TensorBoardLogger(save_dir=output_dir),
+        logger=tb_logger,
         devices=1,
     )
 
