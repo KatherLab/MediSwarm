@@ -1,0 +1,75 @@
+# MediSwarm Deployment Site Configuration
+# Copy this file to deploy_sites.conf and fill in your credentials.
+# deploy_sites.conf is in .gitignore — it should NEVER be committed.
+#
+# Usage:
+#   cp deploy_sites.conf.example deploy_sites.conf
+#   vim deploy_sites.conf   # fill in passwords and paths
+#   ./deploy_and_test.sh all
+
+# ── Sites to deploy to ────────────────────────────────────────────
+# List the short names of all client sites. Each name must have
+# corresponding <NAME>_HOST, <NAME>_USER, etc. variables below.
+SITES=(MHA RSH)
+
+# ── Server ─────────────────────────────────────────────────────────
+# The FQDN of the NVFlare server (must match the provision YAML).
+SERVER_NAME=dl3.tud.de
+
+# ── Defaults ───────────────────────────────────────────────────────
+PROJECT_FILE=application/provision/project_Challenge_test.yml
+DEFAULT_JOB=challenge_1DivideAndConquer
+ADMIN_USER=jiefu.zhu@tu-dresden.de
+
+# ── Site: MHA ──────────────────────────────────────────────────────
+MHA_HOST=172.24.4.91
+MHA_USER=odelia
+MHA_PASS='CHANGEME'
+MHA_SITE_NAME=MHA_1
+MHA_DATADIR=/home/odelia/MediSwarm/data
+MHA_SCRATCHDIR=/home/odelia/MediSwarm/data/MHA_1/tmp
+MHA_DEPLOY_DIR=/home/odelia/Odelia
+MHA_GPU="device=0"
+
+# ── Site: RSH ──────────────────────────────────────────────────────
+RSH_HOST=172.24.4.71
+RSH_USER=asoro
+RSH_PASS='CHANGEME'
+RSH_SITE_NAME=RSH_1
+RSH_DATADIR=/home/asoro/odelia/RSH/
+RSH_SCRATCHDIR=/home/asoro/odelia/RSH/scratch/
+RSH_DEPLOY_DIR=/home/asoro/Odelia
+RSH_GPU="device=0"
+
+# ── Site: DL0 (Duke Benchmark) ────────────────────────────────────
+# Uncomment and configure for Duke dataset benchmarks on dl0/dl2/dl3.
+# Add DL0 DL2 DL3 to SITES=() above when using these.
+#
+# DL0_HOST=dl0.tud.de
+# DL0_USER=swarm
+# DL0_PASS='CHANGEME'
+# DL0_SITE_NAME=TUD_1
+# DL0_DATADIR=/data/duke/TUD_1
+# DL0_SCRATCHDIR=/scratch/duke/TUD_1
+# DL0_DEPLOY_DIR=/home/swarm/MediSwarm
+# DL0_GPU="device=0"
+
+# ── Site: DL2 (Duke Benchmark) ────────────────────────────────────
+# DL2_HOST=dl2.tud.de
+# DL2_USER=swarm
+# DL2_PASS='CHANGEME'
+# DL2_SITE_NAME=TUD_2
+# DL2_DATADIR=/data/duke/TUD_2
+# DL2_SCRATCHDIR=/scratch/duke/TUD_2
+# DL2_DEPLOY_DIR=/home/swarm/MediSwarm
+# DL2_GPU="device=0"
+
+# ── Site: DL3 (Duke Benchmark — also runs server) ─────────────────
+# DL3_HOST=dl3.tud.de
+# DL3_USER=swarm
+# DL3_PASS='CHANGEME'
+# DL3_SITE_NAME=TUD_3
+# DL3_DATADIR=/data/duke/TUD_3
+# DL3_SCRATCHDIR=/scratch/duke/TUD_3
+# DL3_DEPLOY_DIR=/home/swarm/MediSwarm
+# DL3_GPU="device=1"
