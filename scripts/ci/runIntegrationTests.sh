@@ -527,14 +527,32 @@ verify_wrong_certificates_are_rejected () {
 
 
 run_dummy_training_in_swarm () {
-    echo "[Run] Dummy training in swarm (result will be checked after 2 minutes) ..."
+    echo "[Run] Dummy training in swarm (polling for completion, up to 5 minutes) ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
     expect -f "$CWD"/tests/integration_tests/_submitDummyTraining.exp
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
-    sleep 120
     cd "$CWD"
+
+    # Poll for completion instead of a fixed sleep.  The server log will
+    # contain "Server runner finished." once all rounds are done.  We check
+    # every 10 seconds for up to 5 minutes (30 iterations).
+    local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
+    local max_attempts=30
+    local attempt=0
+    echo "  Waiting for swarm training to finish (checking every 10s, max ${max_attempts}0s) ..."
+    while [ $attempt -lt $max_attempts ]; do
+        if [ -f "$server_log" ] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
+            echo "  ✅ Server runner finished detected after $((attempt * 10))s"
+            break
+        fi
+        attempt=$((attempt + 1))
+        sleep 10
+    done
+    if [ $attempt -eq $max_attempts ]; then
+        echo "  ⚠️  Timed out after ${max_attempts}0s waiting for swarm completion — proceeding to assertions"
+    fi
 
     # check for expected output in server log (clients joined, job ID assigned, 5 rounds, start of round logged, finished training logged)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
@@ -634,14 +652,32 @@ run_3dcnn_local_training () {
 
 
 run_3dcnn_training_in_swarm () {
-    echo "[Run] 3DCNN training in swarm (result will be checked after 60 minutes) ..."
+    echo "[Run] 3DCNN training in swarm (polling for completion, up to 60 minutes) ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
     expect -f "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
-    sleep 3600
     cd "$CWD"
+
+    # Poll for completion instead of a fixed sleep.  The server log will
+    # contain "Server runner finished." once all rounds are done.  We check
+    # every 30 seconds for up to 60 minutes (120 iterations).
+    local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
+    local max_attempts=120
+    local attempt=0
+    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 60min) ..."
+    while [ $attempt -lt $max_attempts ]; do
+        if [ -f "$server_log" ] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
+            echo "  ✅ Server runner finished detected after $((attempt * 30))s"
+            break
+        fi
+        attempt=$((attempt + 1))
+        sleep 30
+    done
+    if [ $attempt -eq $max_attempts ]; then
+        echo "  ⚠️  Timed out after 60min waiting for 3DCNN swarm completion — proceeding to assertions"
+    fi
 
     # check for expected output in server log (clients joined, job ID assigned, 20 rounds)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
