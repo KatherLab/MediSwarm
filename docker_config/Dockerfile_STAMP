@@ -1,0 +1,98 @@
+# STAMP (Solid Tumor Associative Modeling in Pathology) Docker image for MediSwarm
+#
+# This is a SEPARATE Dockerfile from Dockerfile_ODELIA because STAMP 2.4.0
+# requires Python >=3.11 and PyTorch >=2.7.1, which are incompatible with
+# the ODELIA base image (Python 3.10, PyTorch 2.2.2).
+#
+# KatherLab STAMP is NOT available on PyPI (the PyPI "stamp" package is an
+# unrelated metagenomics tool by Donovan Parks). It must be installed from
+# GitHub: https://github.com/KatherLab/STAMP
+
+ARG PYTORCH_IMAGE=pytorch/pytorch:2.7.1-cuda12.6-cudnn9-runtime
+FROM ${PYTORCH_IMAGE}
+
+# Specify the NVFlare version
+ARG NVF_VERSION=2.7.2
+ENV NVF_BRANCH=${NVF_VERSION}
+
+# ===========================================================================
+# Layer ordering strategy (same principle as Dockerfile_ODELIA):
+#
+# 1. System packages (git required for pip install from GitHub)
+# 2. STAMP from GitHub (expensive — clones repo, builds wheel)
+# 3. NVFlare from local fork
+# 4. Additional NVFlare runtime deps
+# 5. COPY source code (changes every build — must be last)
+#
+# Unlike ODELIA, no pretrained weights layer is needed — STAMP operates on
+# pre-extracted H5 feature files, not raw images.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Stage 1: System packages (git, opencv deps)
+# ---------------------------------------------------------------------------
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# Stage 2: STAMP from GitHub (most expensive layer)
+# ---------------------------------------------------------------------------
+
+# Install STAMP 2.4.0 from KatherLab GitHub
+# This pulls in all STAMP dependencies: h5py, lightning, timm, transformers,
+# opencv-python, openslide-bin, openslide-python, lifelines, beartype, etc.
+# Using --no-cache-dir to keep the layer small.
+RUN python3 -m pip install --no-cache-dir \
+    "stamp @ git+https://github.com/KatherLab/STAMP.git@2.4.0"
+
+# ---------------------------------------------------------------------------
+# Stage 3: NVFlare from local fork (same as ODELIA)
+# ---------------------------------------------------------------------------
+
+WORKDIR /workspace/
+COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
+# Override with MediSwarm master_template.yml (contains version placeholders
+# injected by build script)
+COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/templates/
+RUN python3 -m pip install --no-cache-dir /workspace/nvflare && rm -rf /workspace/nvflare
+
+# ---------------------------------------------------------------------------
+# Stage 4: Additional NVFlare runtime dependencies
+# ---------------------------------------------------------------------------
+# These are packages that NVFlare's setup.cfg lists as optional or that the
+# ODELIA Dockerfile pins for the runtime environment. STAMP's own deps may
+# already satisfy some of these, but we ensure they're present.
+
+RUN python3 -m pip install --no-cache-dir \
+    psutil \
+    Flask-JWT-Extended \
+    Flask-SQLAlchemy \
+    gunicorn \
+    pyhocon \
+    msgpack \
+    docker \
+    websockets
+
+# Install packages needed for listing licenses and creating SBOM
+RUN python3 -m pip install --no-cache-dir \
+    pip-licenses \
+    prettytable \
+    defusedxml \
+    distro2sbom \
+    lib4sbom \
+    semantic-version
+
+# ---------------------------------------------------------------------------
+# Stage 5: Application source code (changes most often — last layer)
+# ---------------------------------------------------------------------------
+
+# Copy the source code for local training and deploying to the swarm
+COPY ./MediSwarm /MediSwarm
+RUN mkdir -p /fl_admin/transfer && ln -s /MediSwarm /fl_admin/transfer/MediSwarm
+
+# allow creating home directory for local user inside container if needed
+RUN chmod a+rwx /home

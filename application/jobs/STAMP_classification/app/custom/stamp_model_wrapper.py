@@ -9,7 +9,6 @@ so NVFlare can serialize/deserialize its weights.
 
 import logging
 import os
-import sys
 from pathlib import Path
 
 import torch
@@ -19,7 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 def _get_stamp_env():
-    """Read STAMP-specific configuration from environment variables."""
+    """Read STAMP-specific configuration from environment variables.
+
+    Model-specific hyperparameters (VIT dim_model, MLP dim_hidden, etc.) are
+    read from STAMP 2.4.0's ``ModelParams`` defaults rather than environment
+    variables — this avoids hardcoding parameter lists that break when STAMP
+    adds new fields (e.g. VIT's ``use_alibi`` in 2.4.0).
+    """
     return {
         "task": os.environ.get("STAMP_TASK", "classification"),
         "model_name": os.environ.get("STAMP_MODEL_NAME", "vit"),
@@ -28,21 +33,8 @@ def _get_stamp_env():
         "dim_input": int(os.environ.get("STAMP_DIM_INPUT", "1024")),
         "num_classes": int(os.environ.get("STAMP_NUM_CLASSES", "3")),
         # Model hyperparameters
-        "bag_size": int(os.environ.get("STAMP_BAG_SIZE", "512")),
-        "batch_size": int(os.environ.get("STAMP_BATCH_SIZE", "64")),
-        "max_epochs": int(os.environ.get("STAMP_MAX_EPOCHS", "32")),
         "max_lr": float(os.environ.get("STAMP_MAX_LR", "1e-4")),
         "div_factor": float(os.environ.get("STAMP_DIV_FACTOR", "25.0")),
-        # VIT-specific
-        "vit_dim_model": int(os.environ.get("STAMP_VIT_DIM_MODEL", "512")),
-        "vit_dim_feedforward": int(os.environ.get("STAMP_VIT_DIM_FEEDFORWARD", "512")),
-        "vit_n_heads": int(os.environ.get("STAMP_VIT_N_HEADS", "8")),
-        "vit_n_layers": int(os.environ.get("STAMP_VIT_N_LAYERS", "2")),
-        "vit_dropout": float(os.environ.get("STAMP_VIT_DROPOUT", "0.25")),
-        # MLP-specific
-        "mlp_dim_hidden": int(os.environ.get("STAMP_MLP_DIM_HIDDEN", "512")),
-        "mlp_num_layers": int(os.environ.get("STAMP_MLP_NUM_LAYERS", "2")),
-        "mlp_dropout": float(os.environ.get("STAMP_MLP_DROPOUT", "0.25")),
     }
 
 
@@ -51,13 +43,19 @@ def _build_stamp_model(env: dict) -> nn.Module:
 
     This imports STAMP's model registry and instantiates the correct
     Lightning wrapper + backbone for the given (feature_type, task, model_name).
+
+    Uses STAMP 2.4.0's ``ModelParams`` defaults to get model-specific
+    hyperparameters (e.g. VIT's ``use_alibi``), avoiding hardcoded parameter
+    lists that break when STAMP adds new fields.
     """
     try:
         from stamp.modeling.registry import ModelName, load_model_class
+        from stamp.modeling.config import ModelParams
     except ImportError:
         raise ImportError(
-            "STAMP is not installed. Install it with: pip install stamp "
-            "or ensure the STAMP source is on PYTHONPATH."
+            "STAMP is not installed. Install from GitHub with: "
+            'pip install "stamp @ git+https://github.com/KatherLab/STAMP.git@2.4.0" '
+            "(NOTE: the PyPI 'stamp' package is an unrelated metagenomics tool)"
         )
 
     task = env["task"]
@@ -72,44 +70,37 @@ def _build_stamp_model(env: dict) -> nn.Module:
     # Load the correct Lightning wrapper and backbone class
     LitModelClass, ModelClass = load_model_class(task, feature_type, model_name)
 
-    # Build model-specific parameters
-    model_specific_params = {}
-    if model_name == ModelName.VIT:
-        model_specific_params = {
-            "dim_model": env["vit_dim_model"],
-            "dim_feedforward": env["vit_dim_feedforward"],
-            "n_heads": env["vit_n_heads"],
-            "n_layers": env["vit_n_layers"],
-            "dropout": env["vit_dropout"],
-        }
-    elif model_name == ModelName.MLP:
-        model_specific_params = {
-            "dim_hidden": env["mlp_dim_hidden"],
-            "num_layers": env["mlp_num_layers"],
-            "dropout": env["mlp_dropout"],
-        }
-    elif model_name == ModelName.TRANS_MIL:
-        model_specific_params = {
-            "dim_hidden": int(os.environ.get("STAMP_TRANSMIL_DIM_HIDDEN", "512")),
-        }
+    # Get model-specific parameters from STAMP's ModelParams defaults.
+    # This automatically picks up all fields (including new ones like
+    # VIT's use_alibi) without hardcoding parameter lists.
+    model_params = ModelParams()
+    model_specific_params = (
+        model_params.model_dump().get(model_name_str) or {}
+    )
 
     # Build categories placeholder — actual categories come from training data
     # For the persistor, we just need the model architecture to be correct
     categories = [str(i) for i in range(num_classes)]
+
+    # category_weights must be a Tensor matching len(categories) (STAMP 2.4.0
+    # validates this in LitBaseClassifier.__init__).  Equal weights are fine
+    # for the persistor — real weights are computed during training.
+    category_weights = torch.ones(num_classes) / num_classes
 
     # Calculate total_steps placeholder (actual value set during training)
     total_steps = 100  # placeholder, overridden at training time
 
     common_params = {
         "categories": categories,
-        "category_weights": [],
+        "category_weights": category_weights,
         "dim_input": dim_input,
         "total_steps": total_steps,
         "max_lr": env["max_lr"],
         "div_factor": env["div_factor"],
         "model_name": model_name_str,
-        # Metadata fields (no effect on model architecture)
-        "ground_truth_label": None,
+        # Metadata fields (no effect on model architecture, but
+        # ground_truth_label must be a str for beartype validation)
+        "ground_truth_label": "placeholder",
         "time_label": None,
         "status_label": None,
         "train_patients": [],
