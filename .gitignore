@@ -196,3 +196,6 @@ challenge_model_test/
 
 runs
 *.bak
+
+# Duke benchmark output
+duke_results/

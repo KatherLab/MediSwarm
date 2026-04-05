@@ -8,6 +8,7 @@ Scripts for evaluating and comparing MediSwarm model performance.
 |--------|---------|
 | `predict.py` | Run prediction on external test datasets using trained swarm models |
 | `benchmark_models.py` | Benchmark all MediSwarm models on a consistent train/val/test split |
+| `run_duke_benchmark.sh` | End-to-end Duke dataset benchmark: build, deploy, train, collect, evaluate |
 | `plot_aurocs_from_classprob_csvs.py` | Compute and plot AUROCs from class probability CSV files produced during training |
 | `parse_logs_and_plot.py` | Parse training logs and plot convergence curves (legacy) |
 
@@ -233,6 +234,50 @@ The script automatically verifies:
 - Label distributions are constant across epochs
 - Swarm aggregated and site models have the same label distributions at epoch 0
 - Swarm and local training use identical label distributions
+
+---
+
+## `run_duke_benchmark.sh`
+
+End-to-end benchmark pipeline for the Duke Breast MRI dataset on the TUD compute cluster (dl0, dl2, dl3). Orchestrates the full workflow: Docker build, push, deploy, swarm training, result collection, and local model benchmarking.
+
+### Prerequisites
+
+- `deploy_sites.conf` configured with DL0/DL2/DL3 entries (see `deploy_sites.conf.example`)
+- `sshpass` and `expect` installed
+- Duke dataset available on each site
+- GPU available on each site
+
+### Usage
+
+```bash
+# Full pipeline (build, deploy, train swarm, benchmark local):
+./run_duke_benchmark.sh
+
+# Swarm only (skip local benchmark):
+./run_duke_benchmark.sh --skip-local
+
+# Local benchmark only (skip swarm):
+./run_duke_benchmark.sh --skip-swarm
+
+# Collect results from a previous swarm run:
+./run_duke_benchmark.sh --collect-only
+
+# Custom models and epochs:
+./run_duke_benchmark.sh --models MST ResNet18 Swin3D --local-epochs 10
+
+# Dry run (print configuration only):
+./run_duke_benchmark.sh --dry-run
+```
+
+### Output
+
+Results are saved to `duke_results/<timestamp>/`:
+- `benchmark_config.json` -- Run configuration for reproducibility
+- `swarm/` -- Collected checkpoints and prediction CSVs from swarm training
+- `local/` -- `benchmark_results.json` from `benchmark_models.py`
+
+See `docs/DUKE_BENCHMARK_RESULTS.md` for the results template and analysis.
 
 ---
 
