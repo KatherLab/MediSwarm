@@ -244,8 +244,15 @@ cmd_start_server() {
 }
 
 cmd_start_clients() {
+    local model_name="${1:-}"
     step "Starting NVFlare clients on remote sites"
     check_dependencies
+
+    local model_flag=""
+    if [[ -n "$model_name" ]]; then
+        model_flag="--model_name '$model_name'"
+        info "Using MODEL_NAME=$model_name"
+    fi
 
     for site in "${SITES[@]}"; do
         local site_name host deploy_dir datadir scratchdir gpu
@@ -264,12 +271,26 @@ cmd_start_clients() {
              export SITE_NAME='$site_name' && \
              export DATADIR='$datadir' && \
              export SCRATCHDIR='$scratchdir' && \
-             ./docker.sh --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' --start_client"
+             ./docker.sh --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
 
         ok "  Client started on $site_name"
     done
 
     ok "All clients started"
+}
+
+# Map job directory names to the MODEL_NAME env var expected by the model factory.
+job_to_model_name() {
+    local job="$1"
+    case "$job" in
+        challenge_1DivideAndConquer)   echo "1DivideAndConquer" ;;
+        challenge_2BCN_AIM)            echo "2BCN_AIM" ;;
+        challenge_3agaldran)           echo "3agaldran" ;;
+        challenge_4abmil)              echo "4LME_ABMIL" ;;
+        challenge_5pimed)              echo "5Pimed" ;;
+        ODELIA_ternary_classification) echo "MST" ;;
+        *)                             echo "MST" ;;
+    esac
 }
 
 cmd_submit() {
@@ -426,15 +447,17 @@ cmd_stop() {
 
 cmd_all() {
     local job_name="${1:-$DEFAULT_JOB}"
+    local model_name
+    model_name=$(job_to_model_name "$job_name")
     step "Full deployment pipeline"
-    info "Job: $job_name"
+    info "Job: $job_name (MODEL_NAME=$model_name)"
     echo ""
 
     cmd_build
     cmd_push
     cmd_deploy
     cmd_start_server
-    cmd_start_clients
+    cmd_start_clients "$model_name"
 
     info "Waiting 15s for clients to register with server..."
     sleep 15
@@ -484,7 +507,7 @@ case "$COMMAND" in
     push)           cmd_push ;;
     deploy)         cmd_deploy ;;
     start-server)   cmd_start_server ;;
-    start-clients)  cmd_start_clients ;;
+    start-clients)  cmd_start_clients "${1:-}" ;;
     submit)         cmd_submit "${1:-}" ;;
     status)         cmd_status ;;
     logs)           cmd_logs "${1:-}" ;;
