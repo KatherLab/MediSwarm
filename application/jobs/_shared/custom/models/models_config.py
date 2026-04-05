@@ -199,9 +199,20 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
         
         if "pretrained_path" in persistor_args:
             rel_path = persistor_args["pretrained_path"].rstrip(".")
-            persistor_args["pretrained_path"] = os.path.join(
+            # Primary: look relative to the model's challenge directory
+            primary_path = os.path.join(
                 base_dir, "challenge", team_name, rel_path
             )
+            # Fallback: Docker image stores weights at /MediSwarm/pretrained_weights/
+            # to avoid bloating NVFlare job transfers (see _cacheAndCopyPretrainedModelWeights.sh)
+            fallback_path = os.path.join("/MediSwarm/pretrained_weights", rel_path)
+            if os.path.isfile(primary_path):
+                persistor_args["pretrained_path"] = primary_path
+            elif os.path.isfile(fallback_path):
+                persistor_args["pretrained_path"] = fallback_path
+                logger.info(f'Using fallback pretrained weights from Docker image: {fallback_path}')
+            else:
+                persistor_args["pretrained_path"] = primary_path  # let it fail with original path
             logger.info(f'__________ model path is : {persistor_args["pretrained_path"]}')
 
         # Forward loss_kwargs (e.g. class weights) so the challenge model
