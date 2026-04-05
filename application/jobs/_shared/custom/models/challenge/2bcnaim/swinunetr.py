@@ -1150,7 +1150,10 @@ class SwinUNETRMultiTask(nn.Module):
         return cls_output # seg_output, cls_output, hidden_states
     
 
-def create_model(img_size: int, num_classes: int = 3, n_input_channels = 1, spatial_dims=3) -> BasicClassifier:
+def create_model(img_size: int, num_classes: int = 3, n_input_channels = 1, spatial_dims=3, loss_kwargs=None) -> BasicClassifier:
     model = SwinUNETRMultiTask(img_size=img_size, in_channels=n_input_channels, out_seg_channels=2, out_cls_classes=num_classes, spatial_dims=spatial_dims)
-    wrapped_model = ModelWrapper(backbone=model, in_ch=n_input_channels, num_classes=num_classes)
+    wrapped_model = ModelWrapper(
+        backbone=model, in_ch=n_input_channels, num_classes=num_classes,
+        loss_kwargs=loss_kwargs if loss_kwargs is not None else {},
+    )
     return wrapped_model

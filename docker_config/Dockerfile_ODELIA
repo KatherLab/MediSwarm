@@ -277,6 +277,14 @@ COPY ./torch_home_cache /torch_home
 
 # Copy the source code for local training and deploying to the swarm
 COPY ./MediSwarm /MediSwarm
+# Replace symlinks with actual copies so NVFlare's os.walk()-based job signing
+# and zip utilities can traverse all directories (os.walk does not follow symlinks)
+RUN find /MediSwarm -type l | while read link; do \
+        target=$(readlink -f "$link") && \
+        rm "$link" && \
+        if [ -d "$target" ]; then cp -r "$target" "$link"; \
+        elif [ -f "$target" ]; then cp "$target" "$link"; fi; \
+    done
 RUN mkdir -p /fl_admin/transfer && ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 
 # allow creating home directory for local user inside container if needed
