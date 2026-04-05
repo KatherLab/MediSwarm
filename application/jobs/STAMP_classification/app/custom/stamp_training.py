@@ -6,25 +6,24 @@ federated training loop. Only the training section of STAMP is integrated
 here — preprocessing, deployment, and statistics remain standalone workflows.
 
 Key differences from standalone STAMP training:
-1. Data loading uses STAMP's pipeline (H5 features + clinical tables)
-2. Model creation uses STAMP's registry (VIT, MLP, TransMIL, etc.)
+1. Data loading uses STAMP 2.4.0's pipeline (H5 features + clinical tables)
+2. Model creation uses STAMP 2.4.0's setup_model_for_training() which
+   handles dataloaders, class weights, and model instantiation together
 3. Training loop is controlled by NVFlare via flare.patch(trainer)
-4. No internal train/val split — each site has its own data
+4. Train/val split is done by STAMP internally per site
 """
 
-import csv
 import logging
 import os
 import shutil
-import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Tuple
 
 import torch
 import torch.multiprocessing as mp
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback, EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 
@@ -94,73 +93,48 @@ def load_stamp_environment():
 # Data loading
 # ---------------------------------------------------------------------------
 
-def load_stamp_data(env: dict) -> Tuple[DataLoader, DataLoader, Any, int, list, list]:
-    """Load STAMP data and create train/val dataloaders.
+def load_stamp_data(env: dict) -> Tuple[Dict[str, Any], str]:
+    """Load STAMP patient data from clinical table + H5 feature files.
 
-    Uses STAMP's data pipeline:
-    1. Load patient data from clinical table + H5 feature files
-    2. Detect feature type (tile/slide/patient) from H5 metadata
-    3. Create stratified train/val split
-    4. Build dataloaders with appropriate collation
+    Uses STAMP 2.4.0's ``load_patient_level_data`` to build a
+    patient_id → PatientData mapping.  Feature-type detection is done
+    separately via ``detect_feature_type``.
 
     Returns:
-        train_dl, valid_dl, categories, dim_feats, train_patients, valid_patients
+        patient_to_data: Mapping of patient_id → PatientData
+        feature_type: Detected or overridden feature type string
     """
-    from stamp.modeling.data import load_patient_data_, detect_feature_type
-    from stamp.modeling.train import setup_dataloaders_for_training
-    from stamp.modeling.transforms import VaryPrecisionTransform
+    from stamp.modeling.data import load_patient_level_data, detect_feature_type
 
     clini_table = Path(env["clini_table"])
     feature_dir = Path(env["feature_dir"])
-    slide_table = Path(env["slide_table"]) if env["slide_table"] else None
     task = env["task"]
     ground_truth_label = env["ground_truth_label"] if env["ground_truth_label"] else None
     patient_label = env["patient_label"]
-    filename_label = env["filename_label"]
     time_label = env["time_label"] if env["time_label"] else None
     status_label = env["status_label"] if env["status_label"] else None
 
-    # Load patient data
-    patient_to_data, feature_type = load_patient_data_(
-        feature_dir=feature_dir,
-        clini_table=clini_table,
-        slide_table=slide_table,
+    # Load patient data (STAMP 2.4.0 API)
+    patient_to_data = load_patient_level_data(
         task=task,
+        clini_table=clini_table,
+        feature_dir=feature_dir,
+        patient_label=patient_label,
         ground_truth_label=ground_truth_label,
         time_label=time_label,
         status_label=status_label,
-        patient_label=patient_label,
-        filename_label=filename_label,
-        drop_patients_with_missing_ground_truth=True,
     )
 
-    # Override feature type if explicitly set
+    # Detect feature type from H5 files, or use override
     if env["feature_type"]:
         feature_type = env["feature_type"]
+    else:
+        feature_type = detect_feature_type(feature_dir)
 
     logger.info(f"Loaded {len(patient_to_data)} patients, feature_type={feature_type}")
     logger.info(f"Task: {task}, model: {env['model_name']}")
 
-    # Create train/val dataloaders with stratified split
-    train_dl, valid_dl, categories, dim_feats, train_patients, valid_patients = (
-        setup_dataloaders_for_training(
-            patient_to_data=patient_to_data,
-            task=task,
-            categories=None,  # auto-infer from data
-            bag_size=env["bag_size"],
-            batch_size=env["batch_size"],
-            num_workers=env["num_workers"],
-            train_transform=VaryPrecisionTransform(min_fraction_bits=1),
-            feature_type=feature_type,
-        )
-    )
-
-    logger.info(
-        f"Train: {len(train_patients)} patients, Val: {len(valid_patients)} patients, "
-        f"dim_feats={dim_feats}, categories={categories}"
-    )
-
-    return train_dl, valid_dl, categories, dim_feats, train_patients, valid_patients
+    return patient_to_data, feature_type
 
 
 # ---------------------------------------------------------------------------
@@ -169,25 +143,27 @@ def load_stamp_data(env: dict) -> Tuple[DataLoader, DataLoader, Any, int, list, 
 
 def create_stamp_training_model(
     env: dict,
-    train_dl: DataLoader,
-    valid_dl: DataLoader,
-    categories: Any,
-    dim_feats: int,
-    train_patients: list,
-    valid_patients: list,
-):
-    """Create a STAMP model configured for training.
+    patient_to_data: Dict[str, Any],
+    feature_type: str,
+) -> Tuple[Any, DataLoader, DataLoader]:
+    """Create a STAMP model configured for training, along with dataloaders.
 
-    Uses STAMP's setup_model_from_dataloaders() which:
-    1. Computes class weights from training data
-    2. Selects correct Lightning wrapper + backbone via registry
-    3. Calculates OneCycleLR scheduler steps from data size
+    Uses STAMP 2.4.0's ``setup_model_for_training()`` which:
+    1. Creates train/val dataloaders with stratified split
+    2. Computes class weights from training data
+    3. Selects correct Lightning wrapper + backbone via registry
+    4. Calculates OneCycleLR scheduler steps from data size
+
+    Returns:
+        model, train_dl, valid_dl
     """
     from stamp.modeling.config import AdvancedConfig, ModelParams
-    from stamp.modeling.train import setup_model_from_dataloaders
+    from stamp.modeling.train import setup_model_for_training
+    from stamp.modeling.transforms import VaryPrecisionTransform
     from stamp.modeling.registry import ModelName
 
     # Build AdvancedConfig from environment
+    # ModelParams() uses factory defaults for each model type (VIT, MLP, etc.)
     advanced = AdvancedConfig(
         seed=env["seed"],
         max_epochs=env["max_epochs"],
@@ -198,6 +174,7 @@ def create_stamp_training_model(
         div_factor=env["div_factor"],
         model_name=ModelName(env["model_name"]),
         num_workers=env["num_workers"],
+        model_params=ModelParams(),
     )
 
     clini_table = Path(env["clini_table"])
@@ -206,16 +183,12 @@ def create_stamp_training_model(
     ground_truth_label = env["ground_truth_label"] if env["ground_truth_label"] else None
     time_label = env["time_label"] if env["time_label"] else None
     status_label = env["status_label"] if env["status_label"] else None
-    feature_type = env.get("feature_type", "tile") or "tile"
 
-    model = setup_model_from_dataloaders(
-        train_dl=train_dl,
-        valid_dl=valid_dl,
+    model, train_dl, valid_dl = setup_model_for_training(
+        patient_to_data=patient_to_data,
         task=env["task"],
-        train_categories=categories,
-        dim_feats=dim_feats,
-        train_patients=train_patients,
-        valid_patients=valid_patients,
+        categories=None,  # auto-infer from data
+        train_transform=VaryPrecisionTransform(min_fraction_bits=1),
         feature_type=feature_type,
         advanced=advanced,
         ground_truth_label=ground_truth_label,
@@ -228,7 +201,7 @@ def create_stamp_training_model(
 
     logger.info(f"Created STAMP model: {env['model_name']} with {sum(p.numel() for p in model.parameters()):,} parameters")
 
-    return model
+    return model, train_dl, valid_dl
 
 
 # ---------------------------------------------------------------------------
@@ -315,21 +288,18 @@ def prepare_training(env: dict, max_epochs: int, weighted_epochs: bool = False):
     logger.info(f"MediSwarm version: {env['mediswarm_version']}")
     logger.info(f"Output directory: {output_dir}")
 
-    # Load data
-    train_dl, valid_dl, categories, dim_feats, train_patients, valid_patients = (
-        load_stamp_data(env)
-    )
+    # Load patient data
+    patient_to_data, feature_type = load_stamp_data(env)
 
     # Compute weighted epochs from training data size
     if weighted_epochs:
         max_epochs = compute_weighted_epochs(
-            len(train_patients), env.get("site_name", "")
+            len(patient_to_data), env.get("site_name", "")
         )
 
-    # Create model
-    model = create_stamp_training_model(
-        env, train_dl, valid_dl, categories, dim_feats,
-        train_patients, valid_patients,
+    # Create model and dataloaders (STAMP 2.4.0 creates both together)
+    model, train_dl, valid_dl = create_stamp_training_model(
+        env, patient_to_data, feature_type,
     )
 
     # Determine monitor metric based on task
