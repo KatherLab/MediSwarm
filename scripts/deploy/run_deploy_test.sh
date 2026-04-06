@@ -589,41 +589,91 @@ wait_for_completion() {
     info "Waiting for training to complete: $model_name (timeout: ${timeout_minutes}min, checking every 30s)"
     info "Server log: $server_log (scanning from line $((start_line + 1)))"
 
+    # ── Helper: check if the LAST "Server runner finished" was clean ──────
+    # NVFlare auto-retries failed jobs (up to 3 times) with new run IDs.
+    # Each failed attempt produces FATAL_SYSTEM_ERROR + "Server runner finished."
+    # followed by a new job launch.  We must NOT declare failure when a
+    # subsequent retry succeeds.
+    #
+    # Strategy: find ALL "Server runner finished." lines.  For each one,
+    # check whether it was immediately preceded by a FATAL/ABORT within
+    # the same job run (within the last 50 lines before it).  Only the
+    # LAST such block matters — if the last finish is clean, training
+    # succeeded despite earlier failed attempts.
+    _check_last_finish() {
+        local new_lines="$1"
+        local finish_count
+        finish_count=$(echo "$new_lines" | grep -c 'Server runner finished\.' 2>/dev/null || echo 0)
+
+        if [[ "$finish_count" -eq 0 ]]; then
+            echo "none"
+            return
+        fi
+
+        # Get the line number (within new_lines) of the LAST "Server runner finished."
+        local last_finish_lineno
+        last_finish_lineno=$(echo "$new_lines" | grep -n 'Server runner finished\.' | tail -1 | cut -d: -f1)
+
+        # Check the 50 lines before the last finish for fatal errors
+        local context_start=$(( last_finish_lineno - 50 ))
+        [[ $context_start -lt 1 ]] && context_start=1
+        local context
+        context=$(echo "$new_lines" | sed -n "${context_start},${last_finish_lineno}p")
+
+        if echo "$context" | grep -q 'FATAL_SYSTEM_ERROR\|ABORT_RUN\|EXECUTION_EXCEPTION.*abort' 2>/dev/null; then
+            # Last finish was a failure.  But check if there are signs of a
+            # new job being launched AFTER this failure (auto-retry in progress).
+            local after_finish
+            after_finish=$(echo "$new_lines" | tail -n +"$((last_finish_lineno + 1))")
+            if echo "$after_finish" | grep -q 'Launch job_id:\|JobRunner.*Got the job\|ServerRunner.*starting' 2>/dev/null; then
+                echo "retry_in_progress"
+            else
+                echo "fatal"
+            fi
+        else
+            echo "clean"
+        fi
+    }
+
     while [[ $attempt -lt $max_attempts ]]; do
         if [[ -f "$server_log" ]]; then
             local new_lines
             new_lines=$(tail -n +"$((start_line + 1))" "$server_log" 2>/dev/null || true)
 
-            # Check for fatal errors first — these also produce "Server runner finished."
-            # but indicate failure, not success.
-            if echo "$new_lines" | grep -q 'FATAL_SYSTEM_ERROR\|ABORT_RUN\|EXECUTION_EXCEPTION.*abort' 2>/dev/null; then
-                if echo "$new_lines" | grep -q 'Server runner finished\.' 2>/dev/null; then
+            local status
+            status=$(_check_last_finish "$new_lines")
+
+            case "$status" in
+                clean)
+                    ok "Training completed for $model_name! (after $((attempt * 30))s)"
+                    return 0
+                    ;;
+                fatal)
                     err "Training ABORTED for $model_name — fatal error detected (after $((attempt * 30))s)"
-                    # Dump the relevant error lines for debugging
                     echo "$new_lines" | grep -i 'FATAL\|ABORT\|EXCEPTION\|ERROR' | tail -20 >&2
                     return 1
-                fi
-            fi
-
-            # Normal successful completion
-            if echo "$new_lines" | grep -q 'Server runner finished\.' 2>/dev/null; then
-                ok "Training completed for $model_name! (after $((attempt * 30))s)"
-                return 0
-            fi
+                    ;;
+                retry_in_progress)
+                    # NVFlare is auto-retrying — keep waiting
+                    if (( attempt % 4 == 0 )); then
+                        info "  NVFlare auto-retry in progress for $model_name, still waiting..."
+                    fi
+                    ;;
+                none)
+                    # No finish line yet — still running
+                    ;;
+            esac
         fi
 
         # Also check if the server container died
         if ! docker ps --format '{{.Names}}' | grep -qE "odelia_swarm|nvflare"; then
-            # Container is gone — check if it completed (in NEW lines only)
+            # Container is gone — do a final check on the log
             if [[ -f "$server_log" ]]; then
                 local new_lines
                 new_lines=$(tail -n +"$((start_line + 1))" "$server_log" 2>/dev/null || true)
-                if echo "$new_lines" | grep -q 'Server runner finished\.' 2>/dev/null; then
-                    # Could still be an abort — check for errors
-                    if echo "$new_lines" | grep -q 'FATAL_SYSTEM_ERROR\|ABORT_RUN' 2>/dev/null; then
-                        err "Training ABORTED for $model_name (container exited after fatal error)"
-                        return 1
-                    fi
+                local status
+                status=$(_check_last_finish "$new_lines")
+                if [[ "$status" == "clean" ]]; then
                     ok "Training completed for $model_name (container exited cleanly)"
                     return 0
                 fi
@@ -640,6 +690,123 @@ wait_for_completion() {
     return 1
 }
 
+# ── Collect checkpoints from client machines ─────────────────────────────
+# After swarm training, FL_global_model.pt lives inside each client's Docker
+# workspace on the remote machine at:
+#   $deploy_dir/$site_name/<job_id>/app_$site_name/FL_global_model.pt
+# This function SSHes into each client, finds the checkpoint, and SCPs it
+# back to a local staging directory so predict.py can discover it.
+collect_checkpoints() {
+    local model_name="$1"
+
+    step "Collecting checkpoints from client machines for $model_name"
+
+    # Find the latest job ID from the server log (the one that actually succeeded)
+    resolve_server_startup_dir
+    local server_log="${_server_startup_dir}/nohup.out"
+    local job_id=""
+    if [[ -f "$server_log" ]]; then
+        # Get the LAST "Server runner finished" and extract its job ID
+        # The format in the log: [run=<job_id>] ... Server runner finished.
+        job_id=$(grep 'Server runner finished\.' "$server_log" \
+            | tail -1 \
+            | grep -oP 'run=\K[0-9a-f-]+' \
+            || true)
+    fi
+
+    if [[ -z "$job_id" ]]; then
+        warn "Could not determine job ID from server log — trying to find checkpoints by glob"
+    else
+        info "Job ID from server log: $job_id"
+    fi
+
+    # Staging directory on Cosmos for collected checkpoints
+    local staging_dir="$RESULTS_DIR/${model_name}_checkpoints"
+    rm -rf "$staging_dir"
+    mkdir -p "$staging_dir"
+
+    local found_any=false
+
+    for site in "${CLIENT_SITES[@]}"; do
+        local site_name host deploy_dir user pass
+        site_name=$(site_var "$site" SITE_NAME)
+        host=$(site_var "$site" HOST)
+        deploy_dir=$(site_var "$site" DEPLOY_DIR)
+        user=$(site_var "$site" USER)
+        pass=$(site_var "$site" PASS)
+
+        # Build the expected path on the remote machine
+        local remote_base="$deploy_dir/$site_name"
+
+        info "  Checking $site_name @ $host for checkpoints..."
+
+        # Try the specific job_id first, then fall back to any UUID dir
+        local search_cmd
+        if [[ -n "$job_id" ]]; then
+            search_cmd="ls -1 '$remote_base/$job_id/app_${site_name}/FL_global_model.pt' '$remote_base/$job_id/app_${site_name}/best_FL_global_model.pt' 2>/dev/null || true"
+        else
+            search_cmd="find '$remote_base' -maxdepth 3 -name 'FL_global_model.pt' -o -name 'best_FL_global_model.pt' 2>/dev/null || true"
+        fi
+
+        local remote_files
+        if [[ "$host" == "localhost" || "$host" == "127.0.0.1" ]]; then
+            remote_files=$(eval "$search_cmd" 2>/dev/null || true)
+        elif [[ -n "$pass" ]]; then
+            remote_files=$(sshpass -p "$pass" ssh $SSH_OPTS "$user@$host" "$search_cmd" 2>/dev/null || true)
+        else
+            remote_files=$(ssh $SSH_OPTS "$user@$host" "$search_cmd" 2>/dev/null || true)
+        fi
+
+        if [[ -z "$remote_files" ]]; then
+            info "    No checkpoints found on $site_name"
+            continue
+        fi
+
+        # Create a site-specific subdir matching what predict.py expects:
+        # staging_dir/app_<site_name>/FL_global_model.pt
+        local local_app_dir="$staging_dir/app_${site_name}"
+        mkdir -p "$local_app_dir"
+
+        while IFS= read -r remote_file; do
+            [[ -z "$remote_file" ]] && continue
+            local basename_file
+            basename_file=$(basename "$remote_file")
+
+            info "    Copying $basename_file from $site_name..."
+            if [[ "$host" == "localhost" || "$host" == "127.0.0.1" ]]; then
+                cp "$remote_file" "$local_app_dir/$basename_file" 2>/dev/null || {
+                    # Might be root-owned inside Docker workspace
+                    sudo cp "$remote_file" "$local_app_dir/$basename_file" 2>/dev/null || {
+                        warn "    Could not copy $remote_file (permission denied)"
+                        continue
+                    }
+                }
+            elif [[ -n "$pass" ]]; then
+                sshpass -p "$pass" scp $SSH_OPTS "$user@$host:$remote_file" "$local_app_dir/$basename_file" || {
+                    warn "    Failed to SCP $remote_file from $host"
+                    continue
+                }
+            else
+                scp $SSH_OPTS "$user@$host:$remote_file" "$local_app_dir/$basename_file" || {
+                    warn "    Failed to SCP $remote_file from $host"
+                    continue
+                }
+            fi
+            ok "    Collected $basename_file from $site_name"
+            found_any=true
+        done <<< "$remote_files"
+    done
+
+    if [[ "$found_any" == true ]]; then
+        info "Checkpoints staged at: $staging_dir"
+        echo "$staging_dir"
+        return 0
+    else
+        err "No checkpoints found on any client machine"
+        return 1
+    fi
+}
+
 # ── Evaluate model ────────────────────────────────────────────────────────
 evaluate_model() {
     local model_name="$1"
@@ -647,8 +814,12 @@ evaluate_model() {
 
     step "Evaluating $model_name on $EVAL_SITE_NAME"
 
-    local prod_dir
-    prod_dir=$(find_latest_prod)
+    # Collect checkpoints from remote client machines
+    local checkpoint_dir
+    checkpoint_dir=$(collect_checkpoints "$model_name") || {
+        err "Cannot evaluate $model_name — no checkpoints collected"
+        return 1
+    }
 
     mkdir -p "$EVAL_SCRATCH_DIR"
 
@@ -661,7 +832,7 @@ evaluate_model() {
     info "  SITE_NAME:     $EVAL_SITE_NAME"
     info "  DATA_DIR:      $EVAL_DATA_DIR → /data"
     info "  SCRATCH_DIR:   $EVAL_SCRATCH_DIR → /scratch"
-    info "  Workspace:     $prod_dir → /workspace"
+    info "  Checkpoints:   $checkpoint_dir → /workspace"
     info "  Output:        $eval_output_dir → /output"
 
     local eval_result=0
@@ -671,7 +842,7 @@ evaluate_model() {
         --ipc=host \
         -v "$EVAL_DATA_DIR:/data/:ro" \
         -v "$EVAL_SCRATCH_DIR:/scratch/" \
-        -v "$prod_dir:/workspace/:ro" \
+        -v "$checkpoint_dir:/workspace/:ro" \
         -v "$eval_output_dir:/output/" \
         --env SITE_NAME="$EVAL_SITE_NAME" \
         --env DATA_DIR=/data \
