@@ -34,6 +34,13 @@ jobs:
             -p application/provision/project_deploy_test_4site.yml \
             --use-docker-cache
 
+      - name: Push Docker image to Docker Hub
+        run: |
+          # Remote clients pull the image from Docker Hub during startup.
+          # Cosmos is already authenticated to Docker Hub (jefftud).
+          VERSION=$(./scripts/build/getVersionNumber.sh)
+          docker push "jefftud/odelia:$VERSION"
+
       - name: Copy deploy site credentials (gitignored)
         run: |
           # deploy_sites_4node_test.conf contains site passwords and is
