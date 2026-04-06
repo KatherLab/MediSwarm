@@ -32,7 +32,8 @@ jobs:
         run: |
           ./scripts/build/buildDockerImageAndStartupKits.sh \
             -p application/provision/project_deploy_test_4site.yml \
-            --use-docker-cache
+            --use-docker-cache \
+            --num-rounds 1
 
       - name: Push Docker image to Docker Hub
         run: |
