@@ -1,0 +1,55 @@
+name: ODELIA Deploy Test
+
+on:
+  workflow_dispatch:     # Manual trigger
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly Monday 2am UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: odelia-deploy-test
+  cancel-in-progress: false  # Don't cancel long-running swarm training
+
+jobs:
+  deploy-test:
+    # Must run on Cosmos — it orchestrates dl0/dl2/dl3 via SSH.
+    # dl0, dl2, dl3 are also self-hosted runners but they are the remote
+    # *clients* managed by Cosmos, so they must NOT pick up this job.
+    # Add the "cosmos" label to the Cosmos runner in:
+    #   GitHub → repo Settings → Actions → Runners → Edit
+    runs-on: [self-hosted, cosmos]
+    timeout-minutes: 1440  # 24 hours (6 models x ~2-4h each)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Build Docker image + startup kits
+        run: |
+          ./scripts/build/buildDockerImageAndStartupKits.sh \
+            -p application/provision/project_deploy_test_4site.yml \
+            --use-docker-cache
+
+      - name: Run all 6 models deploy test
+        run: |
+          ./scripts/deploy/run_deploy_test.sh \
+            --all \
+            --conf deploy_sites_4node_test.conf
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deploy-test-results
+          path: workspace/deploy_test_results/
+
+      - name: Kill orphaned containers (cleanup)
+        if: always()
+        run: |
+          # Stop and remove any lingering containers from this test run
+          docker ps --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true
+          docker ps -a --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker rm -f 2>/dev/null || true
