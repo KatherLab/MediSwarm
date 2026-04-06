@@ -3,16 +3,24 @@
 # run_deploy_test.sh — Orchestrate multi-site ODELIA deploy tests
 #
 # Runs all 6 ODELIA models through a full federated training + evaluation
-# cycle across 4 physical machines connected via Tailscale VPN.
+# cycle across 3 physical machines connected via Tailscale VPN, with
+# Cosmos as the server/admin node (no training client on Cosmos).
+#
+# Architecture:
+#   Cosmos (localhost) — NVFlare server + admin only
+#   dl0                — RUMC_1 client
+#   dl2                — MHA_1 client
+#   dl3                — CAM_1 + UMCU_1 clients (2 clients on one machine)
 #
 # For each model:
-#   1. (Re)start the NVFlare server on Cosmos
-#   2. Start clients on all 4 sites with the correct MODEL_NAME
-#   3. Submit the corresponding training job
-#   4. Poll for training completion (Server runner finished)
-#   5. Stop all containers
-#   6. Evaluate the final global model on UKA_1 (held-out test site)
-#   7. Record pass/fail + metrics
+#   1. Stop any lingering containers (local + remote)
+#   2. Start the NVFlare server on Cosmos
+#   3. Start 4 training clients on the remote machines
+#   4. Submit the corresponding training job via admin
+#   5. Poll for training completion (Server runner finished)
+#   6. Stop all containers
+#   7. Evaluate the final global model on UKA_1 (held-out test site)
+#   8. Record pass/fail + metrics
 #
 # Usage:
 #   ./scripts/deploy/run_deploy_test.sh --all --conf deploy_sites_4node_test.conf
@@ -104,6 +112,9 @@ WORKSPACE_DIR="$REPO_ROOT/workspace/$PROJECT_NAME"
 
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 
+# Cosmos deploy dir (server + admin live here)
+DEPLOY_BASE="${COSMOS_DEPLOY_DIR:-/home/jeff/deploy_test}"
+
 # Results directory
 RESULTS_DIR="$REPO_ROOT/workspace/deploy_test_results"
 mkdir -p "$RESULTS_DIR"
@@ -125,7 +136,7 @@ EVAL_SITE_NAME="UKA_1"
 EVAL_DATA_DIR="/mnt/sda1/ODELIA_Challenge_unilateral"
 EVAL_SCRATCH_DIR="/mnt/scratch/deploy_test_eval"
 
-# ── Helper functions (same pattern as deploy_and_test.sh) ──────────────────
+# ── Helper functions ──────────────────────────────────────────────────────
 
 site_var() {
     local site=$1 var=$2
@@ -140,12 +151,7 @@ remote_exec() {
     user=$(site_var "$site" USER)
     pass=$(site_var "$site" PASS)
 
-    if [[ "$host" == "localhost" ]]; then
-        # Local execution (for Cosmos)
-        eval "$@"
-    else
-        sshpass -p "$pass" ssh $SSH_OPTS "$user@$host" "$@"
-    fi
+    sshpass -p "$pass" ssh $SSH_OPTS "$user@$host" "$@"
 }
 
 remote_copy() {
@@ -155,11 +161,7 @@ remote_copy() {
     user=$(site_var "$site" USER)
     pass=$(site_var "$site" PASS)
 
-    if [[ "$host" == "localhost" ]]; then
-        cp "$src" "$dst"
-    else
-        sshpass -p "$pass" scp $SSH_OPTS "$src" "$user@$host:$dst"
-    fi
+    sshpass -p "$pass" scp $SSH_OPTS "$src" "$user@$host:$dst"
 }
 
 find_latest_prod() {
@@ -175,7 +177,7 @@ find_latest_prod() {
 stop_all() {
     info "Stopping all NVFlare containers..."
 
-    # Stop local containers
+    # Stop local containers on Cosmos (server + admin)
     local local_containers
     local_containers=$(docker ps --format '{{.Names}}' | grep -E "odelia_swarm|nvflare" || true)
     if [[ -n "$local_containers" ]]; then
@@ -183,13 +185,16 @@ stop_all() {
         echo "$local_containers" | xargs docker rm -f 2>/dev/null || true
     fi
 
-    # Stop remote containers
-    for site in "${SITES[@]}"; do
+    # Stop remote client containers
+    # Track unique hosts to avoid stopping the same machine twice
+    local -A visited_hosts=()
+    for site in "${CLIENT_SITES[@]}"; do
         local host
         host=$(site_var "$site" HOST)
-        if [[ "$host" == "localhost" ]]; then
-            continue  # Already handled above
+        if [[ -n "${visited_hosts[$host]:-}" ]]; then
+            continue  # Already cleaned this host
         fi
+        visited_hosts[$host]=1
         remote_exec "$site" \
             "docker ps --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare' | xargs -r docker kill 2>/dev/null; \
              docker ps -a --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare' | xargs -r docker rm -f 2>/dev/null" \
@@ -207,7 +212,8 @@ deploy_kits() {
     prod_dir=$(find_latest_prod)
     info "Deploying startup kits from: $prod_dir"
 
-    for site in "${SITES[@]}"; do
+    # Deploy client kits to remote machines
+    for site in "${CLIENT_SITES[@]}"; do
         local site_name host deploy_dir
         site_name=$(site_var "$site" SITE_NAME)
         host=$(site_var "$site" HOST)
@@ -215,7 +221,6 @@ deploy_kits() {
 
         local zip_file="$prod_dir/${site_name}_${VERSION}.zip"
         if [[ ! -f "$zip_file" ]]; then
-            # Some site names in the startup kit may differ — try the zip
             zip_file=$(ls "$prod_dir"/${site_name}*.zip 2>/dev/null | head -1 || true)
             if [[ -z "$zip_file" ]]; then
                 err "Startup kit not found for $site_name in $prod_dir"
@@ -223,59 +228,48 @@ deploy_kits() {
             fi
         fi
 
-        if [[ "$host" == "localhost" ]]; then
-            mkdir -p "$deploy_dir"
-            cp "$zip_file" "$deploy_dir/"
-            cd "$deploy_dir" && rm -rf "${site_name}" && unzip -qo "$(basename "$zip_file")"
-            cd "$REPO_ROOT"
-        else
-            remote_exec "$site" "mkdir -p '$deploy_dir'"
-            remote_copy "$site" "$zip_file" "$deploy_dir/"
-            remote_exec "$site" "cd '$deploy_dir' && rm -rf '${site_name}' && unzip -qo '$(basename "$zip_file")'"
-        fi
+        remote_exec "$site" "mkdir -p '$deploy_dir'"
+        remote_copy "$site" "$zip_file" "$deploy_dir/"
+        remote_exec "$site" "cd '$deploy_dir' && rm -rf '${site_name}' && unzip -qo '$(basename "$zip_file")'"
         ok "  Deployed $site_name to $host:$deploy_dir/"
     done
 
-    # Also deploy the server and admin kits locally
+    # Deploy server kit locally (on Cosmos)
     local server_name="${SERVER_NAME:-dl3.tud.de}"
     local server_zip="$prod_dir/${server_name}_${VERSION}.zip"
     if [[ ! -f "$server_zip" ]]; then
         server_zip=$(ls "$prod_dir"/${server_name}*.zip 2>/dev/null | head -1 || true)
     fi
     if [[ -n "$server_zip" && -f "$server_zip" ]]; then
-        local deploy_base
-        deploy_base=$(site_var "$(echo "${SITES[0]}")" DEPLOY_DIR)
-        mkdir -p "$deploy_base"
-        cp "$server_zip" "$deploy_base/"
-        cd "$deploy_base" && rm -rf "$server_name" && unzip -qo "$(basename "$server_zip")"
+        mkdir -p "$DEPLOY_BASE"
+        cp "$server_zip" "$DEPLOY_BASE/"
+        cd "$DEPLOY_BASE" && rm -rf "$server_name" && unzip -qo "$(basename "$server_zip")"
         cd "$REPO_ROOT"
-        ok "  Deployed server kit ($server_name) locally"
+        ok "  Deployed server kit ($server_name) locally on Cosmos"
     fi
 
+    # Deploy admin kit locally (on Cosmos)
     local admin_zip="$prod_dir/${ADMIN_USER}_${VERSION}.zip"
     if [[ ! -f "$admin_zip" ]]; then
         admin_zip=$(ls "$prod_dir"/${ADMIN_USER}*.zip 2>/dev/null | head -1 || true)
     fi
     if [[ -n "$admin_zip" && -f "$admin_zip" ]]; then
-        local deploy_base
-        deploy_base=$(site_var "$(echo "${SITES[0]}")" DEPLOY_DIR)
-        cp "$admin_zip" "$deploy_base/"
-        cd "$deploy_base" && rm -rf "$ADMIN_USER" && unzip -qo "$(basename "$admin_zip")"
+        cp "$admin_zip" "$DEPLOY_BASE/"
+        cd "$DEPLOY_BASE" && rm -rf "$ADMIN_USER" && unzip -qo "$(basename "$admin_zip")"
         cd "$REPO_ROOT"
-        ok "  Deployed admin kit ($ADMIN_USER) locally"
+        ok "  Deployed admin kit ($ADMIN_USER) locally on Cosmos"
     fi
 }
 
-# ── Start server ──────────────────────────────────────────────────────────
+# ── Start server (on Cosmos — always local) ──────────────────────────────
 start_server() {
-    local prod_dir deploy_base server_name server_startup
-    prod_dir=$(find_latest_prod)
-    deploy_base=$(site_var "$(echo "${SITES[0]}")" DEPLOY_DIR)
-    server_name="${SERVER_NAME:-dl3.tud.de}"
-    server_startup="$deploy_base/$server_name/startup"
+    local server_name="${SERVER_NAME:-dl3.tud.de}"
+    local server_startup="$DEPLOY_BASE/$server_name/startup"
 
     if [[ ! -d "$server_startup" ]]; then
         # Fall back to prod_dir
+        local prod_dir
+        prod_dir=$(find_latest_prod)
         server_startup="$prod_dir/$server_name/startup"
     fi
 
@@ -299,7 +293,7 @@ start_server() {
     fi
 }
 
-# ── Start clients ─────────────────────────────────────────────────────────
+# ── Start clients (all remote) ───────────────────────────────────────────
 start_clients() {
     local model_name="${1:-}"
     local model_flag=""
@@ -308,7 +302,7 @@ start_clients() {
         info "Starting clients with MODEL_NAME=$model_name"
     fi
 
-    for site in "${SITES[@]}"; do
+    for site in "${CLIENT_SITES[@]}"; do
         local site_name host deploy_dir datadir scratchdir gpu
         site_name=$(site_var "$site" SITE_NAME)
         host=$(site_var "$site" HOST)
@@ -319,21 +313,12 @@ start_clients() {
 
         info "Starting client: $site_name @ $host"
 
-        if [[ "$host" == "localhost" ]]; then
-            cd "$deploy_dir/$site_name/startup"
-            export SITE_NAME="$site_name"
-            export DATADIR="$datadir"
-            export SCRATCHDIR="$scratchdir"
-            eval "./docker.sh --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
-            cd "$REPO_ROOT"
-        else
-            remote_exec "$site" \
-                "cd '$deploy_dir/$site_name/startup' && \
-                 export SITE_NAME='$site_name' && \
-                 export DATADIR='$datadir' && \
-                 export SCRATCHDIR='$scratchdir' && \
-                 ./docker.sh --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
-        fi
+        remote_exec "$site" \
+            "cd '$deploy_dir/$site_name/startup' && \
+             export SITE_NAME='$site_name' && \
+             export DATADIR='$datadir' && \
+             export SCRATCHDIR='$scratchdir' && \
+             ./docker.sh --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
 
         ok "  Client started: $site_name"
     done
@@ -341,12 +326,10 @@ start_clients() {
     ok "All clients started"
 }
 
-# ── Submit job ────────────────────────────────────────────────────────────
+# ── Submit job (via admin on Cosmos — always local) ──────────────────────
 submit_job() {
     local job_name="$1"
-    local deploy_base
-    deploy_base=$(site_var "$(echo "${SITES[0]}")" DEPLOY_DIR)
-    local admin_startup="$deploy_base/$ADMIN_USER/startup"
+    local admin_startup="$DEPLOY_BASE/$ADMIN_USER/startup"
 
     if [[ ! -d "$admin_startup" ]]; then
         local prod_dir
@@ -393,10 +376,8 @@ EXPECT_EOF
 wait_for_completion() {
     local model_name="$1"
     local timeout_minutes="${2:-$TIMEOUT_MINUTES}"
-    local deploy_base
-    deploy_base=$(site_var "$(echo "${SITES[0]}")" DEPLOY_DIR)
     local server_name="${SERVER_NAME:-dl3.tud.de}"
-    local server_log="$deploy_base/$server_name/startup/nohup.out"
+    local server_log="$DEPLOY_BASE/$server_name/startup/nohup.out"
 
     if [[ ! -f "$server_log" ]]; then
         # Fall back to prod dir
@@ -443,9 +424,6 @@ evaluate_model() {
 
     step "Evaluating $model_name on $EVAL_SITE_NAME"
 
-    # Find the workspace with checkpoints
-    # After swarm training, checkpoints are in the client's scratch dir
-    # The NVFlare global model is saved as FL_global_model.pt and best_FL_global_model.pt
     local prod_dir
     prod_dir=$(find_latest_prod)
 
@@ -456,12 +434,10 @@ evaluate_model() {
     info "  SITE_NAME=$EVAL_SITE_NAME"
     info "  DATA_DIR=$EVAL_DATA_DIR"
 
-    # Run evaluation inside Docker container using the same image
     local eval_output_dir="$RESULTS_DIR/${model_name}_evaluation"
     mkdir -p "$eval_output_dir"
 
-    # Use predict.py with the workspace to discover checkpoints
-    # The predict.py script runs natively (not in Docker) since it imports from the repo
+    # predict.py runs natively on Cosmos (not in Docker) since it imports from the repo
     export DATA_DIR="$EVAL_DATA_DIR"
     export SITE_NAME="$EVAL_SITE_NAME"
     export SCRATCH_DIR="$EVAL_SCRATCH_DIR"
@@ -507,7 +483,7 @@ record_result() {
     "timestamp": "$timestamp",
     "docker_image": "$DOCKER_IMAGE",
     "version": "$VERSION",
-    "sites": $(printf '%s\n' "${SITES[@]}" | jq -R . | jq -s .)
+    "client_sites": $(printf '%s\n' "${CLIENT_SITES[@]}" | jq -R . | jq -s .)
 }
 EOF
 
@@ -525,6 +501,8 @@ run_single_model() {
     echo ""
     info "Docker image: $DOCKER_IMAGE"
     info "Workspace: $WORKSPACE_DIR"
+    info "Server: Cosmos (localhost)"
+    info "Clients: ${CLIENT_SITES[*]}"
     echo ""
 
     local train_status="fail"
@@ -533,17 +511,17 @@ run_single_model() {
     # 1. Stop any existing containers
     stop_all
 
-    # 2. Start server
+    # 2. Start server on Cosmos
     start_server
 
-    # 3. Start clients with MODEL_NAME
+    # 3. Start clients on remote machines
     start_clients "$model_name"
 
     # 4. Wait for clients to register
     info "Waiting 30s for clients to register with server..."
     sleep 30
 
-    # 5. Submit job
+    # 5. Submit job via admin on Cosmos
     submit_job "$job_name"
 
     # 6. Wait for training completion
@@ -596,36 +574,25 @@ generate_summary() {
     local passed=0
     local failed=0
 
-    echo "{"
-    echo '  "results": ['
-
-    local first=true
+    # Print individual results
     for result_file in "$RESULTS_DIR"/deploy_test_*.json; do
         [[ -f "$result_file" ]] || continue
         total=$((total + 1))
 
-        local model train eval
+        local model train eval_stat duration
         model=$(jq -r '.model_name' "$result_file")
         train=$(jq -r '.training_status' "$result_file")
-        eval=$(jq -r '.evaluation_status' "$result_file")
-        local duration
+        eval_stat=$(jq -r '.evaluation_status' "$result_file")
         duration=$(jq -r '.duration_seconds' "$result_file")
 
-        if [[ "$train" == "pass" && "$eval" == "pass" ]]; then
+        if [[ "$train" == "pass" && "$eval_stat" == "pass" ]]; then
             passed=$((passed + 1))
             echo -e "  ${GREEN}PASS${NC}  $model (${duration}s)"
         else
             failed=$((failed + 1))
-            echo -e "  ${RED}FAIL${NC}  $model (train=$train, eval=$eval, ${duration}s)"
+            echo -e "  ${RED}FAIL${NC}  $model (train=$train, eval=$eval_stat, ${duration}s)"
         fi
-
-        if [[ "$first" == true ]]; then
-            first=false
-        else
-            echo ","
-        fi
-        cat "$result_file"
-    done > /dev/null  # summary prints go to stdout
+    done
 
     echo ""
     echo "────────────────────────────────────────"
@@ -643,23 +610,6 @@ generate_summary() {
 }
 EOF
 
-    # Print individual results
-    for result_file in "$RESULTS_DIR"/deploy_test_*.json; do
-        [[ -f "$result_file" ]] || continue
-        local model train eval duration
-        model=$(jq -r '.model_name' "$result_file")
-        train=$(jq -r '.training_status' "$result_file")
-        eval_stat=$(jq -r '.evaluation_status' "$result_file")
-        duration=$(jq -r '.duration_seconds' "$result_file")
-
-        if [[ "$train" == "pass" && "$eval_stat" == "pass" ]]; then
-            echo -e "  ${GREEN}PASS${NC}  $model (${duration}s)"
-        else
-            echo -e "  ${RED}FAIL${NC}  $model (train=$train, eval=$eval_stat, ${duration}s)"
-        fi
-    done
-
-    echo ""
     if [[ $failed -gt 0 ]]; then
         err "$failed model(s) failed the deploy test"
         return 1
