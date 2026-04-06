@@ -574,24 +574,59 @@ wait_for_completion() {
     resolve_server_startup_dir
     local server_log="${_server_startup_dir}/nohup.out"
 
+    # IMPORTANT: nohup.out is APPENDED across server restarts.  If we grep
+    # the whole file we'll match "Server runner finished." left over from a
+    # previous model's run (possibly an abort).  Record how many lines exist
+    # RIGHT NOW so we only search NEW lines added during this run.
+    local start_line=0
+    if [[ -f "$server_log" ]]; then
+        start_line=$(wc -l < "$server_log" 2>/dev/null || echo 0)
+    fi
+
     local max_attempts=$(( timeout_minutes * 2 ))  # Check every 30 seconds
     local attempt=0
 
     info "Waiting for training to complete: $model_name (timeout: ${timeout_minutes}min, checking every 30s)"
-    info "Server log: $server_log"
+    info "Server log: $server_log (scanning from line $((start_line + 1)))"
 
     while [[ $attempt -lt $max_attempts ]]; do
-        if [[ -f "$server_log" ]] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
-            ok "Training completed for $model_name! (after $((attempt * 30))s)"
-            return 0
+        if [[ -f "$server_log" ]]; then
+            local new_lines
+            new_lines=$(tail -n +"$((start_line + 1))" "$server_log" 2>/dev/null || true)
+
+            # Check for fatal errors first — these also produce "Server runner finished."
+            # but indicate failure, not success.
+            if echo "$new_lines" | grep -q 'FATAL_SYSTEM_ERROR\|ABORT_RUN\|EXECUTION_EXCEPTION.*abort' 2>/dev/null; then
+                if echo "$new_lines" | grep -q 'Server runner finished\.' 2>/dev/null; then
+                    err "Training ABORTED for $model_name — fatal error detected (after $((attempt * 30))s)"
+                    # Dump the relevant error lines for debugging
+                    echo "$new_lines" | grep -i 'FATAL\|ABORT\|EXCEPTION\|ERROR' | tail -20 >&2
+                    return 1
+                fi
+            fi
+
+            # Normal successful completion
+            if echo "$new_lines" | grep -q 'Server runner finished\.' 2>/dev/null; then
+                ok "Training completed for $model_name! (after $((attempt * 30))s)"
+                return 0
+            fi
         fi
 
         # Also check if the server container died
         if ! docker ps --format '{{.Names}}' | grep -qE "odelia_swarm|nvflare"; then
-            # Container is gone — check if it completed
-            if [[ -f "$server_log" ]] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
-                ok "Training completed for $model_name (container exited cleanly)"
-                return 0
+            # Container is gone — check if it completed (in NEW lines only)
+            if [[ -f "$server_log" ]]; then
+                local new_lines
+                new_lines=$(tail -n +"$((start_line + 1))" "$server_log" 2>/dev/null || true)
+                if echo "$new_lines" | grep -q 'Server runner finished\.' 2>/dev/null; then
+                    # Could still be an abort — check for errors
+                    if echo "$new_lines" | grep -q 'FATAL_SYSTEM_ERROR\|ABORT_RUN' 2>/dev/null; then
+                        err "Training ABORTED for $model_name (container exited after fatal error)"
+                        return 1
+                    fi
+                    ok "Training completed for $model_name (container exited cleanly)"
+                    return 0
+                fi
             fi
             warn "Server container is no longer running — training may have failed"
             return 1
@@ -617,27 +652,40 @@ evaluate_model() {
 
     mkdir -p "$EVAL_SCRATCH_DIR"
 
-    info "Running predict.py with --workspace on $prod_dir"
-    info "  MODEL_NAME=$model_name"
-    info "  SITE_NAME=$EVAL_SITE_NAME"
-    info "  DATA_DIR=$EVAL_DATA_DIR"
-
     local eval_output_dir="$RESULTS_DIR/${model_name}_evaluation"
     mkdir -p "$eval_output_dir"
 
-    # predict.py runs natively on Cosmos (not in Docker) since it imports from the repo
-    export DATA_DIR="$EVAL_DATA_DIR"
-    export SITE_NAME="$EVAL_SITE_NAME"
-    export SCRATCH_DIR="$EVAL_SCRATCH_DIR"
-    export MODEL_NAME="$model_name"
+    info "Running predict.py INSIDE Docker container"
+    info "  Docker image:  $DOCKER_IMAGE"
+    info "  MODEL_NAME:    $model_name"
+    info "  SITE_NAME:     $EVAL_SITE_NAME"
+    info "  DATA_DIR:      $EVAL_DATA_DIR → /data"
+    info "  SCRATCH_DIR:   $EVAL_SCRATCH_DIR → /scratch"
+    info "  Workspace:     $prod_dir → /workspace"
+    info "  Output:        $eval_output_dir → /output"
 
     local eval_result=0
-    python3 "$REPO_ROOT/scripts/evaluation/predict.py" \
-        --workspace "$prod_dir" \
-        --model-name "$model_name" \
-        --output-dir "$eval_output_dir" \
-        --best-only \
-        --split test \
+    docker run --rm \
+        --gpus=device=0 \
+        --net=host \
+        --ipc=host \
+        -v "$EVAL_DATA_DIR:/data/:ro" \
+        -v "$EVAL_SCRATCH_DIR:/scratch/" \
+        -v "$prod_dir:/workspace/:ro" \
+        -v "$eval_output_dir:/output/" \
+        --env SITE_NAME="$EVAL_SITE_NAME" \
+        --env DATA_DIR=/data \
+        --env SCRATCH_DIR=/scratch \
+        --env MODEL_NAME="$model_name" \
+        --env TORCH_HOME=/torch_home \
+        --env CONFIG=unilateral \
+        "$DOCKER_IMAGE" \
+        python3 /MediSwarm/scripts/evaluation/predict.py \
+            --workspace /workspace \
+            --model-name "$model_name" \
+            --output-dir /output \
+            --best-only \
+            --split test \
         2>&1 | tee "$eval_output_dir/predict_stdout.log" || eval_result=$?
 
     if [[ $eval_result -eq 0 ]]; then
