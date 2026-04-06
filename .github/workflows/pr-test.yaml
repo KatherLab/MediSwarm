@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   validate-swarm:
-    runs-on: self-hosted
+    runs-on: [self-hosted, ci]
     timeout-minutes: 60
 
     env:
