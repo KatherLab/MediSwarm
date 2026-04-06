@@ -188,6 +188,7 @@ docker_config/torch_home_cache
 
 # Deployment credentials (contains passwords — never commit)
 deploy_sites.conf
+deploy_sites_4node_test.conf
 
 # Build output and logs
 challenge_docker_generation.txt
