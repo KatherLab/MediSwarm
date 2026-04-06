@@ -173,6 +173,94 @@ find_latest_prod() {
     ls -d "$WORKSPACE_DIR"/prod_* 2>/dev/null | sort -V | tail -n 1
 }
 
+# ── Resolve the actual server startup directory ─────────────────────────
+# start_server() may use either DEPLOY_BASE or prod_dir.  The wait functions
+# need the same path to find nohup.out.  Call this after start_server().
+_server_startup_dir=""
+
+resolve_server_startup_dir() {
+    local server_name="${SERVER_NAME:-dl3.tud.de}"
+    local candidate="$DEPLOY_BASE/$server_name/startup"
+    if [[ -d "$candidate" ]]; then
+        _server_startup_dir="$candidate"
+    else
+        local prod_dir
+        prod_dir=$(find_latest_prod)
+        candidate="$prod_dir/$server_name/startup"
+        if [[ -d "$candidate" ]]; then
+            _server_startup_dir="$candidate"
+        else
+            _server_startup_dir=""
+        fi
+    fi
+}
+
+# ── Fix DNS: ensure remote clients can reach the NVFlare server ──────────
+# The NVFlare server name (dl3.tud.de) must resolve to Cosmos's Tailscale IP
+# on all remote machines.  Some machines have stale /etc/hosts entries pointing
+# to a LAN IP (192.168.33.195) that isn't reachable via Tailscale.
+fix_remote_dns() {
+    local server_fqdn="${SERVER_NAME:-dl3.tud.de}"
+    local cosmos_ip
+    cosmos_ip=$(tailscale ip -4 2>/dev/null) || {
+        err "Cannot determine Cosmos Tailscale IP (is tailscale running?)"
+        return 1
+    }
+
+    step "Ensuring $server_fqdn resolves to $cosmos_ip on all remote machines"
+
+    local -A visited_hosts=()
+    for site in "${CLIENT_SITES[@]}"; do
+        local host
+        host=$(site_var "$site" HOST)
+        [[ -n "${visited_hosts[$host]:-}" ]] && continue
+        visited_hosts[$host]=1
+
+        # Skip if this machine IS Cosmos
+        [[ "$host" == "localhost" || "$host" == "127.0.0.1" || "$host" == "$cosmos_ip" ]] && continue
+
+        info "Checking /etc/hosts on $host for $server_fqdn ..."
+
+        # Read the current mapping (if any)
+        local current_ip
+        current_ip=$(remote_exec "$site" \
+            "grep -E '\\b${server_fqdn}\\b' /etc/hosts 2>/dev/null | awk '{print \$1}' | head -1" \
+            2>/dev/null || true)
+
+        if [[ "$current_ip" == "$cosmos_ip" ]]; then
+            ok "  $host already maps $server_fqdn → $cosmos_ip"
+            continue
+        fi
+
+        if [[ -n "$current_ip" ]]; then
+            info "  $host maps $server_fqdn → $current_ip (wrong, updating to $cosmos_ip)"
+            # Replace the existing entry
+            remote_exec "$site" \
+                "echo '$(site_var "$site" PASS)' | sudo -S sed -i 's|^.*\\b${server_fqdn}\\b.*\$|${cosmos_ip} ${server_fqdn}|' /etc/hosts" \
+                2>/dev/null
+        else
+            info "  $host has no entry for $server_fqdn (adding)"
+            remote_exec "$site" \
+                "echo '$(site_var "$site" PASS)' | sudo -S bash -c 'echo \"${cosmos_ip} ${server_fqdn}\" >> /etc/hosts'" \
+                2>/dev/null
+        fi
+
+        # Verify
+        local verify_ip
+        verify_ip=$(remote_exec "$site" \
+            "grep -E '\\b${server_fqdn}\\b' /etc/hosts | awk '{print \$1}' | head -1" \
+            2>/dev/null || true)
+        if [[ "$verify_ip" == "$cosmos_ip" ]]; then
+            ok "  $host now maps $server_fqdn → $cosmos_ip"
+        else
+            err "  Failed to update /etc/hosts on $host (got: $verify_ip)"
+            return 1
+        fi
+    done
+
+    ok "DNS resolution verified on all remote machines"
+}
+
 # ── Stop all containers ───────────────────────────────────────────────────
 stop_all() {
     info "Stopping all NVFlare containers..."
@@ -200,6 +288,20 @@ stop_all() {
              docker ps -a --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare' | xargs -r docker rm -f 2>/dev/null" \
             2>/dev/null || warn "  Could not stop containers on $host"
     done
+
+    # Clean up root-owned files left by NVFlare server container in DEPLOY_BASE.
+    # The Docker container runs as root, creating workspace files (UUID dirs)
+    # that non-root users can't delete.  This blocks the next deploy_kits() run.
+    local server_name="${SERVER_NAME:-dl3.tud.de}"
+    local server_dir="$DEPLOY_BASE/$server_name"
+    if [[ -d "$server_dir" ]]; then
+        # Remove the entire server dir (deploy_kits will re-create it).
+        # Needs sudo/docker because NVFlare creates root-owned workspace files.
+        sudo rm -rf "$server_dir" 2>/dev/null \
+            || docker run --rm -v "$DEPLOY_BASE:/cleanup" alpine \
+                rm -rf "/cleanup/$server_name" 2>/dev/null \
+            || warn "Could not fully clean $server_dir (root-owned files may remain)"
+    fi
 
     # Wait for containers to fully stop
     sleep 5
@@ -304,6 +406,9 @@ start_server() {
         exit 1
     fi
 
+    # Record which dir was actually used so wait functions can find nohup.out
+    _server_startup_dir="$server_startup"
+
     info "Starting server from: $server_startup"
     cd "$server_startup"
     ./docker.sh --no_pull --start_server
@@ -354,8 +459,8 @@ start_clients() {
 
 # ── Wait for all clients to register with the server ─────────────────────
 wait_for_client_registration() {
-    local server_name="${SERVER_NAME:-dl3.tud.de}"
-    local server_log="$DEPLOY_BASE/$server_name/startup/nohup.out"
+    resolve_server_startup_dir
+    local server_log="${_server_startup_dir}/nohup.out"
     local max_wait=600  # 10 minutes — image pull on slow links can take a while
     local elapsed=0
     local expected_clients=("${CLIENT_SITES[@]}")
@@ -466,15 +571,8 @@ EXPECT_EOF
 wait_for_completion() {
     local model_name="$1"
     local timeout_minutes="${2:-$TIMEOUT_MINUTES}"
-    local server_name="${SERVER_NAME:-dl3.tud.de}"
-    local server_log="$DEPLOY_BASE/$server_name/startup/nohup.out"
-
-    if [[ ! -f "$server_log" ]]; then
-        # Fall back to prod dir
-        local prod_dir
-        prod_dir=$(find_latest_prod)
-        server_log="$prod_dir/$server_name/startup/nohup.out"
-    fi
+    resolve_server_startup_dir
+    local server_log="${_server_startup_dir}/nohup.out"
 
     local max_attempts=$(( timeout_minutes * 2 ))  # Check every 30 seconds
     local attempt=0
@@ -726,9 +824,15 @@ if [[ ! -d "$WORKSPACE_DIR" ]]; then
     exit 1
 fi
 
+# Clean up any leftover containers and root-owned files from previous runs
+stop_all
+
 # Deploy startup kits to all sites (once — shared across all models)
 step "Deploying startup kits to all sites"
 deploy_kits
+
+# Fix DNS on remote machines so they can reach the NVFlare server on Cosmos
+fix_remote_dns
 
 # Pre-pull Docker image on all remote machines (avoids slow pull during client startup)
 pre_pull_images
