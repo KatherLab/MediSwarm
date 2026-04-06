@@ -23,6 +23,12 @@ jobs:
     timeout-minutes: 1440  # 24 hours (6 models x ~2-4h each)
 
     steps:
+      - name: Clean root-owned files from previous runs
+        run: |
+          # NVFlare server container creates root-owned workspace files that
+          # block actions/checkout@v4's git clean.  Remove them before checkout.
+          sudo rm -rf "$GITHUB_WORKSPACE/workspace" "$GITHUB_WORKSPACE/deploy_test" 2>/dev/null || true
+
       - uses: actions/checkout@v4
         with:
           submodules: true
