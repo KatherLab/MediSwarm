@@ -1,6 +1,6 @@
 api_version: 3
 name: odelia_deploy_test___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___model_test
-description: ODELIA 4-site deploy test across Tailscale VPN (Cosmos, dl0, dl2, dl3)
+description: ODELIA 4-client deploy test across Tailscale VPN (dl0, dl2, dl3; server on Cosmos)
 
 participants:
   - name: dl3.tud.de

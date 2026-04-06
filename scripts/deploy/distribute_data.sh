@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # ============================================================================
-# distribute_data.sh — One-time data distribution for 4-site ODELIA deploy test
+# distribute_data.sh — One-time data distribution for 4-client ODELIA deploy test
 #
-# Copies institution data from dl3 (source of truth) to dl0 and dl2 via
-# Cosmos as an intermediary. Cosmos already has all data locally.
+# Copies institution data from dl3 (source of truth) to dl0 and dl2.
+# dl3 already has all 5 institution datasets locally, including UMCU_1 and CAM_1
+# which it trains on (two clients on one machine).
 #
 # Data source: dl3:/mnt/swarm_alpha/Odelia_challange/ODELIA_Challenge_unilateral/
 # Layout per institution: {INSTITUTION}/data_unilateral/ + metadata_unilateral/
 #
 # Target layout after distribution:
-#   Cosmos: /mnt/sda1/ODELIA_Challenge_unilateral/{UMCU_1,UKA_1}/  (already present)
-#   dl0:    /mnt/scratch/odelia_data/RUMC_1/                       (copied from dl3)
-#   dl2:    /mnt/scratch/odelia_data/MHA_1/                        (copied from dl3)
-#   dl3:    /mnt/swarm_alpha/.../CAM_1/                            (already present)
+#   Cosmos: /mnt/sda1/ODELIA_Challenge_unilateral/{UKA_1}  (eval data, pre-existing)
+#   dl0:    /mnt/dlhd0/odelia_data/RUMC_1/                 (copied from dl3)
+#   dl2:    /mnt/sda1/odelia_data/MHA_1/                   (copied from dl3)
+#   dl3:    /mnt/swarm_alpha/.../CAM_1/ + UMCU_1/          (source, pre-existing)
 #
 # Usage:
 #   ./scripts/deploy/distribute_data.sh [--dry-run]
@@ -61,8 +62,8 @@ DL2_USER="swarm"
 DL2_PASS="Ekfz2ekfz"
 DL2_DATA_DIR="/mnt/sda1/odelia_data"
 
-# Cosmos local data (already present)
-COSMOS_DATA_DIR="/mnt/sda1/ODELIA_Challenge_unilateral"
+# Cosmos local data (evaluation only — UKA_1)
+COSMOS_EVAL_DIR="/mnt/sda1/ODELIA_Challenge_unilateral"
 
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 
@@ -85,19 +86,17 @@ for inst in CAM_1 MHA_1 RUMC_1 UKA_1 UMCU_1; do
     fi
 done
 
-# ── Verify Cosmos local data ──────────────────────────────────────────────
-step "Verifying local data on Cosmos"
+# ── Verify Cosmos evaluation data ─────────────────────────────────────────
+step "Verifying evaluation data on Cosmos"
 
-for inst in UMCU_1 UKA_1; do
-    if [[ -d "$COSMOS_DATA_DIR/$inst/data_unilateral" ]]; then
-        ok "  $inst/data_unilateral exists locally"
-    else
-        err "  $inst/data_unilateral NOT FOUND at $COSMOS_DATA_DIR/$inst/"
-        exit 1
-    fi
-done
+if [[ -d "$COSMOS_EVAL_DIR/UKA_1/data_unilateral" ]]; then
+    ok "  UKA_1/data_unilateral exists locally (for evaluation)"
+else
+    err "  UKA_1/data_unilateral NOT FOUND at $COSMOS_EVAL_DIR/UKA_1/"
+    exit 1
+fi
 
-# ── Helper: copy data from dl3 to a target machine via Cosmos ─────────────
+# ── Helper: copy data from dl3 to a target machine ──────────────────────
 # Strategy: SSH into dl3 and run scp FROM dl3 TO the target machine directly.
 # This avoids downloading to Cosmos and re-uploading (which would be slow for
 # large NIfTI datasets).
@@ -153,10 +152,10 @@ copy_data_via_dl3 "RUMC_1" "$DL0_HOST" "$DL0_USER" "$DL0_PASS" "$DL0_DATA_DIR"
 # ── Summary ───────────────────────────────────────────────────────────────
 step "Data Distribution Summary"
 echo ""
-echo "  Cosmos (localhost):  $COSMOS_DATA_DIR/{UMCU_1,UKA_1}  [local, pre-existing]"
-echo "  dl0 ($DL0_HOST):     $DL0_DATA_DIR/RUMC_1                [copied from dl3]"
-echo "  dl2 ($DL2_HOST):     $DL2_DATA_DIR/MHA_1               [copied from dl3]"
-echo "  dl3 ($DL3_HOST):     $DL3_DATA_ROOT/CAM_1             [source, pre-existing]"
+echo "  Cosmos (localhost):  $COSMOS_EVAL_DIR/UKA_1  [evaluation data, pre-existing]"
+echo "  dl0 ($DL0_HOST):     $DL0_DATA_DIR/RUMC_1    [copied from dl3]"
+echo "  dl2 ($DL2_HOST):     $DL2_DATA_DIR/MHA_1     [copied from dl3]"
+echo "  dl3 ($DL3_HOST):     $DL3_DATA_ROOT/{CAM_1,UMCU_1}  [source, pre-existing]"
 echo ""
 
 if $DRY_RUN; then
