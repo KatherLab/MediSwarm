@@ -726,23 +726,10 @@ EOF
     info "Result recorded: $result_file"
 }
 
-# ── Run one model through the full cycle ──────────────────────────────────
-run_single_model() {
+# ── Run one training attempt ──────────────────────────────────────────────
+_run_training_attempt() {
     local job_name="$1"
     local model_name="$2"
-    local start_time
-    start_time=$(date +%s)
-
-    step "Running deploy test: $model_name (job: $job_name)"
-    echo ""
-    info "Docker image: $DOCKER_IMAGE"
-    info "Workspace: $WORKSPACE_DIR"
-    info "Server: Cosmos (localhost)"
-    info "Clients: ${CLIENT_SITES[*]}"
-    echo ""
-
-    local train_status="fail"
-    local eval_status="skipped"
 
     # 1. Stop any existing containers
     stop_all
@@ -761,15 +748,50 @@ run_single_model() {
 
     # 6. Wait for training completion
     if wait_for_completion "$model_name"; then
-        train_status="pass"
+        return 0
     else
-        train_status="fail"
+        return 1
     fi
+}
 
-    # 7. Stop containers
+# ── Run one model through the full cycle ──────────────────────────────────
+MAX_RETRIES=2  # Total attempts = 1 + MAX_RETRIES
+
+run_single_model() {
+    local job_name="$1"
+    local model_name="$2"
+    local start_time
+    start_time=$(date +%s)
+
+    step "Running deploy test: $model_name (job: $job_name)"
+    echo ""
+    info "Docker image: $DOCKER_IMAGE"
+    info "Workspace: $WORKSPACE_DIR"
+    info "Server: Cosmos (localhost)"
+    info "Clients: ${CLIENT_SITES[*]}"
+    echo ""
+
+    local train_status="fail"
+    local eval_status="skipped"
+
+    # Retry loop: transient failures (e.g. worker process race on dl3
+    # when two NVFlare clients share the same machine) resolve on restart.
+    local attempt=1
+    while [[ $attempt -le $((MAX_RETRIES + 1)) ]]; do
+        if [[ $attempt -gt 1 ]]; then
+            warn "Retry $((attempt - 1))/$MAX_RETRIES for $model_name"
+        fi
+        if _run_training_attempt "$job_name" "$model_name"; then
+            train_status="pass"
+            break
+        fi
+        attempt=$((attempt + 1))
+    done
+
+    # Stop containers after training (pass or final failure)
     stop_all
 
-    # 8. Evaluate on UKA_1 (only if training passed)
+    # Evaluate on UKA_1 (only if training passed)
     if [[ "$train_status" == "pass" ]]; then
         if evaluate_model "$model_name" "$job_name"; then
             eval_status="pass"
@@ -781,7 +803,7 @@ run_single_model() {
         eval_status="skipped"
     fi
 
-    # 9. Record result
+    # Record result
     local end_time
     end_time=$(date +%s)
     local duration=$(( end_time - start_time ))
