@@ -34,6 +34,13 @@ jobs:
             -p application/provision/project_deploy_test_4site.yml \
             --use-docker-cache
 
+      - name: Copy deploy site credentials (gitignored)
+        run: |
+          # deploy_sites_4node_test.conf contains site passwords and is
+          # gitignored, so it doesn't exist in the checkout.  Copy the
+          # persistent copy that lives in the dev checkout on Cosmos.
+          cp /home/jeff/Projects/MediSwarm/deploy_sites_4node_test.conf .
+
       - name: Run all 6 models deploy test
         run: |
           ./scripts/deploy/run_deploy_test.sh \
