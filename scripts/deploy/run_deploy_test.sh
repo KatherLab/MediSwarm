@@ -206,6 +206,32 @@ stop_all() {
     ok "All containers stopped"
 }
 
+# ── Pre-pull Docker image on all remote machines ─────────────────────────
+pre_pull_images() {
+    step "Pre-pulling Docker image on remote machines"
+    info "Image: $DOCKER_IMAGE"
+
+    # Track unique hosts to avoid pulling on the same machine twice
+    local -A visited_hosts=()
+    for site in "${CLIENT_SITES[@]}"; do
+        local host
+        host=$(site_var "$site" HOST)
+        if [[ -n "${visited_hosts[$host]:-}" ]]; then
+            continue
+        fi
+        visited_hosts[$host]=1
+
+        info "Pulling $DOCKER_IMAGE on $host ..."
+        remote_exec "$site" "docker pull '$DOCKER_IMAGE'" || {
+            err "Failed to pull image on $host"
+            exit 1
+        }
+        ok "  Image pulled on $host"
+    done
+
+    ok "Docker image available on all remote machines"
+}
+
 # ── Deploy startup kits ───────────────────────────────────────────────────
 deploy_kits() {
     local prod_dir
@@ -318,12 +344,76 @@ start_clients() {
              export SITE_NAME='$site_name' && \
              export DATADIR='$datadir' && \
              export SCRATCHDIR='$scratchdir' && \
-             ./docker.sh --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
+             ./docker.sh --no_pull --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
 
         ok "  Client started: $site_name"
     done
 
     ok "All clients started"
+}
+
+# ── Wait for all clients to register with the server ─────────────────────
+wait_for_client_registration() {
+    local server_name="${SERVER_NAME:-dl3.tud.de}"
+    local server_log="$DEPLOY_BASE/$server_name/startup/nohup.out"
+    local max_wait=600  # 10 minutes — image pull on slow links can take a while
+    local elapsed=0
+    local expected_clients=("${CLIENT_SITES[@]}")
+
+    info "Waiting for all ${#expected_clients[@]} clients to register (timeout: ${max_wait}s)"
+    info "Server log: $server_log"
+
+    while [[ $elapsed -lt $max_wait ]]; do
+        local all_registered=true
+        for site in "${expected_clients[@]}"; do
+            local site_name
+            site_name=$(site_var "$site" SITE_NAME)
+            if [[ -f "$server_log" ]] && grep -q "New client ${site_name}@" "$server_log" 2>/dev/null; then
+                :  # Client registered
+            else
+                all_registered=false
+                break
+            fi
+        done
+
+        if $all_registered; then
+            ok "All ${#expected_clients[@]} clients registered with the server"
+            # Give a few extra seconds for clients to settle
+            sleep 5
+            return 0
+        fi
+
+        sleep 10
+        elapsed=$((elapsed + 10))
+
+        if (( elapsed % 60 == 0 )); then
+            # Show which clients are registered so far
+            local registered=0
+            for site in "${expected_clients[@]}"; do
+                local site_name
+                site_name=$(site_var "$site" SITE_NAME)
+                if [[ -f "$server_log" ]] && grep -q "New client ${site_name}@" "$server_log" 2>/dev/null; then
+                    registered=$((registered + 1))
+                fi
+            done
+            info "  ${registered}/${#expected_clients[@]} clients registered (${elapsed}s elapsed)"
+        fi
+    done
+
+    # Timeout: show which clients are missing
+    warn "Timed out waiting for client registration. Status:"
+    for site in "${expected_clients[@]}"; do
+        local site_name
+        site_name=$(site_var "$site" SITE_NAME)
+        if [[ -f "$server_log" ]] && grep -q "New client ${site_name}@" "$server_log" 2>/dev/null; then
+            ok "    $site_name — registered"
+        else
+            err "    $site_name — NOT registered"
+        fi
+    done
+
+    err "Not all clients registered within ${max_wait}s"
+    return 1
 }
 
 # ── Submit job (via admin on Cosmos — always local) ──────────────────────
@@ -517,9 +607,8 @@ run_single_model() {
     # 3. Start clients on remote machines
     start_clients "$model_name"
 
-    # 4. Wait for clients to register
-    info "Waiting 30s for clients to register with server..."
-    sleep 30
+    # 4. Wait for ALL clients to register with the server
+    wait_for_client_registration
 
     # 5. Submit job via admin on Cosmos
     submit_job "$job_name"
@@ -640,6 +729,9 @@ fi
 # Deploy startup kits to all sites (once — shared across all models)
 step "Deploying startup kits to all sites"
 deploy_kits
+
+# Pre-pull Docker image on all remote machines (avoids slow pull during client startup)
+pre_pull_images
 
 if [[ "$RUN_ALL" == true ]]; then
     # Run all 6 models sequentially
