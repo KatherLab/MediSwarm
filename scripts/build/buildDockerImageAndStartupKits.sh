@@ -14,21 +14,24 @@ fi
 
 DOCKER_BUILD_ARGS="--no-cache --progress=plain";
 DOCKERFILE="docker_config/Dockerfile_ODELIA"
+NUM_ROUNDS_OVERRIDE=""
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -p)                  PROJECT_FILE="$2"; shift ;;
         -d|--dockerfile)     DOCKERFILE="$2"; shift ;;
         --use-docker-cache)  DOCKER_BUILD_ARGS="";;
+        --num-rounds)        NUM_ROUNDS_OVERRIDE="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
 done
 
 if [ -z "$PROJECT_FILE" ]; then
-    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [-d <Dockerfile>] [--use-docker-cache]"
+    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [-d <Dockerfile>] [--use-docker-cache] [--num-rounds N]"
     echo "  -d  Dockerfile to use (default: docker_config/Dockerfile_ODELIA)"
     echo "      For STAMP builds, use: -d docker_config/Dockerfile_STAMP"
+    echo "  --num-rounds  Override num_rounds in all config_fed_server.conf (for CI/CD testing)"
     exit 1
 fi
 
@@ -56,6 +59,13 @@ chmod a+rX . -R
 # replacements in copy of source code
 sed -i 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__#'$VERSION'#' docker_config/master_template.yml
 sed -i 's#__REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__#'$CONTAINER_VERSION_ID'#' docker_config/master_template.yml
+
+# Override num_rounds in all server configs if requested (CI/CD testing)
+if [[ -n "$NUM_ROUNDS_OVERRIDE" ]]; then
+    echo "Overriding num_rounds to $NUM_ROUNDS_OVERRIDE in all config_fed_server.conf files"
+    find application/jobs -name "config_fed_server.conf" -exec \
+        sed -i 's/num_rounds = [0-9]\+/num_rounds = '"$NUM_ROUNDS_OVERRIDE"'/' {} \;
+fi
 
 # Only cache pretrained model weights for ODELIA builds (STAMP uses pre-extracted
 # H5 features and doesn't need DINOv2/challenge weights in the Docker image)

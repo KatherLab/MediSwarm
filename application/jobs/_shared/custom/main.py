@@ -51,7 +51,7 @@ def main():
         )
 
         if TRAINING_MODE == TM_SWARM:
-            flare.patch(trainer)  # Patch trainer to enable swarm learning
+            flare.patch(trainer, load_state_dict_strict=False)  # Patch trainer to enable swarm learning; strict=False allows _class_weight buffer mismatch between server persistor (no class weights) and client models (with class weights computed from training data)
             torch.autograd.set_detect_anomaly(True)
 
             logger.info(f"Site name: {SITE_NAME}")
