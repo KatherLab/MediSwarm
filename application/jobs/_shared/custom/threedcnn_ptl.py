@@ -220,12 +220,16 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
         for c in classes_in_train:
             class_counts[c] = class_counts.get(c, 0) + 1
         n_samples = len(classes_in_train)
-        n_classes = len(class_counts)
-        # Inverse frequency weighting: w_i = n_samples / (n_classes * count_i)
-        class_weights = torch.zeros(n_classes)
-        for cls_idx in range(n_classes):
-            count = class_counts.get(cls_idx, 1)  # avoid division by zero
-            class_weights[cls_idx] = n_samples / (n_classes * count)
+        # Use the full number of classes (num_classes) rather than only the
+        # classes present in this site's training split.  If a site is missing
+        # a class, the weight for that class defaults to 1.0 (the fallback
+        # value from torch.zeros replaced below).  This prevents a shape
+        # mismatch when CrossEntropyLoss expects weights for all classes.
+        class_weights = torch.ones(num_classes)
+        for cls_idx in range(num_classes):
+            count = class_counts.get(cls_idx, 0)
+            if count > 0:
+                class_weights[cls_idx] = n_samples / (num_classes * count)
         logger.info(f"Computed class weights from training set: {class_weights.tolist()}")
         logger.info(f"Class counts: {class_counts}")
     except Exception as e:
