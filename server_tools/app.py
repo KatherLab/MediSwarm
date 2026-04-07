@@ -291,9 +291,44 @@ def _read_heartbeat(run_dir: Path) -> dict[str, Any]:
         if p.exists():
             try:
                 return json.loads(p.read_text())
+            except json.JSONDecodeError:
+                # Try to salvage malformed JSON (e.g. doubled quotes from
+                # build_heartbeat.sh extracting version strings with trailing ")
+                try:
+                    raw = p.read_text()
+                    # Strip ANSI escape codes first
+                    fixed = re.sub(r'\x1b\[[0-9;]*m', '', raw)
+                    # Fix doubled trailing quote on non-empty values:
+                    # "some_value"" -> "some_value"
+                    # Must NOT match empty strings "" which are valid JSON.
+                    # Pattern: a word char followed by ""[,}\n] means extra quote
+                    fixed = re.sub(r'(\w)""(\s*[,}\n])', r'\1"\2', fixed)
+                    return json.loads(fixed)
+                except Exception:
+                    pass
             except Exception:
                 pass
     return {}
+
+
+def _check_console_for_errors(run_dir: Path) -> bool:
+    """Check console output for fatal error patterns."""
+    for name in ["nohup.out", "local_training_console_output.txt"]:
+        p = run_dir / name
+        if p.exists():
+            try:
+                # Read last 50KB to check for errors near the end
+                text = p.read_text(errors="replace")[-50_000:]
+                if re.search(
+                    r"FATAL_SYSTEM_ERROR|EXECUTION_EXCEPTION.*abort|"
+                    r"ABORT_RUN|RuntimeError:|OutOfMemoryError:|"
+                    r"CUDA out of memory",
+                    text,
+                ):
+                    return True
+            except Exception:
+                pass
+    return False
 
 
 def _infer_status(hb: dict[str, Any], run_dir: Path) -> str:
@@ -303,6 +338,7 @@ def _infer_status(hb: dict[str, Any], run_dir: Path) -> str:
     - If heartbeat_final.json exists -> use its status (typically "finished")
     - If status is "running" but heartbeat is >5 min old -> "stale"
     - If status is "running" but heartbeat is >1 hour old -> "finished" (presumed)
+    - If console output contains fatal error patterns -> "error"
     - Otherwise use heartbeat status as-is
     """
     has_final = (run_dir / "heartbeat_final.json").exists()
@@ -311,15 +347,24 @@ def _infer_status(hb: dict[str, Any], run_dir: Path) -> str:
     if has_final:
         try:
             final = json.loads((run_dir / "heartbeat_final.json").read_text())
-            return final.get("status", raw_status)
+            final_status = final.get("status", raw_status)
+            # Check if finished but with errors in console
+            if final_status == "finished" and _check_console_for_errors(run_dir):
+                return "error"
+            return final_status
         except Exception:
             pass
 
     if raw_status == "running":
         age = _age_seconds(hb.get("timestamp", ""))
         if age > 3600:
+            # Check for errors before declaring finished
+            if _check_console_for_errors(run_dir):
+                return "error"
             return "finished"
         if age > 300:
+            if _check_console_for_errors(run_dir):
+                return "error"
             return "stale"
 
     return raw_status
@@ -420,6 +465,7 @@ def rows() -> list[dict[str, Any]]:
                         "age": age,
                         "age_seconds": _age_seconds(ts),
                         "kit_version": hb.get("kit_version", ""),
+                        "hostname": hb.get("hostname", ""),
                         "has_console": (run_dir / "nohup.out").exists()
                         or (run_dir / "local_training_console_output.txt").exists(),
                         "has_log": (run_dir / "log.txt").exists(),
@@ -516,6 +562,55 @@ def _extract_training_summary(text: str) -> dict[str, Any]:
         summary["total_rounds"] = max(int(r) for r in round_matches)
 
     return summary
+
+
+def _parse_label_distribution(text: str) -> dict[str, Any]:
+    """Parse label distribution from console output.
+
+    Looks for lines like:
+      Total samples in training set: 22
+      Samples in training set of class 0: 15 (68.2%)
+      Samples in training set of class 1: 5 (22.7%)
+      Samples in training set of class 2: 2 (9.1%)
+    """
+    dist: dict[str, dict[str, int | float]] = {}
+    # Total samples per split
+    for m in re.finditer(
+        r"Total samples in (\w+) set:\s*(\d+)", text
+    ):
+        split = m.group(1)  # training, validation, test
+        dist.setdefault(split, {})["total"] = int(m.group(2))
+
+    # Per-class counts
+    for m in re.finditer(
+        r"Samples in (\w+) set of class (\d+):\s*(\d+)\s*\(([\d.]+)%\)", text
+    ):
+        split = m.group(1)
+        cls = int(m.group(2))
+        count = int(m.group(3))
+        dist.setdefault(split, {})[f"class_{cls}"] = count
+
+    if not dist:
+        return {}
+
+    # Build structured output: {splits: [...], classes: [...], counts: {split: [count_per_class]}}
+    splits = sorted(dist.keys(), key=lambda s: {"training": 0, "validation": 1, "test": 2}.get(s, 9))
+    # Determine class list from all splits
+    all_classes = sorted({
+        k for split_data in dist.values() for k in split_data if k.startswith("class_")
+    })
+    result: dict[str, Any] = {
+        "splits": splits,
+        "classes": [c.replace("class_", "Class ") for c in all_classes],
+        "counts": {},
+        "totals": {},
+    }
+    for split in splits:
+        split_data = dist[split]
+        result["counts"][split] = [split_data.get(c, 0) for c in all_classes]
+        result["totals"][split] = split_data.get("total", sum(result["counts"][split]))
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -634,7 +729,7 @@ def index(
             )
             run_name = items[0].get("run_name", "") if items else ""
             table_rows.append(
-                f"""<tr class="job-group-row"><td colspan="10">
+                f"""<tr class="job-group-row"><td colspan="11">
                 Job: <span class="job-id">{html_escape(job_id)}</span>
                 &nbsp;&middot;&nbsp; {n_items} client(s): {html_escape(sites)}
                 &nbsp;&middot;&nbsp; {_status_badge(job_status)}
@@ -653,7 +748,7 @@ def index(
     body = f"""
 <header>
   <h1>MediSwarm Live Monitor</h1>
-  <div class="meta">Refreshed {now_str}
+  <div class="meta"><span id="refresh-status">Refreshed {now_str}</span>
     <a href="/" title="Refresh now">Refresh</a>
     &middot; <a href="/api/runs">API</a></div>
 </header>
@@ -662,15 +757,42 @@ def index(
 {filter_html}
 <table>
 <thead><tr>
-  <th>Site</th><th>Mode</th><th>Run</th><th>Status</th><th>Age</th>
+  <th>Site</th><th>Host</th><th>Mode</th><th>Run</th><th>Status</th><th>Age</th>
   <th>Version</th><th>Artifacts</th><th>Size</th><th>Server Path</th><th>Links</th>
 </tr></thead>
 <tbody>
 {''.join(table_rows)}
 </tbody>
 </table>
-</main>"""
-    return _html_page("MediSwarm Monitor", body, refresh=30)
+</main>
+<script>
+// Client-side age ticking: update all age cells every second
+function tickAges() {{
+  document.querySelectorAll('[data-timestamp]').forEach(el => {{
+    const ts = el.getAttribute('data-timestamp');
+    if (!ts) return;
+    try {{
+      const dt = new Date(ts.replace('Z', '+00:00'));
+      const secs = Math.floor((Date.now() - dt.getTime()) / 1000);
+      if (secs < 0) {{ el.textContent = '0s'; return; }}
+      if (secs < 60) el.textContent = secs + 's';
+      else if (secs < 3600) el.textContent = Math.floor(secs/60) + 'm ' + (secs%60) + 's';
+      else if (secs < 86400) el.textContent = Math.floor(secs/3600) + 'h ' + Math.floor((secs%3600)/60) + 'm';
+      else el.textContent = Math.floor(secs/86400) + 'd ' + Math.floor((secs%86400)/3600) + 'h';
+      // Update age class
+      el.className = '';
+      if (secs > 600) el.className = 'age-dead';
+      else if (secs > 120) el.className = 'age-stale';
+    }} catch(e) {{}}
+  }});
+}}
+setInterval(tickAges, 1000);
+tickAges();
+
+// Auto-refresh page every 30 seconds via full reload (preserves filter state)
+setTimeout(() => location.reload(), 30000);
+</script>"""
+    return _html_page("MediSwarm Monitor", body)
 
 
 def _build_table_row(x: dict[str, Any]) -> str:
@@ -714,9 +836,22 @@ def _build_table_row(x: dict[str, Any]) -> str:
     if x["job_id"]:
         run_display += f'<br><span class="job-id">job: {html_escape(x["job_id"][:8])}...</span>'
 
+    # Age: use data-timestamp for client-side ticking
+    ts_attr = html_escape(x.get("timestamp", ""))
     age_cls = _age_class(x["age"])
     age_td = (
-        f'<span class="{age_cls}">{x["age"]}</span>' if age_cls else x["age"]
+        f'<span data-timestamp="{ts_attr}" class="{age_cls}">{x["age"]}</span>'
+        if ts_attr
+        else x["age"]
+    )
+
+    # Hostname
+    hostname = x.get("hostname", "")
+    hostname_td = (
+        f'<span class="version" title="{html_escape(hostname)}">'
+        f'{html_escape(hostname[:20])}</span>'
+        if hostname
+        else '<span class="no">-</span>'
     )
 
     version = (
@@ -733,6 +868,7 @@ def _build_table_row(x: dict[str, Any]) -> str:
 
     return f"""<tr>
   <td>{html_escape(x['site'])}</td>
+  <td>{hostname_td}</td>
   <td>{html_escape(x['mode'])}</td>
   <td>{run_display}</td>
   <td>{_status_badge(x['status'])}</td>
@@ -762,6 +898,7 @@ def detail(site: str, mode: str, run_id: str):
     checkpoints = _find_checkpoints(run_dir)
     all_files = _find_all_files(run_dir)
     training_summary = _extract_training_summary(console_text)
+    label_dist = _parse_label_distribution(console_text)
 
     # -- Heartbeat info card --
     hb_display_keys = [
@@ -781,6 +918,7 @@ def detail(site: str, mode: str, run_id: str):
         ("last_ckpt", "Last Checkpoint (client)"),
         ("epoch_ckpt", "Epoch Checkpoint (client)"),
         ("tb_file", "TensorBoard File (client)"),
+        ("hostname", "Hostname"),
     ]
     hb_rows = ""
     # Add inferred status first
@@ -925,6 +1063,7 @@ const colors = {{
   'train_auc_roc': '#e67e22', 'val_auc_roc': '#c0392b',
   'test_auc_roc': '#f39c12'
 }};
+const defaultVisible = ['train_acc','val_acc','train_auc_roc','val_auc_roc'];
 const datasets = [];
 for (const [key, values] of Object.entries(metricsData.series)) {{
   datasets.push({{
@@ -934,7 +1073,8 @@ for (const [key, values] of Object.entries(metricsData.series)) {{
     backgroundColor: 'transparent',
     tension: 0.3,
     pointRadius: 2,
-    borderWidth: 2
+    borderWidth: 2,
+    hidden: !defaultVisible.includes(key)
   }});
 }}
 new Chart(ctx, {{
@@ -986,6 +1126,9 @@ const tbColors = ['#27ae60','#2980b9','#8e44ad','#e67e22','#c0392b',
 const tbDatasets = [];
 let colorIdx = 0;
 for (const [tag, data] of Object.entries(tbData)) {{
+  const tagLower = tag.toLowerCase();
+  const isDefault = tagLower.includes('acc') || tagLower.includes('auc_roc')
+                    || tagLower.includes('auroc') || tagLower.includes('auc-roc');
   tbDatasets.push({{
     label: tag,
     data: data.steps.map((s, i) => ({{ x: s, y: data.values[i] }})),
@@ -994,7 +1137,8 @@ for (const [tag, data] of Object.entries(tbData)) {{
     tension: 0.3,
     pointRadius: 1,
     borderWidth: 2,
-    showLine: true
+    showLine: true,
+    hidden: !isDefault
   }});
   colorIdx++;
 }}
@@ -1068,6 +1212,53 @@ new Chart(tbCtx, {{
   <ul class="file-list">{model_items}</ul>
 </div>"""
 
+    # -- Label distribution chart --
+    label_dist_html = ""
+    if label_dist:
+        bar_colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6',
+                      '#1abc9c', '#e67e22', '#34495e']
+        label_dist_html = f"""
+<div class="card" style="grid-column: 1 / -1;">
+  <h2>Label Distribution</h2>
+  <div class="chart-container" style="max-height:350px;"><canvas id="labelDistChart"></canvas></div>
+</div>
+<script>
+const ldData = {json.dumps(label_dist)};
+const ldCtx = document.getElementById('labelDistChart').getContext('2d');
+const barColors = {json.dumps(bar_colors)};
+const ldDatasets = ldData.classes.map((cls, i) => ({{
+  label: cls,
+  data: ldData.splits.map(split => ldData.counts[split][i] || 0),
+  backgroundColor: barColors[i % barColors.length],
+  borderColor: barColors[i % barColors.length],
+  borderWidth: 1
+}}));
+new Chart(ldCtx, {{
+  type: 'bar',
+  data: {{ labels: ldData.splits, datasets: ldDatasets }},
+  options: {{
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {{
+      legend: {{ position: 'top' }},
+      tooltip: {{
+        callbacks: {{
+          afterBody: function(items) {{
+            const split = items[0].label;
+            const total = ldData.totals[split] || 0;
+            return 'Total: ' + total;
+          }}
+        }}
+      }}
+    }},
+    scales: {{
+      x: {{ title: {{ display: true, text: 'Dataset Split' }} }},
+      y: {{ title: {{ display: true, text: 'Sample Count' }}, beginAtZero: true }}
+    }}
+  }}
+}});
+</script>"""
+
     log_btn = ""
     if (run_dir / "log.txt").exists():
         log_btn = f'<a class="btn" href="/log/{site}/{mode}/{run_id}">Full NVFlare Log</a>'
@@ -1098,6 +1289,7 @@ new Chart(tbCtx, {{
 
   {chart_html}
   {tb_html}
+  {label_dist_html}
   {file_list_html}
 
   <div class="card" style="grid-column: 1 / -1;">
@@ -1111,7 +1303,7 @@ new Chart(tbCtx, {{
 </div>
 </main>"""
     # Include Chart.js if any chart is rendered
-    needs_chartjs = bool(chart_html) or bool(tb_html and HAS_TBPARSE and tb_events)
+    needs_chartjs = bool(chart_html) or bool(tb_html and HAS_TBPARSE and tb_events) or bool(label_dist_html)
     chartjs_head = '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>' if needs_chartjs else ""
 
     return _html_page(
