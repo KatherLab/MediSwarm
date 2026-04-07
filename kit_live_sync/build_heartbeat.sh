@@ -11,6 +11,14 @@ OUT_FILE="${7:-/tmp/mediswarm_heartbeat.json}"
 
 timestamp="$(date -u +%FT%TZ)"
 
+# Extract kit version from docker.sh (baked in at build time)
+kit_version=""
+docker_sh="${KIT_ROOT:+$KIT_ROOT/startup/docker.sh}"
+if [ -n "$docker_sh" ] && [ -f "$docker_sh" ]; then
+  kit_version="$(grep -oP '(?<=MEDISWARM_VERSION=)\S+' "$docker_sh" 2>/dev/null | head -1 || true)"
+  [ -n "$kit_version" ] || kit_version="$(grep -oP '(?<=jefftud/odelia:)\S+' "$docker_sh" 2>/dev/null | head -1 || true)"
+fi
+
 log_file=""
 console_file=""
 global_model=""
@@ -49,6 +57,7 @@ cat > "$OUT_FILE" <<EOF
   "run_name": "$RUN_NAME",
   "timestamp": "$timestamp",
   "status": "$STATUS",
+  "kit_version": "$kit_version",
   "kit_root": "$KIT_ROOT",
   "log_file": "$log_file",
   "console_file": "$console_file",
