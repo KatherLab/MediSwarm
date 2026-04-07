@@ -603,7 +603,7 @@ wait_for_completion() {
     _check_last_finish() {
         local new_lines="$1"
         local finish_count
-        finish_count=$(echo "$new_lines" | grep -c 'Server runner finished\.' 2>/dev/null || echo 0)
+        finish_count=$(echo "$new_lines" | { grep -c 'Server runner finished\.' 2>/dev/null || true; })
 
         if [[ "$finish_count" -eq 0 ]]; then
             echo "none"
