@@ -40,12 +40,12 @@ def compute_weighted_epochs(num_train_samples: int, site_name: str = "") -> int:
                                       base_epochs (default 500).
         EPOCHS_MAX_CAP                Upper bound on computed epochs to
                                       prevent very small sites from running
-                                      excessively many epochs (default 20).
+                                      excessively many epochs (default 10).
     """
     logger = logging.getLogger(__name__)
     base_epochs = int(os.environ.get("EPOCHS_PER_ROUND", "5"))
     reference_size = int(os.environ.get("EPOCHS_REFERENCE_DATASET_SIZE", "500"))
-    max_cap = int(os.environ.get("EPOCHS_MAX_CAP", "20"))
+    max_cap = int(os.environ.get("EPOCHS_MAX_CAP", "10"))
 
     if num_train_samples <= 0:
         logger.warning(f"num_train_samples={num_train_samples}; falling back to base_epochs={base_epochs}")
