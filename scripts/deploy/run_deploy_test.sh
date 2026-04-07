@@ -43,11 +43,11 @@ BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-info()  { echo -e "${BLUE}[INFO]${NC} $*"; }
-ok()    { echo -e "${GREEN}[OK]${NC} $*"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
+info()  { echo -e "${BLUE}[INFO]${NC} $*" >&2; }
+ok()    { echo -e "${GREEN}[OK]${NC} $*" >&2; }
+warn()  { echo -e "${YELLOW}[WARN]${NC} $*" >&2; }
 err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
-step()  { echo -e "\n${BOLD}=== $* ===${NC}"; }
+step()  { echo -e "\n${BOLD}=== $* ===${NC}" >&2; }
 
 # ── Parse arguments ────────────────────────────────────────────────────────
 RUN_ALL=false
