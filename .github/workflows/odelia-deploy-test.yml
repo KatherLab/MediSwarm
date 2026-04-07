@@ -2,8 +2,8 @@ name: ODELIA Deploy Test
 
 on:
   workflow_dispatch:     # Manual trigger
-  schedule:
-    - cron: '0 2 * * 1'  # Weekly Monday 2am UTC
+  release:
+    types: [published]   # Run on every tagged release
 
 permissions:
   contents: read
