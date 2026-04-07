@@ -916,7 +916,6 @@ def detail(site: str, mode: str, run_id: str):
   <h2>Training Metrics (from console)</h2>
   <div class="chart-container"><canvas id="metricsChart"></canvas></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const metricsData = {json.dumps(metrics)};
 const ctx = document.getElementById('metricsChart').getContext('2d');
@@ -1111,9 +1110,14 @@ new Chart(tbCtx, {{
   </div>
 </div>
 </main>"""
+    # Include Chart.js if any chart is rendered
+    needs_chartjs = bool(chart_html) or bool(tb_html and HAS_TBPARSE and tb_events)
+    chartjs_head = '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>' if needs_chartjs else ""
+
     return _html_page(
         f"{html_escape(site)}/{html_escape(mode)}/{html_escape(run_id)} — MediSwarm",
         body,
+        extra_head=chartjs_head,
     )
 
 
