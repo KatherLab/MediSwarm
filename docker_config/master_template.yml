@@ -797,7 +797,11 @@ docker_cln_sh: |
             --env MODEL_NAME=${CLI_MODEL_NAME:-${MODEL_NAME:-MST}} \
             --env NUM_EPOCHS=${CLI_NUM_EPOCHS:-${NUM_EPOCHS:-100}} \
             --env CONFIG=${CLI_CONFIG:-${CONFIG:-unilateral}} \
-            --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__"
+            --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__ \
+            --env NVFLARE_TENSOR_MIN_DOWNLOAD_TIMEOUT=1800"
+  # ↑ NVFLARE_TENSOR_MIN_DOWNLOAD_TIMEOUT: overrides NVFlare's FOBS tensor
+  #   streaming timeout (default 300s). Large models (689MB+) over VPN need
+  #   30 min (1800s). Consumed by ConfigService → ViaDownloaderDecomposer.
 
   if [ -n "$LOG_DATASET_DETAILS" ]; then
      ENV_VARS+=" --env LOG_DATASET_DETAILS=1"
