@@ -493,6 +493,28 @@ _EPOCH_RE = re.compile(
     r"Epoch\s+(\d+)\s*-\s*(\w+)\s+ACC:\s*([\d.]+),\s*AUC_ROC:\s*([\d.]+)"
 )
 
+# NVFlare P2P transfer log lines:
+#   [client] download ref=xxx done: elapsed=227.47s size=688.8MB (722,310,270 bytes)
+#   [server] download tx xxx done: status=finished elapsed=230.22s size=688.8MB (722,310,270 bytes)
+_DOWNLOAD_RE = re.compile(
+    r"\[(?P<role>client|server)\]\s+download\s+"
+    r"(?:ref|tx)[= ](?P<ref>\S+)\s+done:\s+"
+    r"(?:status=\S+\s+)?"
+    r"elapsed=(?P<elapsed>[\d.]+)s\s+"
+    r"size=(?P<size_human>\S+)\s+"
+    r"\((?P<size_bytes>[\d,]+)\s*bytes\)"
+)
+
+# task train sent to peer — logs elapsed time for sending model weights via P2P
+_TASK_SENT_RE = re.compile(
+    r"task\s+(?P<task>\w+)\s+sent\s+to\s+peer\s+in\s+(?P<elapsed>[\d.]+)\s+secs"
+)
+
+# result ACK'd by CJ — shows the subprocess result acknowledgement
+_RESULT_ACK_RE = re.compile(
+    r"result\s+ACK'd\s+by\s+CJ\s+in\s+(?P<elapsed>[\d.]+)s"
+)
+
 
 def parse_console_metrics(text: str) -> dict[str, Any]:
     data: dict[str, dict[int, dict[str, float]]] = {}
@@ -561,6 +583,22 @@ def _extract_training_summary(text: str) -> dict[str, Any]:
     if round_matches:
         summary["total_rounds"] = max(int(r) for r in round_matches)
 
+    # P2P transfer summary
+    dl_matches = list(_DOWNLOAD_RE.finditer(text))
+    if dl_matches:
+        total_bytes = sum(
+            int(m.group("size_bytes").replace(",", "")) for m in dl_matches
+        )
+        total_elapsed = sum(float(m.group("elapsed")) for m in dl_matches)
+        avg_speed = (
+            (total_bytes / (1024 * 1024)) / total_elapsed
+            if total_elapsed > 0
+            else 0
+        )
+        summary["p2p_downloads"] = len(dl_matches)
+        summary["p2p_total_bytes"] = total_bytes
+        summary["p2p_avg_speed_MBs"] = round(avg_speed, 2)
+
     return summary
 
 
@@ -611,6 +649,58 @@ def _parse_label_distribution(text: str) -> dict[str, Any]:
         result["totals"][split] = split_data.get("total", sum(result["counts"][split]))
 
     return result
+
+
+def _parse_p2p_transfers(text: str) -> list[dict[str, Any]]:
+    """Parse P2P model transfer events from NVFlare console output.
+
+    Returns a list of transfer dicts with keys:
+      role, ref, elapsed_s, size_human, size_bytes, speed_MBs, line
+    Sorted by elapsed time (largest first) so the slowest transfers
+    are most visible.
+    """
+    transfers: list[dict[str, Any]] = []
+
+    for m in _DOWNLOAD_RE.finditer(text):
+        size_bytes = int(m.group("size_bytes").replace(",", ""))
+        elapsed = float(m.group("elapsed"))
+        speed = (size_bytes / (1024 * 1024)) / elapsed if elapsed > 0 else 0.0
+        transfers.append({
+            "type": "download",
+            "role": m.group("role"),
+            "ref": m.group("ref")[:12],
+            "elapsed_s": round(elapsed, 1),
+            "size_human": m.group("size_human"),
+            "size_bytes": size_bytes,
+            "speed_MBs": round(speed, 2),
+        })
+
+    for m in _TASK_SENT_RE.finditer(text):
+        transfers.append({
+            "type": "task_sent",
+            "role": "client",
+            "ref": m.group("task"),
+            "elapsed_s": round(float(m.group("elapsed")), 1),
+            "size_human": "-",
+            "size_bytes": 0,
+            "speed_MBs": 0,
+        })
+
+    for m in _RESULT_ACK_RE.finditer(text):
+        transfers.append({
+            "type": "result_ack",
+            "role": "client",
+            "ref": "CJ-ack",
+            "elapsed_s": round(float(m.group("elapsed")), 1),
+            "size_human": "-",
+            "size_bytes": 0,
+            "speed_MBs": 0,
+        })
+
+    # Sort: downloads first (by elapsed desc), then task_sent, then ack
+    type_order = {"download": 0, "task_sent": 1, "result_ack": 2}
+    transfers.sort(key=lambda t: (type_order.get(t["type"], 9), -t["elapsed_s"]))
+    return transfers
 
 
 # ---------------------------------------------------------------------------
@@ -899,6 +989,7 @@ def detail(site: str, mode: str, run_id: str):
     all_files = _find_all_files(run_dir)
     training_summary = _extract_training_summary(console_text)
     label_dist = _parse_label_distribution(console_text)
+    p2p_transfers = _parse_p2p_transfers(console_text)
 
     # -- Heartbeat info card --
     hb_display_keys = [
@@ -959,11 +1050,94 @@ def detail(site: str, mode: str, run_id: str):
             summary_rows += (
                 f"<tr><td>FL Rounds</td><td>{training_summary['total_rounds']}</td></tr>"
             )
+        if "p2p_downloads" in training_summary:
+            p2p_size = training_summary["p2p_total_bytes"]
+            p2p_size_str = (
+                f"{p2p_size / (1024**3):.2f} GB"
+                if p2p_size >= 1024**3
+                else f"{p2p_size / (1024**2):.1f} MB"
+            )
+            summary_rows += (
+                f"<tr><td>P2P Transfers</td>"
+                f"<td>{training_summary['p2p_downloads']} download(s), "
+                f"{p2p_size_str} total, "
+                f"avg {training_summary['p2p_avg_speed_MBs']:.2f} MB/s</td></tr>"
+            )
         if summary_rows:
             summary_html = f"""
 <div class="card">
   <h2>Training Summary</h2>
   <table class="kv-table"><tbody>{summary_rows}</tbody></table>
+</div>"""
+
+    # -- P2P Transfers card --
+    p2p_html = ""
+    if p2p_transfers:
+        downloads = [t for t in p2p_transfers if t["type"] == "download"]
+        tasks_sent = [t for t in p2p_transfers if t["type"] == "task_sent"]
+        acks = [t for t in p2p_transfers if t["type"] == "result_ack"]
+
+        # Summary stats
+        dl_count = len(downloads)
+        total_bytes = sum(t["size_bytes"] for t in downloads)
+        total_elapsed = sum(t["elapsed_s"] for t in downloads)
+        avg_speed = (
+            (total_bytes / (1024 * 1024)) / total_elapsed
+            if total_elapsed > 0
+            else 0
+        )
+        total_size_human = (
+            f"{total_bytes / (1024**3):.2f} GB"
+            if total_bytes >= 1024**3
+            else f"{total_bytes / (1024**2):.1f} MB"
+        )
+
+        p2p_summary = (
+            f"<div style='margin-bottom:0.8rem;font-size:0.85rem;'>"
+            f"<strong>{dl_count}</strong> model download(s) | "
+            f"<strong>{total_size_human}</strong> total transferred | "
+            f"avg <strong>{avg_speed:.2f} MB/s</strong>"
+        )
+        if tasks_sent:
+            p2p_summary += f" | <strong>{len(tasks_sent)}</strong> task(s) sent to peers"
+        if acks:
+            p2p_summary += f" | <strong>{len(acks)}</strong> result ACK(s)"
+        p2p_summary += "</div>"
+
+        # Transfer rows
+        p2p_rows = ""
+        for t in p2p_transfers:
+            type_badge = {
+                "download": '<span style="color:#2980b9;font-weight:600;">download</span>',
+                "task_sent": '<span style="color:#27ae60;font-weight:600;">task sent</span>',
+                "result_ack": '<span style="color:#8e44ad;font-weight:600;">result ACK</span>',
+            }.get(t["type"], t["type"])
+            speed_str = (
+                f'{t["speed_MBs"]:.2f} MB/s' if t["speed_MBs"] > 0 else "-"
+            )
+            p2p_rows += (
+                f"<tr>"
+                f"<td>{type_badge}</td>"
+                f"<td>{html_escape(t['role'])}</td>"
+                f"<td><code>{html_escape(t['ref'])}</code></td>"
+                f'<td style="text-align:right;">{t["elapsed_s"]:.1f}s</td>'
+                f"<td>{html_escape(t['size_human'])}</td>"
+                f'<td style="text-align:right;">{speed_str}</td>'
+                f"</tr>"
+            )
+
+        p2p_html = f"""
+<div class="card" style="grid-column: 1 / -1;">
+  <h2>P2P Model Transfers</h2>
+  {p2p_summary}
+  <table class="kv-table" style="width:100%;">
+    <thead><tr>
+      <th>Type</th><th>Role</th><th>Ref</th>
+      <th style="text-align:right;">Elapsed</th><th>Size</th>
+      <th style="text-align:right;">Speed</th>
+    </tr></thead>
+    <tbody>{p2p_rows}</tbody>
+  </table>
 </div>"""
 
     # -- Server-side files card --
@@ -1283,6 +1457,7 @@ new Chart(ldCtx, {{
   </div>
 
   {summary_html}
+  {p2p_html}
   {csv_links_html}
   {ckpt_html}
   {model_html}
