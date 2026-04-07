@@ -803,6 +803,57 @@ docker_cln_sh: |
      ENV_VARS+=" --env LOG_DATASET_DETAILS=1"
   fi
 
+  # ── Live Sync Integration ──────────────────────────────────────────
+  # live_sync.sh is co-located in the startup directory (injected by
+  # _injectLiveSyncIntoStartupKits.sh) and syncs training artifacts to
+  # the central monitoring server for --local_training and --start_client
+  # modes.  If live_sync.sh is not present the functions are a no-op.
+  KIT_ROOT="$(cd "$DIR/.." && pwd)"
+  SYNC_STATE_DIR="$DIR/.mediswarm_sync"
+  SITE_NAME_RESOLVED="{~~client_name~~}"
+
+  _start_live_sync() {
+    local mode="$1"
+    if [ ! -f "$DIR/live_sync.sh" ]; then return; fi
+    mkdir -p "$SYNC_STATE_DIR"
+
+    if [ "$mode" = "local" ]; then
+      "$DIR/live_sync.sh" \
+        --mode local \
+        --site-name "$SITE_NAME_RESOLVED" \
+        --kit-root "$KIT_ROOT" \
+        --startup-dir "$DIR" \
+        --scratch-dir "${MY_SCRATCH_DIR:-}" &
+      LIVE_SYNC_PID=$!
+    elif [ "$mode" = "swarm" ]; then
+      local pid_file="$SYNC_STATE_DIR/swarm_sync.pid"
+      if [ -f "$pid_file" ]; then
+        local old_pid
+        old_pid="$(cat "$pid_file" 2>/dev/null || true)"
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+          echo "Live sync daemon already running (PID $old_pid)"
+          return 0
+        fi
+      fi
+      nohup "$DIR/live_sync.sh" \
+        --mode swarm \
+        --site-name "$SITE_NAME_RESOLVED" \
+        --kit-root "$KIT_ROOT" \
+        --startup-dir "$DIR" \
+        --scratch-dir "${MY_SCRATCH_DIR:-}" \
+        > "$SYNC_STATE_DIR/live_sync_daemon.log" 2>&1 < /dev/null &
+      echo $! > "$pid_file"
+      echo "Started live sync daemon (PID $(cat "$pid_file"))"
+    fi
+  }
+
+  _stop_live_sync() {
+    if [ -n "${LIVE_SYNC_PID:-}" ] && kill -0 "$LIVE_SYNC_PID" 2>/dev/null; then
+      kill "$LIVE_SYNC_PID" || true
+      wait "$LIVE_SYNC_PID" || true
+    fi
+  }
+
   # Execution modes
   if [ -n "$DUMMY_TRAINING" ]; then
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
@@ -815,10 +866,13 @@ docker_cln_sh: |
 
   elif [ -n "$LOCAL_TRAINING" ]; then
       echo "[INFO] Local training using job: $JOB_NAME"
+      trap _stop_live_sync EXIT INT TERM
+      _start_live_sync local
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=100 $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py"
 
   elif [ -n "$START_CLIENT" ]; then
+      _start_live_sync swarm
       docker run -d -t --restart=on-failure:5 \
       --health-cmd="nvidia-smi > /dev/null 2>&1 || exit 1" \
       --health-interval=120s --health-start-period=180s --health-retries=3 \
