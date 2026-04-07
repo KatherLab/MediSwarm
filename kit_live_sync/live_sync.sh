@@ -32,6 +32,9 @@ mkdir -p "$STATE_DIR"
 LAST_CKPT_SYNC_FILE="$STATE_DIR/${MODE}_last_ckpt_sync_ts"
 touch "$LAST_CKPT_SYNC_FILE"
 
+# Track the run we are currently syncing so we can finalize it if a new run appears
+CURRENT_LOCAL_RUN=""
+
 ssh_cmd() {
   ssh ${SSH_OPTS} "$@"
 }
@@ -86,11 +89,41 @@ build_remote_dir() {
   printf '%s/%s/%s/%s' "$REMOTE_BASE" "$SITE_NAME" "$MODE" "$run_id"
 }
 
+_finalize_local_run() {
+  # Write a heartbeat_final.json for a given run_name and mark it "finished"
+  local old_run="$1"
+  [ -n "$old_run" ] || return 0
+
+  local old_remote_dir old_hb_final old_run_dir
+  old_remote_dir="$(build_remote_dir "$old_run")"
+  old_hb_final="$STATE_DIR/local_heartbeat_final_${old_run}.json"
+  export SCRATCHDIR
+  "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$old_run" "finished" "$old_hb_final" >/dev/null
+  rsync_cmd "$old_hb_final" "${REMOTE_USER}@${REMOTE_HOST}:${old_remote_dir}/heartbeat_final.json" || true
+
+  # Final sync of the old run's artifacts
+  old_run_dir=""
+  if [ -n "$SCRATCHDIR" ] && [ -d "$SCRATCHDIR/runs/$SITE_NAME/$old_run" ]; then
+    old_run_dir="$SCRATCHDIR/runs/$SITE_NAME/$old_run"
+  elif [ -d "$STARTUP_DIR/runs/$SITE_NAME/$old_run" ]; then
+    old_run_dir="$STARTUP_DIR/runs/$SITE_NAME/$old_run"
+  fi
+  if [ -n "$old_run_dir" ]; then
+    rsync_cmd "$old_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${old_remote_dir}/run_dir/" || true
+  fi
+}
+
 sync_local() {
   local run_name run_dir remote_dir hb_file now last
 
   run_name="$(find_latest_local_run_name || true)"
   [ -n "$run_name" ] || return 0
+
+  # If the run changed (new training started), finalize the old one
+  if [ -n "$CURRENT_LOCAL_RUN" ] && [ "$CURRENT_LOCAL_RUN" != "$run_name" ]; then
+    _finalize_local_run "$CURRENT_LOCAL_RUN" || true
+  fi
+  CURRENT_LOCAL_RUN="$run_name"
 
   # Determine run_dir: check scratch dir first, fall back to startup dir
   run_dir=""
@@ -105,6 +138,7 @@ sync_local() {
   ensure_remote_dir "$remote_dir"
 
   hb_file="$STATE_DIR/local_heartbeat.json"
+  export SCRATCHDIR
   "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "running" "$hb_file" >/dev/null
 
   rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat.json" || true
@@ -210,6 +244,7 @@ final_sync() {
 
       remote_dir="$(build_remote_dir "$run_name")"
       hb_file="$STATE_DIR/local_heartbeat_final.json"
+      export SCRATCHDIR
       "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "finished" "$hb_file" >/dev/null
       rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
       if [ -n "$run_dir" ]; then
