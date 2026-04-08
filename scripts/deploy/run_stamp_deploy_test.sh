@@ -127,10 +127,12 @@ JOB_NAME="${DEFAULT_JOB:-STAMP_classification}"
 
 setup_stamp_env() {
     local site_name="$1"
-    local data_dir="$2"
+    local data_dir="$2"   # host path — only used by caller for --data_dir flag
+    # Inside the container, --data_dir is mounted at /data/ (read-only).
+    # STAMP env vars must reference the container-internal path, not the host path.
     cat <<EOF
-export STAMP_CLINI_TABLE="${data_dir}/${site_name}/clini_table.csv"
-export STAMP_FEATURE_DIR="${data_dir}/${site_name}/features"
+export STAMP_CLINI_TABLE="/data/${site_name}/clini_table.csv"
+export STAMP_FEATURE_DIR="/data/${site_name}/features"
 export STAMP_GROUND_TRUTH_LABEL="Diagnosis"
 export STAMP_PATIENT_LABEL="PATIENT"
 export STAMP_TASK="classification"
