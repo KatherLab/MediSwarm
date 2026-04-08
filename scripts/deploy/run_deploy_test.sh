@@ -701,18 +701,23 @@ collect_checkpoints() {
 
     step "Collecting checkpoints from client machines for $model_name"
 
-    # Find the latest job ID from the server log (the one that actually succeeded)
+    # Find the latest job ID from the server log (the one that actually succeeded).
+    # Try the live log first, then the saved copy (stop_all deletes the server dir).
     resolve_server_startup_dir
     local server_log="${_server_startup_dir}/nohup.out"
+    local saved_log="$RESULTS_DIR/${model_name}_server_nohup.out"
     local job_id=""
-    if [[ -f "$server_log" ]]; then
-        # Get the LAST "Server runner finished" and extract its job ID
-        # The format in the log: [run=<job_id>] ... Server runner finished.
-        job_id=$(grep 'Server runner finished\.' "$server_log" \
-            | tail -1 \
-            | grep -oP 'run=\K[0-9a-f-]+' \
-            || true)
-    fi
+    for logfile in "$server_log" "$saved_log"; do
+        if [[ -f "$logfile" ]]; then
+            # Get the LAST "Server runner finished" and extract its job ID
+            # The format in the log: [run=<job_id>] ... Server runner finished.
+            job_id=$(grep 'Server runner finished\.' "$logfile" \
+                | tail -1 \
+                | grep -oP 'run=\K[0-9a-f-]+' \
+                || true)
+            [[ -n "$job_id" ]] && break
+        fi
+    done
 
     if [[ -z "$job_id" ]]; then
         warn "Could not determine job ID from server log — trying to find checkpoints by glob"
@@ -745,7 +750,7 @@ collect_checkpoints() {
         if [[ -n "$job_id" ]]; then
             search_cmd="ls -1 '$remote_base/$job_id/app_${site_name}/FL_global_model.pt' '$remote_base/$job_id/app_${site_name}/best_FL_global_model.pt' 2>/dev/null || true"
         else
-            search_cmd="find '$remote_base' -maxdepth 3 -name 'FL_global_model.pt' -o -name 'best_FL_global_model.pt' 2>/dev/null || true"
+            search_cmd="find '$remote_base' -maxdepth 3 \( -name 'FL_global_model.pt' -o -name 'best_FL_global_model.pt' \) 2>/dev/null || true"
         fi
 
         local remote_files
@@ -799,6 +804,10 @@ collect_checkpoints() {
 
     if [[ "$found_any" == true ]]; then
         info "Checkpoints staged at: $staging_dir"
+        info "Staged files:"
+        find "$staging_dir" -name '*.pt' -exec ls -lh {} \; 2>/dev/null | while read -r line; do
+            info "  $line"
+        done
         echo "$staging_dir"
         return 0
     else
@@ -855,7 +864,6 @@ evaluate_model() {
             --workspace /workspace \
             --model-name "$model_name" \
             --output-dir /output \
-            --best-only \
             --split test \
         2>&1 | tee "$eval_output_dir/predict_stdout.log" || eval_result=$?
 
@@ -958,6 +966,14 @@ run_single_model() {
         fi
         attempt=$((attempt + 1))
     done
+
+    # Save the server log before stop_all deletes the server directory.
+    # collect_checkpoints() needs it to extract the job_id.
+    resolve_server_startup_dir
+    local saved_server_log="$RESULTS_DIR/${model_name}_server_nohup.out"
+    if [[ -n "$_server_startup_dir" && -f "$_server_startup_dir/nohup.out" ]]; then
+        cp "$_server_startup_dir/nohup.out" "$saved_server_log" 2>/dev/null || true
+    fi
 
     # Stop containers after training (pass or final failure)
     stop_all
