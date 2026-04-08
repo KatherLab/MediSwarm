@@ -1,6 +1,6 @@
 api_version: 3
 name: odelia_deploy_test___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___model_test
-description: ODELIA 2-client deploy test across Tailscale VPN (dl2, dl3; server on Cosmos) — dl0 excluded
+description: ODELIA 2-client deploy test across Tailscale VPN (dl0, dl2; server on Cosmos)
 
 participants:
   - name: dl3.tud.de
@@ -8,10 +8,10 @@ participants:
     org: TUD
     fed_learn_port: 8002
     admin_port: 8003
-  - name: MHA_1
+  - name: RUMC_1
     type: client
     org: TUD
-  - name: CAM_1
+  - name: MHA_1
     type: client
     org: TUD
   - name: jiefu.zhu@tu-dresden.de
