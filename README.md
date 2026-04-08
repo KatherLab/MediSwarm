@@ -25,7 +25,8 @@ to be extended with new tasks through a simple compatibility interface
 
 Choose your role and follow the instructions:
 
-- [Swarm Participant (Medical Site / Data Scientist)](assets/readme/README.participant.md)
+- [Swarm Participant — ODELIA / Breast MRI](assets/readme/README.participant.md)
+- [Swarm Participant — STAMP / Computational Pathology](assets/readme/README.participant.STAMP.md)
 - [Developer (Docker, Code, Pipeline)](assets/readme/README.developer.md)
 - [Swarm Operator (Provisioning, VPN, Server)](assets/readme/README.operator.md)
 - [Automated Deploy & Test Workflow](DEPLOY_README.md)
