@@ -667,14 +667,10 @@ case "$1" in
         check_files_on_github
         ;;
 
-    run_nvflare_unit_tests)
+    run_nvflare_unit_and_integration_tests)
         run_nvflare_unit_tests
-        # TODO add to CI or "all" section if we want this (takes several minutes and fails for insufficient GPU memory)
-        ;;
-
-    run_nvflare_integration_tests)
         run_nvflare_integration_tests
-        # TODO add to CI or "all" section if we want this
+        # TODO add to CI and/or "all" section if we want this (takes several minutes and fails if GPU memory insufficient)
         ;;
 
     run_dummy_training_standalone)
