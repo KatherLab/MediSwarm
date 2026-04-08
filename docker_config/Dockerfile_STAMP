@@ -57,9 +57,10 @@ RUN python3 -m pip install --no-cache-dir \
 
 WORKDIR /workspace/
 COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
-# Override with MediSwarm master_template.yml (contains version placeholders
-# injected by build script)
-COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/templates/
+# Override with MediSwarm STAMP master template (contains version placeholders
+# injected by build script). Destination must be master_template.yml because
+# NVFlare's provisioning tool hardcodes that filename.
+COPY ./MediSwarm/docker_config/master_template_STAMP.yml /workspace/nvflare/nvflare/lighter/templates/master_template.yml
 RUN python3 -m pip install --no-cache-dir /workspace/nvflare && rm -rf /workspace/nvflare
 
 # ---------------------------------------------------------------------------

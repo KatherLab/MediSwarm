@@ -60,6 +60,12 @@ chmod a+rX . -R
 sed -i 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__#'$VERSION'#' docker_config/master_template.yml
 sed -i 's#__REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__#'$CONTAINER_VERSION_ID'#' docker_config/master_template.yml
 
+# Also patch STAMP template if it exists (separate template for STAMP builds)
+if [[ -f docker_config/master_template_STAMP.yml ]]; then
+    sed -i 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__#'$VERSION'#' docker_config/master_template_STAMP.yml
+    sed -i 's#__REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__#'$CONTAINER_VERSION_ID'#' docker_config/master_template_STAMP.yml
+fi
+
 # Override num_rounds in all server configs if requested (CI/CD testing)
 if [[ -n "$NUM_ROUNDS_OVERRIDE" ]]; then
     echo "Overriding num_rounds to $NUM_ROUNDS_OVERRIDE in all config_fed_server.conf files"
