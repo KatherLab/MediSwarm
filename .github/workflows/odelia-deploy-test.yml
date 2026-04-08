@@ -20,7 +20,7 @@ jobs:
     # Add the "cosmos" label to the Cosmos runner in:
     #   GitHub → repo Settings → Actions → Runners → Edit
     runs-on: [self-hosted, cosmos]
-    timeout-minutes: 1440  # 24 hours (6 models x ~2-4h each)
+    timeout-minutes: 4320  # 3 days (6 models, generous for slow VPN + large models)
 
     steps:
       - name: Clean root-owned files from previous runs

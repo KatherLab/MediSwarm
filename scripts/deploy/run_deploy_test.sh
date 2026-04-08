@@ -55,7 +55,7 @@ SINGLE_MODEL=""
 SINGLE_JOB=""
 CONF_FILE=""
 SKIP_BUILD=false
-TIMEOUT_MINUTES=240   # Per-model training timeout (4 hours)
+TIMEOUT_MINUTES=10080   # Per-model training timeout (7 days)
 
 while [[ $# -gt 0 ]]; do
     case $1 in

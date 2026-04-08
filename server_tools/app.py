@@ -129,6 +129,8 @@ tr:hover td { background: #eef2f7; }
 .badge-unknown { background: var(--gray); }
 .badge-error { background: var(--red); }
 .badge-stale { background: var(--orange); }
+.status-reason { font-size: 0.72rem; color: var(--red); font-style: italic;
+                 display: inline-block; max-width: 300px; vertical-align: middle; }
 .artifact { font-size: 0.78rem; color: var(--text-light); }
 .artifact .yes { color: var(--green); font-weight: 600; }
 .artifact .no { color: var(--gray); }
@@ -189,7 +191,7 @@ a:hover { text-decoration: underline; }
 """
 
 
-def _status_badge(status: str) -> str:
+def _status_badge(status: str, reason: str = "") -> str:
     cls = "badge-unknown"
     if status == "running":
         cls = "badge-running"
@@ -199,7 +201,12 @@ def _status_badge(status: str) -> str:
         cls = "badge-error"
     elif status == "stale":
         cls = "badge-stale"
-    return f'<span class="badge {cls}">{html_escape(status)}</span>'
+    title = f' title="{html_escape(reason)}"' if reason else ""
+    badge = f'<span class="badge {cls}"{title}>{html_escape(status)}</span>'
+    # Show reason text next to badge for error/stale states
+    if reason and status in ("error", "failed", "stale"):
+        badge += f' <span class="status-reason">{html_escape(reason)}</span>'
+    return badge
 
 
 def _age_class(age_str: str) -> str:
@@ -311,34 +318,65 @@ def _read_heartbeat(run_dir: Path) -> dict[str, Any]:
     return {}
 
 
-def _check_console_for_errors(run_dir: Path) -> bool:
-    """Check console output for fatal error patterns."""
-    for name in ["nohup.out", "local_training_console_output.txt"]:
+def _check_console_for_errors(run_dir: Path) -> str:
+    """Check console output for error patterns. Returns reason string or empty.
+
+    Checks both server-side and client-side logs for fatal errors, timeouts,
+    and communication failures. Returns a human-readable reason string if an
+    error is detected, or empty string if no errors found.
+    """
+    # Ordered by specificity — first match wins
+    _ERROR_PATTERNS: list[tuple[str, str]] = [
+        # Timeout errors (most actionable — user can increase timeout values)
+        (r"TaskCompletionStatus\.TIMEOUT", "NVFlare task timed out (check learn_task_timeout / configure_task_timeout)"),
+        (r"learn_task.*timed?\s*out", "Training round exceeded learn_task_timeout (8h)"),
+        (r"progress_timeout.*exceeded|no progress.*timeout", "No progress reported within progress_timeout (8h)"),
+        (r"peer_read_timeout.*exceeded|peer.*read.*timed?\s*out", "P2P model transfer timed out (peer_read_timeout 30min)"),
+        (r"heartbeat_timeout.*exceeded|heartbeat.*dead|subprocess.*dead", "Subprocess heartbeat lost (heartbeat_timeout 15min)"),
+        (r"external_pre_init_timeout|flare\.init.*timed?\s*out", "Subprocess failed to call flare.init() within 10min"),
+        (r"last_result_transfer_timeout", "Final result transfer timed out (30min)"),
+        (r"configure_task_timeout|swarm_config.*TIMEOUT", "Client configuration timed out (configure_task_timeout 15min)"),
+        (r"start_task_timeout", "Client start timed out (start_task_timeout 30min)"),
+        # GPU / memory errors
+        (r"CUDA out of memory|OutOfMemoryError:", "GPU out of memory — reduce batch size or model size"),
+        (r"RuntimeError:.*CUDA|CUDA error|NCCL error", "CUDA/GPU runtime error"),
+        # NVFlare fatal errors
+        (r"FATAL_SYSTEM_ERROR", "NVFlare fatal system error"),
+        (r"EXECUTION_EXCEPTION.*abort", "NVFlare execution exception — job aborted"),
+        (r"ABORT_RUN", "Run was aborted"),
+        (r"asked to abort.*abort_signal", "Server triggered abort signal"),
+        # Communication errors
+        (r"CommunicateError|CommError", "Communication error between client and server"),
+        (r"ConnectionRefused|connection.*refused", "Connection refused — server may be down"),
+        # Generic Python errors (catch-all, lowest priority)
+        (r"RuntimeError:", "Python RuntimeError"),
+    ]
+
+    for name in ["nohup.out", "local_training_console_output.txt", "log.txt"]:
         p = run_dir / name
         if p.exists():
             try:
-                # Read last 50KB to check for errors near the end
-                text = p.read_text(errors="replace")[-50_000:]
-                if re.search(
-                    r"FATAL_SYSTEM_ERROR|EXECUTION_EXCEPTION.*abort|"
-                    r"ABORT_RUN|RuntimeError:|OutOfMemoryError:|"
-                    r"CUDA out of memory",
-                    text,
-                ):
-                    return True
+                # Read last 100KB to check for errors near the end
+                text = p.read_text(errors="replace")[-100_000:]
+                for pattern, reason in _ERROR_PATTERNS:
+                    if re.search(pattern, text):
+                        return reason
             except Exception:
                 pass
-    return False
+    return ""
 
 
-def _infer_status(hb: dict[str, Any], run_dir: Path) -> str:
+def _infer_status(hb: dict[str, Any], run_dir: Path) -> tuple[str, str]:
     """Infer the effective status from heartbeat + file system state.
+
+    Returns (status, reason) where reason is a human-readable explanation
+    of the status, especially useful for error/stale states.
 
     Rules:
     - If heartbeat_final.json exists -> use its status (typically "finished")
     - If status is "running" but heartbeat is >5 min old -> "stale"
     - If status is "running" but heartbeat is >1 hour old -> "finished" (presumed)
-    - If console output contains fatal error patterns -> "error"
+    - If console output contains fatal error patterns -> "error" with reason
     - Otherwise use heartbeat status as-is
     """
     has_final = (run_dir / "heartbeat_final.json").exists()
@@ -349,25 +387,33 @@ def _infer_status(hb: dict[str, Any], run_dir: Path) -> str:
             final = json.loads((run_dir / "heartbeat_final.json").read_text())
             final_status = final.get("status", raw_status)
             # Check if finished but with errors in console
-            if final_status == "finished" and _check_console_for_errors(run_dir):
-                return "error"
-            return final_status
+            error_reason = _check_console_for_errors(run_dir)
+            if final_status == "finished" and error_reason:
+                return "error", error_reason
+            return final_status, ""
         except Exception:
             pass
 
     if raw_status == "running":
         age = _age_seconds(hb.get("timestamp", ""))
         if age > 3600:
-            # Check for errors before declaring finished
-            if _check_console_for_errors(run_dir):
-                return "error"
-            return "finished"
+            error_reason = _check_console_for_errors(run_dir)
+            if error_reason:
+                return "error", error_reason
+            return "finished", "No heartbeat for >1h, presumed finished"
         if age > 300:
-            if _check_console_for_errors(run_dir):
-                return "error"
-            return "stale"
+            error_reason = _check_console_for_errors(run_dir)
+            if error_reason:
+                return "error", error_reason
+            return "stale", f"No heartbeat for {age // 60}min"
 
-    return raw_status
+    # Check for errors even in running state (e.g. timeout detected mid-run)
+    if raw_status == "running":
+        error_reason = _check_console_for_errors(run_dir)
+        if error_reason:
+            return "error", error_reason
+
+    return raw_status, ""
 
 
 def _find_csv_files(run_dir: Path) -> list[str]:
@@ -434,7 +480,7 @@ def rows() -> list[dict[str, Any]]:
                 hb = _read_heartbeat(run_dir)
                 ts = hb.get("timestamp", "")
                 age = parse_age(ts)
-                status = _infer_status(hb, run_dir)
+                status, status_reason = _infer_status(hb, run_dir)
                 csv_files = _find_csv_files(run_dir)
                 tb_events = _find_tb_events(run_dir)
                 checkpoints = _find_checkpoints(run_dir)
@@ -460,6 +506,7 @@ def rows() -> list[dict[str, Any]]:
                         "run_name": hb.get("run_name", ""),
                         "job_id": hb.get("job_id", ""),
                         "status": status,
+                        "status_reason": status_reason,
                         "raw_status": hb.get("status", "unknown"),
                         "timestamp": ts,
                         "age": age,
@@ -812,17 +859,28 @@ def index(
             n_items = len(items)
             sites = ", ".join(sorted({x["site"] for x in items}))
             statuses = {x["status"] for x in items}
-            job_status = (
-                "running"
-                if "running" in statuses
-                else ("stale" if "stale" in statuses else "finished")
-            )
+            if "error" in statuses or "failed" in statuses:
+                job_status = "error"
+                # Collect reasons from errored items
+                job_reason = "; ".join(
+                    f"{x['site']}: {x['status_reason']}"
+                    for x in items if x.get("status_reason")
+                )
+            elif "running" in statuses:
+                job_status = "running"
+                job_reason = ""
+            elif "stale" in statuses:
+                job_status = "stale"
+                job_reason = ""
+            else:
+                job_status = "finished"
+                job_reason = ""
             run_name = items[0].get("run_name", "") if items else ""
             table_rows.append(
                 f"""<tr class="job-group-row"><td colspan="11">
                 Job: <span class="job-id">{html_escape(job_id)}</span>
                 &nbsp;&middot;&nbsp; {n_items} client(s): {html_escape(sites)}
-                &nbsp;&middot;&nbsp; {_status_badge(job_status)}
+                &nbsp;&middot;&nbsp; {_status_badge(job_status, job_reason)}
                 {f' &middot; {html_escape(run_name)}' if run_name else ''}
                 </td></tr>"""
             )
@@ -961,7 +1019,7 @@ def _build_table_row(x: dict[str, Any]) -> str:
   <td>{hostname_td}</td>
   <td>{html_escape(x['mode'])}</td>
   <td>{run_display}</td>
-  <td>{_status_badge(x['status'])}</td>
+  <td>{_status_badge(x['status'], x.get('status_reason', ''))}</td>
   <td>{age_td}</td>
   <td>{version}</td>
   <td class="artifact">{' &middot; '.join(arts)}</td>
@@ -980,7 +1038,7 @@ def _build_table_row(x: dict[str, Any]) -> str:
 def detail(site: str, mode: str, run_id: str):
     run_dir = _resolve_run_dir(site, mode, run_id)
     hb = _read_heartbeat(run_dir)
-    status = _infer_status(hb, run_dir)
+    status, status_reason = _infer_status(hb, run_dir)
     console_text = _get_console_text(site, mode, run_id)
     metrics = parse_console_metrics(console_text)
     csv_files = _find_csv_files(run_dir)
@@ -1013,7 +1071,7 @@ def detail(site: str, mode: str, run_id: str):
     ]
     hb_rows = ""
     # Add inferred status first
-    hb_rows += f"<tr><td>Effective Status</td><td>{_status_badge(status)}</td></tr>\n"
+    hb_rows += f"<tr><td>Effective Status</td><td>{_status_badge(status, status_reason)}</td></tr>\n"
     for key, label in hb_display_keys:
         val = hb.get(key, "")
         if val:
