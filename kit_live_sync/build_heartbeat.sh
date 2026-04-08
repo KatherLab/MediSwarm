@@ -11,6 +11,23 @@ OUT_FILE="${7:-/tmp/mediswarm_heartbeat.json}"
 
 timestamp="$(date -u +%FT%TZ)"
 
+# Extract kit version from docker.sh (baked in at build time)
+kit_version=""
+docker_sh="${KIT_ROOT:+$KIT_ROOT/startup/docker.sh}"
+if [ -n "$docker_sh" ] && [ -f "$docker_sh" ]; then
+  kit_version="$(grep -oP '(?<=MEDISWARM_VERSION=)\S+' "$docker_sh" 2>/dev/null | head -1 || true)"
+  [ -n "$kit_version" ] || kit_version="$(grep -oP '(?<=jefftud/odelia:)\S+' "$docker_sh" 2>/dev/null | head -1 || true)"
+  # Strip trailing quotes/whitespace that may be captured from shell strings
+  kit_version="${kit_version%\"}"
+  kit_version="${kit_version#\"}"
+fi
+
+# Strip ANSI escape codes from RUN_NAME (may come from colored terminal output)
+RUN_NAME="$(printf '%s' "$RUN_NAME" | sed 's/\x1b\[[0-9;]*m//g')"
+
+# Capture hostname for the webviewer dashboard
+hb_hostname="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "unknown")"
+
 log_file=""
 console_file=""
 global_model=""
@@ -49,6 +66,7 @@ cat > "$OUT_FILE" <<EOF
   "run_name": "$RUN_NAME",
   "timestamp": "$timestamp",
   "status": "$STATUS",
+  "kit_version": "$kit_version",
   "kit_root": "$KIT_ROOT",
   "log_file": "$log_file",
   "console_file": "$console_file",
@@ -57,7 +75,8 @@ cat > "$OUT_FILE" <<EOF
   "run_dir": "$run_dir",
   "last_ckpt": "$last_ckpt",
   "epoch_ckpt": "$epoch_ckpt",
-  "tb_file": "$tb_file"
+  "tb_file": "$tb_file",
+  "hostname": "$hb_hostname"
 }
 EOF
 

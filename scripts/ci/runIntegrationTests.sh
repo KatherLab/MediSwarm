@@ -739,12 +739,25 @@ cleanup_synthetic_data () {
 }
 
 
+# Helper: remove a directory that may contain root-owned files created by
+# Docker containers.  Falls back to a disposable Alpine container when the
+# regular `rm` fails (which happens on the CI runner because NVFlare runs
+# as root inside its container and bind-mounts the workspace).
+_rm_rf () {
+    local dir="$1"
+    [ -z "$dir" ] && return 0
+    [ ! -e "$dir" ] && return 0
+    rm -rf "$dir" 2>/dev/null || \
+        docker run --rm -v "$(cd "$(dirname "$dir")" && pwd)":/ws alpine \
+            rm -rf "/ws/$(basename "$dir")"
+}
+
 cleanup_temporary_data () {
     echo "[Cleanup] Removing synthetic data directory, scratch directory, dummy workspace ..."
-    rm -rf "$SYNTHETIC_DATA_DIR"
-    rm -rf "$STAMP_SYNTHETIC_DATA_DIR"
-    rm -rf "$SCRATCH_DIR"
-    rm -rf "$PROJECT_DIR"
+    _rm_rf "$SYNTHETIC_DATA_DIR"
+    _rm_rf "$STAMP_SYNTHETIC_DATA_DIR"
+    _rm_rf "$SCRATCH_DIR"
+    _rm_rf "$PROJECT_DIR"
 }
 
 
