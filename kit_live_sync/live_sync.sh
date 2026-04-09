@@ -27,6 +27,30 @@ done
 [ -n "$KIT_ROOT" ] || { echo "KIT_ROOT missing" >&2; exit 1; }
 [ -n "$STARTUP_DIR" ] || { echo "STARTUP_DIR missing" >&2; exit 1; }
 
+# ── SSH connectivity check ──────────────────────────────────────────
+# Verify we can reach the monitoring server before entering the sync
+# loop.  With BatchMode=yes the connection will fail immediately if
+# key-based auth is not set up instead of prompting for a password.
+if ! ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" true 2>/dev/null; then
+    echo ""
+    echo "============================================================"
+    echo "[WARN] Live-sync: cannot connect to ${REMOTE_USER}@${REMOTE_HOST}"
+    echo ""
+    echo "  Training will continue normally, but training artifacts"
+    echo "  will NOT be synced to the monitoring server."
+    echo ""
+    echo "  To enable live sync, share your SSH public key with your"
+    echo "  swarm operator.  Generate one (if you haven't already) with:"
+    echo ""
+    echo "    ssh-keygen -t ed25519 -C \"\$(hostname)@mediswarm\""
+    echo ""
+    echo "  Then send the contents of ~/.ssh/id_ed25519.pub to your"
+    echo "  swarm operator so they can add it to the server."
+    echo "============================================================"
+    echo ""
+    exit 0
+fi
+
 STATE_DIR="$STARTUP_DIR/.mediswarm_sync"
 mkdir -p "$STATE_DIR"
 LAST_CKPT_SYNC_FILE="$STATE_DIR/${MODE}_last_ckpt_sync_ts"

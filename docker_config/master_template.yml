@@ -741,6 +741,16 @@ docker_cln_sh: |
   # Default job for preflight_check and local_training
   : ${JOB_NAME:="ODELIA_ternary_classification"}
 
+  # Auto-derive MODEL_NAME from challenge job names.
+  # Challenge jobs (challenge_1DivideAndConquer, etc.) share identical code
+  # via symlinks, so the model is selected entirely by MODEL_NAME.
+  # When --job specifies a challenge job and --model_name was NOT given,
+  # derive MODEL_NAME automatically so participants don't need to set both.
+  if [[ -z "${CLI_MODEL_NAME:-}" && "$JOB_NAME" == challenge_* ]]; then
+      CLI_MODEL_NAME="${JOB_NAME#challenge_}"
+      echo "[INFO] Auto-derived MODEL_NAME='$CLI_MODEL_NAME' from --job '$JOB_NAME'"
+  fi
+
   # Prompt for parameters if missing
   if [[ -z "$DUMMY_TRAINING" && -z "$LIST_LICENSES" && -z "$MY_DATA_DIR" ]]; then
       read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
