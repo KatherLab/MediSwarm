@@ -19,7 +19,7 @@ def remove_apt_versions(contents: str) -> str:
     contents = contents.replace(LINE_BREAK_IN_COMMAND, LINE_BREAK_REPLACEMENT)
     output = []
     for line in contents.splitlines():
-        if line.startswith('RUN apt install -y'):
+        if line.startswith('RUN apt update && apt install -y'):
             out_line = re.sub('=[^ ]*', '', line)
             output.append(out_line)
         else:
