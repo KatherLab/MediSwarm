@@ -31,7 +31,11 @@ find "$TARGET_FOLDER" -mindepth 1 -maxdepth 1 -type d | while read -r KIT_DIR; d
     continue
   fi
 
-  cp "$HELPER_SOURCE_DIR/sync.conf" "$STARTUP_DIR/sync.conf"
+  if [ -f "$HELPER_SOURCE_DIR/sync.conf" ]; then
+    cp "$HELPER_SOURCE_DIR/sync.conf" "$STARTUP_DIR/sync.conf"
+  else
+    cp "$HELPER_SOURCE_DIR/sync.conf.example" "$STARTUP_DIR/sync.conf"
+  fi
   cp "$HELPER_SOURCE_DIR/build_heartbeat.sh" "$STARTUP_DIR/build_heartbeat.sh"
   cp "$HELPER_SOURCE_DIR/live_sync.sh" "$STARTUP_DIR/live_sync.sh"
 
