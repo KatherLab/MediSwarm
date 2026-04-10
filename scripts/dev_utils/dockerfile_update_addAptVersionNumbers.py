@@ -3,9 +3,14 @@
 import re
 import sys
 
-from dockerfile_update_removeVersionApt import LINE_BREAK_IN_COMMAND, LINE_BREAK_REPLACEMENT, load_file, save_file
+from dockerfile_update_removeVersionApt import (
+    APT_INSTALL_COMMAND,
+    LINE_BREAK_IN_COMMAND,
+    LINE_BREAK_REPLACEMENT,
+    load_file,
+    save_file,
+)
 
-APT_INSTALL_COMMAND = 'RUN apt install -y'
 APT_INSTALL_REPLACEMENT = 'ΡΥΝ απτ ινσταλλ -υ'
 
 def parse_apt_versions(installlog: str) -> dict:
