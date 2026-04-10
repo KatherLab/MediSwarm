@@ -1,0 +1,25 @@
+# One-time data distribution config (local copy only).
+# Copy this file to distribute_data.conf and fill in the host, user, and
+# password values for the source and target machines.
+
+# Source machine (dl3) — has all institution data
+DL3_HOST="100.100.100.103"
+DL3_USER="swarm"
+DL3_PASS="CHANGEME"
+DL3_DATA_ROOT="/mnt/swarm_alpha/Odelia_challange/ODELIA_Challenge_unilateral"
+
+# Target machines
+DL0_HOST="100.100.100.101"
+DL0_USER="swarm"
+DL0_PASS="CHANGEME"
+DL0_DATA_DIR="/mnt/dlhd0/odelia_data"
+
+DL2_HOST="100.100.100.102"
+DL2_USER="swarm"
+DL2_PASS="CHANGEME"
+DL2_DATA_DIR="/mnt/sda1/odelia_data"
+
+# Cosmos local data (evaluation only — UKA_1)
+COSMOS_EVAL_DIR="/mnt/sda1/ODELIA_Challenge_unilateral"
+
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"

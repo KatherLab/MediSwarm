@@ -2,8 +2,27 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SYNC_CONF="$SCRIPT_DIR/sync.conf"
+
+if [ ! -f "$SYNC_CONF" ]; then
+    echo ""
+    echo "============================================================"
+    echo "[WARN] Live-sync: missing $SYNC_CONF"
+    echo ""
+    echo "  Training will continue normally, but training artifacts"
+    echo "  will NOT be synced to the monitoring server."
+    echo ""
+    echo "  To enable live sync, create a local config from the example:"
+    echo ""
+    echo "    cp \"$SCRIPT_DIR/sync.conf.example\" \"$SYNC_CONF\""
+    echo ""
+    echo "============================================================"
+    echo ""
+    exit 0
+fi
+
 # shellcheck source=/dev/null
-source "$SCRIPT_DIR/sync.conf"
+source "$SYNC_CONF"
 
 MODE=""
 SITE_NAME=""

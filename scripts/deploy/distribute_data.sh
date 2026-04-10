@@ -23,6 +23,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+CONFIG_FILE="${DISTRIBUTE_DATA_CONFIG:-$SCRIPT_DIR/distribute_data.conf}"
 
 # ── Colors ─────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -45,27 +46,26 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 # ── Configuration ──────────────────────────────────────────────────────────
-# Source machine (dl3) — has all institution data
-DL3_HOST="100.126.224.113"
-DL3_USER="swarm"
-DL3_PASS="Ekfz2ekfz"
-DL3_DATA_ROOT="/mnt/swarm_alpha/Odelia_challange/ODELIA_Challenge_unilateral"
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    err "Missing config file: $CONFIG_FILE"
+    err "Copy $SCRIPT_DIR/distribute_data.conf.example to $CONFIG_FILE and fill in the host, user, and password values."
+    exit 1
+fi
 
-# Target machines
-DL0_HOST="100.127.161.36"
-DL0_USER="swarm"
-DL0_PASS="Ekfz2ekfz"
-DL0_DATA_DIR="/mnt/dlhd0/odelia_data"
+# shellcheck source=/dev/null
+source "$CONFIG_FILE"
 
-DL2_HOST="100.64.251.72"
-DL2_USER="swarm"
-DL2_PASS="Ekfz2ekfz"
-DL2_DATA_DIR="/mnt/sda1/odelia_data"
-
-# Cosmos local data (evaluation only — UKA_1)
-COSMOS_EVAL_DIR="/mnt/sda1/ODELIA_Challenge_unilateral"
-
-SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+for required_var in \
+    DL3_HOST DL3_USER DL3_PASS DL3_DATA_ROOT \
+    DL0_HOST DL0_USER DL0_PASS DL0_DATA_DIR \
+    DL2_HOST DL2_USER DL2_PASS DL2_DATA_DIR \
+    COSMOS_EVAL_DIR SSH_OPTS
+do
+    if [[ -z "${!required_var:-}" ]] || [[ "${!required_var}" == "CHANGEME" ]]; then
+        err "Required config value $required_var is missing in $CONFIG_FILE"
+        exit 1
+    fi
+done
 
 # ── Check dependencies ─────────────────────────────────────────────────────
 if ! command -v sshpass &>/dev/null; then
