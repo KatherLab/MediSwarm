@@ -24,8 +24,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-python_env="/home/swarm/Documents/ODELIA/.venv"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python_env="${PROJECT_ROOT}/.venv"
 ODELIA_APP_DIR="${PROJECT_ROOT}/application/jobs/ODELIA_ternary_classification/app"
 PROVISION_FILE="${PROJECT_ROOT}/application/provision/project_Challenge_test.yml"
 LATEST_DOCKER_VERSION="b4d7f75" # "5fe6c0b"
