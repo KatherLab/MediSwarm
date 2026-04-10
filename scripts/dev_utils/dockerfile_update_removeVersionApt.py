@@ -5,6 +5,7 @@ import sys
 
 LINE_BREAK_IN_COMMAND = ' \\\n    '
 LINE_BREAK_REPLACEMENT = ' λινε βρεακ ρεπλαζεμεντ '
+APT_INSTALL_COMMAND = 'apt install -y'
 
 def load_file(filename: str) -> str:
     with open(filename, 'r') as infile:
@@ -19,8 +20,8 @@ def remove_apt_versions(contents: str) -> str:
     contents = contents.replace(LINE_BREAK_IN_COMMAND, LINE_BREAK_REPLACEMENT)
     output = []
     for line in contents.splitlines():
-        if line.startswith('RUN apt install -y'):
-            out_line = re.sub('=[^ ]*', '', line)
+        if APT_INSTALL_COMMAND in line:
+            out_line = re.sub(r'(?<=[A-Za-z0-9.+:-])=[^ ]*', '', line)
             output.append(out_line)
         else:
             output.append(line)

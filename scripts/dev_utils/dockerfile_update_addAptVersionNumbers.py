@@ -3,9 +3,14 @@
 import re
 import sys
 
-from dockerfile_update_removeVersionApt import LINE_BREAK_IN_COMMAND, LINE_BREAK_REPLACEMENT, load_file, save_file
+from dockerfile_update_removeVersionApt import (
+    APT_INSTALL_COMMAND,
+    LINE_BREAK_IN_COMMAND,
+    LINE_BREAK_REPLACEMENT,
+    load_file,
+    save_file,
+)
 
-APT_INSTALL_COMMAND = 'RUN apt install -y'
 APT_INSTALL_REPLACEMENT = 'ΡΥΝ απτ ινσταλλ -υ'
 
 def parse_apt_versions(installlog: str) -> dict:
@@ -27,11 +32,12 @@ def add_apt_versions(dockerfile: str, versions: dict) -> str:
     dockerfile = dockerfile.replace(APT_INSTALL_COMMAND, APT_INSTALL_REPLACEMENT)
     outlines = []
     for line in dockerfile.splitlines():
-        if line.startswith(APT_INSTALL_REPLACEMENT):
-            outline = '' + line
+        if APT_INSTALL_REPLACEMENT in line:
+            prefix, suffix = line.split(APT_INSTALL_REPLACEMENT, 1)
             for package, version in versions.items():
-                outline = outline.replace(f' {package} ', f' {package}={version} ')
-                outline = re.sub(f' {package}$', f' {package}={version}', outline)
+                suffix = suffix.replace(f' {package} ', f' {package}={version} ')
+                suffix = re.sub(rf' {re.escape(package)}$', f' {package}={version}', suffix)
+            outline = prefix + APT_INSTALL_REPLACEMENT + suffix
             outlines.append(outline)
         else:
             outlines.append(line)
