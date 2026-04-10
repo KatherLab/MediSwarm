@@ -712,22 +712,10 @@ EOF
     info "Result recorded: $result_file"
 }
 
-# ── Run the deploy test ──────────────────────────────────────────────────
-run_single_model() {
+# ── Run one training attempt ─────────────────────────────────────────────
+_run_training_attempt() {
     local job_name="$1"
     local model_name="$2"
-    local start_time
-    start_time=$(date +%s)
-
-    step "Running STAMP deploy test: $model_name (job: $job_name)"
-    echo ""
-    info "Docker image: $DOCKER_IMAGE"
-    info "Workspace: $WORKSPACE_DIR"
-    info "Server: Cosmos (localhost)"
-    info "Clients: ${CLIENT_SITES[*]}"
-    echo ""
-
-    local train_status="fail"
 
     # 1. Stop any existing containers
     stop_all
@@ -746,8 +734,48 @@ run_single_model() {
 
     # 6. Wait for training completion
     if wait_for_completion "$model_name"; then
-        train_status="pass"
+        return 0
+    else
+        return 1
     fi
+}
+
+# ── Run the deploy test ──────────────────────────────────────────────────
+MAX_RETRIES=2  # Total attempts = 1 + MAX_RETRIES
+
+run_single_model() {
+    local job_name="$1"
+    local model_name="$2"
+    local start_time
+    start_time=$(date +%s)
+
+    step "Running STAMP deploy test: $model_name (job: $job_name)"
+    echo ""
+    info "Docker image: $DOCKER_IMAGE"
+    info "Workspace: $WORKSPACE_DIR"
+    info "Server: Cosmos (localhost)"
+    info "Clients: ${CLIENT_SITES[*]}"
+    echo ""
+
+    local train_status="fail"
+
+    local attempt=1
+    while [[ $attempt -le $((MAX_RETRIES + 1)) ]]; do
+        if [[ $attempt -gt 1 ]]; then
+            warn "Retry $((attempt - 1))/$MAX_RETRIES for $model_name"
+        fi
+
+        if _run_training_attempt "$job_name" "$model_name"; then
+            train_status="pass"
+            break
+        fi
+
+        attempt=$((attempt + 1))
+        if [[ $attempt -le $((MAX_RETRIES + 1)) ]]; then
+            info "Waiting 30s before next attempt for $model_name"
+            sleep 30
+        fi
+    done
 
     # 7. Stop all containers
     stop_all
