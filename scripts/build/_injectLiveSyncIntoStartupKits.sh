@@ -44,6 +44,8 @@ find "$TARGET_FOLDER" -mindepth 1 -maxdepth 1 -type d | while read -r KIT_DIR; d
 
   if [ -f "$SYNC_CONF_SOURCE" ]; then
     cp "$SYNC_CONF_SOURCE" "$STARTUP_DIR/sync.conf"
+  else
+    cp "$SYNC_CONF_EXAMPLE_SOURCE" "$STARTUP_DIR/sync.conf"
   fi
   if [ -f "$SYNC_CONF_EXAMPLE_SOURCE" ]; then
     cp "$SYNC_CONF_EXAMPLE_SOURCE" "$STARTUP_DIR/sync.conf.example"

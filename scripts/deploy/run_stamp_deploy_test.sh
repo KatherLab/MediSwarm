@@ -2,8 +2,8 @@
 # ============================================================================
 # run_stamp_deploy_test.sh — Orchestrate 2-node STAMP deploy test
 #
-# Runs STAMP_classification through a full federated training cycle across
-# 2 physical machines connected via Tailscale VPN, with Cosmos as the
+# Runs STAMP_classification through one or more full federated training cycles
+# across 2 physical machines connected via Tailscale VPN, with Cosmos as the
 # server/admin node (no training client on Cosmos).
 #
 # Architecture:
@@ -21,10 +21,10 @@
 #   7. Wait for client registration
 #   8. Submit STAMP_classification job via admin
 #   9. Wait for training completion ("Server runner finished.")
-#  10. Record pass/fail result
+#  10. Record pass/fail result for each model
 #
 # Unlike the ODELIA deploy test (run_deploy_test.sh), this script:
-#   - Runs ONE model only (STAMP_classification)
+#   - Can run one or more STAMP models against STAMP_classification
 #   - Exports STAMP_* environment variables on remote hosts before docker.sh
 #   - Uses stamp_swarm container name prefix (not odelia_swarm)
 #   - Has no evaluation step (STAMP has no predict.py equivalent yet)
@@ -33,6 +33,7 @@
 # Usage:
 #   ./scripts/deploy/run_stamp_deploy_test.sh --conf deploy_sites_2node_stamp_test.conf
 #   ./scripts/deploy/run_stamp_deploy_test.sh --conf deploy_sites_2node_stamp_test.conf --timeout 60
+#   ./scripts/deploy/run_stamp_deploy_test.sh --conf deploy_sites_2node_stamp_test.conf --models vit,mlp
 #
 # The Docker image and startup kits must be built BEFORE running this script:
 #   ./scripts/build/buildDockerImageAndStartupKits.sh \
@@ -62,16 +63,22 @@ step()  { echo -e "\n${BOLD}=== $* ===${NC}" >&2; }
 # ── Parse arguments ────────────────────────────────────────────────────────
 CONF_FILE=""
 TIMEOUT_MINUTES=120   # 2 hours for a quick 2-round test
+MODELS_ARG=""
+ALL_STAMP_MODELS=(vit mlp trans_mil linear barspoon)
+TEST_MODELS=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --conf)         CONF_FILE="$2"; shift ;;
         --timeout)      TIMEOUT_MINUTES="$2"; shift ;;
+        --models)       MODELS_ARG="$2"; shift ;;
         -h|--help)
-            echo "Usage: $0 --conf CONF_FILE [--timeout MINUTES]"
+            echo "Usage: $0 --conf CONF_FILE [--timeout MINUTES] [--models MODEL1,MODEL2,...]"
             echo ""
             echo "  --conf      Path to site configuration file (required)"
             echo "  --timeout   Per-model training timeout in minutes (default: 120)"
+            echo "  --models    Comma-separated STAMP models to test"
+            echo "              (default: vit,mlp,trans_mil,linear,barspoon)"
             exit 0
             ;;
         *)
@@ -95,6 +102,50 @@ if [[ ! -f "$CONF_FILE" ]]; then
         exit 1
     fi
 fi
+
+# ── Model selection ────────────────────────────────────────────────────────
+is_supported_stamp_model() {
+    local candidate="$1"
+    local model
+    for model in "${ALL_STAMP_MODELS[@]}"; do
+        if [[ "$model" == "$candidate" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+resolve_test_models() {
+    if [[ -z "$MODELS_ARG" ]]; then
+        TEST_MODELS=("${ALL_STAMP_MODELS[@]}")
+        return
+    fi
+
+    local raw_models=()
+    IFS=',' read -r -a raw_models <<< "$MODELS_ARG"
+    TEST_MODELS=()
+
+    local model
+    for model in "${raw_models[@]}"; do
+        model="${model//[[:space:]]/}"
+        [[ -z "$model" ]] && continue
+
+        if ! is_supported_stamp_model "$model"; then
+            err "Unsupported STAMP model: $model"
+            err "Supported models: ${ALL_STAMP_MODELS[*]}"
+            exit 1
+        fi
+
+        TEST_MODELS+=("$model")
+    done
+
+    if [[ ${#TEST_MODELS[@]} -eq 0 ]]; then
+        err "No valid STAMP models specified via --models"
+        exit 1
+    fi
+}
+
+resolve_test_models
 
 # ── Load configuration ─────────────────────────────────────────────────────
 # shellcheck source=/dev/null
@@ -127,7 +178,7 @@ JOB_NAME="${DEFAULT_JOB:-STAMP_classification}"
 
 setup_stamp_env() {
     local site_name="$1"
-    local data_dir="$2"   # host path — only used by caller for --data_dir flag
+    local model_name="$2"
     # Inside the container, --data_dir is mounted at /data/ (read-only).
     # STAMP env vars must reference the container-internal path, not the host path.
     cat <<EOF
@@ -136,7 +187,7 @@ export STAMP_FEATURE_DIR="/data/${site_name}/features"
 export STAMP_GROUND_TRUTH_LABEL="Diagnosis"
 export STAMP_PATIENT_LABEL="PATIENT"
 export STAMP_TASK="classification"
-export STAMP_MODEL_NAME="vit"
+export STAMP_MODEL_NAME="${model_name}"
 export STAMP_DIM_INPUT="1024"
 export STAMP_NUM_CLASSES="3"
 export STAMP_BAG_SIZE="64"
@@ -429,6 +480,7 @@ start_server() {
 # before calling docker.sh.  The STAMP master template's forwarding loop
 # (for _var in $(env | grep '^STAMP_')) picks them up.
 start_clients() {
+    local model_name="$1"
     for site in "${CLIENT_SITES[@]}"; do
         local site_name host deploy_dir datadir scratchdir gpu
         site_name=$(site_var "$site" SITE_NAME)
@@ -442,7 +494,7 @@ start_clients() {
 
         # Generate STAMP env exports for this site
         local stamp_exports
-        stamp_exports=$(setup_stamp_env "$site_name" "$datadir")
+        stamp_exports=$(setup_stamp_env "$site_name" "$model_name")
 
         remote_exec "$site" \
             "$stamp_exports && \
@@ -660,7 +712,37 @@ EOF
     info "Result recorded: $result_file"
 }
 
+# ── Run one training attempt ─────────────────────────────────────────────
+_run_training_attempt() {
+    local job_name="$1"
+    local model_name="$2"
+
+    # 1. Stop any existing containers
+    stop_all
+
+    # 2. Start server on Cosmos
+    start_server
+
+    # 3. Start clients with STAMP_* env vars
+    start_clients "$model_name"
+
+    # 4. Wait for all clients to register
+    wait_for_client_registration
+
+    # 5. Submit job via admin
+    submit_job "$job_name"
+
+    # 6. Wait for training completion
+    if wait_for_completion "$model_name"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # ── Run the deploy test ──────────────────────────────────────────────────
+MAX_RETRIES=2  # Total attempts = 1 + MAX_RETRIES
+
 run_single_model() {
     local job_name="$1"
     local model_name="$2"
@@ -677,25 +759,23 @@ run_single_model() {
 
     local train_status="fail"
 
-    # 1. Stop any existing containers
-    stop_all
+    local attempt=1
+    while [[ $attempt -le $((MAX_RETRIES + 1)) ]]; do
+        if [[ $attempt -gt 1 ]]; then
+            warn "Retry $((attempt - 1))/$MAX_RETRIES for $model_name"
+        fi
 
-    # 2. Start server on Cosmos
-    start_server
+        if _run_training_attempt "$job_name" "$model_name"; then
+            train_status="pass"
+            break
+        fi
 
-    # 3. Start clients with STAMP_* env vars
-    start_clients
-
-    # 4. Wait for all clients to register
-    wait_for_client_registration
-
-    # 5. Submit job via admin
-    submit_job "$job_name"
-
-    # 6. Wait for training completion
-    if wait_for_completion "$model_name"; then
-        train_status="pass"
-    fi
+        attempt=$((attempt + 1))
+        if [[ $attempt -le $((MAX_RETRIES + 1)) ]]; then
+            info "Waiting 30s before next attempt for $model_name"
+            sleep 30
+        fi
+    done
 
     # 7. Stop all containers
     stop_all
@@ -749,4 +829,7 @@ fix_remote_dns
 pre_pull_images
 
 # Run the STAMP deploy test
-run_single_model "$JOB_NAME" "vit"
+step "Selected STAMP models: ${TEST_MODELS[*]}"
+for model_name in "${TEST_MODELS[@]}"; do
+    run_single_model "$JOB_NAME" "$model_name"
+done

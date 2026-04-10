@@ -4,21 +4,24 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SYNC_CONF="$SCRIPT_DIR/sync.conf"
 
+_ask_continue_without_sync() {
+    # In non-interactive environments (no TTY), default to continuing without sync
+    if [ ! -t 0 ]; then
+        echo "[INFO] Non-interactive mode — continuing without live sync."
+        return 0
+    fi
+    read -r -p "Continue training without live sync? [y/N] " ans
+    case "$ans" in
+        [yY]*) return 0 ;;
+        *) echo "Aborted."; return 1 ;;
+    esac
+}
+
 if [ ! -f "$SYNC_CONF" ]; then
     echo ""
-    echo "============================================================"
-    echo "[WARN] Live-sync: missing $SYNC_CONF"
+    echo "[WARN] Live-sync: sync.conf not found — training artifacts will not be synced."
     echo ""
-    echo "  Training will continue normally, but training artifacts"
-    echo "  will NOT be synced to the monitoring server."
-    echo ""
-    echo "  To enable live sync, create a local config from the example:"
-    echo ""
-    echo "    cp \"$SCRIPT_DIR/sync.conf.example\" \"$SYNC_CONF\""
-    echo ""
-    echo "============================================================"
-    echo ""
-    exit 0
+    _ask_continue_without_sync && exit 0 || exit 1
 fi
 
 # shellcheck source=/dev/null
@@ -50,24 +53,25 @@ done
 # Verify we can reach the monitoring server before entering the sync
 # loop.  With BatchMode=yes the connection will fail immediately if
 # key-based auth is not set up instead of prompting for a password.
-if ! ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" true 2>/dev/null; then
+echo "Testing SSH connectivity to ${REMOTE_USER}@${REMOTE_HOST}..."
+if ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" 'echo ok' >/dev/null 2>&1; then
+    echo "SSH OK — live sync enabled."
+else
     echo ""
     echo "============================================================"
     echo "[WARN] Live-sync: cannot connect to ${REMOTE_USER}@${REMOTE_HOST}"
-    echo ""
-    echo "  Training will continue normally, but training artifacts"
-    echo "  will NOT be synced to the monitoring server."
     echo ""
     echo "  To enable live sync, share your SSH public key with your"
     echo "  swarm operator.  Generate one (if you haven't already) with:"
     echo ""
     echo "    ssh-keygen -t ed25519 -C \"\$(hostname)@mediswarm\""
+    echo "    cat ~/.ssh/id_ed25519.pub  # send this to the swarm operator"
     echo ""
-    echo "  Then send the contents of ~/.ssh/id_ed25519.pub to your"
-    echo "  swarm operator so they can add it to the server."
+    echo "  Test connectivity manually with:"
+    echo "    ssh ${SSH_OPTS} ${REMOTE_USER}@${REMOTE_HOST} 'echo ok'"
     echo "============================================================"
     echo ""
-    exit 0
+    _ask_continue_without_sync && exit 0 || exit 1
 fi
 
 STATE_DIR="$STARTUP_DIR/.mediswarm_sync"

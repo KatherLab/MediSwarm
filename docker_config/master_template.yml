@@ -747,7 +747,12 @@ docker_cln_sh: |
   # When --job specifies a challenge job and --model_name was NOT given,
   # derive MODEL_NAME automatically so participants don't need to set both.
   if [[ -z "${CLI_MODEL_NAME:-}" && "$JOB_NAME" == challenge_* ]]; then
-      CLI_MODEL_NAME="${JOB_NAME#challenge_}"
+      _derived="${JOB_NAME#challenge_}"
+      case "$_derived" in
+          4abmil) CLI_MODEL_NAME="4LME_ABMIL" ;;  # job dir name differs from model name
+          5pimed) CLI_MODEL_NAME="5Pimed" ;;        # job dir name differs from model name
+          *)      CLI_MODEL_NAME="$_derived" ;;
+      esac
       echo "[INFO] Auto-derived MODEL_NAME='$CLI_MODEL_NAME' from --job '$JOB_NAME'"
   fi
 
