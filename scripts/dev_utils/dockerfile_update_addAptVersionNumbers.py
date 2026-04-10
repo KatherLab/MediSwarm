@@ -32,7 +32,7 @@ def add_apt_versions(dockerfile: str, versions: dict) -> str:
     dockerfile = dockerfile.replace(APT_INSTALL_COMMAND, APT_INSTALL_REPLACEMENT)
     outlines = []
     for line in dockerfile.splitlines():
-        if line.startswith(APT_INSTALL_REPLACEMENT):
+        if APT_INSTALL_REPLACEMENT in line:
             outline = '' + line
             for package, version in versions.items():
                 outline = outline.replace(f' {package} ', f' {package}={version} ')
