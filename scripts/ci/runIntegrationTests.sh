@@ -297,6 +297,13 @@ run_docker_gpu_preflight_check () {
 }
 
 
+run_two_containers_in_parallel () {
+    # requires having built a startup kit
+    echo "[TODO] implement test"
+    # e.g., run two Docker/GPU preflight checks in parallel
+}
+
+
 run_data_access_preflight_check () {
     # requires having built a startup kit and synthetic dataset
     echo "[Run] Data access preflight check..."
