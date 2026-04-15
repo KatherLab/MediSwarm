@@ -240,14 +240,32 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
     n_sites = len(auroc_df.site.unique())
     sites = sorted(auroc_df.site.unique())
 
+    palette = {'Swarm (agg, train)':  '#a6cee3',
+               'Swarm (agg, val)':    '#1f78b4',
+               'Swarm (site, train)': '#b2df8a',
+               'Swarm (site, val)':   '#33a02c',
+               'Local (train)':       '#fb9a99',
+               'Local (val)':         '#e31a1c'
+               }
+
+    dashes = {'Swarm (agg, train)':  (1,1),
+              'Swarm (agg, val)':    '',
+              'Swarm (site, train)': (1,1),
+              'Swarm (site, val)':   '',
+              'Local (train)':       (1,1),
+              'Local (val)':         ''
+              }
+
     for row_idx, auroc_type in enumerate(AUROC_TYPES):
         for col_idx, site in enumerate(sites):
             ax = axes[row_idx+1, col_idx]
 
             # Filter and plot
             plot_data = auroc_df[(auroc_df.site == site) & (auroc_df.auroc_type == auroc_type)]
+
             sns.lineplot(data=plot_data, x='epoch', y='AUROC', hue='setting',
-                         style='setting', ax=ax, legend=(row_idx == 0 and col_idx == n_sites - 1))
+                         style='setting', ax=ax, legend=(row_idx == 0 and col_idx == n_sites - 1),
+                         palette=palette, dashes=dashes)
 
             ax.set_ylim([0, 1.01])
             ax.set_xlim([auroc_df.epoch.min(), auroc_df.epoch.max() + 1])
