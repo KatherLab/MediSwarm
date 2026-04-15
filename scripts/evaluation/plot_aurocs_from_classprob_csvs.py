@@ -6,6 +6,7 @@ from pathlib import Path
 
 from sklearn.metrics import roc_auc_score
 from matplotlib.patches import Patch
+import matplotlib.lines as mlines
 import seaborn as sns
 import argparse
 import matplotlib.pyplot as plt
@@ -279,7 +280,9 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
 
             # Legend only on top-right
             if row_idx == 0 and col_idx == n_sites - 1:
-                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=12)
+                linestyle = { col: ':' if dash == (1,1) else '-' for col, dash in dashes.items() }
+                handles = [mlines.Line2D([], [], color=palette[col], linestyle=linestyle[col], label=col) for col in palette.keys()]
+                ax.legend(handles=handles, bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=12)
 
 
 def verify_same_label_distribution_swarm_local(label_dist_df: pd.DataFrame) -> None:
