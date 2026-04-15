@@ -749,6 +749,40 @@ run_3dcnn_training_in_swarm () {
 }
 
 
+_verify_challenge_preflight_check() {
+    MODEL_NAME=$1
+    EXPECTED_OUTPUT=$2
+    CONSOLE_OUTPUT=preflight_check_console_output_$MODEL_NAME.txt
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job $MODEL_NAME --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+
+    if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+        echo "✅ Expected output of $MODEL_NAME preflight check found"
+    else
+        echo "❌ Missing expected output of $MODEL_NAME preflight check"
+        exit 1
+    fi
+    sleep 5
+}
+
+
+run_all_models_preflight_check () {
+    # requires having built a startup kit and synthetic dataset
+    echo "[Run] 3DCNN local training..."
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    CONSOLE_OUTPUT=preflight_check_console_output.txt
+
+    _verify_challenge_preflight_check "challenge_1DivideAndConquer"   "3 | model   | ResidualEncoderClsNetwork"
+    _verify_challenge_preflight_check "challenge_2BCN_AIM"            "3 | backbone | SwinUNETRMultiTask"
+    _verify_challenge_preflight_check "challenge_3agaldran"           "3 | backbone | Wrapper"
+    _verify_challenge_preflight_check "challenge_4abmil"              "3 | backbone | ABMIL_Swin"
+    _verify_challenge_preflight_check "challenge_5pimed"              "3 | backbone | Resnet"
+    _verify_challenge_preflight_check "ODELIA_ternary_classification" "3 | mst     | _MST"
+
+    cd "$CWD"
+}
+
+
 cleanup_synthetic_data () {
     echo "[Cleanup] Removing synthetic data ..."
     rm -rf "$SYNTHETIC_DATA_DIR"/*
@@ -877,6 +911,12 @@ case "$1" in
         start_server_and_clients
         run_3dcnn_training_in_swarm
         kill_server_and_clients
+        cleanup_temporary_data
+        ;;
+
+    run_all_models_preflight_check)
+        create_synthetic_data
+        run_all_models_preflight_check
         cleanup_temporary_data
         ;;
 

@@ -750,10 +750,14 @@ docker_cln_sh: |
   if [[ -z "${CLI_MODEL_NAME:-}" && "$JOB_NAME" == challenge_* ]]; then
       _derived="${JOB_NAME#challenge_}"
       case "$_derived" in
-          4abmil) CLI_MODEL_NAME="4LME_ABMIL" ;;  # job dir name differs from model name
-          5pimed) CLI_MODEL_NAME="5Pimed" ;;        # job dir name differs from model name
+          4abmil) CLI_MODEL_NAME="4LME_ABMIL" ;;                                       # job dir name differs from model name
+          5pimed) CLI_MODEL_NAME="5Pimed" ;;                                           # job dir name differs from model name
           *)      CLI_MODEL_NAME="$_derived" ;;
       esac
+      echo "[INFO] Auto-derived MODEL_NAME='$CLI_MODEL_NAME' from --job '$JOB_NAME'"
+  fi
+  if [[ -z "${CLI_MODEL_NAME:-}" && "$JOB_NAME" == "ODELIA_ternary_classification" ]]; then
+      CLI_MODEL_NAME="MST"                                                             # job dir name differs from model name
       echo "[INFO] Auto-derived MODEL_NAME='$CLI_MODEL_NAME' from --job '$JOB_NAME'"
   fi
 
