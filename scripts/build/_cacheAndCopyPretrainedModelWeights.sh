@@ -12,15 +12,29 @@ MODEL_WEIGHTS_FILE_DINO_SHA=cf1f2360da4adbffe57342f0fa067fe759d9223a
 MODEL_LICENSE_FILE_DINO=$SOURCE_DIR'/docker_config/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE'
 MODEL_LICENSE_FILE_DINO_SHA=83fe23afe70f538ae3ea0969cf8b9d0701a976b1
 
+_cache_file_wget () {
+    url=$1
+    filename=$2
+
+    if [[ ! -f $filename ]]; then
+        echo "File" $filename "not available, attempting download from" $url
+        mkdir -p $(dirname $filename)
+        wget $url -O $filename
+    else
+        echo "Using" $filename "from cache"
+    fi
+}
+
 cache_files () {
-    if [[ ! -f $MODEL_WEIGHTS_FILE_DINO || ! -f $MODEL_LICENSE_FILE_DINO ]]; then
-        echo "Pre-trained model not available. Attempting download"
+    _cache_file_wget https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth $MODEL_WEIGHTS_FILE_DINO
+
+    if [[ ! -f $MODEL_LICENSE_FILE_DINO ]]; then
+        echo "Pre-trained model license not available. Attempting download."
         HUBDIR=$(dirname $(dirname $MODEL_LICENSE_FILE_DINO))
-        mkdir -p $(dirname $MODEL_WEIGHTS_FILE_DINO)
-        wget https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth -O $MODEL_WEIGHTS_FILE_DINO
-        wget https://github.com/facebookresearch/dinov2/archive/refs/heads/main.zip -O /tmp/dinov2.zip
-        unzip /tmp/dinov2.zip -d $HUBDIR
+        _cache_file_wget https://github.com/facebookresearch/dinov2/archive/refs/heads/main.zip $SOURCE_DIR/tmp/dinov2.zip
+        unzip $SOURCE_DIR/tmp/dinov2.zip -d $HUBDIR
         mv $HUBDIR/dinov2-main $HUBDIR/$(basename $(dirname $MODEL_LICENSE_FILE_DINO))
+        rm -f $SOURCE_DIR/tmp/dinov2.zip
         touch $HUBDIR/trusted_list
     fi
 }
