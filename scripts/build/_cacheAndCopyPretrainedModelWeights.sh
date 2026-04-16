@@ -4,22 +4,26 @@ set -e
 
 # prepare pre-trained model weights for being included in Docker image
 
-SOURCE_DIR=$1
-TARGET_DIR=$2
+if [[ -n "$MEDISWARM_BUILD_CACHE_DIR" ]]; then
+    CACHE_DIR=$MEDISWARM_BUILD_CACHE_DIR
+else
+    CACHE_DIR=$(mktemp -d)
+fi
+TARGET_DIR=$1
 
-MODEL_WEIGHTS_FILE_DINO=$SOURCE_DIR'/docker_config/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth'
+MODEL_WEIGHTS_FILE_DINO=$CACHE_DIR'/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth'
 MODEL_WEIGHTS_FILE_DINO_URL=https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth
 MODEL_WEIGHTS_FILE_DINO_SHA=cf1f2360da4adbffe57342f0fa067fe759d9223a
 
-MODEL_LICENSE_FILE_DINO=$SOURCE_DIR'/docker_config/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE'
+MODEL_LICENSE_FILE_DINO=$CACHE_DIR'/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE'
 MODEL_LICENSE_FILE_DINO_URL=https://github.com/facebookresearch/dinov2/archive/refs/heads/main.zip
 MODEL_LICENSE_FILE_DINO_SHA=83fe23afe70f538ae3ea0969cf8b9d0701a976b1
 
-MODEL_WEIGHTS_FILE_MVIT=$SOURCE_DIR'/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth'
+MODEL_WEIGHTS_FILE_MVIT=$CACHE_DIR'/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth'
 MODEL_WEIGHTS_FILE_MVIT_URL=https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth
 MODEL_WEIGHTS_FILE_MVIT_SHA=94826d379879465b184689212bd62e62d50f40df
 
-MODEL_WEIGHTS_FILE_ODAC=$SOURCE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth
+MODEL_WEIGHTS_FILE_ODAC=$CACHE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth
 MODEL_WEIGHTS_FILE_ODAC_SHA=b6d0badeb218ec2eb0b07300a53b8b855810019b
 
 
@@ -37,14 +41,15 @@ _cache_file_wget () {
 _cache_odac_model () {
     if [[ ! -f "$MODEL_WEIGHTS_FILE_ODAC" ]]; then
         echo "Downloading 1DivideAndConquer checkpoint from Google Drive..."
+        mkdir -p $(dirname "$MODEL_WEIGHTS_FILE_ODAC")
         GDOWN_CMD=$(command -v gdown || echo "")
         # Verify gdown actually works (not just a stale shim with missing module)
         if [[ -n "$GDOWN_CMD" ]] && ! "$GDOWN_CMD" --version &>/dev/null; then
             echo "Found gdown at $GDOWN_CMD but it is broken, ignoring..."
             GDOWN_CMD=""
         fi
-        if [[ -z "$GDOWN_CMD" && -x "$SOURCE_DIR/.venv/bin/gdown" ]]; then
-            GDOWN_CMD="$SOURCE_DIR/.venv/bin/gdown"
+        if [[ -z "$GDOWN_CMD" && -x "$CACHE_DIR/.venv/bin/gdown" ]]; then
+            GDOWN_CMD="$CACHE_DIR/.venv/bin/gdown"
         fi
         if [[ -z "$GDOWN_CMD" ]]; then
             echo "gdown not found, installing into temporary venv..."
@@ -67,10 +72,11 @@ cache_files () {
     if [[ ! -f "$MODEL_LICENSE_FILE_DINO" ]]; then
         echo "Pre-trained model license not available. Attempting download."
         HUBDIR=$(dirname $(dirname "$MODEL_LICENSE_FILE_DINO"))
-        _cache_file_wget "$MODEL_LICENSE_FILE_DINO_URL" "$SOURCE_DIR/tmp/dinov2.zip"
-        unzip "$SOURCE_DIR/tmp/dinov2.zip" -d "$HUBDIR"
+        _cache_file_wget "$MODEL_LICENSE_FILE_DINO_URL" "$CACHE_DIR/tmp/dinov2.zip"
+        mkdir -p $(dirname "$HUBDIR")
+        unzip "$CACHE_DIR/tmp/dinov2.zip" -d "$HUBDIR"
         mv "$HUBDIR/dinov2-main" "$HUBDIR/""$(basename $(dirname "$MODEL_LICENSE_FILE_DINO"))"
-        rm -f "$SOURCE_DIR/tmp/dinov2.zip"
+        rm -f "$CACHE_DIR/tmp/dinov2.zip"
         touch "$HUBDIR/trusted_list"
     fi
 
@@ -103,7 +109,8 @@ verify_files () {
 
 
 copy_files() {
-    cp -r "$SOURCE_DIR/docker_config/torch_home_cache" "$TARGET_DIR/torch_home_cache"
+    # Copy MST pre-trained weights
+    cp -r "$CACHE_DIR/torch_home_cache" "$TARGET_DIR/torch_home_cache"
     chmod a+rX "$TARGET_DIR/torch_home_cache" -R
 
     # Copy challenge model weights to a SEPARATE directory outside the job folders.
@@ -117,7 +124,7 @@ copy_files() {
 
     # challenge_1DivideAndConquer: checkpoint_final.pth
     echo "1DivideAndConquer: copying checkpoint_final.pth"
-    cp "$SOURCE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth"  "$WEIGHTS_DIR/"
+    cp "$CACHE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth"  "$WEIGHTS_DIR/"
 
     # challenge_3agaldran: mvit_v2_s-ae3be167.pth (PyTorch pretrained weights)
     echo "3agaldran: copying mvit_v2_s-ae3be167.pth"
@@ -130,3 +137,7 @@ copy_files() {
 cache_files
 verify_files
 copy_files
+
+if [[ -z "$MEDISWARM_BUILD_CACHE_DIR" ]]; then
+    rm -rf "$CACHE_DIR"
+fi
