@@ -8,9 +8,19 @@ SOURCE_DIR=$1
 TARGET_DIR=$2
 
 MODEL_WEIGHTS_FILE_DINO=$SOURCE_DIR'/docker_config/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth'
+MODEL_WEIGHTS_FILE_DINO_URL=https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth
 MODEL_WEIGHTS_FILE_DINO_SHA=cf1f2360da4adbffe57342f0fa067fe759d9223a
+
 MODEL_LICENSE_FILE_DINO=$SOURCE_DIR'/docker_config/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE'
+MODEL_LICENSE_FILE_DINO_URL=https://github.com/facebookresearch/dinov2/archive/refs/heads/main.zip
 MODEL_LICENSE_FILE_DINO_SHA=83fe23afe70f538ae3ea0969cf8b9d0701a976b1
+
+MODEL_WEIGHTS_FILE_MVIT=$SOURCE_DIR'/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth'
+MODEL_WEIGHTS_FILE_MVIT_URL=https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth
+MODEL_WEIGHTS_FILE_MVIT_SHA=94826d379879465b184689212bd62e62d50f40df
+
+# b6d0badeb218ec2eb0b07300a53b8b855810019b  checkpoint_final.pth
+
 
 _cache_file_wget () {
     url=$1
@@ -20,23 +30,23 @@ _cache_file_wget () {
         echo "File" $filename "not available, attempting download from" $url
         mkdir -p $(dirname $filename)
         wget $url -O $filename
-    else
-        echo "Using" $filename "from cache"
     fi
 }
 
 cache_files () {
-    _cache_file_wget https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth $MODEL_WEIGHTS_FILE_DINO
+    _cache_file_wget $MODEL_WEIGHTS_FILE_DINO_URL $MODEL_WEIGHTS_FILE_DINO
 
     if [[ ! -f $MODEL_LICENSE_FILE_DINO ]]; then
         echo "Pre-trained model license not available. Attempting download."
         HUBDIR=$(dirname $(dirname $MODEL_LICENSE_FILE_DINO))
-        _cache_file_wget https://github.com/facebookresearch/dinov2/archive/refs/heads/main.zip $SOURCE_DIR/tmp/dinov2.zip
+        _cache_file_wget $MODEL_LICENSE_FILE_DINO_URL $SOURCE_DIR/tmp/dinov2.zip
         unzip $SOURCE_DIR/tmp/dinov2.zip -d $HUBDIR
         mv $HUBDIR/dinov2-main $HUBDIR/$(basename $(dirname $MODEL_LICENSE_FILE_DINO))
         rm -f $SOURCE_DIR/tmp/dinov2.zip
         touch $HUBDIR/trusted_list
     fi
+
+    _cache_file_wget $MODEL_WEIGHTS_FILE_MVIT_URL $MODEL_WEIGHTS_FILE_MVIT
 }
 
 _verify_hash() {
@@ -56,6 +66,7 @@ _verify_hash() {
 verify_files () {
     _verify_hash $MODEL_WEIGHTS_FILE_DINO_SHA $MODEL_WEIGHTS_FILE_DINO
     _verify_hash $MODEL_LICENSE_FILE_DINO_SHA $MODEL_LICENSE_FILE_DINO
+    _verify_hash $MODEL_WEIGHTS_FILE_MVIT_SHA $MODEL_WEIGHTS_FILE_MVIT
 }
 
 copy_files() {
@@ -99,13 +110,8 @@ copy_files() {
 
     # challenge_3agaldran: mvit_v2_s-ae3be167.pth (PyTorch pretrained weights)
     echo "3agaldran: caching mvit_v2_s-ae3be167.pth"
-    if [[ -f "$SOURCE_DIR/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth" ]]; then
-        cp "$SOURCE_DIR/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth" \
-           "$WEIGHTS_DIR/"
-    else
-        echo "Downloading 3agaldran checkpoint..."
-        wget https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth -O "$WEIGHTS_DIR/mvit_v2_s-ae3be167.pth"
-    fi
+
+    cp "$MODEL_WEIGHTS_FILE_MVIT" "$WEIGHTS_DIR/"
 
     chmod a+rX "$WEIGHTS_DIR" -R
 }
