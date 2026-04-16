@@ -6,29 +6,42 @@ set -e
 
 SOURCE_DIR=$1
 TARGET_DIR=$2
-MODEL_WEIGHTS_FILE=$SOURCE_DIR'/docker_config/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth'
-MODEL_LICENSE_FILE=$SOURCE_DIR'/docker_config/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE'
+
+MODEL_WEIGHTS_FILE_DINO=$SOURCE_DIR'/docker_config/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth'
+MODEL_WEIGHTS_FILE_DINO_SHA=cf1f2360da4adbffe57342f0fa067fe759d9223a
+MODEL_LICENSE_FILE_DINO=$SOURCE_DIR'/docker_config/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE'
+MODEL_LICENSE_FILE_DINO_SHA=83fe23afe70f538ae3ea0969cf8b9d0701a976b1
 
 cache_files () {
-    if [[ ! -f $MODEL_WEIGHTS_FILE || ! -f $MODEL_LICENSE_FILE ]]; then
+    if [[ ! -f $MODEL_WEIGHTS_FILE_DINO || ! -f $MODEL_LICENSE_FILE_DINO ]]; then
         echo "Pre-trained model not available. Attempting download"
-        HUBDIR=$(dirname $(dirname $MODEL_LICENSE_FILE))
-        mkdir -p $(dirname $MODEL_WEIGHTS_FILE)
-        wget https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth -O $MODEL_WEIGHTS_FILE
+        HUBDIR=$(dirname $(dirname $MODEL_LICENSE_FILE_DINO))
+        mkdir -p $(dirname $MODEL_WEIGHTS_FILE_DINO)
+        wget https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth -O $MODEL_WEIGHTS_FILE_DINO
         wget https://github.com/facebookresearch/dinov2/archive/refs/heads/main.zip -O /tmp/dinov2.zip
         unzip /tmp/dinov2.zip -d $HUBDIR
-        mv $HUBDIR/dinov2-main $HUBDIR/$(basename $(dirname $MODEL_LICENSE_FILE))
+        mv $HUBDIR/dinov2-main $HUBDIR/$(basename $(dirname $MODEL_LICENSE_FILE_DINO))
         touch $HUBDIR/trusted_list
     fi
 }
 
-verify_files () {
-    if echo 2e405cee1bad14912278296d4f42e993 $MODEL_WEIGHTS_FILE | md5sum --check - && echo 153d2db1c329326a2d9f881317ea942e $MODEL_LICENSE_FILE | md5sum --check -; then
-        echo "File contents verified successfully."
+_verify_hash() {
+    hash_value=$1
+    filename=$2
+
+    echo $hash_value $filename
+
+    if echo $hash_value"  "$filename | shasum --check -; then
+        echo "Hash" $1 "for" $2 "verified successfully."
     else
-        echo "Unexpected file contents."
+        echo "Unexpected file hash."
         exit 1
     fi
+}
+
+verify_files () {
+    _verify_hash $MODEL_WEIGHTS_FILE_DINO_SHA $MODEL_WEIGHTS_FILE_DINO
+    _verify_hash $MODEL_LICENSE_FILE_DINO_SHA $MODEL_LICENSE_FILE_DINO
 }
 
 copy_files() {
