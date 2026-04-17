@@ -199,10 +199,15 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
 
-    if grep -q "\-\-local_training" "$PROJECT_DIR/prod_01/client_A/startup/docker.sh"; then
-        echo "✅ Expected option for running local training found"
+    if grep -q "\-\-dummy_training"  "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
+       grep -q "\-\-preflight_check" "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
+       grep -q "\-\-local_training"  "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
+       grep -q "\-\-start_client"    "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
+       grep -q "\-\-list_licenses"   "$PROJECT_DIR/prod_01/client_A/startup/docker.sh";
+    then
+        echo "✅ Expected options for docker.sh in client startup kit found"
     else
-        echo "Missing option for running local training"
+        echo "Missing options for docker.sh in client startup kit "
         exit 1
     fi
 
