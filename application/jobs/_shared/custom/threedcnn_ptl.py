@@ -129,7 +129,7 @@ def log_data_hash(dm: DataModule, logger, log_dataset_details: bool = False) -> 
                         for hsh, uids in uids_for_hash.items():
                             if uids:
                                 message += f'Image data with hash {hsh} appears {len(uids)} times: ' + ', '.join(uids) + '\n'
-                    logger.info(message)
+                    logger.warning(message)
 
         _check_separately_for_duplicates(uids_with_hashes_train, where, 'training', log_dataset_details)
         _check_separately_for_duplicates(uids_with_hashes_valid, where, 'validation', log_dataset_details)
