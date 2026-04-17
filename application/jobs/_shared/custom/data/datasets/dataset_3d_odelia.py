@@ -222,7 +222,7 @@ class ODELIA_Dataset3D(data.Dataset):
                     logger.error(f'UIDs among {where} data present that do not end in _left or _right, this should not happen.')
                     if log_dataset_details:
                         neither_left_right.sort()
-                        logger.error('The following UIDs among {where} data do not end in _left or _right: ' + ', '.join(neither_left_nor_right))
+                        logger.error(f'The following UIDs among {where} data do not end in _left or _right: ' + ', '.join(neither_left_right))
 
             def _log_one_side_only(uids: List[str], where: str, logger, log_dataset_details) -> None:
                 def _report(discrepancies: List[str], present: str, absent: str, where: str, logger, log_dataset_details) -> None:
