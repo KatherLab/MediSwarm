@@ -215,6 +215,35 @@ class ODELIA_Dataset3D(data.Dataset):
                     intersection.sort()
                     logger.error(f'Entries in {where_a}∩{where_b}: ' + ', '.join(intersection))
 
+        def _log_left_right_discrepancies(uids: List[str], where: str, logger, log_dataset_details) -> None:
+            def _log_neither_left_nor_right(uids: List[str], where: str, logger, log_dataset_details) -> None:
+                neither_left_right = [u for u in uids if ( not u.endswith('_left') and not u.endswith('_right') )]
+                if neither_left_right:
+                    logger.error(f'UIDs among {where} data present that do not end in _left or _right, this should not happen.')
+                    if log_dataset_details:
+                        neither_left_right.sort()
+                        logger.error('The following UIDs among {where} data do not end in _left or _right: ' + ', '.join(neither_left_nor_right))
+
+            def _log_one_side_only(uids: List[str], where: str, logger, log_dataset_details) -> None:
+                def _report(discrepancies: List[str], present: str, absent: str, where: str, logger, log_dataset_details) -> None:
+                    if discrepancies:
+                        logger.warning(f'UIDs with among {where} data _left present and _right missing detected, make sure this was intended.')
+                        if log_dataset_details:
+                            discrepancies = list(discrepancies)
+                            discrepancies.sort()
+                            logger.warning(f'For the following UIDs among {where} data, {present} is present and {absent} is missing: ' + ', '.join(discrepancies))
+
+                left  = [u for u in uids if u.endswith('_left') ]
+                right = [u for u in uids if u.endswith('_right')]
+                left_not_right = set(left).difference(set(right))
+                right_not_left = set(right).difference(set(left))
+                _report(left_not_right, '_left', '_right', where, logger, log_dataset_details)
+                _report(right_not_left, '_right', '_left', where, logger, log_dataset_details)
+
+            _log_neither_left_nor_right(uids, where, logger, log_dataset_details)
+            _log_one_side_only(uids, where, logger, log_dataset_details)
+
+
         config = 'unilateral'
         path_root = Path(cls.PATH_ROOT if path_root is None else path_root)
         meta_dir = cls.META_DIR[config]
@@ -242,6 +271,10 @@ class ODELIA_Dataset3D(data.Dataset):
             _log_differences(uids_in_split[None], uids_in_images,'split', 'images', logger, log_dataset_details)
             _log_differences(uids_in_annotation, uids_in_images, 'annotation', 'images', logger, log_dataset_details)
 
-            _log_intersection(uids_in_split['train'], uids_in_split['val'], 'training', 'validation', logger, log_dataset_details)
-            _log_intersection(uids_in_split['train'], uids_in_split['test'], 'training', 'test', logger, log_dataset_details)
-            _log_intersection(uids_in_split['val'], uids_in_split['test'], 'validation', 'test', logger, log_dataset_details)
+            _log_intersection(uids_in_split['train'], uids_in_split['val'],  'training',   'validation', logger, log_dataset_details)
+            _log_intersection(uids_in_split['train'], uids_in_split['test'], 'training',   'test',       logger, log_dataset_details)
+            _log_intersection(uids_in_split['val'],   uids_in_split['test'], 'validation', 'test',       logger, log_dataset_details)
+
+            _log_left_right_discrepancies(uids_in_split['train'], 'training',   logger, log_dataset_details)
+            _log_left_right_discrepancies(uids_in_split['val'],   'validation', logger, log_dataset_details)
+            _log_left_right_discrepancies(uids_in_split['test'],  'test',       logger, log_dataset_details)

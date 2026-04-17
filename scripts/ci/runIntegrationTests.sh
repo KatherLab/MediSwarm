@@ -324,7 +324,9 @@ run_data_access_preflight_check () {
        grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" ; then
+       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." "$CONSOLE_OUTPUT" ;
+    then
         echo "✅ Expected output (including expected warnings and errors) of data access preflight check found"
     else
         echo "❌ Missing expected output of data access preflight check"
@@ -362,7 +364,9 @@ run_data_access_preflight_check_log_details () {
        grep -qx "WARNING:threedcnn_ptl:Difference images.annotation: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" ; then
+       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:For the following UIDs among training data, _left is present and _right is missing: ID_000_left" "$CONSOLE_OUTPUT" ;
+    then
         echo "✅ Expected output (including expected warnings and errors) of data access preflight check found"
     else
         echo "❌ Missing expected output of data access preflight check"
