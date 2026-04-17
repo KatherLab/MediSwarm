@@ -326,7 +326,8 @@ run_data_access_preflight_check () {
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen." "$CONSOLE_OUTPUT" ;
+       grep -q  "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen." "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen." "$CONSOLE_OUTPUT" ;
     then
         echo "✅ Expected output (including expected warnings and errors) of data access preflight check found"
     else
@@ -367,7 +368,8 @@ run_data_access_preflight_check_log_details () {
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:For the following UIDs among training data, _left is present and _right is missing: ID_000_left" "$CONSOLE_OUTPUT" &&
-       grep -q  "ERROR:threedcnn_ptl:The following UIDs among training data do not end in _left or _right: SomeUID_both" "$CONSOLE_OUTPUT" ;
+       grep -q  "ERROR:threedcnn_ptl:The following UIDs among training data do not end in _left or _right: SomeUID_both" "$CONSOLE_OUTPUT" &&
+       grep -q  "ERROR:threedcnn_ptl:The following exams are present in training and validation: ID_000," "$CONSOLE_OUTPUT" ;
     then
         echo "✅ Expected output (including expected warnings and errors) of data access preflight check found"
     else

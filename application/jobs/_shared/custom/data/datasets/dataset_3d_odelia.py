@@ -243,6 +243,18 @@ class ODELIA_Dataset3D(data.Dataset):
             _log_neither_left_nor_right(uids, where, logger, log_dataset_details)
             _log_one_side_only(uids, where, logger, log_dataset_details)
 
+        def _log_left_right_overlap(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
+            exam_ids_left  = {u[:-5] for u in uids if u.endswith('_left') }
+            exam_ids_right = {u[:-6] for u in uids if u.endswith('_right')}
+
+            joint_exam_ids = exam_ids_left.intersection(exam_ids_right)
+            if joint_exam_ids:
+                logger.error(f'UIDs for the same exam found in {where_a} and {where_b}, this should not happen.')
+                if log_dataset_details:
+                    joint_exam_ids = list(joint_exam_ids)
+                    joint_exam_ids.sort()
+                    logger.error(f'The following exams are present in {where_a} and {where_b}: ' + ', '.join(joint_exam_ids))
+
 
         config = 'unilateral'
         path_root = Path(cls.PATH_ROOT if path_root is None else path_root)
@@ -278,3 +290,7 @@ class ODELIA_Dataset3D(data.Dataset):
             _log_left_right_discrepancies(uids_in_split['train'], 'training',   logger, log_dataset_details)
             _log_left_right_discrepancies(uids_in_split['val'],   'validation', logger, log_dataset_details)
             _log_left_right_discrepancies(uids_in_split['test'],  'test',       logger, log_dataset_details)
+
+            _log_left_right_overlap(uids_in_split['train'], uids_in_split['val'],  'training',   'validation', logger, log_dataset_details)
+            _log_left_right_overlap(uids_in_split['train'], uids_in_split['test'], 'training',   'test',       logger, log_dataset_details)
+            _log_left_right_overlap(uids_in_split['val'],   uids_in_split['test'], 'validation', 'test',       logger, log_dataset_details)
