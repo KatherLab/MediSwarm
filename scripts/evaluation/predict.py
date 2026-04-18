@@ -301,8 +301,8 @@ def predict_with_model(
             preds = model.logits2labels(logits)
 
             all_probs.append(probs.cpu().numpy())
-            all_preds.append(preds.cpu().numpy().squeeze())
-            all_targets.append(target.numpy().squeeze())
+            all_preds.append(np.atleast_1d(preds.cpu().numpy().squeeze()))
+            all_targets.append(np.atleast_1d(target.numpy().squeeze()))
 
             # Collect UIDs if present
             if "uid" in batch:
