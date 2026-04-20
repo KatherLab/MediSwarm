@@ -60,7 +60,9 @@ from sklearn.metrics import (
 # Path setup -- make the shared custom directory importable
 # ---------------------------------------------------------------------------
 _SCRIPT_DIR = Path(__file__).resolve().parent
-_PROJECT_ROOT = _SCRIPT_DIR.parent.parent  # scripts/evaluation -> project root
+_PROJECT_ROOT = Path(
+    os.environ.get("MEDISWARM_PROJECT_ROOT", _SCRIPT_DIR.parent.parent)
+).resolve()
 _CUSTOM_DIR = _PROJECT_ROOT / "application" / "jobs" / "_shared" / "custom"
 
 sys.path.insert(0, str(_CUSTOM_DIR))

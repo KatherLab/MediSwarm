@@ -50,7 +50,7 @@ step()  { echo -e "\n${BOLD}═══ $* ═══${NC}"; }
 
 REMOTE_HOST="${REMOTE_HOST:-dd-dl0}"
 REMOTE_USER="${REMOTE_USER:-swarm}"
-REMOTE_PASS="${REMOTE_PASS:-Ekfz_ekfz}"
+REMOTE_PASS="${REMOTE_PASS:?REMOTE_PASS must be set (export REMOTE_PASS=<password>)}"
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 
 SITE_NAME="${SITE_NAME:-RUMC_1}"
@@ -85,7 +85,7 @@ MODEL_SPECS=(
     "challenge_4abmil:4LME_ABMIL"
     "challenge_5pimed:5Pimed"
 )
-NODES=(node_A node_B node_C node_all)
+NODES=(node_A node_C node_B node_all)
 
 usage() {
     cat <<EOF
@@ -158,12 +158,14 @@ copy_from_remote() {
 copy_to_remote() {
     local local_path="$1"
     local remote_path="$2"
+    local remote_dir
+    remote_dir="$(dirname "$remote_path")"
     if [[ "$DRY_RUN" -eq 1 ]]; then
         info "[dry-run] scp ${local_path} -> ${REMOTE_USER}@${REMOTE_HOST}:${remote_path}"
         return 0
     fi
-    sshpass -p "$REMOTE_PASS" scp $SSH_OPTS \
-        "$local_path" "${REMOTE_USER}@${REMOTE_HOST}:${remote_path}"
+    sshpass -p "$REMOTE_PASS" ssh $SSH_OPTS "${REMOTE_USER}@${REMOTE_HOST}" \
+        "mkdir -p '$remote_dir' && cat > '$remote_path'" < "$local_path"
 }
 
 verify_remote_prereqs() {
@@ -642,6 +644,7 @@ docker run --rm \
   --env CONFIG=unilateral \
   --env MODEL_NAME="$model_name" \
   --env MEDISWARM_VERSION="$version" \
+  --env MEDISWARM_PROJECT_ROOT=/MediSwarm \
   "$image" \
   /bin/bash -lc "python /scratch/predict.py --checkpoint '$container_checkpoint_path' --checkpoint-type lightning --output-dir /scratch/predictions --split test --num-classes 3 --model-name '$model_name'" \
   2>&1 | tee "$log_file"
