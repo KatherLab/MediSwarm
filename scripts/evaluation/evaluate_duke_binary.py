@@ -3,7 +3,7 @@
 Evaluate Duke split predictions as a binary malignant-vs-no-lesion task.
 
 This helper is intentionally lightweight and depends only on the Python
-standard library plus scikit-learn so it can run from the repo venv on Cosmos.
+standard library so it can run from the repo runtime on Cosmos.
 
 Expected input is a predictions CSV produced by `scripts/evaluation/predict.py`
 with columns like:
@@ -21,15 +21,6 @@ import csv
 import json
 from pathlib import Path
 from typing import Dict, List
-
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
 
 
 def parse_args() -> argparse.Namespace:
@@ -106,25 +97,70 @@ def load_predictions(path: Path) -> Dict[str, List[float]]:
     }
 
 
+def _confusion_matrix_binary(y_true: List[int], y_pred: List[int]) -> List[List[int]]:
+    tn = fp = fn = tp = 0
+    for truth, pred in zip(y_true, y_pred):
+        if truth == 0 and pred == 0:
+            tn += 1
+        elif truth == 0 and pred == 1:
+            fp += 1
+        elif truth == 1 and pred == 0:
+            fn += 1
+        else:
+            tp += 1
+    return [[tn, fp], [fn, tp]]
+
+
+def _safe_divide(num: float, den: float) -> float:
+    return float(num / den) if den else 0.0
+
+
+def _roc_auc_binary(y_true: List[int], y_score: List[float]) -> float:
+    positives = sum(1 for value in y_true if value == 1)
+    negatives = len(y_true) - positives
+    if positives == 0 or negatives == 0:
+        raise ValueError("AUROC is undefined when only one class is present.")
+
+    ranked = sorted(zip(y_score, y_true), key=lambda item: item[0])
+    rank_sum = 0.0
+    idx = 0
+    while idx < len(ranked):
+        jdx = idx + 1
+        while jdx < len(ranked) and ranked[jdx][0] == ranked[idx][0]:
+            jdx += 1
+        avg_rank = (idx + 1 + jdx) / 2.0
+        positives_in_tie = sum(label == 1 for _, label in ranked[idx:jdx])
+        rank_sum += positives_in_tie * avg_rank
+        idx = jdx
+
+    return float((rank_sum - positives * (positives + 1) / 2.0) / (positives * negatives))
+
+
 def evaluate_binary(data: Dict[str, List[float]]) -> Dict[str, object]:
     y_true = data["y_true"]
     y_pred = data["y_pred"]
     y_score = data["y_score"]
 
-    cm = confusion_matrix(y_true, y_pred, labels=[0, 1]).tolist()
+    cm = _confusion_matrix_binary(y_true, y_pred)
     tn, fp = cm[0]
     fn, tp = cm[1]
+
+    accuracy = _safe_divide(tn + tp, len(y_true))
+    precision = _safe_divide(tp, tp + fp)
+    recall = _safe_divide(tp, tp + fn)
+    specificity = _safe_divide(tn, tn + fp)
+    f1 = _safe_divide(2 * precision * recall, precision + recall)
 
     metrics = {
         "num_samples": len(y_true),
         "num_negative": int(sum(1 for value in y_true if value == 0)),
         "num_positive": int(sum(1 for value in y_true if value == 1)),
-        "binary_auroc": float(roc_auc_score(y_true, y_score)),
-        "binary_accuracy": float(accuracy_score(y_true, y_pred)),
-        "binary_f1": float(f1_score(y_true, y_pred, zero_division=0)),
-        "binary_precision": float(precision_score(y_true, y_pred, zero_division=0)),
-        "binary_recall": float(recall_score(y_true, y_pred, zero_division=0)),
-        "specificity": float(tn / (tn + fp)) if (tn + fp) else 0.0,
+        "binary_auroc": _roc_auc_binary(y_true, y_score),
+        "binary_accuracy": accuracy,
+        "binary_f1": f1,
+        "binary_precision": precision,
+        "binary_recall": recall,
+        "specificity": specificity,
         "confusion_matrix": cm,
         "confusion_matrix_labels": [0, 1],
         "pred_positive_rule": "prediction == 2",
