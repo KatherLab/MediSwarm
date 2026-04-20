@@ -826,6 +826,32 @@ docker_cln_sh: |
      ENV_VARS+=" --env LOG_DATASET_DETAILS=1"
   fi
 
+  # Optional ODELIA loader/hash/cache tuning knobs.
+  if [ -n "${ODELIA_NUM_WORKERS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_NUM_WORKERS=$ODELIA_NUM_WORKERS"
+  fi
+  if [ -n "${ODELIA_HASH_NUM_WORKERS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_HASH_NUM_WORKERS=$ODELIA_HASH_NUM_WORKERS"
+  fi
+  if [ -n "${ODELIA_THREADS_PER_WORKER:-}" ]; then
+      ENV_VARS+=" --env ODELIA_THREADS_PER_WORKER=$ODELIA_THREADS_PER_WORKER"
+  fi
+  if [ -n "${ODELIA_INTEROP_THREADS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_INTEROP_THREADS=$ODELIA_INTEROP_THREADS"
+  fi
+  if [ -n "${ODELIA_HASH_CACHE_DIR:-}" ]; then
+      ENV_VARS+=" --env ODELIA_HASH_CACHE_DIR=$ODELIA_HASH_CACHE_DIR"
+  fi
+  if [ -n "${ODELIA_ENABLE_PREPROCESS_CACHE:-}" ]; then
+      ENV_VARS+=" --env ODELIA_ENABLE_PREPROCESS_CACHE=$ODELIA_ENABLE_PREPROCESS_CACHE"
+  fi
+  if [ -n "${ODELIA_PREPROCESS_CACHE_DIR:-}" ]; then
+      ENV_VARS+=" --env ODELIA_PREPROCESS_CACHE_DIR=$ODELIA_PREPROCESS_CACHE_DIR"
+  fi
+  if [ -n "${ODELIA_PREPROCESS_CACHE_VERSION:-}" ]; then
+      ENV_VARS+=" --env ODELIA_PREPROCESS_CACHE_VERSION=$ODELIA_PREPROCESS_CACHE_VERSION"
+  fi
+
   # ── Live Sync Integration ──────────────────────────────────────────
   # live_sync.sh is co-located in the startup directory (injected by
   # _injectLiveSyncIntoStartupKits.sh) and syncs training artifacts to
