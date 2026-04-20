@@ -22,23 +22,23 @@ DEFAULT_JOB=challenge_1DivideAndConquer
 ADMIN_USER=jiefu.zhu@tu-dresden.de
 
 # ── Site: MHA ──────────────────────────────────────────────────────
-MHA_HOST=172.24.4.91
-MHA_USER=odelia
+MHA_HOST=10.0.0.1
+MHA_USER=CHANGEME
 MHA_PASS='CHANGEME'
 MHA_SITE_NAME=MHA_1
-MHA_DATADIR=/home/odelia/MediSwarm/data
-MHA_SCRATCHDIR=/home/odelia/MediSwarm/data/MHA_1/tmp
-MHA_DEPLOY_DIR=/home/odelia/Odelia
+MHA_DATADIR=/home/CHANGEME/MediSwarm/data
+MHA_SCRATCHDIR=/home/CHANGEME/MediSwarm/data/MHA_1/tmp
+MHA_DEPLOY_DIR=/home/CHANGEME/Odelia
 MHA_GPU="device=0"
 
 # ── Site: RSH ──────────────────────────────────────────────────────
-RSH_HOST=172.24.4.71
-RSH_USER=asoro
+RSH_HOST=10.0.0.2
+RSH_USER=CHANGEME
 RSH_PASS='CHANGEME'
 RSH_SITE_NAME=RSH_1
-RSH_DATADIR=/home/asoro/odelia/RSH/
-RSH_SCRATCHDIR=/home/asoro/odelia/RSH/scratch/
-RSH_DEPLOY_DIR=/home/asoro/Odelia
+RSH_DATADIR=/home/CHANGEME/odelia/RSH/
+RSH_SCRATCHDIR=/home/CHANGEME/odelia/RSH/scratch/
+RSH_DEPLOY_DIR=/home/CHANGEME/Odelia
 RSH_GPU="device=0"
 
 # ── Site: DL0 (Duke Benchmark) ────────────────────────────────────
