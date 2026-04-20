@@ -4,54 +4,14 @@
 title = "MediSwarm gitleaks config"
 
 [extend]
-# Extend the default ruleset
+# Use the default ruleset (detects API keys, tokens, passwords, etc.)
 useDefault = true
 
-# ── Allowlists (known-safe references in documentation) ────────────────────
-[[rules]]
-id = "mediswarm-server-ip"
-description = "Internal VPN server IP (172.24.4.65) — intentionally in participant docs"
-regex = '''172\.24\.4\.65'''
-allowlist = { paths = [
-    "assets/readme/README.participant.md",
-    "assets/readme/README.participant.STAMP.md",
-    "assets/readme/README_old.md",
-    "deploy_and_test.sh",
-    "server_tools/README.md",
-    "server_tools/app.py",
-    "kit_live_sync/sync.conf.example",
-    "docs/deploy_test_runbook.md",
-    "scripts/client_node_setup/setup_vpntunnel.sh",
-    "scripts/client_node_setup/vpn_health_monitor.sh",
-] }
-
-[[rules]]
-id = "mediswarm-upload-user"
-description = "System upload username — not a credential, intentionally in server docs"
-regex = '''mediswarm-upload'''
-allowlist = { paths = [
-    "kit_live_sync/sync.conf.example",
-    "server_tools/README.md",
-] }
-
-[[rules]]
-id = "vpn-subnet-docs"
-description = "VPN subnet reference in setup scripts — documentation only"
-regex = '''172\.24\.4\.(x|1)\b'''
-allowlist = { paths = [
-    "scripts/client_node_setup/setup_vpntunnel.sh",
-    "scripts/client_node_setup/vpn_health_monitor.sh",
-] }
-
-# ── Global path allowlist ───────────────────────────────────────────────────
+# ── Global allowlist ────────────────────────────────────────────────────────
+# Known-safe patterns that the default rules might flag as false positives.
 [allowlist]
-description = "Files and paths to always skip"
+description = "Known-safe paths and patterns"
 paths = [
-    # Local-only deployment configs (gitignored, but scan anyway)
-    '''deploy_sites.*\.conf$''',
-    '''kit_live_sync/sync\.conf$''',
-    # Generated workspace artifacts
+    # Generated workspace artifacts (never committed, but scanned if present)
     '''workspace/''',
-    # Test fixtures
-    '''tests/''',
 ]
