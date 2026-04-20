@@ -242,7 +242,7 @@ def log_data_hash(ds_train, ds_val, ds_test, env_vars: dict, logger, log_dataset
     cache_misses = 0
 
     def _compute_record_hash(item):
-        uid, institution = item
+        institution, uid = item
         path_img = unique_records[item]
         signature = _hash_cache_signature(path_img)
         cached_hash = hash_cache.get(signature)
