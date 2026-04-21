@@ -105,12 +105,14 @@ The dataset must be in the following format.
       ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --job challenge_5pimed
       ```
     * Available jobs: `ODELIA_ternary_classification` (default), `challenge_1DivideAndConquer`, `challenge_2BCN_AIM`, `challenge_3agaldran`, `challenge_4abmil`, `challenge_5pimed`
-5. Check your local dataset for discrepancies.
+5. Check your local dataset for discrepancies between expected data and data actually found for training.
    * Check `preflight_check_console_output.txt` for errors and warnings about the dataset.
+       * Generally, errors indicate that something is wrong, whereas warnings may indicate properties that may or may not be intended in your dataset.
        * There should be no duplicate UIDs.
        * If there are discrepancies between UIDs listed in `split.csv` and `annotation.csv` and the image files present, make sure this is intended and not an error.
        * There should be no UIDs present in more than one split (training, validation, test).
-       * If duplicate image data is reported, make sure this is intended and not a mix-up of patients, failure in preprocessing etc.
+       * There should be no duplicate image data.
+       * If there are discrepancies between left and right images present, make sure this is intended for your dataset and not an error.
    * You can run
        ```bash
        ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --log_dataset_details

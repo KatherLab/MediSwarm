@@ -7,8 +7,10 @@ Scripts for evaluating and comparing MediSwarm model performance.
 | Script | Purpose |
 |--------|---------|
 | `predict.py` | Run prediction on external test datasets using trained swarm models |
+| `evaluate_duke_binary.py` | Re-score Duke prediction CSVs as binary malignant-vs-no-lesion AUROC/accuracy/F1 |
 | `benchmark_models.py` | Benchmark all MediSwarm models on a consistent train/val/test split |
 | `run_duke_benchmark.sh` | End-to-end Duke dataset benchmark: build, deploy, train, collect, evaluate |
+| `run_duke_split_local_matrix.sh` | Run the serial 6-model x 4-node DUKE local-training matrix on `dd-dl0` |
 | `plot_aurocs_from_classprob_csvs.py` | Compute and plot AUROCs from class probability CSV files produced during training |
 | `parse_logs_and_plot.py` | Parse training logs and plot convergence curves (legacy) |
 
@@ -114,6 +116,77 @@ workspace/prod_00/
   ```
 - **Ensemble CSV** (`predictions_ensemble.csv`) -- when `--ensemble` is used
 - **JSON results** (`prediction_results.json`): All metrics and metadata for each evaluated checkpoint
+
+---
+
+## `evaluate_duke_binary.py`
+
+Converts prediction CSVs from `predict.py` into the authoritative binary metrics
+for the custom Duke split used for `node_A`, `node_B`, `node_C`, `node_all`,
+and held-out `test`.
+
+Why this helper exists:
+
+- the current Duke split contains only labels `0` and `2`
+- the authoritative score is therefore binary malignant-vs-no-lesion AUROC
+- `predict.py` still reports the model’s native multiclass outputs, so this
+  helper collapses them safely for reporting
+
+### Usage
+
+```bash
+./.venv/bin/python scripts/evaluation/evaluate_duke_binary.py \
+    --predictions-csv /path/to/predictions_epoch=3-step=40_single.csv \
+    --output-json /path/to/metrics.json
+```
+
+### Metrics
+
+- Binary AUROC using `prob_class_2` as the malignant score
+- Binary accuracy
+- Binary F1
+- Binary precision / recall
+- Specificity
+- Binary confusion matrix
+
+---
+
+## `run_duke_split_local_matrix.sh`
+
+Runs the full custom Duke local-training campaign on `dd-dl0` using the
+already deployed MediSwarm image. This is separate from the cluster-wide
+`run_duke_benchmark.sh` workflow.
+
+Matrix:
+
+- Nodes: `node_A`, `node_B`, `node_C`, `node_all`
+- Models: `MST`, `1DivideAndConquer`, `2BCN_AIM`, `3agaldran`, `4LME_ABMIL`, `5Pimed`
+
+The script:
+
+- prepares `node_all` inside `/mnt/dlhd0/DUKE_swarm_new`
+- verifies remote prerequisites on `dd-dl0`
+- runs per-model smoke checks on `node_A`
+- executes the full serial local-training matrix
+- evaluates each best checkpoint on the held-out `test` split
+- writes summary CSV/JSON and refreshes
+  [DUKE_SPLIT_LOCAL_TRAINING_REPORT.md](../../docs/DUKE_SPLIT_LOCAL_TRAINING_REPORT.md)
+
+### Usage
+
+```bash
+# Prepare node_all, verify the dataset, and render the report skeleton:
+./scripts/evaluation/run_duke_split_local_matrix.sh --verify-only
+
+# Run smoke checks only:
+./scripts/evaluation/run_duke_split_local_matrix.sh --smoke-only
+
+# Run one end-to-end pilot:
+./scripts/evaluation/run_duke_split_local_matrix.sh --pilot-only
+
+# Run the full matrix:
+./scripts/evaluation/run_duke_split_local_matrix.sh
+```
 
 ---
 
