@@ -33,15 +33,25 @@ def create_folder_structure(output_folder) -> None:
 
 
 def get_image(i: int, j: int, lesion_class: int):
-    # create three different types of images depending on the class
-    array = np.random.randint(-10, 10, size=size, dtype=np.int16)
-    if lesion_class == 0:
-        array[:, i, j] = -50
-    elif lesion_class == 1:
-        array[:, i, j] = 200
-    else:
-        array[:size[2] // 2, i, j] = 200
-        array[size[2] // 2:, i, j] = 50
+    def _get_partially_random_array():
+        rng = np.random.Generator(np.random.SFC64())
+        small_size = (size[0], size[1]//4, size[2]//4)
+        random_array = rng.integers(low=-10, high=10, size=small_size, dtype=np.int16)
+        array = np.pad(random_array, ((0, 0), ((size[1]-small_size[1])//2, (size[1]-small_size[1])//2), ((size[2]-small_size[2])//2, (size[2]-small_size[2])//2)) )
+        return array
+
+    def _set_to_class(image, i: int, j: int):
+        if lesion_class == 0:
+            array[:, i, j] = -50
+        elif lesion_class == 1:
+            array[:, i, j] = 200
+        else:
+            array[:size[2] // 2, i, j] = 200
+            array[size[2] // 2:, i, j] = 50
+        return array
+
+    array = _get_partially_random_array()
+    array = _set_to_class(array, i, j)
     image = sitk.GetImageFromArray(array)
     return image
 
@@ -112,6 +122,10 @@ if __name__ == '__main__':
                             {'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age + i + j, 'Fold': f,
                              'Split': get_split(j, f)})
 
+        folder = output_folder/site/data_folder/'SomeUID_both'
+        os.mkdir(folder)
+        shutil.copyfile(output_folder/site/data_folder/'ID_000_left'/'Sub_1.nii.gz', folder/'Sub_1.nii.gz')
+
         # one table entry per fold without image that is a duplicate in two parts of the split
         for f in range(num_folds):
             j = num_images_per_site + 1
@@ -121,5 +135,6 @@ if __name__ == '__main__':
                 table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'})
                 table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'val'})
                 table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'test'})
+            table_data.append({'UID': 'SomeUID_both', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry not ending in _left or _right
 
         save_table(output_folder, site, table_data)
