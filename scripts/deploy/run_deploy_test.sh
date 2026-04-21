@@ -665,6 +665,23 @@ wait_for_completion() {
             esac
         fi
 
+        # Periodically show client nohup.out status so we can detect hangs early
+        if (( attempt % 4 == 0 && attempt > 0 )); then
+            for site in "${CLIENT_SITES[@]}"; do
+                local site_name client_host client_user client_pass client_deploy_dir
+                site_name=$(site_var "$site" SITE_NAME)
+                client_host=$(site_var "$site" HOST)
+                client_user=$(site_var "$site" USER)
+                client_pass=$(site_var "$site" PASS)
+                client_deploy_dir=$(site_var "$site" DEPLOY_DIR)
+                local client_nohup="$client_deploy_dir/$site_name/startup/nohup.out"
+                local last_line
+                last_line=$(sshpass -p "$client_pass" ssh $SSH_OPTS "$client_user@$client_host" \
+                    "tail -1 '$client_nohup' 2>/dev/null || echo '(no nohup.out yet)'" 2>/dev/null || echo "(SSH failed)")
+                info "  Client $site_name last log: $last_line"
+            done
+        fi
+
         # Also check if the server container died
         if ! docker ps --format '{{.Names}}' | grep -qE "odelia_swarm|nvflare"; then
             # Container is gone — do a final check on the log

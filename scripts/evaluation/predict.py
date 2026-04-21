@@ -60,7 +60,9 @@ from sklearn.metrics import (
 # Path setup -- make the shared custom directory importable
 # ---------------------------------------------------------------------------
 _SCRIPT_DIR = Path(__file__).resolve().parent
-_PROJECT_ROOT = _SCRIPT_DIR.parent.parent  # scripts/evaluation -> project root
+_PROJECT_ROOT = Path(
+    os.environ.get("MEDISWARM_PROJECT_ROOT", _SCRIPT_DIR.parent.parent)
+).resolve()
 _CUSTOM_DIR = _PROJECT_ROOT / "application" / "jobs" / "_shared" / "custom"
 
 sys.path.insert(0, str(_CUSTOM_DIR))
@@ -301,8 +303,8 @@ def predict_with_model(
             preds = model.logits2labels(logits)
 
             all_probs.append(probs.cpu().numpy())
-            all_preds.append(preds.cpu().numpy().squeeze())
-            all_targets.append(target.numpy().squeeze())
+            all_preds.append(np.atleast_1d(preds.cpu().numpy().squeeze()))
+            all_targets.append(np.atleast_1d(target.numpy().squeeze()))
 
             # Collect UIDs if present
             if "uid" in batch:
