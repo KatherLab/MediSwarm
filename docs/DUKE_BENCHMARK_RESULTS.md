@@ -1,5 +1,9 @@
 # Duke Breast MRI Benchmark Results
 
+For the custom split local-training matrix (`node_A`, `node_B`, `node_C`,
+`node_all` on `dd-dl0`), see
+[DUKE_SPLIT_LOCAL_TRAINING_REPORT.md](./DUKE_SPLIT_LOCAL_TRAINING_REPORT.md).
+
 ## Overview
 
 This document records benchmark results for MediSwarm federated learning on the
