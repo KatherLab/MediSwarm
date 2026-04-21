@@ -109,34 +109,35 @@ if __name__ == '__main__':
         table_data = []
         for j in tqdm(range(num_images_per_site), f'Generating synthetic images for {site}'):
             lesion_class = j % 3
-            image = get_image(i, j, lesion_class)
             patientid = f'ID_{j:03d}'
             for side in ('left', 'right'):
                 uid = f'{patientid}_{side}'
                 side_folder = output_folder / site / data_folder / uid
                 os.mkdir(side_folder)
+                image = get_image(i, j, lesion_class)
                 sitk.WriteImage(image, side_folder / 'Sub_1.nii.gz')
-                if j < num_images_per_site - 1:  # one image per side without table entry
+                if (site == 'client_A') or (j < num_images_per_site - 1):  # one image per side without table entry for client_B
                     for f in range(num_folds):
                         table_data.append(
                             {'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age + i + j, 'Fold': f,
                              'Split': get_split(j, f)})
 
-        for folder in ( output_folder/site/data_folder/'SomeUID_both', output_folder/site/data_folder/'ID_998_right', output_folder/site/data_folder/'ID_999_left' ):
-            os.mkdir(folder)
-            shutil.copyfile(output_folder/site/data_folder/'ID_000_left'/'Sub_1.nii.gz', folder/'Sub_1.nii.gz')
+        if site == 'client_B':
+            for folder in ( output_folder/site/data_folder/'SomeUID_both', output_folder/site/data_folder/'ID_998_right', output_folder/site/data_folder/'ID_999_left' ):
+                os.mkdir(folder)
+                shutil.copyfile(output_folder/site/data_folder/'ID_000_left'/'Sub_1.nii.gz', folder/'Sub_1.nii.gz')
 
-        # one table entry per fold without image that is a duplicate in two parts of the split
-        for f in range(num_folds):
-            j = num_images_per_site + 1
-            for side in ('left', 'right'):
-                patientid = f'ID_{j:03d}'
-                uid = f'{patientid}_{side}'
-                table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'})
-                table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'val'})
-                table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'test'})
-            table_data.append({'UID': 'SomeUID_both', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry not ending in _left or _right
-            table_data.append({'UID': 'ID_998_right', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry with _left only
-            table_data.append({'UID': 'ID_999_left', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry with _left only
+            # one table entry per fold without image that is a duplicate in two parts of the split
+            for f in range(num_folds):
+                j = num_images_per_site + 1
+                for side in ('left', 'right'):
+                    patientid = f'ID_{j:03d}'
+                    uid = f'{patientid}_{side}'
+                    table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'})
+                    table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'val'})
+                    table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'test'})
+                table_data.append({'UID': 'SomeUID_both', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry not ending in _left or _right
+                table_data.append({'UID': 'ID_998_right', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry with _left only
+                table_data.append({'UID': 'ID_999_left', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry with _left only
 
         save_table(output_folder, site, table_data)

@@ -244,10 +244,10 @@ class ODELIA_Dataset3D(data.Dataset):
             _log_one_side_only(uids, where, logger, log_dataset_details)
 
         def _log_left_right_overlap(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
-            exam_ids_left  = {u[:-5] for u in uids if u.endswith('_left') }
-            exam_ids_right = {u[:-6] for u in uids if u.endswith('_right')}
+            exam_ids_a = {u[:-5] for u in uids_a if u.endswith('_left') }
+            exam_ids_b = {u[:-6] for u in uids_b if u.endswith('_right')}
 
-            joint_exam_ids = exam_ids_left.intersection(exam_ids_right)
+            joint_exam_ids = exam_ids_a.intersection(exam_ids_b)
             if joint_exam_ids:
                 logger.error(f'UIDs for the same exam found in {where_a} and {where_b}, this should not happen.')
                 if log_dataset_details:
