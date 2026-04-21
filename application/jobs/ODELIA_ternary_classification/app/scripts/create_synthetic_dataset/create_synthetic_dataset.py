@@ -122,9 +122,9 @@ if __name__ == '__main__':
                             {'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age + i + j, 'Fold': f,
                              'Split': get_split(j, f)})
 
-        folder = output_folder/site/data_folder/'SomeUID_both'
-        os.mkdir(folder)
-        shutil.copyfile(output_folder/site/data_folder/'ID_000_left'/'Sub_1.nii.gz', folder/'Sub_1.nii.gz')
+        for folder in ( output_folder/site/data_folder/'SomeUID_both', output_folder/site/data_folder/'ID_998_right', output_folder/site/data_folder/'ID_999_left' ):
+            os.mkdir(folder)
+            shutil.copyfile(output_folder/site/data_folder/'ID_000_left'/'Sub_1.nii.gz', folder/'Sub_1.nii.gz')
 
         # one table entry per fold without image that is a duplicate in two parts of the split
         for f in range(num_folds):
@@ -136,5 +136,7 @@ if __name__ == '__main__':
                 table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'val'})
                 table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'test'})
             table_data.append({'UID': 'SomeUID_both', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry not ending in _left or _right
+            table_data.append({'UID': 'ID_998_right', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry with _left only
+            table_data.append({'UID': 'ID_999_left', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry with _left only
 
         save_table(output_folder, site, table_data)

@@ -227,14 +227,14 @@ class ODELIA_Dataset3D(data.Dataset):
             def _log_one_side_only(uids: List[str], where: str, logger, log_dataset_details) -> None:
                 def _report(discrepancies: List[str], present: str, absent: str, where: str, logger, log_dataset_details) -> None:
                     if discrepancies:
-                        logger.warning(f'UIDs with among {where} data _left present and _right missing detected, make sure this was intended.')
+                        logger.warning(f'UIDs with among {where} data {present} present and {absent} missing detected, make sure this was intended.')
                         if log_dataset_details:
                             discrepancies = list(discrepancies)
                             discrepancies.sort()
                             logger.warning(f'For the following UIDs among {where} data, {present} is present and {absent} is missing: ' + ', '.join(discrepancies))
 
-                left  = [u for u in uids if u.endswith('_left') ]
-                right = [u for u in uids if u.endswith('_right')]
+                left  = [u[:-5] for u in uids if u.endswith('_left') ]
+                right = [u[:-6] for u in uids if u.endswith('_right')]
                 left_not_right = set(left).difference(set(right))
                 right_not_left = set(right).difference(set(left))
                 _report(left_not_right, '_left', '_right', where, logger, log_dataset_details)
