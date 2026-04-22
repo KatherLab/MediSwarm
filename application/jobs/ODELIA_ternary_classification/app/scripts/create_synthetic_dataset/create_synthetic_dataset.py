@@ -123,7 +123,8 @@ if __name__ == '__main__':
                              'Split': get_split(j, f)})
 
         if site == 'client_B':
-            for folder in ( output_folder/site/data_folder/'SomeUID_both', output_folder/site/data_folder/'ID_998_right', output_folder/site/data_folder/'ID_999_left' ):
+            for patientid in ('SomeUID_both', 'ID_016_right', 'ID_016_left', 'ID_998_right', 'ID_999_left'):
+                folder = output_folder/site/data_folder/patientid
                 os.mkdir(folder)
                 shutil.copyfile(output_folder/site/data_folder/'ID_000_left'/'Sub_1.nii.gz', folder/'Sub_1.nii.gz')
 
@@ -136,6 +137,10 @@ if __name__ == '__main__':
                     table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'})
                     table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'val'})
                     table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'test'})
+                    patientid = f'ID_{j+1:03d}'
+                    uid = f'{patientid}_{side}'
+                    table_data.append({'UID': uid, 'PatientID': patientid, 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'})
+
                 table_data.append({'UID': 'SomeUID_both', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry not ending in _left or _right
                 table_data.append({'UID': 'ID_998_right', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry with _left only
                 table_data.append({'UID': 'ID_999_left', 'PatientID': 'SomeUID', 'Lesion': 0, 'Age': 0, 'Fold': f, 'Split': 'train'}) # one entry with _left only

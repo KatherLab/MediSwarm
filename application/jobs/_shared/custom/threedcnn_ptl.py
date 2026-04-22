@@ -106,7 +106,7 @@ def log_data_hash(dm: DataModule, logger, log_dataset_details: bool = False) -> 
 
             hashes = [i.hash for i in uids_with_hashes]
             if len(hashes) != len(set(hashes)):
-                logger.warning(f'Duplicate {where} detected. Please make sure this was intended')
+                logger.error(f'Duplicate {where} detected. This should not happen.')
                 if log_dataset_details:
                     message = f'Duplicate {where}:\n'
                     if where == 'image UIDs':
@@ -114,8 +114,10 @@ def log_data_hash(dm: DataModule, logger, log_dataset_details: bool = False) -> 
                         for uh in uids_with_hashes:
                             count = hashes.count(uh.hash)
                             if count > 1:
-                                multiplicity_messages[uh.uid] = f'{uh.uid} ({uh.hash}) appears {count} times'
-                        message += '\n'.join(multiplicity_messages.values())
+                                multiplicity_messages[uh.uid] = f'Image UID {uh.uid} ({uh.hash}) appears {count} times'
+                        multiplicity_messages = list(multiplicity_messages.values())
+                        multiplicity_messages.sort()
+                        message += '\n'.join(multiplicity_messages)
 
                     elif where == 'image data':
                         uids_for_hash = {}
@@ -130,7 +132,7 @@ def log_data_hash(dm: DataModule, logger, log_dataset_details: bool = False) -> 
                             if uids:
                                 uids.sort()
                                 message += f'Image data with hash {hsh} appears {len(uids)} times: ' + ', '.join(uids) + '\n'
-                    logger.warning(message)
+                    logger.error(message)
 
         _check_separately_for_duplicates(uids_with_hashes_train, where, 'training', log_dataset_details)
         _check_separately_for_duplicates(uids_with_hashes_valid, where, 'validation', log_dataset_details)
