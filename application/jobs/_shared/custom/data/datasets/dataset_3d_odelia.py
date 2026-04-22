@@ -279,10 +279,18 @@ class ODELIA_Dataset3D(data.Dataset):
                                 (uids_in_images, 'image'),) :
                 _log_duplicates(uids, where, logger, log_dataset_details)
 
-            _log_differences(uids_in_annotation, uids_in_split[None], 'annotation', 'split', logger, log_dataset_details)
-            _log_differences(uids_in_split[None], uids_in_images,'split', 'images', logger, log_dataset_details)
-            _log_differences(uids_in_annotation, uids_in_images, 'annotation', 'images', logger, log_dataset_details)
+            _log_differences(uids_in_annotation,  uids_in_split[None], 'annotation', 'split',  logger, log_dataset_details)
+            _log_differences(uids_in_split[None], uids_in_images,      'split',      'images', logger, log_dataset_details)
+            _log_differences(uids_in_annotation,  uids_in_images,      'annotation', 'images', logger, log_dataset_details)
 
-            _log_intersection(uids_in_split['train'], uids_in_split['val'], 'training', 'validation', logger, log_dataset_details)
-            _log_intersection(uids_in_split['train'], uids_in_split['test'], 'training', 'test', logger, log_dataset_details)
-            _log_intersection(uids_in_split['val'], uids_in_split['test'], 'validation', 'test', logger, log_dataset_details)
+            _log_intersection(uids_in_split['train'], uids_in_split['val'],  'training',   'validation', logger, log_dataset_details)
+            _log_intersection(uids_in_split['train'], uids_in_split['test'], 'training',   'test',       logger, log_dataset_details)
+            _log_intersection(uids_in_split['val'],   uids_in_split['test'], 'validation', 'test',       logger, log_dataset_details)
+
+            _log_left_right_discrepancies(uids_in_split['train'], 'training',   logger, log_dataset_details)
+            _log_left_right_discrepancies(uids_in_split['val'],   'validation', logger, log_dataset_details)
+            _log_left_right_discrepancies(uids_in_split['test'],  'test',       logger, log_dataset_details)
+
+            _log_left_right_overlap(uids_in_split['train'], uids_in_split['val'],  'training',   'validation', logger, log_dataset_details)
+            _log_left_right_overlap(uids_in_split['train'], uids_in_split['test'], 'training',   'test',       logger, log_dataset_details)
+            _log_left_right_overlap(uids_in_split['val'],   uids_in_split['test'], 'validation', 'test',       logger, log_dataset_details)
