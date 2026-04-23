@@ -2,6 +2,12 @@
 
 set -e
 
+prepare () {
+    pip install -U protobuf
+    pip install pytest tensorflow torch
+    export PATH=~/.local/bin:$PATH
+}
+
 run_nvflare_integration_tests () {
     chmod a+rwX /MediSwarm -R
     cd /MediSwarm/docker_config/NVFlare
@@ -12,4 +18,5 @@ run_nvflare_integration_tests () {
     cd ..
 }
 
+prepare
 run_nvflare_integration_tests
