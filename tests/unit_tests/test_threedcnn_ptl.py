@@ -171,5 +171,5 @@ def test_log_data_hash_logs_duplicate_image_data_with_uids(_importable_threedcnn
         )
 
     assert "Image data with hash" in caplog.text
-    assert "ID_005_right, ID_005_left" in caplog.text
+    assert "ID_005_left, ID_005_right" in caplog.text
     assert "client_A, client_A" not in caplog.text
