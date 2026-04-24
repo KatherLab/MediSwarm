@@ -382,7 +382,7 @@ run_data_access_preflight_without_data () {
     # also check that it finishes the single round within one minute
     timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    if grep -q "No such file or directory: '/data/client_A/metadata_unilateral/split.csv'" "$CONSOLE_OUTPUT" ; then
+    if grep -Eq "No such file or directory: '/data/client_A/metadata_unilateral/(annotation|split)\.csv'" "$CONSOLE_OUTPUT" ; then
         echo "✅ Expected error output of data access preflight check found if no data is present"
     else
         echo "❌ Missing expected output of data access preflight check found if no data is present"
