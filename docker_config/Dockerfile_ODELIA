@@ -196,7 +196,7 @@ RUN apt update && apt install -y \
     libc-dev-bin=2.35-0ubuntu3.13 \
     libc6-dev=2.35-0ubuntu3.13 \
     libc6=2.35-0ubuntu3.13 \
-    libcap2=1:2.44-1ubuntu0.22.04.2 \
+    libcap2=1:2.44-1ubuntu0.22.04.3 \
     libcom-err2=1.46.5-2ubuntu1.2 \
     libext2fs2=1.46.5-2ubuntu1.2 \
     libgnutls30=3.7.3-4ubuntu1.8 \
