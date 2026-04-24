@@ -199,7 +199,7 @@ def log_data_hash(ds_train, ds_val, ds_test, env_vars: dict, logger, log_dataset
                         for image_hash, uids in uids_for_hash.items():
                             if len(uids) > 1:
                                 message.append(
-                                    f'Image data with hash {image_hash} appears {len(uids)} times: ' + ', '.join(uids)
+                                    f'Image data with hash {image_hash} appears {len(uids)} times: ' + ', '.join(sorted(uids))
                                 )
                     logger.info('\n'.join(message))
 

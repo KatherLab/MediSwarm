@@ -355,7 +355,7 @@ run_data_access_preflight_check_log_details () {
        grep -q  "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
        grep -q  "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
        grep -q  "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
-       grep -qx "Image data with hash .* appears 2 times: ID_005_right, ID_005_left" "$CONSOLE_OUTPUT" && \
+       grep -qx "Image data with hash .* appears 2 times: ID_005_left, ID_005_right" "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference split.images: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \

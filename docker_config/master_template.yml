@@ -917,7 +917,7 @@ docker_cln_sh: |
       echo "[INFO] Local training using job: $JOB_NAME"
       trap _stop_live_sync EXIT INT TERM
       _start_live_sync local
-      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=100 $DOCKER_IMAGE \
+      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py"
 
   elif [ -n "$START_CLIENT" ]; then
