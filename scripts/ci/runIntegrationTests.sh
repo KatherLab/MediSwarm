@@ -412,7 +412,7 @@ run_data_access_preflight_check_log_details () {
 }
 
 
-run_data_access_preflight_without_data () {
+run_data_access_preflight_check_without_data () {
     # requires having built a startup kit and _not_ having a synthetic dataset
     echo "[Run] Data access preflight check with logging dataset details..."
     cd "$PROJECT_DIR"/prod_00
@@ -886,7 +886,7 @@ case "$1" in
         run_data_access_preflight_check
         run_data_access_preflight_check_log_details
         cleanup_synthetic_data
-        run_data_access_preflight_without_data
+        run_data_access_preflight_check_without_data
         cleanup_temporary_data
         ;;
 
