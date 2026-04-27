@@ -805,9 +805,12 @@ case "$1" in
         kill_registry_docker
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
+        run_data_access_preflight_check_log_details
+        cleanup_synthetic_data
+        run_data_access_preflight_check_without_data
+        create_synthetic_data
         run_3dcnn_local_training
         verify_wrong_certificates_are_rejected
-        cleanup_synthetic_data
         start_server_and_clients
         run_dummy_training_in_swarm
         run_3dcnn_training_in_swarm
