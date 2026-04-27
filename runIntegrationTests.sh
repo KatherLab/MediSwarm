@@ -420,7 +420,7 @@ start_server_and_clients () {
 
 start_registry_docker_and_push () {
     docker run -d --rm -p 5000:5000 --name local_test_registry_$CONTAINER_VERSION_SUFFIX registry:3
-    sleep 3
+    sleep 10
     docker push localhost:5000/odelia:$VERSION
 }
 
