@@ -12,6 +12,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
+import torch.multiprocessing as torch_mp
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -53,9 +54,16 @@ def _hexdigest_string(data: str) -> str:
 def configure_odelia_runtime(env_vars: dict, logger) -> None:
     thread_count = max(1, env_vars['odelia_threads_per_worker'])
     interop_threads = max(1, env_vars['odelia_interop_threads'])
+    sharing_strategy = os.environ.get("TORCH_MULTIPROCESSING_SHARING_STRATEGY", "file_system")
 
     for env_name in OMP_THREAD_ENV_VARS:
         os.environ[env_name] = str(thread_count)
+
+    if sharing_strategy:
+        try:
+            torch_mp.set_sharing_strategy(sharing_strategy)
+        except RuntimeError as exc:
+            logger.warning("Could not set torch multiprocessing sharing strategy to %s: %s", sharing_strategy, exc)
 
     torch.set_num_threads(thread_count)
     if hasattr(torch, "set_num_interop_threads"):
@@ -66,11 +74,12 @@ def configure_odelia_runtime(env_vars: dict, logger) -> None:
 
     logger.info(
         "ODELIA runtime controls — loader_workers=%s, hash_workers=%s, "
-        "threads_per_worker=%s, interop_threads=%s",
+        "threads_per_worker=%s, interop_threads=%s, torch_sharing_strategy=%s",
         env_vars['odelia_num_workers'],
         env_vars['odelia_hash_num_workers'],
         thread_count,
         interop_threads,
+        torch_mp.get_sharing_strategy(),
     )
 
 
