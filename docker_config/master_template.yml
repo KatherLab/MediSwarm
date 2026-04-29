@@ -916,6 +916,7 @@ docker_cln_sh: |
   elif [ -n "$LOCAL_TRAINING" ]; then
       echo "[INFO] Local training using job: $JOB_NAME"
       trap _stop_live_sync EXIT INT TERM
+      export MEDISWARM_LOCAL_SYNC_START_TS="$(date +%s)"
       _start_live_sync local
       LOCAL_TRAINING_CONSOLE_LOG="$DIR/local_training_console_output.txt"
       : > "$LOCAL_TRAINING_CONSOLE_LOG"
