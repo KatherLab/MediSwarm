@@ -2,29 +2,28 @@
 # ============================================================================
 # run_deploy_test.sh — Orchestrate multi-site ODELIA deploy tests
 #
-# Runs all 6 ODELIA models through a full federated training + evaluation
-# cycle across 3 physical machines connected via Tailscale VPN, with
-# Cosmos as the server/admin node (no training client on Cosmos).
+# Runs all 6 ODELIA models through a federated startup-kit deploy test across
+# physical machines connected via Tailscale VPN, with Cosmos as the server/admin
+# node (no training client on Cosmos).
 #
 # Architecture:
 #   Cosmos (localhost) — NVFlare server + admin only
-#   dl0                — RUMC_1 client
-#   dl2                — MHA_1 client
-#   dl3                — CAM_1 + UMCU_1 clients (2 clients on one machine)
+#   clients            — configured by CLIENT_SITES in the deploy_sites*.conf
 #
 # For each model:
 #   1. Stop any lingering containers (local + remote)
 #   2. Start the NVFlare server on Cosmos
-#   3. Start 4 training clients on the remote machines
+#   3. Start configured training clients on the remote machines
 #   4. Submit the corresponding training job via admin
 #   5. Poll for training completion (Server runner finished)
 #   6. Stop all containers
-#   7. Evaluate the final global model on UKA_1 (held-out test site)
+#   7. Optionally evaluate the final global model on the configured eval site
 #   8. Record pass/fail + metrics
 #
 # Usage:
 #   ./scripts/deploy/run_deploy_test.sh --all --conf deploy_sites_4node_test.conf
 #   ./scripts/deploy/run_deploy_test.sh --model MST --job ODELIA_ternary_classification --conf deploy_sites_4node_test.conf
+#   ./scripts/deploy/run_deploy_test.sh --all --conf deploy_sites_duke_iid.conf --skip-eval --results-dir workspace/deploy_test_results/startupkit_smoke_<ts>/training
 #
 # The Docker image and startup kits must be built BEFORE running this script:
 #   ./scripts/build/buildDockerImageAndStartupKits.sh -p application/provision/project_deploy_test_4site.yml
@@ -55,6 +54,8 @@ SINGLE_MODEL=""
 SINGLE_JOB=""
 CONF_FILE=""
 SKIP_BUILD=false
+SKIP_EVAL=false
+RESULTS_DIR_OVERRIDE=""
 TIMEOUT_MINUTES=10080   # Per-model training timeout (7 days)
 
 while [[ $# -gt 0 ]]; do
@@ -64,9 +65,11 @@ while [[ $# -gt 0 ]]; do
         --job)          SINGLE_JOB="$2"; shift ;;
         --conf)         CONF_FILE="$2"; shift ;;
         --skip-build)   SKIP_BUILD=true ;;
+        --skip-eval)    SKIP_EVAL=true ;;
+        --results-dir)  RESULTS_DIR_OVERRIDE="$2"; shift ;;
         --timeout)      TIMEOUT_MINUTES="$2"; shift ;;
         -h|--help)
-            echo "Usage: $0 [--all | --model NAME --job JOB_DIR] --conf CONF_FILE [--skip-build] [--timeout MINUTES]"
+            echo "Usage: $0 [--all | --model NAME --job JOB_DIR] --conf CONF_FILE [--skip-build] [--skip-eval] [--results-dir DIR] [--timeout MINUTES]"
             exit 0
             ;;
         *)
@@ -103,6 +106,7 @@ fi
 source "$CONF_FILE"
 
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
+GIT_SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD)
 DOCKER_IMAGE="jefftud/odelia:$VERSION"
 
 PROJECT_NAME=$(grep "^name: " "$REPO_ROOT/$PROJECT_FILE" \
@@ -116,8 +120,20 @@ SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLeve
 DEPLOY_BASE="${COSMOS_DEPLOY_DIR:-/home/jeff/deploy_test}"
 
 # Results directory
-RESULTS_DIR="$REPO_ROOT/workspace/deploy_test_results"
+if [[ -n "$RESULTS_DIR_OVERRIDE" ]]; then
+    if [[ "$RESULTS_DIR_OVERRIDE" = /* ]]; then
+        RESULTS_DIR="$RESULTS_DIR_OVERRIDE"
+    else
+        RESULTS_DIR="$REPO_ROOT/$RESULTS_DIR_OVERRIDE"
+    fi
+else
+    RESULTS_DIR="$REPO_ROOT/workspace/deploy_test_results"
+fi
 mkdir -p "$RESULTS_DIR"
+
+# Updated by collect_checkpoints() so result JSON can record the run that was
+# actually evaluated/collected.
+LAST_JOB_ID=""
 
 # ── All 6 ODELIA models ───────────────────────────────────────────────────
 # Format: JOB_DIR:MODEL_NAME
@@ -457,6 +473,30 @@ start_clients() {
     ok "All clients started"
 }
 
+# ── Verify model selection made it into each client container ─────────────
+verify_client_model_env() {
+    local model_name="$1"
+    [[ -z "$model_name" ]] && return 0
+
+    info "Verifying client containers use MODEL_NAME=$model_name"
+    for site in "${CLIENT_SITES[@]}"; do
+        local site_name host
+        site_name=$(site_var "$site" SITE_NAME)
+        host=$(site_var "$site" HOST)
+
+        remote_exec "$site" "
+            container=\$(docker ps --filter 'name=odelia_swarm_client_${site_name}_' --format '{{.Names}}' | head -1)
+            test -n \"\$container\"
+            docker inspect \"\$container\" --format '{{range .Config.Env}}{{println .}}{{end}}' \
+                | grep -Fx 'MODEL_NAME=$model_name' >/dev/null
+        " || {
+            err "MODEL_NAME=$model_name not found in running client container for $site_name @ $host"
+            return 1
+        }
+        ok "  $site_name container has MODEL_NAME=$model_name"
+    done
+}
+
 # ── Wait for all clients to register with the server ─────────────────────
 wait_for_client_registration() {
     resolve_server_startup_dir
@@ -741,6 +781,7 @@ collect_checkpoints() {
     else
         info "Job ID from server log: $job_id"
     fi
+    LAST_JOB_ID="$job_id"
 
     # Staging directory on Cosmos for collected checkpoints
     local staging_dir="$RESULTS_DIR/${model_name}_checkpoints"
@@ -900,6 +941,8 @@ record_result() {
     local train_status="$3"   # pass or fail
     local eval_status="$4"    # pass, fail, or skipped
     local duration_seconds="$5"
+    local checkpoint_status="${6:-skipped}"  # pass, fail, or skipped
+    local job_id="${7:-$LAST_JOB_ID}"
 
     local result_file="$RESULTS_DIR/deploy_test_${model_name}.json"
     local timestamp
@@ -909,12 +952,17 @@ record_result() {
 {
     "model_name": "$model_name",
     "job_name": "$job_name",
+    "job_id": "$job_id",
     "training_status": "$train_status",
     "evaluation_status": "$eval_status",
+    "checkpoint_status": "$checkpoint_status",
     "duration_seconds": $duration_seconds,
     "timestamp": "$timestamp",
     "docker_image": "$DOCKER_IMAGE",
     "version": "$VERSION",
+    "git_sha": "$GIT_SHA",
+    "project_file": "$PROJECT_FILE",
+    "workspace_dir": "$WORKSPACE_DIR",
     "client_sites": $(printf '%s\n' "${CLIENT_SITES[@]}" | jq -R . | jq -s .)
 }
 EOF
@@ -936,13 +984,16 @@ _run_training_attempt() {
     # 3. Start clients on remote machines
     start_clients "$model_name"
 
-    # 4. Wait for ALL clients to register with the server
+    # 4. Verify the selected model was propagated to every client container
+    verify_client_model_env "$model_name"
+
+    # 5. Wait for ALL clients to register with the server
     wait_for_client_registration
 
-    # 5. Submit job via admin on Cosmos
+    # 6. Submit job via admin on Cosmos
     submit_job "$job_name"
 
-    # 6. Wait for training completion
+    # 7. Wait for training completion
     if wait_for_completion "$model_name"; then
         return 0
     else
@@ -969,6 +1020,8 @@ run_single_model() {
 
     local train_status="fail"
     local eval_status="skipped"
+    local checkpoint_status="skipped"
+    LAST_JOB_ID=""
 
     # Retry loop: transient failures (e.g. worker process race on dl3
     # when two NVFlare clients share the same machine) resolve on restart.
@@ -995,12 +1048,25 @@ run_single_model() {
     # Stop containers after training (pass or final failure)
     stop_all
 
-    # Evaluate on UKA_1 (only if training passed)
+    # Evaluate on UKA_1 by default. In startup-kit smoke mode, skip the legacy
+    # Cosmos/UKA evaluation but still collect checkpoints for the dl0 smoke
+    # evaluation script.
     if [[ "$train_status" == "pass" ]]; then
-        if evaluate_model "$model_name" "$job_name"; then
-            eval_status="pass"
+        if [[ "$SKIP_EVAL" == true ]]; then
+            info "Skipping built-in evaluation for $model_name (--skip-eval); collecting checkpoints only"
+            if collect_checkpoints "$model_name" >/dev/null; then
+                checkpoint_status="pass"
+            else
+                checkpoint_status="fail"
+            fi
         else
-            eval_status="fail"
+            if evaluate_model "$model_name" "$job_name"; then
+                eval_status="pass"
+                checkpoint_status="pass"
+            else
+                eval_status="fail"
+                checkpoint_status="fail"
+            fi
         fi
     else
         warn "Skipping evaluation for $model_name — training did not complete"
@@ -1012,13 +1078,15 @@ run_single_model() {
     end_time=$(date +%s)
     local duration=$(( end_time - start_time ))
 
-    record_result "$model_name" "$job_name" "$train_status" "$eval_status" "$duration"
+    record_result "$model_name" "$job_name" "$train_status" "$eval_status" "$duration" "$checkpoint_status" "$LAST_JOB_ID"
 
     echo ""
     if [[ "$train_status" == "pass" && "$eval_status" == "pass" ]]; then
         ok "PASSED: $model_name (training + evaluation) in ${duration}s"
+    elif [[ "$train_status" == "pass" && "$SKIP_EVAL" == true && "$checkpoint_status" == "pass" ]]; then
+        ok "PASSED: $model_name (training + checkpoint collection; evaluation skipped) in ${duration}s"
     elif [[ "$train_status" == "pass" ]]; then
-        warn "PARTIAL: $model_name (training passed, evaluation $eval_status) in ${duration}s"
+        warn "PARTIAL: $model_name (training passed, evaluation $eval_status, checkpoints $checkpoint_status) in ${duration}s"
     else
         err "FAILED: $model_name (training $train_status) in ${duration}s"
     fi
@@ -1040,18 +1108,19 @@ generate_summary() {
         [[ -f "$result_file" ]] || continue
         total=$((total + 1))
 
-        local model train eval_stat duration
+        local model train eval_stat checkpoint_stat duration
         model=$(jq -r '.model_name' "$result_file")
         train=$(jq -r '.training_status' "$result_file")
         eval_stat=$(jq -r '.evaluation_status' "$result_file")
+        checkpoint_stat=$(jq -r '.checkpoint_status // "skipped"' "$result_file")
         duration=$(jq -r '.duration_seconds' "$result_file")
 
-        if [[ "$train" == "pass" && "$eval_stat" == "pass" ]]; then
+        if [[ "$train" == "pass" && ( "$eval_stat" == "pass" || ( "$eval_stat" == "skipped" && "$checkpoint_stat" == "pass" ) ) ]]; then
             passed=$((passed + 1))
             echo -e "  ${GREEN}PASS${NC}  $model (${duration}s)"
         else
             failed=$((failed + 1))
-            echo -e "  ${RED}FAIL${NC}  $model (train=$train, eval=$eval_stat, ${duration}s)"
+            echo -e "  ${RED}FAIL${NC}  $model (train=$train, eval=$eval_stat, checkpoints=$checkpoint_stat, ${duration}s)"
         fi
     done
 
@@ -1067,7 +1136,13 @@ generate_summary() {
     "passed": $passed,
     "failed": $failed,
     "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-    "version": "$VERSION"
+    "version": "$VERSION",
+    "docker_image": "$DOCKER_IMAGE",
+    "git_sha": "$GIT_SHA",
+    "project_file": "$PROJECT_FILE",
+    "workspace_dir": "$WORKSPACE_DIR",
+    "results_dir": "$RESULTS_DIR",
+    "evaluation_skipped": $SKIP_EVAL
 }
 EOF
 
