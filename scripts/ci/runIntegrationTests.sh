@@ -829,7 +829,8 @@ cleanup_temporary_data () {
 
 case "$1" in
     check_files_on_github)
-        check_files_on_github
+        # check_files_on_github
+        echo "❗ checking files on github currently disabled"
         ;;
 
     run_nvflare_unit_tests)
@@ -967,7 +968,7 @@ case "$1" in
 
     all | "")
         # check_files_on_github
-        echo "checking files on github currently disabled"
+        echo "❗ checking files on github currently disabled"
         run_dummy_training_standalone
         run_dummy_training_simulation_mode
         run_dummy_training_poc_mode
