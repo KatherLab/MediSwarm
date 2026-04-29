@@ -917,8 +917,14 @@ docker_cln_sh: |
       echo "[INFO] Local training using job: $JOB_NAME"
       trap _stop_live_sync EXIT INT TERM
       _start_live_sync local
+      LOCAL_TRAINING_CONSOLE_LOG="$DIR/local_training_console_output.txt"
+      : > "$LOCAL_TRAINING_CONSOLE_LOG"
+      set +e
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
-      /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py"
+      /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py" 2>&1 | tee "$LOCAL_TRAINING_CONSOLE_LOG"
+      LOCAL_TRAINING_STATUS=${PIPESTATUS[0]}
+      set -e
+      exit "$LOCAL_TRAINING_STATUS"
 
   elif [ -n "$START_CLIENT" ]; then
       _start_live_sync swarm
