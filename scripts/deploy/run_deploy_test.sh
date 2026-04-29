@@ -108,7 +108,7 @@ source "$CONF_FILE"
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
 GIT_SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD)
 DOCKER_IMAGE="jefftud/odelia:$VERSION"
-NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-[[:alnum:]_.-]+-(server|client|admin)$'
+NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-'
 
 PROJECT_NAME=$(grep "^name: " "$REPO_ROOT/$PROJECT_FILE" \
     | sed 's/^name: //' \
@@ -300,7 +300,7 @@ stop_all() {
         fi
         visited_hosts[$host]=1
         remote_exec "$site" \
-            "docker ps -a --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare|^swarm-[[:alnum:]_.-]+-(server|client|admin)$' | xargs -r docker rm -f 2>/dev/null" \
+            "docker ps -a --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare|^swarm-' | xargs -r docker rm -f 2>/dev/null" \
             2>/dev/null || warn "  Could not stop containers on $host"
     done
 
