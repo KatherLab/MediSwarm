@@ -695,6 +695,14 @@ case "$1" in
         echo "❗ checking files on github currently disabled"
         ;;
 
+    run_nvflare_unit_tests)
+        run_nvflare_unit_tests
+        ;;
+
+    run_nvflare_integration_tests)
+        run_nvflare_integration_tests
+        ;;
+
     run_nvflare_unit_and_integration_tests)
         run_nvflare_unit_tests
         run_nvflare_integration_tests
