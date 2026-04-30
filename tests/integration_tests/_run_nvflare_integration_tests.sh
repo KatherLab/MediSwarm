@@ -1,8 +1,27 @@
 #!/usr/bin/env bash
 
 prepare () {
-    pip install -U protobuf
-    pip install pytest tensorflow torch
+    # update protobuf and wandb to defined versions
+    pip install -U \
+        protobuf==7.34.1 \
+        wandb==0.26.1
+    # install pytest and tensorflow + dependencies at defined versions
+    pip install \
+        flatbuffers==25.12.19 \
+        gast==0.7.0 \
+        google_pasta==0.2.0 \
+        h5py==3.14.0 \
+        iniconfig==2.3.0 \
+        keras==3.12.1 \
+        libclang==18.1.1 \
+        ml_dtypes==0.5.4 \
+        namex==0.1.0 \
+        opt_einsum==3.4.0 \
+        pluggy==1.6.0 \
+        pytest==9.0.3 \
+        tensorflow==2.21.0 \
+        termcolor==3.3.0
+
     export PATH=~/.local/bin:$PATH
     chmod a+rwX /MediSwarm -R
 }
