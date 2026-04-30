@@ -591,7 +591,12 @@ def _get_console_text(site: str, mode: str, run_id: str) -> str:
     for name in ["nohup.out", "local_training_console_output.txt"]:
         p = run_dir / name
         if p.exists():
-            return read_text(p, limit=500_000)
+            # Read up to 50 MB so dataset-setup output (label distribution,
+            # printed once at the start of the run) and the full epoch history
+            # are both parseable. Long swarm runs can produce ~16 MB logs;
+            # the previous 500 KB tail dropped everything except the last
+            # handful of epochs.
+            return read_text(p, limit=50_000_000)
     return ""
 
 
