@@ -30,8 +30,18 @@ run_nvflare_integration_tests () {
     cd /MediSwarm/docker_config/NVFlare
     cd tests/integration_test
     for backend in numpy tensorflow pytorch overseer ha auth preflight cifar auto stats xgboost client_api client_api_qa; do
-        echo "Running NVFlare integration tests " $backend
-        ./run_integration_tests.sh -m $backend
+        test_name="NVFlare integration test for backend $backend"
+        echo "⏳ Running $test_name"
+        timeout 20m ./run_integration_tests.sh -m $backend
+        exit_code=$?
+
+        if [ $exit_code -eq 0 ]; then
+            echo "✅ $test_name finished"
+        elif [ $exit_code -eq 124 ]; then
+            echo "❌ $test_name timed out"
+        else
+            echo "❌ $test_name exited with exit code $exit_code."
+        fi
     done
     cd ..
 }
