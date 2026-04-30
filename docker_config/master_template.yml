@@ -796,7 +796,8 @@ docker_cln_sh: |
   fi
 
   CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
-  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
+  DOCKER_NOFILE_LIMIT="${DOCKER_NOFILE_LIMIT:-65536}"
+  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE --ulimit nofile=${DOCKER_NOFILE_LIMIT}:${DOCKER_NOFILE_LIMIT} -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
   if [ -n "$MY_DATA_DIR" ]; then
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
@@ -817,6 +818,7 @@ docker_cln_sh: |
             --env NUM_EPOCHS=${CLI_NUM_EPOCHS:-${NUM_EPOCHS:-100}} \
             --env CONFIG=${CLI_CONFIG:-${CONFIG:-unilateral}} \
             --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__ \
+            --env TORCH_MULTIPROCESSING_SHARING_STRATEGY=${TORCH_MULTIPROCESSING_SHARING_STRATEGY:-file_system} \
             --env NVFLARE_TENSOR_MIN_DOWNLOAD_TIMEOUT=1800"
   # ↑ NVFLARE_TENSOR_MIN_DOWNLOAD_TIMEOUT: overrides NVFlare's FOBS tensor
   #   streaming timeout (default 300s). Large models (689MB+) over VPN need
@@ -916,9 +918,16 @@ docker_cln_sh: |
   elif [ -n "$LOCAL_TRAINING" ]; then
       echo "[INFO] Local training using job: $JOB_NAME"
       trap _stop_live_sync EXIT INT TERM
+      export MEDISWARM_LOCAL_SYNC_START_TS="$(date +%s)"
       _start_live_sync local
+      LOCAL_TRAINING_CONSOLE_LOG="$DIR/local_training_console_output.txt"
+      : > "$LOCAL_TRAINING_CONSOLE_LOG"
+      set +e
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
-      /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py"
+      /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py" 2>&1 | tee "$LOCAL_TRAINING_CONSOLE_LOG"
+      LOCAL_TRAINING_STATUS=${PIPESTATUS[0]}
+      set -e
+      exit "$LOCAL_TRAINING_STATUS"
 
   elif [ -n "$START_CLIENT" ]; then
       _start_live_sync swarm

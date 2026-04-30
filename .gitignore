@@ -192,6 +192,7 @@ deploy_sites_2node_test.conf
 deploy_sites_2node_stamp_test.conf
 deploy_sites_4node_test.conf
 deploy_sites_3node_test.conf
+deploy_sites_duke_iid.conf
 kit_live_sync/sync.conf
 scripts/deploy/distribute_data.conf
 
