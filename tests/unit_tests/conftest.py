@@ -81,6 +81,14 @@ def mock_env_dict(tmp_scratch_dir, tmp_data_dir):
         "model_name": "MST",
         "prediction_flag": "ext",
         "mediswarm_version": "test-0.0.0",
+        "odelia_num_workers": 8,
+        "odelia_hash_num_workers": 0,
+        "odelia_threads_per_worker": 1,
+        "odelia_interop_threads": 1,
+        "odelia_hash_cache_dir": str(Path(tmp_scratch_dir) / "odelia_hash_cache"),
+        "odelia_enable_preprocess_cache": False,
+        "odelia_preprocess_cache_dir": str(Path(tmp_scratch_dir) / "odelia_preprocess_cache"),
+        "odelia_preprocess_cache_version": "v1",
     }
 
 

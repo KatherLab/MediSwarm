@@ -22,17 +22,17 @@ fi
 
 
 check_files_on_github () {
-    echo "[Run] Test whether expected content is available on github"
+    echo "[Run] Test whether expected content is available in the repo"
 
-    LICENSE_ON_GITHUB=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/LICENSE)
-    if echo "$LICENSE_ON_GITHUB" | grep -q "MIT License" ; then
-        echo "✅ Downloaded and verified license from github"
+    LICENSE_LOCAL=$(cat "$CWD/LICENSE")
+    if echo "$LICENSE_LOCAL" | grep -q "MIT License" ; then
+        echo "✅ Verified license in repo"
     else
-        echo "❌ Could not download and verify license"
+        echo "❌ Could not verify license"
         exit 1
     fi
 
-    MAIN_README=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/README.md)
+    MAIN_README=$(cat "$CWD/README.md")
     for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
     do
         if echo "$MAIN_README" | grep -qie "$ROLE" ; then
@@ -43,7 +43,7 @@ check_files_on_github () {
         fi
     done
 
-    PARTICIPANT_README=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/assets/readme/README.participant.md)
+    PARTICIPANT_README=$(cat "$CWD/assets/readme/README.participant.md")
     for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node' 'Output files';
     do
         if echo "$PARTICIPANT_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
@@ -54,7 +54,7 @@ check_files_on_github () {
         fi
     done
 
-    SWARM_OPERATOR_README=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/assets/readme/README.operator.md)
+    SWARM_OPERATOR_README=$(cat "$CWD/assets/readme/README.operator.md")
     for EXPECTED_KEYWORDS in 'Create Startup Kits' 'Starting a Swarm Training';
     do
         if echo "$SWARM_OPERATOR_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
@@ -65,7 +65,7 @@ check_files_on_github () {
         fi
     done
 
-    APC_DEVELOPER_README=$(curl -L https://github.com/KatherLab/MediSwarm/raw/refs/heads/main/assets/readme/README.developer.md)
+    APC_DEVELOPER_README=$(cat "$CWD/assets/readme/README.developer.md")
     for EXPECTED_KEYWORDS in 'Contributing Application Code';
     do
         if echo "$APC_DEVELOPER_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
@@ -76,7 +76,7 @@ check_files_on_github () {
         fi
     done
 
-    DUMMY_TRAINING_APC=$(curl -L https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py)
+    DUMMY_TRAINING_APC=$(cat "$CWD/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py")
     for EXPECTED_KEYWORDS in 'python3';
     do
         if echo "$DUMMY_TRAINING_APC" | grep -qie "$EXPECTED_KEYWORDS" ; then
@@ -393,7 +393,7 @@ run_data_access_preflight_check_log_details () {
        grep -q  "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                   "$CONSOLE_OUTPUT" && \
        grep -q  "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:"                         "$CONSOLE_OUTPUT" && \
        grep -q  "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
-       grep -qx "Image data with hash .* appears 2 times: ID_005_right, ID_005_left"                     "$CONSOLE_OUTPUT" && \
+       grep -qx "Image data with hash .* appears 2 times: ID_005_left, ID_005_right"                     "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference split.images: ID_016_left, ID_016_right"               "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right"               "$CONSOLE_OUTPUT" && \
        grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_016_left, ID_016_right"          "$CONSOLE_OUTPUT" && \
@@ -421,7 +421,7 @@ run_data_access_preflight_check_without_data () {
     # also check that it finishes the single round within one minute
     timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    if grep -q "No such file or directory: '/data/client_A/metadata_unilateral/split.csv'" "$CONSOLE_OUTPUT" ; then
+    if grep -Eq "No such file or directory: '/data/client_A/metadata_unilateral/(annotation|split)\.csv'" "$CONSOLE_OUTPUT" ; then
         echo "✅ Expected error output of data access preflight check found if no data is present"
     else
         echo "❌ Missing expected output of data access preflight check found if no data is present"

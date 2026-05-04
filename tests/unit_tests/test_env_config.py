@@ -62,6 +62,10 @@ class TestLoadEnvironmentVariables:
             "max_epochs", "min_peers", "max_peers", "local_compare_flag",
             "use_adaptive_sync", "sync_frequency", "model_name",
             "prediction_flag", "mediswarm_version",
+            "odelia_num_workers", "odelia_hash_num_workers",
+            "odelia_threads_per_worker", "odelia_interop_threads",
+            "odelia_hash_cache_dir", "odelia_enable_preprocess_cache",
+            "odelia_preprocess_cache_dir", "odelia_preprocess_cache_version",
         }
         assert set(result.keys()) == expected_keys
 
@@ -122,6 +126,40 @@ class TestLoadEnvironmentVariables:
             assert result["model_name"] == "ResNet101"  # default
             assert result["max_epochs"] == 100  # default
             assert result["mediswarm_version"] == "unset"  # default
+            assert isinstance(result["odelia_num_workers"], int)
+            assert result["odelia_hash_num_workers"] == 0
+            assert result["odelia_threads_per_worker"] == 1
+            assert result["odelia_interop_threads"] == 1
+            assert result["odelia_enable_preprocess_cache"] is False
+            assert result["odelia_hash_cache_dir"].endswith("odelia_hash_cache")
+            assert result["odelia_preprocess_cache_dir"].endswith("odelia_preprocess_cache")
+            assert result["odelia_preprocess_cache_version"] == "v1"
+
+    def test_odelia_runtime_overrides(self, tmp_scratch_dir, tmp_data_dir):
+        env = {
+            "SITE_NAME": "S1",
+            "SCRATCH_DIR": tmp_scratch_dir,
+            "DATA_DIR": tmp_data_dir,
+            "ODELIA_NUM_WORKERS": "3",
+            "ODELIA_HASH_NUM_WORKERS": "2",
+            "ODELIA_THREADS_PER_WORKER": "4",
+            "ODELIA_INTEROP_THREADS": "2",
+            "ODELIA_HASH_CACHE_DIR": "/tmp/hash-cache",
+            "ODELIA_ENABLE_PREPROCESS_CACHE": "true",
+            "ODELIA_PREPROCESS_CACHE_DIR": "/tmp/pre-cache",
+            "ODELIA_PREPROCESS_CACHE_VERSION": "v2",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            ec = _import_env_config()
+            result = ec.load_environment_variables()
+            assert result["odelia_num_workers"] == 3
+            assert result["odelia_hash_num_workers"] == 2
+            assert result["odelia_threads_per_worker"] == 4
+            assert result["odelia_interop_threads"] == 2
+            assert result["odelia_hash_cache_dir"] == "/tmp/hash-cache"
+            assert result["odelia_enable_preprocess_cache"] is True
+            assert result["odelia_preprocess_cache_dir"] == "/tmp/pre-cache"
+            assert result["odelia_preprocess_cache_version"] == "v2"
 
     def test_raises_without_site_name(self, tmp_scratch_dir, tmp_data_dir):
         """SITE_NAME is mandatory — KeyError expected."""
