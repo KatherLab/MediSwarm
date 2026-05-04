@@ -21,7 +21,7 @@ if [ -z "$GPU_FOR_TESTING" ]; then
 fi
 
 
-check_files_in repo () {
+check_files_in_repo () {
     echo "[Run] Test whether expected content is available in the repo"
 
     LICENSE_LOCAL=$(cat "$CWD/LICENSE")
@@ -842,8 +842,8 @@ cleanup_temporary_data () {
 
 
 case "$1" in
-    check_files_in repo)
-        check_files_in repo
+    check_files_in_repo)
+        check_files_in_repo
         ;;
 
     run_nvflare_unit_tests)
@@ -976,7 +976,7 @@ case "$1" in
         ;;
 
     all | "")
-        check_files_in repo
+        check_files_in_repo
         run_dummy_training_standalone
         run_dummy_training_simulation_mode
         run_dummy_training_poc_mode
