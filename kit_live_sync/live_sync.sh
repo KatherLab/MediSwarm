@@ -118,14 +118,18 @@ find_latest_local_run_name() {
   if [ -n "$SCRATCHDIR" ]; then
     base="$SCRATCHDIR/runs/$SITE_NAME"
     if [ -d "$base" ]; then
-      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed 's#.*/##' | sort | tail -n 1 || true)"
+      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' 2>/dev/null | \
+        awk -v min_ts="${MEDISWARM_LOCAL_SYNC_START_TS:-0}" '$1 >= min_ts {print $2}' | \
+        sort | tail -n 1 || true)"
     fi
   fi
   # Fall back to startup dir (backward compatibility with older builds)
   if [ -z "$result" ]; then
     base="$STARTUP_DIR/runs/$SITE_NAME"
     if [ -d "$base" ]; then
-      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed 's#.*/##' | sort | tail -n 1 || true)"
+      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' 2>/dev/null | \
+        awk -v min_ts="${MEDISWARM_LOCAL_SYNC_START_TS:-0}" '$1 >= min_ts {print $2}' | \
+        sort | tail -n 1 || true)"
     fi
   fi
   printf '%s' "$result"

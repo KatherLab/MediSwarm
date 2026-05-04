@@ -1,17 +1,32 @@
+import csv
+import json
+import logging
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from dataclasses import dataclass
+from hashlib import sha3_224 as hash_function
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import numpy as np
 import torch
+import torch.multiprocessing as torch_mp
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
-from data.datamodules import DataModule
-from models.models_config import create_model
-from env_config import load_environment_variables, prepare_odelia_dataset, prepare_odelia_dataset_without_augmentation, generate_run_directory
-import torch.multiprocessing as mp
-from hashlib import sha3_224 as hash_function
-from typing import List, Tuple
-from dataclasses import dataclass
 
-import logging
-import csv
+from data.datasets import ODELIA_Dataset3D
+from data.datamodules import DataModule
+from env_config import (
+    build_odelia_manifests,
+    generate_run_directory,
+    load_environment_variables,
+    prepare_odelia_dataset,
+    prepare_odelia_dataset_without_augmentation,
+)
+from models.models_config import create_model
 
 FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN = 'aggregated_model_gt_and_classprob_train.csv'
 FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
@@ -19,7 +34,102 @@ FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
 FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION = 'aggregated_model_gt_and_classprob_validation.csv'
 FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_validation.csv'
 
-import os
+OMP_THREAD_ENV_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
+
+
+@dataclass
+class UIDwithHash:
+    uid: str
+    hash: str
+
+
+def _hexdigest(data) -> str:
+    return hash_function(data).hexdigest()
+
+
+def _hexdigest_string(data: str) -> str:
+    return _hexdigest(data.encode('utf-8'))
+
+
+def configure_odelia_runtime(env_vars: dict, logger) -> None:
+    thread_count = max(1, env_vars['odelia_threads_per_worker'])
+    interop_threads = max(1, env_vars['odelia_interop_threads'])
+    sharing_strategy = os.environ.get("TORCH_MULTIPROCESSING_SHARING_STRATEGY", "file_system")
+
+    for env_name in OMP_THREAD_ENV_VARS:
+        os.environ[env_name] = str(thread_count)
+
+    if sharing_strategy:
+        try:
+            torch_mp.set_sharing_strategy(sharing_strategy)
+        except RuntimeError as exc:
+            logger.warning("Could not set torch multiprocessing sharing strategy to %s: %s", sharing_strategy, exc)
+
+    torch.set_num_threads(thread_count)
+    if hasattr(torch, "set_num_interop_threads"):
+        try:
+            torch.set_num_interop_threads(interop_threads)
+        except RuntimeError:
+            logger.debug("torch interop threads were already configured; keeping existing value")
+
+    logger.info(
+        "ODELIA runtime controls — loader_workers=%s, hash_workers=%s, "
+        "threads_per_worker=%s, interop_threads=%s, torch_sharing_strategy=%s",
+        env_vars['odelia_num_workers'],
+        env_vars['odelia_hash_num_workers'],
+        thread_count,
+        interop_threads,
+        torch_mp.get_sharing_strategy(),
+    )
+
+
+@contextmanager
+def timed_stage(logger, stage_name: str, stage_timings: Dict[str, float] | None = None):
+    logger.info(f"[STAGE] Start: {stage_name}")
+    start = time.perf_counter()
+    try:
+        yield
+    except Exception:
+        elapsed = time.perf_counter() - start
+        logger.error(f"[STAGE] Failed: {stage_name} after {elapsed:.2f}s")
+        raise
+    else:
+        elapsed = time.perf_counter() - start
+        if stage_timings is not None:
+            stage_timings[stage_name] = elapsed
+        logger.info(f"[STAGE] Done: {stage_name} in {elapsed:.2f}s")
+
+
+def log_stage_timing_summary(logger, stage_timings: Dict[str, float], heading: str) -> None:
+    if not stage_timings:
+        return
+    logger.info(heading)
+    for stage_name, elapsed in stage_timings.items():
+        logger.info(f"  {stage_name}: {elapsed:.2f}s")
+
+
+def _load_json_cache(cache_path: Path) -> Dict[str, str]:
+    if not cache_path.exists():
+        return {}
+    try:
+        with open(cache_path, 'r', encoding='utf-8') as f:
+            cache = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return cache if isinstance(cache, dict) else {}
+
+
+def _save_json_cache(cache_path: Path, cache: Dict[str, str]) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = cache_path.with_suffix('.tmp')
+    with open(tmp_path, 'w', encoding='utf-8') as f:
+        json.dump(cache, f, sort_keys=True)
+    os.replace(tmp_path, cache_path)
+
+
+def _hash_cache_signature(path_img: Path) -> str:
+    stat = path_img.stat()
+    return f"{path_img.resolve()}|{int(stat.st_size)}|{int(stat.st_mtime_ns)}"
 
 
 def compute_weighted_epochs(num_train_samples: int, site_name: str = "") -> int:
@@ -68,32 +178,7 @@ def set_up_logging():
     return logger
 
 
-def log_data_hash(dm: DataModule, logger, log_dataset_details: bool = False) -> None:
-    @dataclass
-    class UIDwithHash:
-        uid: str
-        hash: str
-
-    def _hexdigest(data) -> str:
-        return hash_function(data).hexdigest()
-
-    def _hexdigest_string(data) -> str:
-        return _hexdigest(data.encode('utf-8'))
-
-    def _get_imageuid_hashes(dataloader) -> List[UIDwithHash]:
-        hashes: List[UIDwithHash] = []
-        for batch in dataloader:
-            assert (len(batch['uid']) == 1)  # currently only implemented for batch size 1
-            uid = batch['uid'][0]
-            hashes.append(UIDwithHash(uid, _hexdigest_string(uid)))
-        return hashes
-
-    def _get_imagedata_hashes(dataloader) -> List[UIDwithHash]:
-        hashes: List[UIDwithHash] = []
-        for batch in dataloader:
-            hashes.append(UIDwithHash(batch['uid'][0], _hexdigest(batch['source']['data'][0].detach().cpu().numpy().data)))
-        return hashes
-
+def log_data_hash(ds_train, ds_val, ds_test, env_vars: dict, logger, log_dataset_details: bool = False) -> None:
     def _check_for_duplicates(uids_with_hashes_train: List[UIDwithHash],
                               uids_with_hashes_valid: List[UIDwithHash],
                               uids_with_hashes_test: List[UIDwithHash],
@@ -101,91 +186,142 @@ def log_data_hash(dm: DataModule, logger, log_dataset_details: bool = False) -> 
                               log_dataset_details: bool) -> None:
         def _check_separately_for_duplicates(uids_with_hashes: List[UIDwithHash], where: str, which: str, log_dataset_details: bool) -> None:
             if log_dataset_details:
-                logger.info(f'All {which} data {where}, UIDs with hashes:\n' + \
-                            '\n'.join([f'{i.uid}, {i.hash}' for i in uids_with_hashes]))
+                logger.info(
+                    f'All {which} data {where}, UIDs with hashes:\n'
+                    + '\n'.join([f'{item.uid}, {item.hash}' for item in uids_with_hashes])
+                )
 
-            hashes = [i.hash for i in uids_with_hashes]
+            hashes = [item.hash for item in uids_with_hashes]
             if len(hashes) != len(set(hashes)):
                 logger.error(f'Duplicate {where} detected. This should not happen.')
                 if log_dataset_details:
                     message = f'Duplicate {where}:\n'
                     if where == 'image UIDs':
                         multiplicity_messages = {}
-                        for uh in uids_with_hashes:
-                            count = hashes.count(uh.hash)
+                        for uid_hash in uids_with_hashes:
+                            count = hashes.count(uid_hash.hash)
                             if count > 1:
-                                multiplicity_messages[uh.uid] = f'Image UID {uh.uid} ({uh.hash}) appears {count} times'
+                                multiplicity_messages[uid_hash.uid] = f'Image UID {uid_hash.uid} ({uid_hash.hash}) appears {count} times'
                         multiplicity_messages = list(multiplicity_messages.values())
                         multiplicity_messages.sort()
                         message += '\n'.join(multiplicity_messages)
 
                     elif where == 'image data':
                         uids_for_hash = {}
-                        for uh in uids_with_hashes:
-                            if uh.hash not in uids_for_hash:
-                                uids_for_hash[uh.hash] = []
-                            count = hashes.count(uh.hash)
-                            if count > 1:
-                                uids_for_hash[uh.hash].append(uh.uid)
-
-                        for hsh, uids in uids_for_hash.items():
-                            if uids:
-                                uids.sort()
-                                message += f'Image data with hash {hsh} appears {len(uids)} times: ' + ', '.join(uids) + '\n'
+                        for uid_hash in uids_with_hashes:
+                            uids_for_hash.setdefault(uid_hash.hash, []).append(uid_hash.uid)
+                        for image_hash, uids in uids_for_hash.items():
+                            if len(uids) > 1:
+                                message += f'Image data with hash {image_hash} appears {len(uids)} times: ' + ', '.join(sorted(uids)) + '\n'
                     logger.error(message)
 
         _check_separately_for_duplicates(uids_with_hashes_train, where, 'training', log_dataset_details)
         _check_separately_for_duplicates(uids_with_hashes_valid, where, 'validation', log_dataset_details)
         _check_separately_for_duplicates(uids_with_hashes_test, where, 'test', log_dataset_details)
-        _check_separately_for_duplicates(uids_with_hashes_train + uids_with_hashes_valid + uids_with_hashes_test, where, 'training ∪ validation ∪ test', log_dataset_details)
+        _check_separately_for_duplicates(
+            uids_with_hashes_train + uids_with_hashes_valid + uids_with_hashes_test,
+            where,
+            'training ∪ validation ∪ test',
+            log_dataset_details,
+        )
 
-    def _get_imageuid_hashes_train_val_test(dm: DataModule, log_dataset_details: bool) -> Tuple[str, str, str]:
-        imageuid_hashes_train = _get_imageuid_hashes(dm.train_dataloader())
-        imageuid_hashes_validation = _get_imageuid_hashes(dm.val_dataloader())
-        imageuid_hashes_test = _get_imageuid_hashes(dm.test_dataloader())
-        _check_for_duplicates(imageuid_hashes_train, imageuid_hashes_validation, imageuid_hashes_test, 'image UIDs', log_dataset_details)
+    def _uid_hashes_for_dataset(ds) -> List[UIDwithHash]:
+        return [UIDwithHash(uid, _hexdigest_string(uid)) for uid in ds.df['UID'].tolist()]
 
-        imageuid_hashes_train = [i.hash for i in imageuid_hashes_train]
-        imageuid_hashes_validation = [i.hash for i in imageuid_hashes_validation]
-        imageuid_hashes_test = [i.hash for i in imageuid_hashes_test]
-        imageuid_hashes_train.sort()
-        imageuid_hashes_validation.sort()
-        imageuid_hashes_test.sort()
-        return ''.join(imageuid_hashes_train), ''.join(imageuid_hashes_validation), ''.join(imageuid_hashes_test)
+    def _build_records(ds):
+        return [
+            (row.UID, row.Institution, ds.get_image_path(row.UID, row.Institution))
+            for row in ds.df[['UID', 'Institution']].itertuples(index=False)
+        ]
 
-    def _get_imagedata_hashes_train_val_test(dm: DataModule, log_dataset_details: bool) -> Tuple[str, str, str]:
-        imagedata_hashes_train = _get_imagedata_hashes(dm.train_dataloader())
-        imagedata_hashes_validation = _get_imagedata_hashes(dm.val_dataloader())
-        imagedata_hashes_test = _get_imagedata_hashes(dm.test_dataloader())
-        _check_for_duplicates(imagedata_hashes_train, imagedata_hashes_validation, imagedata_hashes_test, 'image data', log_dataset_details)
+    records_train = _build_records(ds_train)
+    records_validation = _build_records(ds_val)
+    records_test = _build_records(ds_test)
 
-        imagedata_hashes_train = [i.hash for i in imagedata_hashes_train]
-        imagedata_hashes_validation = [i.hash for i in imagedata_hashes_validation]
-        imagedata_hashes_test = [i.hash for i in imagedata_hashes_test]
-        imagedata_hashes_train.sort()
-        imagedata_hashes_validation.sort()
-        imagedata_hashes_test.sort()
-        return ''.join(imagedata_hashes_train), ''.join(imagedata_hashes_validation), ''.join(imagedata_hashes_test)
+    imageuid_hashes_train = _uid_hashes_for_dataset(ds_train)
+    imageuid_hashes_validation = _uid_hashes_for_dataset(ds_val)
+    imageuid_hashes_test = _uid_hashes_for_dataset(ds_test)
+    _check_for_duplicates(imageuid_hashes_train, imageuid_hashes_validation, imageuid_hashes_test, 'image UIDs', log_dataset_details)
 
-    imageuid_hashes_train, imageuid_hashes_validation, imageuid_hashes_test = _get_imageuid_hashes_train_val_test(dm, log_dataset_details)
-    imagedata_hashes_train, imagedata_hashes_validation, imagedata_hashes_test = _get_imagedata_hashes_train_val_test(dm, log_dataset_details)
-    hash_all = _hexdigest_string(imageuid_hashes_train + imageuid_hashes_validation + imageuid_hashes_test + imagedata_hashes_train + imagedata_hashes_validation + imagedata_hashes_test)
+    unique_records = {}
+    for uid, institution, path_img in records_train + records_validation + records_test:
+        unique_records[(institution, uid)] = path_img
+
+    hash_cache_path = Path(env_vars['odelia_hash_cache_dir']) / 'image_hash_cache.json'
+    hash_cache = _load_json_cache(hash_cache_path)
+    new_cache_entries: Dict[str, str] = {}
+    cache_hits = 0
+    cache_misses = 0
+
+    def _compute_record_hash(item):
+        institution, uid = item
+        path_img = unique_records[item]
+        signature = _hash_cache_signature(path_img)
+        cached_hash = hash_cache.get(signature)
+        if cached_hash is not None:
+            return item, signature, UIDwithHash(uid, cached_hash), True
+
+        image = ds_train.load_img(path_img)
+        image_data = np.ascontiguousarray(image.data.detach().cpu().numpy())
+        return item, signature, UIDwithHash(uid, _hexdigest(image_data.data)), False
+
+    unique_items = list(unique_records.keys())
+    hash_workers = max(0, env_vars['odelia_hash_num_workers'])
+    if hash_workers > 0:
+        with ThreadPoolExecutor(max_workers=hash_workers) as executor:
+            resolved_items = list(executor.map(_compute_record_hash, unique_items))
+    else:
+        resolved_items = [_compute_record_hash(item) for item in unique_items]
+
+    resolved_hashes = {}
+    for item, signature, uid_hash, cache_hit in resolved_items:
+        resolved_hashes[item] = uid_hash
+        if cache_hit:
+            cache_hits += 1
+        else:
+            cache_misses += 1
+            new_cache_entries[signature] = uid_hash.hash
+
+    if new_cache_entries:
+        hash_cache.update(new_cache_entries)
+        _save_json_cache(hash_cache_path, hash_cache)
+
+    def _hashes_for_records(records) -> List[UIDwithHash]:
+        return [resolved_hashes[(institution, uid)] for uid, institution, _ in records]
+
+    imagedata_hashes_train = _hashes_for_records(records_train)
+    imagedata_hashes_validation = _hashes_for_records(records_validation)
+    imagedata_hashes_test = _hashes_for_records(records_test)
+    _check_for_duplicates(imagedata_hashes_train, imagedata_hashes_validation, imagedata_hashes_test, 'image data', log_dataset_details)
+
+    logger.info(
+        "Hash cache stats — hits=%s, misses=%s, cache_path=%s",
+        cache_hits,
+        cache_misses,
+        hash_cache_path,
+    )
+
+    imageuid_hashes_train = sorted(item.hash for item in imageuid_hashes_train)
+    imageuid_hashes_validation = sorted(item.hash for item in imageuid_hashes_validation)
+    imageuid_hashes_test = sorted(item.hash for item in imageuid_hashes_test)
+    imagedata_hashes_train = sorted(item.hash for item in imagedata_hashes_train)
+    imagedata_hashes_validation = sorted(item.hash for item in imagedata_hashes_validation)
+    imagedata_hashes_test = sorted(item.hash for item in imagedata_hashes_test)
+
+    hash_all = _hexdigest_string(
+        ''.join(imageuid_hashes_train)
+        + ''.join(imageuid_hashes_validation)
+        + ''.join(imageuid_hashes_test)
+        + ''.join(imagedata_hashes_train)
+        + ''.join(imagedata_hashes_validation)
+        + ''.join(imagedata_hashes_test)
+    )
     logger.info(f"Data hash: {hash_all}")
 
 
-def set_up_data_module(logger, log_dataset_details: bool = False):
-    def _log_dataset_hash(logger, log_dataset_details: bool) -> None:
-        ds_train_woaug, ds_val_woaug, ds_test_woaug = prepare_odelia_dataset_without_augmentation()
-        datamodule = DataModule(
-            ds_train=ds_train_woaug,
-            ds_val=ds_val_woaug,
-            ds_test=ds_test_woaug,
-            batch_size=1,
-            pin_memory=True,
-            weights=None,
-            num_workers=mp.cpu_count(),
-        )
-        log_data_hash(datamodule, logger, log_dataset_details)
+def set_up_data_module(logger, env_vars: dict, log_dataset_details: bool = False):
+    institution = os.environ.get('INSTITUTION', env_vars['site_name'])
+    stage_timings: Dict[str, float] = {}
 
     def _log_dataset_stats(ds_train, ds_val, ds_test, path_run_dir, run_name, logger) -> None:
         def _log_label_distribution(ds, which: str, logger) -> None:
@@ -208,8 +344,35 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
         _log_label_distribution(ds_test, 'test', logger)
 
     torch.set_float32_matmul_precision('high')
-    _log_dataset_hash(logger, log_dataset_details)
-    ds_train, ds_val, ds_test, path_run_dir, run_name = prepare_odelia_dataset(logger, log_dataset_details)
+
+    manifests = build_odelia_manifests(env_vars)
+
+    with timed_stage(logger, "UID discrepancy scan", stage_timings):
+        ODELIA_Dataset3D.log_UID_discrepancies(
+            logger,
+            path_root=env_vars['data_dir'],
+            institutions=[institution],
+            log_dataset_details=log_dataset_details,
+            manifests=manifests,
+        )
+
+    with timed_stage(logger, "No-augmentation dataset build", stage_timings):
+        ds_train_woaug, ds_val_woaug, ds_test_woaug = prepare_odelia_dataset_without_augmentation(
+            manifests=manifests,
+            env_vars=env_vars,
+        )
+
+    with timed_stage(logger, "Data hash", stage_timings):
+        log_data_hash(ds_train_woaug, ds_val_woaug, ds_test_woaug, env_vars, logger, log_dataset_details)
+
+    with timed_stage(logger, "Augmented dataset build", stage_timings):
+        ds_train, ds_val, ds_test, path_run_dir, run_name = prepare_odelia_dataset(
+            logger,
+            log_dataset_details,
+            manifests=manifests,
+            env_vars=env_vars,
+        )
+
     _log_dataset_stats(ds_train, ds_val, ds_test, path_run_dir, run_name, logger)
     num_classes = sum(ds_train.class_labels_num)
 
@@ -246,13 +409,14 @@ def set_up_data_module(logger, log_dataset_details: bool = False):
         batch_size=1,
         pin_memory=True,
         weights=None,
-        num_workers=mp.cpu_count(),
+        num_workers=env_vars['odelia_num_workers'],
     )
 
     loss_kwargs = {}
     if class_weights is not None:
         loss_kwargs['weight'] = class_weights
 
+    log_stage_timing_summary(logger, stage_timings, "ODELIA setup stage timings:")
     return dm, path_run_dir, run_name, num_classes, loss_kwargs
 
 
@@ -266,16 +430,15 @@ def create_run_directory(env_vars):
 
 
 def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv_filename_train, csv_filename_validation) -> None:
-    def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader):
+    def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader, device: torch.device):
         results = []
-        device = torch.device('cuda')
         for batch in data_loader:
             source, target = batch['source'], batch['target']
 
             with torch.no_grad():
-                logits = model.to(device)(source.to(device))
+                logits = model(source.to(device))
 
-            pred_prob = model.logits2probabilities(logits)
+            pred_prob = model.logits2probabilities(logits).detach().cpu()
 
             for b in range(pred_prob.size(0)):
                 results.append({'GT': target[b].tolist(),
@@ -290,9 +453,18 @@ def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv
                 output_data = [epoch, datapoint['GT'][0]] + datapoint['pred_prob']
                 datawriter.writerow(output_data)
 
-    results_train = _determine_GT_and_classprobs(model, data_module.train_dataloader())
+    try:
+        device = next(model.parameters()).device
+    except StopIteration:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+
+    train_loader = data_module.train_dataloader()
+    val_loader = data_module.val_dataloader()
+
+    results_train = _determine_GT_and_classprobs(model, train_loader, device)
     output_csv(results_train, epoch, csv_filename_train)
-    results_validation = _determine_GT_and_classprobs(model, data_module.val_dataloader())
+    results_validation = _determine_GT_and_classprobs(model, val_loader, device)
     output_csv(results_validation, epoch, csv_filename_validation)
 
 
@@ -334,12 +506,17 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
     """
     try:
         env_vars = load_environment_variables()
+        configure_odelia_runtime(env_vars, logger)
 
         # If model_variant is explicitly provided, override the env var value
         if model_variant is not None:
             env_vars['model_name'] = model_variant
 
-        data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(logger, log_dataset_details)
+        data_module, path_run_dir, run_name, num_classes, loss_kwargs = set_up_data_module(
+            logger,
+            env_vars,
+            log_dataset_details,
+        )
 
         # Compute weighted epochs based on training data size
         if weighted_epochs:
@@ -411,15 +588,27 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
 
 
 def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=True) -> None:
-    logger.info("--- Validate global model ---")
-    trainer.validate(model, datamodule=data_module)
-    if output_GT_and_classprob:
-        output_GT_and_classprobs_csv(model, data_module, trainer.current_epoch,
-                                     path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN,
-                                     path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION)
+    stage_timings: Dict[str, float] = {}
 
-    logger.info("--- Train new model ---")
-    trainer.fit(model, datamodule=data_module)
+    with timed_stage(logger, "Validation", stage_timings):
+        logger.info("--- Validate global model ---")
+        trainer.validate(model, datamodule=data_module)
+
+    if output_GT_and_classprob:
+        with timed_stage(logger, "Aggregated prediction export", stage_timings):
+            output_GT_and_classprobs_csv(
+                model,
+                data_module,
+                trainer.current_epoch,
+                path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN,
+                path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION,
+            )
+
+    with timed_stage(logger, "Fit", stage_timings):
+        logger.info("--- Train new model ---")
+        trainer.fit(model, datamodule=data_module)
+
+    log_stage_timing_summary(logger, stage_timings, "ODELIA execution stage timings:")
 
 
 def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars) -> None:

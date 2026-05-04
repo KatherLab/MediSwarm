@@ -177,6 +177,17 @@ class TestTrainDataloader:
         assert "source" in batch
         assert batch["source"].shape[0] == 2
 
+    def test_reuses_cached_train_dataloader(self, mock_datasets):
+        DataModule = _get_datamodule_class()
+        ds_train, ds_val, ds_test = mock_datasets
+        dm = DataModule(
+            ds_train=ds_train, ds_val=ds_val, ds_test=ds_test,
+            num_workers=0,
+        )
+        dl_first = dm.train_dataloader()
+        dl_second = dm.train_dataloader()
+        assert dl_first is dl_second
+
 
 class TestValDataloader:
 
@@ -201,6 +212,17 @@ class TestValDataloader:
         with pytest.raises(AssertionError, match="validation set"):
             dm.val_dataloader()
 
+    def test_reuses_cached_val_dataloader(self, mock_datasets):
+        DataModule = _get_datamodule_class()
+        ds_train, ds_val, ds_test = mock_datasets
+        dm = DataModule(
+            ds_train=ds_train, ds_val=ds_val, ds_test=ds_test,
+            num_workers=0,
+        )
+        dl_first = dm.val_dataloader()
+        dl_second = dm.val_dataloader()
+        assert dl_first is dl_second
+
 
 class TestTestDataloader:
 
@@ -224,3 +246,14 @@ class TestTestDataloader:
         dm = DataModule(ds_train=ds_train, ds_val=ds_val, ds_test=None)
         with pytest.raises(AssertionError, match="test set"):
             dm.test_dataloader()
+
+    def test_reuses_cached_test_dataloader(self, mock_datasets):
+        DataModule = _get_datamodule_class()
+        ds_train, ds_val, ds_test = mock_datasets
+        dm = DataModule(
+            ds_train=ds_train, ds_val=ds_val, ds_test=ds_test,
+            num_workers=0,
+        )
+        dl_first = dm.test_dataloader()
+        dl_second = dm.test_dataloader()
+        assert dl_first is dl_second
