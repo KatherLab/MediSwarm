@@ -81,7 +81,7 @@ jobs:
       - name: Run integration test checking documentation in the repository
         continue-on-error: false
         run: |
-          ./scripts/ci/runIntegrationTests.sh check_files_in repo
+          ./scripts/ci/runIntegrationTests.sh check_files_in_repo
 
       - name: Run dummy training standalone
         continue-on-error: false
