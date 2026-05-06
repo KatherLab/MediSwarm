@@ -241,7 +241,7 @@ RUN apt update && apt install -y \
     libksba8=1.6.0-2ubuntu0.2 \
     libldap-2.5-0=2.5.20+dfsg-0ubuntu0.22.04.1 \
     libldap-common=2.5.20+dfsg-0ubuntu0.22.04.1 \
-    libnghttp2-14=1.43.0-1ubuntu0.2 \
+    libnghttp2-14=1.43.0-1ubuntu0.3 \
     libnpth0=1.6-3build2 \
     libpsl5=0.21.0-1.2build2 \
     librtmp1=2.4+20151223.gitfa8646d.1-2build4 \
