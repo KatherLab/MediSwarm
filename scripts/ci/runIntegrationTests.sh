@@ -982,6 +982,7 @@ case "$1" in
         start_registry_docker_and_push
         run_container_with_pulling
         kill_registry_docker
+        run_list_licenses
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
         run_data_access_preflight_check_log_details
