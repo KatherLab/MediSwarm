@@ -22,6 +22,11 @@ prepare () {
         tensorflow==2.21.0 \
         termcolor==3.3.0
 
+    # install xgboost and nvidia_nccl_cu12, needed for xgboost test
+    pip install \
+        xgboost==3.2.0 \
+        nvidia_nccl_cu12==2.30.4
+
     export PATH=~/.local/bin:$PATH
     chmod a+rwX /MediSwarm -R
 }
