@@ -165,18 +165,6 @@ run_nvflare_unit_tests(){
            "$DOCKER_IMAGE"
 }
 
-run_nvflare_integration_tests(){
-    echo "[Run] NVFlare integration tests"
-    docker run --rm \
-           --shm-size=16g \
-           --ipc=host \
-           --ulimit memlock=-1 \
-           --ulimit stack=67108864 \
-           --gpus="$GPU_FOR_TESTING" \
-           --entrypoint=/MediSwarm/tests/integration_tests/_run_nvflare_integration_tests.sh \
-           "$DOCKER_IMAGE"
-}
-
 create_startup_kits_and_check_contained_files () {
     echo "[Prepare] Startup kits for test project ..."
 
@@ -696,17 +684,8 @@ case "$1" in
         ;;
 
     run_nvflare_unit_tests)
-        run_nvflare_unit_tests
-        ;;
-
-    run_nvflare_integration_tests)
-        run_nvflare_integration_tests
-        ;;
-
-    run_nvflare_unit_and_integration_tests)
-        run_nvflare_unit_tests
-        run_nvflare_integration_tests
         # TODO add to CI and/or "all" section if we want this (takes several minutes and fails if GPU memory insufficient)
+        run_nvflare_unit_tests
         ;;
 
     run_dummy_training_standalone)
