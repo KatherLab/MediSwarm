@@ -450,10 +450,8 @@ def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv
                 output_data = [epoch, datapoint['GT'][0]] + datapoint['pred_prob']
                 datawriter.writerow(output_data)
 
-    try:
-        device = next(model.parameters()).device
-    except StopIteration:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     model = model.to(device)
 
     train_loader = data_module.train_dataloader()
