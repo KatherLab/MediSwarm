@@ -304,17 +304,23 @@ def verify_same_label_distribution_swarm_local(label_dist_df: pd.DataFrame) -> N
 
 
 def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: bool) -> None:
-    # Plot combined label distributions - just use Swarm data since they're identical
-    # Compute max count for shared y-axis
+    # Plot combined label distributions
 
-    label_counts_df = label_dist_df[label_dist_df.source == 'Local'].groupby(['site', 'split', 'label']).size()
+    source = 'Local'
+    label_counts_df = label_dist_df[label_dist_df.source == source].groupby(['site', 'split', 'label']).size()
     ymax = label_counts_df.max()
+
+    if np.isnan(ymax):
+        # if data from local training not available, use data from swarm training instead
+        source = 'Swarm'
+        label_counts_df = label_dist_df[label_dist_df.source == source].groupby(['site', 'split', 'label']).size()
+        ymax = label_counts_df.max()
 
     for col_idx, site in enumerate(sorted(label_dist_df.site.unique())):
         ax = axes[0, col_idx]
 
         # Filter data - use Swarm only since we verified they're identical
-        plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == 'Local')]
+        plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == source)]
         plot_data_train = plot_data[plot_data.split == 'Train']
         plot_data_val = plot_data[plot_data.split == 'Val']
 
