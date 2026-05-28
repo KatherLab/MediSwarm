@@ -106,7 +106,7 @@ export CONFIG=original
 For `--preflight_check` and `--local_training` modes, the `--job` flag selects which model to run:
 
 ```bash
-# Default (ODELIA_ternary_classification)
+# Default (challenge_1DivideAndConquer)
 ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check
 
 # Specific challenge model
