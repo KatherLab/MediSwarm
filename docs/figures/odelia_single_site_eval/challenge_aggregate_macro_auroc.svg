@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="734" viewBox="0 0 1060 734">
+<rect width="100%" height="100%" fill="white"/>
+<text x="20" y="30" font-size="18" font-weight="700">ODELIA challenge weighted mean macro AUROC by checkpoint</text>
+<text x="260" y="71" text-anchor="end" font-size="12">UKA_1DC_epoch25_step57980 (1DC)</text>
+<rect x="270" y="54" width="720.0" height="24" fill="#386cb0"/>
+<text x="996.0" y="71" font-size="12">0.709</text>
+<text x="260" y="103" text-anchor="end" font-size="12">USZ_1DC_epoch14_best (1DC)</text>
+<rect x="270" y="86" width="686.2" height="24" fill="#386cb0"/>
+<text x="962.2" y="103" font-size="12">0.675</text>
+<text x="260" y="135" text-anchor="end" font-size="12">MHA_1DC_epoch37_step3876 (1DC)</text>
+<rect x="270" y="118" width="669.0" height="24" fill="#386cb0"/>
+<text x="945.0" y="135" font-size="12">0.658</text>
+<text x="260" y="167" text-anchor="end" font-size="12">MHA_1DC_epoch34_step3570 (1DC)</text>
+<rect x="270" y="150" width="660.5" height="24" fill="#386cb0"/>
+<text x="936.5" y="167" font-size="12">0.650</text>
+<text x="260" y="199" text-anchor="end" font-size="12">USZ_1DC_last (1DC)</text>
+<rect x="270" y="182" width="653.2" height="24" fill="#386cb0"/>
+<text x="929.2" y="199" font-size="12">0.643</text>
+<text x="260" y="231" text-anchor="end" font-size="12">UKA_1DC_last (1DC)</text>
+<rect x="270" y="214" width="640.3" height="24" fill="#386cb0"/>
+<text x="916.3" y="231" font-size="12">0.630</text>
+<text x="260" y="263" text-anchor="end" font-size="12">CAM_1DC_epoch52_step6466 (1DC)</text>
+<rect x="270" y="246" width="625.9" height="24" fill="#386cb0"/>
+<text x="901.9" y="263" font-size="12">0.616</text>
+<text x="260" y="295" text-anchor="end" font-size="12">CAM_1DC_epoch73_step9028 (1DC)</text>
+<rect x="270" y="278" width="625.8" height="24" fill="#386cb0"/>
+<text x="901.8" y="295" font-size="12">0.616</text>
+<text x="260" y="327" text-anchor="end" font-size="12">USZ_MST_epoch33_best (MST)</text>
+<rect x="270" y="310" width="622.3" height="24" fill="#386cb0"/>
+<text x="898.3" y="327" font-size="12">0.612</text>
+<text x="260" y="359" text-anchor="end" font-size="12">MHA_1DC_last (1DC)</text>
+<rect x="270" y="342" width="621.4" height="24" fill="#386cb0"/>
+<text x="897.4" y="359" font-size="12">0.612</text>
+<text x="260" y="391" text-anchor="end" font-size="12">CAM_1DC_last (1DC)</text>
+<rect x="270" y="374" width="604.0" height="24" fill="#386cb0"/>
+<text x="880.0" y="391" font-size="12">0.594</text>
+<text x="260" y="423" text-anchor="end" font-size="12">USZ_MST_last (MST)</text>
+<rect x="270" y="406" width="603.1" height="24" fill="#386cb0"/>
+<text x="879.1" y="423" font-size="12">0.594</text>
+<text x="260" y="455" text-anchor="end" font-size="12">CAM_1DC_epoch15_step1952 (1DC)</text>
+<rect x="270" y="438" width="600.4" height="24" fill="#386cb0"/>
+<text x="876.4" y="455" font-size="12">0.591</text>
+<text x="260" y="487" text-anchor="end" font-size="12">MHA_1DC_epoch77_step7956 (1DC)</text>
+<rect x="270" y="470" width="587.7" height="24" fill="#386cb0"/>
+<text x="863.7" y="487" font-size="12">0.578</text>
+<text x="260" y="519" text-anchor="end" font-size="12">CAM_1DC_epoch9_step1220 (1DC)</text>
+<rect x="270" y="502" width="577.8" height="24" fill="#386cb0"/>
+<text x="853.8" y="519" font-size="12">0.569</text>
+<text x="260" y="551" text-anchor="end" font-size="12">RUMC_MST_20260218_epoch0_step940 (MST)</text>
+<rect x="270" y="534" width="531.4" height="24" fill="#386cb0"/>
+<text x="807.4" y="551" font-size="12">0.523</text>
+<text x="260" y="583" text-anchor="end" font-size="12">CAM_1DC_epoch0_step122 (1DC)</text>
+<rect x="270" y="566" width="519.7" height="24" fill="#386cb0"/>
+<text x="795.7" y="583" font-size="12">0.511</text>
+<text x="260" y="615" text-anchor="end" font-size="12">RUMC_MST_20260413_epoch0_step118 (MST)</text>
+<rect x="270" y="598" width="508.9" height="24" fill="#386cb0"/>
+<text x="784.9" y="615" font-size="12">0.501</text>
+<text x="260" y="647" text-anchor="end" font-size="12">RUMC_MST_20260413_last (MST)</text>
+<rect x="270" y="630" width="508.9" height="24" fill="#386cb0"/>
+<text x="784.9" y="647" font-size="12">0.501</text>
+<text x="260" y="679" text-anchor="end" font-size="12">RSH_5Pimed_last (5Pimed)</text>
+<rect x="270" y="662" width="505.7" height="24" fill="#386cb0"/>
+<text x="781.7" y="679" font-size="12">0.498</text>
+</svg>

@@ -739,7 +739,7 @@ docker_cln_sh: |
   done
 
   # Default job for preflight_check and local_training
-  : ${JOB_NAME:="ODELIA_ternary_classification"}
+  : ${JOB_NAME:="challenge_1DivideAndConquer"}
 
   # Auto-derive MODEL_NAME from challenge job names.
   # Challenge jobs (challenge_1DivideAndConquer, etc.) share identical code
@@ -963,10 +963,10 @@ docker_cln_sh: |
       echo ""
       echo "Optional:"
       echo "--job <name>             select job/model for preflight_check or local_training"
-      echo "                         (default: ODELIA_ternary_classification)"
-      echo "                         Available: ODELIA_ternary_classification, challenge_1DivideAndConquer,"
+      echo "                         (default: challenge_1DivideAndConquer)"
+      echo "                         Available: challenge_1DivideAndConquer, ODELIA_ternary_classification,"
       echo "                         challenge_2BCN_AIM, challenge_3agaldran, challenge_4abmil, challenge_5pimed"
-      echo "--model_name <name>      set model name (default: MST). Use this instead of 'export MODEL_NAME=...'"
+      echo "--model_name <name>      set model name (default: auto-derived from --job). Use this instead of 'export MODEL_NAME=...'"
       echo "                         when running with sudo, as sudo resets environment variables"
       echo "--num_epochs <n>         set number of training epochs (default: 100)"
       echo "--config <name>          set config name (default: unilateral)"
