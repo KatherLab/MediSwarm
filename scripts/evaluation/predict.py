@@ -40,6 +40,7 @@ Environment variables (same as normal MediSwarm training):
 
 import argparse
 import csv
+import importlib
 import json
 import logging
 import os
@@ -78,6 +79,18 @@ logger = logging.getLogger("predict")
 # Standard NVFlare checkpoint filenames produced by PTFileModelPersistor
 # ---------------------------------------------------------------------------
 CHECKPOINT_NAMES = ["best_FL_global_model.pt", "FL_global_model.pt"]
+
+
+def _register_legacy_checkpoint_modules(model_name: str) -> None:
+    """Register compatibility aliases needed by older Lightning checkpoints."""
+    if "5pimed" not in model_name.lower():
+        return
+    try:
+        legacy_module = importlib.import_module("models.challenge.5pimed.model")
+    except Exception as exc:  # pragma: no cover - defensive logging path
+        logger.warning(f"Could not register 5Pimed legacy checkpoint module alias: {exc}")
+        return
+    sys.modules.setdefault("models.model", legacy_module)
 
 
 # ========================================================================== #
@@ -241,6 +254,7 @@ def load_model(
     )
 
     logger.info(f"Loading checkpoint: {checkpoint_path}")
+    _register_legacy_checkpoint_modules(model_name)
     ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
     if checkpoint_type == "lightning":
