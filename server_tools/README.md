@@ -29,6 +29,27 @@ and that the application code is saved as:
 /srv/mediswarm/app.py
 ```
 
+To show collaborators that have not uploaded any heartbeat yet, create an
+expected-site roster:
+
+```bash
+sudo cp server_tools/monitor_sites.example.json /srv/mediswarm/live/monitor_sites.json
+sudo nano /srv/mediswarm/live/monitor_sites.json
+```
+
+Roster entries use this schema:
+
+```json
+{
+  "site_name": "node_A",
+  "display_name": "dl0 / node_A",
+  "ip_address": "100.x.x.x",
+  "institution": "optional",
+  "expected_version": "optional",
+  "enabled": true
+}
+```
+
 ---
 
 ## 1) What this monitor does
@@ -43,15 +64,18 @@ The monitor scans the uploaded artifact tree:
 
 The main dashboard shows a styled table with auto-refresh (every 30 s):
 
-- site name, mode (`local` or `swarm`), run name and run/job ID
-- status badge (running / finished / unknown)
+- site name, hostname, IP address, mode (`local` or `swarm`), run name and run/job ID
+- status badge (`waiting`, `running`, `stale`, `missing`, `finished`, `error`, `unknown`)
 - heartbeat age (color-coded: green < 2 min, orange < 10 min, red > 10 min)
+- kit version filter and quick filters for errors, missing sites, and stale sites
+- expected-vs-seen collaborator counts when a roster is configured
 - artifact indicators: `last.ckpt`, `epoch.ckpt`, `FL_global_model.pt`, `best_FL_global_model.pt`, CSV count, TFEvents
 - links to detail page, raw heartbeat, console output, and log
 
 ### Detail page (`/detail/{site}/{mode}/{run_id}`)
 
 - all heartbeat fields (run name, job ID, timestamps, artifact paths)
+- live-sync status, IP address, and structured error evidence when available
 - **training metric charts** (ACC and AUC_ROC per epoch, parsed from console output, rendered with Chart.js)
 - links to CSV result files (rendered as HTML tables)
 - last 200 lines of console output
