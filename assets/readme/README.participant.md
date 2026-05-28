@@ -104,7 +104,7 @@ The dataset must be in the following format.
       ```bash
       ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --job challenge_5pimed
       ```
-    * Available jobs: `ODELIA_ternary_classification` (default), `challenge_1DivideAndConquer`, `challenge_2BCN_AIM`, `challenge_3agaldran`, `challenge_4abmil`, `challenge_5pimed`
+    * Available jobs: `challenge_1DivideAndConquer` (default), `ODELIA_ternary_classification`, `challenge_2BCN_AIM`, `challenge_3agaldran`, `challenge_4abmil`, `challenge_5pimed`
 5. Check your local dataset for discrepancies.
    * Check `preflight_check_console_output.txt` for errors and warnings about the dataset.
        * There should be no duplicate UIDs.
@@ -134,6 +134,15 @@ To have a baseline for swarm training, train the same model in a comparable way 
       ```bash
       ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training --job challenge_2BCN_AIM 2>&1 | tee local_training_console_output.txt
       ```
+    * **Speed up training (recommended for large datasets).** Enable the on-disk preprocessing cache so each image volume is preprocessed once and stored as a compressed `.npz`; later epochs read from the cache instead of re-decoding NIfTI every time. This removes the data-loading bottleneck and keeps the GPU busy. Set the two environment variables in front of the command:
+      ```bash
+      ODELIA_ENABLE_PREPROCESS_CACHE=1 \
+      ODELIA_PREPROCESS_CACHE_DIR=$SCRATCHDIR/odelia_preprocess_cache \
+      ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training 2>&1 | tee local_training_console_output.txt
+      ```
+        * The first epoch is still slow while the cache is built; subsequent epochs are much faster and GPU utilization rises significantly. If epochs are taking many hours and `nvidia-smi` shows low GPU usage, this is almost certainly the fix.
+        * The cache needs free disk space (roughly one compressed volume per case), so point `ODELIA_PREPROCESS_CACHE_DIR` at fast local storage with room to spare. If unset, it defaults to `$SCRATCHDIR/odelia_preprocess_cache`.
+        * The cache is reused across runs and auto-invalidates when a source image file changes. The same two variables also speed up `--preflight_check` and the swarm `--start_client` run, so it is worth enabling them everywhere.
 3. Output files:
     * Logged output during training: `startup/local_training_console_output.txt`
     * Training results are stored in `$SCRATCHDIR/runs/$SITE_NAME/<RUN_NAME>/`
@@ -206,6 +215,17 @@ ping dl3.tud.de
 * If dl3.tud.de cannot be resolved, double-check whether it is contained in `/etc/hosts`
 * If it cannot be reached at all, double-check if the VPN connection is working.
 * If intermittent package loss occurs, double-check if your network connection is working properly. Creating new VPN credentials and certificate for connection may also help, contact your Swarm Operator for this purpose.
+
+### Training Very Slow / GPU Under-utilized?
+
+If an epoch takes many hours (or more than a day) and `nvidia-smi` shows the GPU mostly idle (e.g. <30% utilization), training is bottlenecked on data loading, not on the GPU. Enable the on-disk preprocessing cache by prefixing the run command with:
+
+```bash
+ODELIA_ENABLE_PREPROCESS_CACHE=1 \
+ODELIA_PREPROCESS_CACHE_DIR=$SCRATCHDIR/odelia_preprocess_cache \
+```
+
+See [Run Local Training](#run-local-training) for details. This caches each preprocessed volume as a compressed `.npz` on fast local storage, so epochs after the first read quickly and the GPU stays fed. It applies to local training, the pre-flight check, and the swarm client.
 
 ### Further Possible Issues
 

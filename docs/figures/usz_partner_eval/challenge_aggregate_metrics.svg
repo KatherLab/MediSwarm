@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" viewBox="0 0 1100 560">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.legend{font-size:13px;fill:#263241}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.axisline{stroke:#2e3a48;stroke-width:1.2}
+</style>
+<text x="82" y="34" class="title">Challenge-style evaluation: sample-weighted aggregate metrics</text>
+<text x="20" y="255.0" class="axis" transform="rotate(-90 20 255.0)">Score</text>
+<line x1="82" x2="1072" y1="448.0" y2="448.0" class="grid"/>
+<text x="72" y="452.0" text-anchor="end" class="axis">0.0</text>
+<line x1="82" x2="1072" y1="370.8" y2="370.8" class="grid"/>
+<text x="72" y="374.8" text-anchor="end" class="axis">0.2</text>
+<line x1="82" x2="1072" y1="293.6" y2="293.6" class="grid"/>
+<text x="72" y="297.6" text-anchor="end" class="axis">0.4</text>
+<line x1="82" x2="1072" y1="216.4" y2="216.4" class="grid"/>
+<text x="72" y="220.4" text-anchor="end" class="axis">0.6</text>
+<line x1="82" x2="1072" y1="139.2" y2="139.2" class="grid"/>
+<text x="72" y="143.2" text-anchor="end" class="axis">0.8</text>
+<line x1="82" x2="1072" y1="62.0" y2="62.0" class="grid"/>
+<text x="72" y="66.0" text-anchor="end" class="axis">1.0</text>
+<line x1="82" x2="1072" y1="448" y2="448" class="axisline"/>
+<line x1="82" x2="82" y1="62" y2="448" class="axisline"/>
+<rect x="105.8" y="297.5" width="35.4" height="150.5" fill="#4e79a7" rx="2"/>
+<rect x="144.1" y="288.4" width="35.4" height="159.6" fill="#f28e2b" rx="2"/>
+<rect x="182.5" y="307.8" width="35.4" height="140.2" fill="#59a14f" rx="2"/>
+<rect x="220.9" y="318.0" width="35.4" height="130.0" fill="#e15759" rx="2"/>
+<text x="181.0" y="472" text-anchor="middle" class="axis">Accuracy</text>
+<rect x="303.8" y="322.7" width="35.4" height="125.3" fill="#4e79a7" rx="2"/>
+<rect x="342.1" y="303.4" width="35.4" height="144.6" fill="#f28e2b" rx="2"/>
+<rect x="380.5" y="328.7" width="35.4" height="119.3" fill="#59a14f" rx="2"/>
+<rect x="418.9" y="322.1" width="35.4" height="125.9" fill="#e15759" rx="2"/>
+<text x="379.0" y="472" text-anchor="middle" class="axis">Macro F1</text>
+<rect x="501.8" y="187.3" width="35.4" height="260.7" fill="#4e79a7" rx="2"/>
+<rect x="540.1" y="199.8" width="35.4" height="248.2" fill="#f28e2b" rx="2"/>
+<rect x="578.5" y="211.6" width="35.4" height="236.4" fill="#59a14f" rx="2"/>
+<rect x="616.9" y="218.9" width="35.4" height="229.1" fill="#e15759" rx="2"/>
+<text x="577.0" y="472" text-anchor="middle" class="axis">Macro AUROC</text>
+<rect x="699.8" y="135.4" width="35.4" height="312.6" fill="#4e79a7" rx="2"/>
+<rect x="738.1" y="171.5" width="35.4" height="276.5" fill="#f28e2b" rx="2"/>
+<rect x="776.5" y="168.9" width="35.4" height="279.1" fill="#59a14f" rx="2"/>
+<rect x="814.9" y="186.0" width="35.4" height="262.0" fill="#e15759" rx="2"/>
+<text x="775.0" y="472" text-anchor="middle" class="axis">Class 2 AUROC</text>
+<rect x="897.8" y="387.5" width="35.4" height="60.5" fill="#4e79a7" rx="2"/>
+<rect x="936.1" y="296.2" width="35.4" height="151.8" fill="#f28e2b" rx="2"/>
+<rect x="974.5" y="260.6" width="35.4" height="187.4" fill="#59a14f" rx="2"/>
+<rect x="1012.9" y="291.4" width="35.4" height="156.6" fill="#e15759" rx="2"/>
+<text x="973.0" y="472" text-anchor="middle" class="axis">Class 2 recall</text>
+<rect x="82" y="506" width="14" height="14" fill="#4e79a7" rx="2"/>
+<text x="102" y="518" class="legend">1DC epoch14 best</text>
+<rect x="234" y="506" width="14" height="14" fill="#f28e2b" rx="2"/>
+<text x="254" y="518" class="legend">1DC last</text>
+<rect x="374" y="506" width="14" height="14" fill="#59a14f" rx="2"/>
+<text x="394" y="518" class="legend">MST best</text>
+<rect x="514" y="506" width="14" height="14" fill="#e15759" rx="2"/>
+<text x="534" y="518" class="legend">MST last</text>
+</svg>
