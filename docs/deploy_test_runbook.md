@@ -83,8 +83,8 @@ Missing `--scratch_dir` or `--GPU` causes interactive prompts in non-interactive
 
 | Job directory | MODEL_NAME | Notes |
 |--------------|-----------|-------|
-| `ODELIA_ternary_classification` | `MST` | Default/baseline; uses DINOv2 backbone (slow) |
-| `challenge_1DivideAndConquer` | `1DivideAndConquer` | 3D ResNet variant |
+| `ODELIA_ternary_classification` | `MST` | Baseline; uses DINOv2 backbone (slow) |
+| `challenge_1DivideAndConquer` | `1DivideAndConquer` | Default for `--preflight_check`/`--local_training`; 3D ResNet variant |
 | `challenge_2BCN_AIM` | `2BCN_AIM` | SwinUNETR |
 | `challenge_3agaldran` | `3agaldran` | MViTv2 |
 | `challenge_4abmil` | `4LME_ABMIL` | Key fix in v1.4.2: was deriving `4abmil` (wrong) |
