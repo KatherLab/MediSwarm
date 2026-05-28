@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" viewBox="0 0 1100 560">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.legend{font-size:13px;fill:#263241}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.axisline{stroke:#2e3a48;stroke-width:1.2}
+</style>
+<text x="82" y="34" class="title">Extracted Duke swarm validation: AUROC for present classes 0 and 2</text>
+<text x="20" y="255.0" class="axis" transform="rotate(-90 20 255.0)">AUROC</text>
+<line x1="82" x2="1072" y1="448.0" y2="448.0" class="grid"/>
+<text x="72" y="452.0" text-anchor="end" class="axis">0.0</text>
+<line x1="82" x2="1072" y1="370.8" y2="370.8" class="grid"/>
+<text x="72" y="374.8" text-anchor="end" class="axis">0.2</text>
+<line x1="82" x2="1072" y1="293.6" y2="293.6" class="grid"/>
+<text x="72" y="297.6" text-anchor="end" class="axis">0.4</text>
+<line x1="82" x2="1072" y1="216.4" y2="216.4" class="grid"/>
+<text x="72" y="220.4" text-anchor="end" class="axis">0.6</text>
+<line x1="82" x2="1072" y1="139.2" y2="139.2" class="grid"/>
+<text x="72" y="143.2" text-anchor="end" class="axis">0.8</text>
+<line x1="82" x2="1072" y1="62.0" y2="62.0" class="grid"/>
+<text x="72" y="66.0" text-anchor="end" class="axis">1.0</text>
+<line x1="82" x2="1072" y1="448" y2="448" class="axisline"/>
+<line x1="82" x2="82" y1="62" y2="448" class="axisline"/>
+<rect x="121.6" y="83.3" width="81.6" height="364.7" fill="#4e79a7" rx="2"/>
+<rect x="206.2" y="82.0" width="81.6" height="366.0" fill="#59a14f" rx="2"/>
+<rect x="290.8" y="82.0" width="81.6" height="366.0" fill="#f28e2b" rx="2"/>
+<text x="247.0" y="472" text-anchor="middle" class="axis">node_A</text>
+<rect x="451.6" y="112.9" width="81.6" height="335.1" fill="#4e79a7" rx="2"/>
+<rect x="536.2" y="111.4" width="81.6" height="336.6" fill="#59a14f" rx="2"/>
+<rect x="620.8" y="115.2" width="81.6" height="332.8" fill="#f28e2b" rx="2"/>
+<text x="577.0" y="472" text-anchor="middle" class="axis">node_B</text>
+<rect x="781.6" y="73.4" width="81.6" height="374.6" fill="#4e79a7" rx="2"/>
+<rect x="866.2" y="75.7" width="81.6" height="372.3" fill="#59a14f" rx="2"/>
+<rect x="950.8" y="79.1" width="81.6" height="368.9" fill="#f28e2b" rx="2"/>
+<text x="907.0" y="472" text-anchor="middle" class="axis">node_C</text>
+<rect x="82" y="506" width="14" height="14" fill="#4e79a7" rx="2"/>
+<text x="102" y="518" class="legend">Site model best</text>
+<rect x="227" y="506" width="14" height="14" fill="#59a14f" rx="2"/>
+<text x="247" y="518" class="legend">Swarm agg best</text>
+<rect x="367" y="506" width="14" height="14" fill="#f28e2b" rx="2"/>
+<text x="387" y="518" class="legend">Swarm agg last</text>
+</svg>
