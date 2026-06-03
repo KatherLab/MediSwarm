@@ -397,7 +397,11 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
     plt.close()
 
 
-def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str):
+def save_auroc_df(auroc_df: pd.DataFrame, save_auroc_df_filename: str) -> None:
+    auroc_df.to_pickle(save_auroc_df_filename)
+
+
+def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str, save_auroc_df_filename: str):
     setting_files = get_setting_files(root_dir)
 
     for setting, files in setting_files.items():
@@ -411,6 +415,8 @@ def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str):
 
     label_dist_df = compute_label_distributions(merged_dfs)
 
+    if save_auroc_df_filename:
+        save_auroc_df(auroc_df, save_auroc_df_filename)
     plot(auroc_df, label_dist_df, logscale_hist)
 
     print('Done.')
@@ -428,7 +434,10 @@ if __name__ == '__main__':
     parser.add_argument('--roc_auc_type',
                         choices=['ovo', 'ovr'], default='ovo',
                         help='Type of ROC_AUC to compute. ovo: one-vs-one (default), ovr: one-vs-rest')
+    parser.add_argument('--save_auroc_df_to',
+                        default='',
+                        help='Save computed AUROCs to file')
 
     args = parser.parse_args()
 
-    analyze(args.data_dir, args.logscale_hist, args.roc_auc_type)
+    analyze(args.data_dir, args.logscale_hist, args.roc_auc_type, args.save_auroc_df_to)
