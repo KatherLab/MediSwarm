@@ -143,9 +143,9 @@ def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame], roc_auc_type: str) -> pd
 
         for site in merged_df.site.unique():
             print('Site: ' + site)
-            for epoch in tqdm(merged_df.epoch.unique()):
-                filter = (merged_df.epoch == epoch) & (merged_df.site == site)
-                df_site_epoch = merged_df[filter]
+            site_df=merged_df[merged_df.site == site]
+            for epoch in tqdm(site_df.epoch.unique()):
+                df_site_epoch = site_df[site_df.epoch==epoch]
                 macro_auroc = compute_macro_auroc(df_site_epoch, roc_auc_type)
                 twoclass_aurocs = compute_twoclass_aurocs(df_site_epoch)
                 tumor_auroc = compute_combined_auroc(df_site_epoch, ['score_1', 'score_2'], 0)
