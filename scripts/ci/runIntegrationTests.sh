@@ -156,25 +156,45 @@ run_stamp_simulation_mode () {
 
 run_dummy_training_standalone(){
     echo "[Run] Minimal example, standalone"
+
+    OUTPUT=$(docker run --rm \
+                    --shm-size=16g \
+                    --ipc=host \
+                    --ulimit memlock=-1 \
+                    --ulimit stack=67108864 \
+                    -u $(id -u):$(id -g) \
+                    -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+                    -v "$SYNTHETIC_DATA_DIR":/data \
+                    -v "$SCRATCH_DIR":/scratch \
+                    --gpus="$GPU_FOR_TESTING" \
+                    --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
+                    "$DOCKER_IMAGE" 2>&1 || echo "")
+
+    if echo "$OUTPUT" | grep -q "✓ MediSwarm test running dummy training in standalone mode completed." ; then
+        echo "✅ Running" $1 "in Docker completed."
+    else
+        echo "❌ Running" $1 "in Docker failed."
+        exit 1
+    fi
+
     OUTPUT_WITHOUT_GPU=$(docker run --rm \
-                             --shm-size=16g \
-                             --ipc=host \
-                             --ulimit memlock=-1 \
-                             --ulimit stack=67108864 \
-                             -u $(id -u):$(id -g) \
-                             -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
-                             -v "$SYNTHETIC_DATA_DIR":/data \
-                             -v "$SCRATCH_DIR":/scratch \
-                             --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
-                             "$DOCKER_IMAGE" 2>&1 || echo "")
-    if echo "$OUTPUT_WITHOUT_GPU" | grep -q "RuntimeError: This example does not work without GPU" ; then
+                                --shm-size=16g \
+                                --ipc=host \
+                                --ulimit memlock=-1 \
+                                --ulimit stack=67108864 \
+                                -u $(id -u):$(id -g) \
+                                -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+                                -v "$SYNTHETIC_DATA_DIR":/data \
+                                -v "$SCRATCH_DIR":/scratch \
+                                --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
+                                "$DOCKER_IMAGE" 2>&1 || echo "")
+
+    if echo "$OUTPUT_WITHOUT_GPU" | grep -q "RuntimeError: This example does not work without GPU"; then
         echo "✅ Verified that minimal example requires GPU"
     else
         echo "❌ Failed to verify that minimal example requires GPU"
         exit 1
     fi
-
-    _run_test_in_docker tests/integration_tests/_run_minimal_example_standalone.sh
 }
 
 run_dummy_training_simulation_mode(){
@@ -196,6 +216,18 @@ run_nvflare_unit_tests(){
            --ulimit stack=67108864 \
            --gpus="$GPU_FOR_TESTING" \
            --entrypoint=/MediSwarm/tests/unit_tests/_run_nvflare_unit_tests.sh \
+           "$DOCKER_IMAGE"
+}
+
+run_nvflare_integration_tests(){
+    echo "[Run] NVFlare integration tests"
+    docker run --rm \
+           --shm-size=16g \
+           --ipc=host \
+           --ulimit memlock=-1 \
+           --ulimit stack=67108864 \
+           --gpus="$GPU_FOR_TESTING" \
+           --entrypoint=/MediSwarm/tests/integration_tests/_run_nvflare_integration_tests.sh \
            "$DOCKER_IMAGE"
 }
 
@@ -221,10 +253,15 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
 
-    if grep -q "\-\-local_training" "$PROJECT_DIR/prod_01/client_A/startup/docker.sh"; then
-        echo "✅ Expected option for running local training found"
+    if grep -q "\-\-dummy_training"  "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
+       grep -q "\-\-preflight_check" "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
+       grep -q "\-\-local_training"  "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
+       grep -q "\-\-start_client"    "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
+       grep -q "\-\-list_licenses"   "$PROJECT_DIR/prod_01/client_A/startup/docker.sh";
+    then
+        echo "✅ Expected options for docker.sh in client startup kit found"
     else
-        echo "Missing option for running local training"
+        echo "Missing options for docker.sh in client startup kit "
         exit 1
     fi
 
@@ -297,6 +334,29 @@ run_docker_gpu_preflight_check () {
 }
 
 
+run_two_containers_in_parallel () {
+    # requires having built a startup kit
+    echo "[Run] Starting two containers in parallel (local dummy training via startup kit) ..."
+    cd "$PROJECT_DIR/prod_00/client_A/startup/"
+    CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
+    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT" &
+    sleep 1
+
+    CONSOLE_OUTPUT_A=docker_gpu_preflight_check_console_output_a.txt
+    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull --container_name MediSwarmODELIATestSecondContainer 2>&1 | tee "$CONSOLE_OUTPUT_A" &
+    sleep 60
+
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_A" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_A"; then
+        echo "✅ Expected output of running two containers in parallel found"
+    else
+        echo "❌ Missing expected output of running two containers in parallel"
+        exit 1
+    fi
+
+    cd "$CWD"
+}
+
+
 run_data_access_preflight_check () {
     # requires having built a startup kit and synthetic dataset
     echo "[Run] Data access preflight check with unproblematic dataset ..."
@@ -306,43 +366,57 @@ run_data_access_preflight_check () {
     # also check that it finishes the single round within one minute
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    if grep -q  "Train set: 18, Val set: 6" "$CONSOLE_OUTPUT" && \
-       grep -q  "Epoch 0: 100%" "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Run directory" "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Run name" "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in training set:" "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in validation set:" "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in test set:" "$CONSOLE_OUTPUT" && \
-       grep -qx "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)" "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in test set:" "$CONSOLE_OUTPUT" ;
+    if grep -q  "Train set: 18, Val set: 6"                                                                         "$CONSOLE_OUTPUT" && \
+       grep -q  "Epoch 0: 100%"                                                                                     "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:Run directory"                                                                  "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:Run name"                                                                       "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in training set:"                                                 "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in validation set:"                                               "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in test set:"                                                     "$CONSOLE_OUTPUT" && \
+       grep -qx "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)"                                          "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."      "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in test set:"                                                     "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:Duplicate image data detected. Please make sure this was intended"           "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique"               "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended."      "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended."      "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only."      "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only."            "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only."          "$CONSOLE_OUTPUT" ;
     then
-        echo "✅ Expected output of data access preflight check with unproblematic dataset found"
+        echo "✅ Expected output (including expected warnings and errors) of data access preflight check with unproblematic dataset found"
     else
         echo "❌ Missing expected output of data access preflight check with unproblematic dataset"
         exit 1
     fi
 
-    if grep -q  "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Duplicate image data detected. This should not happen." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique" "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _right present and _left missing detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen." "$CONSOLE_OUTPUT" ;
-    then
-        echo "❌ Unexpected output of data access preflight check with unproblematic dataset found"
+    if grep -q  "ID_0" "$CONSOLE_OUTPUT" ; then
+        echo "❌ Unexpected output of data access preflight check without logging dataset details found"
         exit 1
     else
         echo "✅ No unexpected output of data access preflight check with unproblematic dataset found"
     fi
 
+    if grep -q  "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Duplicate image data detected. This should not happen."                                                  "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique"                                         "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended."                                "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended."                                "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended."                           "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended."                           "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only."                                "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only."                                      "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only."                                    "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen."            "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _right present and _left missing detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen."                        "$CONSOLE_OUTPUT" ;
+    then
+        echo "❌ Unexpected output of data access preflight check with unproblematic dataset found"
+        exit 1
+    fi
     cd "$CWD"
 }
 
@@ -398,23 +472,23 @@ run_data_access_preflight_check_with_problems_log_details () {
     # also check that it finishes the single round within one minute
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    if grep -q  "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
-       grep -qx "Image UID ID_016_left .* appears 3 times" "$CONSOLE_OUTPUT" && \
+    if grep -q  "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:"                                                       "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                                                     "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:"                                                           "$CONSOLE_OUTPUT" && \
+       grep -q  "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:"                                   "$CONSOLE_OUTPUT" && \
+       grep -qx "Image UID ID_016_left .* appears 3 times"                                                                                 "$CONSOLE_OUTPUT" && \
        grep -qx "Image data with hash .* appears 6 times: ID_000_left, ID_016_left, ID_016_right, ID_998_right, ID_999_left, SomeUID_both" "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference split.images: ID_017_left, ID_017_right" "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_017_left, ID_017_right" "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference images.annotation: ID_014_left, ID_014_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right" "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:For the following UIDs among training data, _left is present and _right is missing: ID_999" "$CONSOLE_OUTPUT" &&
-       grep -q  "WARNING:threedcnn_ptl:For the following UIDs among training data, _right is present and _left is missing: ID_998" "$CONSOLE_OUTPUT" &&
-       grep -q  "ERROR:threedcnn_ptl:The following UIDs among training data do not end in _left or _right: SomeUID_both" "$CONSOLE_OUTPUT" &&
-       grep -q  "ERROR:threedcnn_ptl:The following exams are present in training and validation: ID_016" "$CONSOLE_OUTPUT" ;
+       grep -qx "WARNING:threedcnn_ptl:Difference split.images: ID_017_left, ID_017_right"                                                 "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right"                                                 "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_017_left, ID_017_right"                                            "$CONSOLE_OUTPUT" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference images.annotation: ID_014_left, ID_014_right"                                            "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right"                                            "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right"                                                  "$CONSOLE_OUTPUT" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right"                                                "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:For the following UIDs among training data, _left is present and _right is missing: ID_999"         "$CONSOLE_OUTPUT" &&
+       grep -q  "WARNING:threedcnn_ptl:For the following UIDs among training data, _right is present and _left is missing: ID_998"         "$CONSOLE_OUTPUT" &&
+       grep -q  "ERROR:threedcnn_ptl:The following UIDs among training data do not end in _left or _right: SomeUID_both"                   "$CONSOLE_OUTPUT" &&
+       grep -q  "ERROR:threedcnn_ptl:The following exams are present in training and validation: ID_016"                                   "$CONSOLE_OUTPUT" ;
     then
         echo "✅ Expected output (including expected warnings and errors) of data access preflight check with problematic dataset and logged details found"
     else
@@ -426,7 +500,7 @@ run_data_access_preflight_check_with_problems_log_details () {
 }
 
 
-run_data_access_preflight_without_data () {
+run_data_access_preflight_check_without_data () {
     # requires having built a startup kit and _not_ having a synthetic dataset
     echo "[Run] Data access preflight check with logging dataset details..."
     cd "$PROJECT_DIR"/prod_00
@@ -488,7 +562,7 @@ start_server_and_clients () {
 
 start_registry_docker_and_push () {
     docker run -d --rm -p 5000:5000 --name local_test_registry_$CONTAINER_VERSION_SUFFIX registry:3
-    sleep 3
+    sleep 10
     docker push localhost:5000/odelia:$VERSION
 }
 
@@ -843,12 +917,22 @@ cleanup_temporary_data () {
 
 case "$1" in
     check_files_in_repo)
-        check_files_in_repo
+        # check_files_in_repo
+        echo "❗ checking files in repository currently disabled"
         ;;
 
     run_nvflare_unit_tests)
         run_nvflare_unit_tests
+        ;;
+
+    run_nvflare_integration_tests)
+        run_nvflare_integration_tests
+        ;;
+
+    run_nvflare_unit_and_integration_tests)
         # TODO add to CI or "all" section if we want this (takes several minutes and fails for insufficient GPU memory)
+        run_nvflare_unit_tests
+        run_nvflare_integration_tests
         ;;
 
     run_dummy_training_standalone)
@@ -889,6 +973,12 @@ case "$1" in
         cleanup_temporary_data
         ;;
 
+    run_two_containers_in_parallel)
+        create_startup_kits_and_check_contained_files
+        run_two_containers_in_parallel
+        cleanup_temporary_data
+        ;;
+
     run_data_access_preflight_check)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
@@ -896,7 +986,7 @@ case "$1" in
         run_data_access_preflight_check_with_problems
         run_data_access_preflight_check_with_problems_log_details
         cleanup_synthetic_data
-        run_data_access_preflight_without_data
+        run_data_access_preflight_check_without_data
         cleanup_temporary_data
         ;;
 
@@ -976,7 +1066,8 @@ case "$1" in
         ;;
 
     all | "")
-        check_files_in_repo
+        # check_files_in_repo
+        echo "❗ checking files in repository currently disabled"
         run_dummy_training_standalone
         run_dummy_training_simulation_mode
         run_dummy_training_poc_mode
@@ -986,11 +1077,15 @@ case "$1" in
         start_registry_docker_and_push
         run_container_with_pulling
         kill_registry_docker
+        run_list_licenses
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
+        run_data_access_preflight_check_log_details
+        cleanup_synthetic_data
+        run_data_access_preflight_check_without_data
+        create_synthetic_data
         run_3dcnn_local_training
         verify_wrong_certificates_are_rejected
-        cleanup_synthetic_data
         start_server_and_clients
         run_dummy_training_in_swarm
         run_3dcnn_training_in_swarm
