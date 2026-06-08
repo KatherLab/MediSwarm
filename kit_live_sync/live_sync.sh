@@ -49,6 +49,28 @@ done
 [ -n "$KIT_ROOT" ] || { echo "KIT_ROOT missing" >&2; exit 1; }
 [ -n "$STARTUP_DIR" ] || { echo "STARTUP_DIR missing" >&2; exit 1; }
 
+STATE_DIR="$STARTUP_DIR/.mediswarm_sync"
+mkdir -p "$STATE_DIR"
+LIVE_SYNC_LOG="$STATE_DIR/live_sync_daemon.log"
+touch "$LIVE_SYNC_LOG"
+exec > >(tee -a "$LIVE_SYNC_LOG") 2>&1
+
+SYNC_STATUS="ok"
+SYNC_ERROR=""
+
+record_sync_error() {
+  local msg="$1"
+  SYNC_STATUS="error"
+  SYNC_ERROR="$msg"
+  echo "[WARN] $msg"
+}
+
+export_sync_env() {
+  export MEDISWARM_SYNC_STATUS="$SYNC_STATUS"
+  export MEDISWARM_SYNC_ERROR="$SYNC_ERROR"
+  export MEDISWARM_LIVE_SYNC_VERSION="${MEDISWARM_LIVE_SYNC_VERSION:-2}"
+}
+
 # ── SSH connectivity check ──────────────────────────────────────────
 # Verify we can reach the monitoring server before entering the sync
 # loop.  With BatchMode=yes the connection will fail immediately if
@@ -57,6 +79,7 @@ echo "Testing SSH connectivity to ${REMOTE_USER}@${REMOTE_HOST}..."
 if ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" 'echo ok' >/dev/null 2>&1; then
     echo "SSH OK — live sync enabled."
 else
+    record_sync_error "Live-sync cannot connect to ${REMOTE_USER}@${REMOTE_HOST}"
     echo ""
     echo "============================================================"
     echo "[WARN] Live-sync: cannot connect to ${REMOTE_USER}@${REMOTE_HOST}"
@@ -74,8 +97,6 @@ else
     _ask_continue_without_sync && exit 0 || exit 1
 fi
 
-STATE_DIR="$STARTUP_DIR/.mediswarm_sync"
-mkdir -p "$STATE_DIR"
 LAST_CKPT_SYNC_FILE="$STATE_DIR/${MODE}_last_ckpt_sync_ts"
 touch "$LAST_CKPT_SYNC_FILE"
 
@@ -83,16 +104,33 @@ touch "$LAST_CKPT_SYNC_FILE"
 CURRENT_LOCAL_RUN=""
 
 ssh_cmd() {
-  ssh ${SSH_OPTS} "$@"
+  ssh ${SSH_OPTS} "$@" || {
+    record_sync_error "ssh failed: $*"
+    return 1
+  }
 }
 
 rsync_cmd() {
-  rsync -az --partial --mkpath -e "ssh ${SSH_OPTS}" "$@"
+  rsync -az --partial --mkpath -e "ssh ${SSH_OPTS}" "$@" || {
+    record_sync_error "rsync failed: $*"
+    return 1
+  }
 }
 
 ensure_remote_dir() {
   local remote_dir="$1"
   ssh_cmd "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p '${remote_dir}'"
+}
+
+sync_daemon_log() {
+  local remote_dir="$1"
+  [ -f "$LIVE_SYNC_LOG" ] || return 0
+  rsync_cmd "$LIVE_SYNC_LOG" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/live_sync_daemon.log" || true
+}
+
+build_heartbeat() {
+  export_sync_env
+  "$SCRIPT_DIR/build_heartbeat.sh" "$@"
 }
 
 find_latest_job_id() {
@@ -118,14 +156,18 @@ find_latest_local_run_name() {
   if [ -n "$SCRATCHDIR" ]; then
     base="$SCRATCHDIR/runs/$SITE_NAME"
     if [ -d "$base" ]; then
-      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed 's#.*/##' | sort | tail -n 1 || true)"
+      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' 2>/dev/null | \
+        awk -v min_ts="${MEDISWARM_LOCAL_SYNC_START_TS:-0}" '$1 >= min_ts {print $2}' | \
+        sort | tail -n 1 || true)"
     fi
   fi
   # Fall back to startup dir (backward compatibility with older builds)
   if [ -z "$result" ]; then
     base="$STARTUP_DIR/runs/$SITE_NAME"
     if [ -d "$base" ]; then
-      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed 's#.*/##' | sort | tail -n 1 || true)"
+      result="$(find "$base" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' 2>/dev/null | \
+        awk -v min_ts="${MEDISWARM_LOCAL_SYNC_START_TS:-0}" '$1 >= min_ts {print $2}' | \
+        sort | tail -n 1 || true)"
     fi
   fi
   printf '%s' "$result"
@@ -145,8 +187,9 @@ _finalize_local_run() {
   old_remote_dir="$(build_remote_dir "$old_run")"
   old_hb_final="$STATE_DIR/local_heartbeat_final_${old_run}.json"
   export SCRATCHDIR
-  "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$old_run" "finished" "$old_hb_final" >/dev/null
+  build_heartbeat "$SITE_NAME" "local" "$KIT_ROOT" "" "$old_run" "finished" "$old_hb_final" >/dev/null
   rsync_cmd "$old_hb_final" "${REMOTE_USER}@${REMOTE_HOST}:${old_remote_dir}/heartbeat_final.json" || true
+  sync_daemon_log "$old_remote_dir"
 
   # Final sync of the old run's artifacts
   old_run_dir=""
@@ -186,9 +229,10 @@ sync_local() {
 
   hb_file="$STATE_DIR/local_heartbeat.json"
   export SCRATCHDIR
-  "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "running" "$hb_file" >/dev/null
+  build_heartbeat "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "running" "$hb_file" >/dev/null
 
   rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat.json" || true
+  sync_daemon_log "$remote_dir"
 
   [ -f "$STARTUP_DIR/local_training_console_output.txt" ] && \
     rsync_cmd "$STARTUP_DIR/local_training_console_output.txt" \
@@ -219,7 +263,22 @@ sync_swarm() {
   local job_id run_name remote_dir hb_file now last
 
   job_id="$(find_latest_job_id || true)"
-  [ -n "$job_id" ] || return 0
+  if [ -z "$job_id" ]; then
+    remote_dir="$(build_remote_dir "_active")"
+    ensure_remote_dir "$remote_dir" || return 0
+    hb_file="$STATE_DIR/swarm_active_heartbeat.json"
+    export SCRATCHDIR
+    build_heartbeat "$SITE_NAME" "swarm" "$KIT_ROOT" "" "" "waiting" "$hb_file" >/dev/null
+    rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat.json" || true
+    [ -f "$STARTUP_DIR/nohup.out" ] && \
+      rsync_cmd "$STARTUP_DIR/nohup.out" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/nohup.out" || true
+    [ -f "$KIT_ROOT/log.txt" ] && \
+      rsync_cmd "$KIT_ROOT/log.txt" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/log.txt" || true
+    sync_daemon_log "$remote_dir"
+    return 0
+  fi
+
+  ssh_cmd "${REMOTE_USER}@${REMOTE_HOST}" "rm -rf '$(build_remote_dir "_active")'" || true
 
   run_name="$(extract_run_name_from_nohup || true)"
   remote_dir="$(build_remote_dir "$job_id")"
@@ -227,9 +286,10 @@ sync_swarm() {
 
   export SCRATCHDIR
   hb_file="$STATE_DIR/swarm_heartbeat.json"
-  "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "swarm" "$KIT_ROOT" "$job_id" "$run_name" "running" "$hb_file" >/dev/null
+  build_heartbeat "$SITE_NAME" "swarm" "$KIT_ROOT" "$job_id" "$run_name" "running" "$hb_file" >/dev/null
 
   rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat.json" || true
+  sync_daemon_log "$remote_dir"
 
   [ -f "$STARTUP_DIR/nohup.out" ] && \
     rsync_cmd "$STARTUP_DIR/nohup.out" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/nohup.out" || true
@@ -292,8 +352,9 @@ final_sync() {
       remote_dir="$(build_remote_dir "$run_name")"
       hb_file="$STATE_DIR/local_heartbeat_final.json"
       export SCRATCHDIR
-      "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "finished" "$hb_file" >/dev/null
+      build_heartbeat "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "finished" "$hb_file" >/dev/null
       rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
+      sync_daemon_log "$remote_dir"
       if [ -n "$run_dir" ]; then
         rsync_cmd "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
       fi
@@ -307,8 +368,9 @@ final_sync() {
       remote_dir="$(build_remote_dir "$job_id")"
       hb_file="$STATE_DIR/swarm_heartbeat_final.json"
       export SCRATCHDIR
-      "$SCRIPT_DIR/build_heartbeat.sh" "$SITE_NAME" "swarm" "$KIT_ROOT" "$job_id" "$run_name" "finished" "$hb_file" >/dev/null
+      build_heartbeat "$SITE_NAME" "swarm" "$KIT_ROOT" "$job_id" "$run_name" "finished" "$hb_file" >/dev/null
       rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
+      sync_daemon_log "$remote_dir"
 
       [ -f "$STARTUP_DIR/nohup.out" ] && \
         rsync_cmd "$STARTUP_DIR/nohup.out" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/nohup.out" || true

@@ -108,6 +108,7 @@ source "$CONF_FILE"
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
 GIT_SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD)
 DOCKER_IMAGE="jefftud/odelia:$VERSION"
+NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-'
 
 PROJECT_NAME=$(grep "^name: " "$REPO_ROOT/$PROJECT_FILE" \
     | sed 's/^name: //' \
@@ -283,9 +284,8 @@ stop_all() {
 
     # Stop local containers on Cosmos (server + admin)
     local local_containers
-    local_containers=$(docker ps --format '{{.Names}}' | grep -E "odelia_swarm|nvflare" || true)
+    local_containers=$(docker ps -a --format '{{.Names}}' | grep -E "$NVFLARE_CONTAINER_RE" || true)
     if [[ -n "$local_containers" ]]; then
-        echo "$local_containers" | xargs docker kill 2>/dev/null || true
         echo "$local_containers" | xargs docker rm -f 2>/dev/null || true
     fi
 
@@ -300,8 +300,7 @@ stop_all() {
         fi
         visited_hosts[$host]=1
         remote_exec "$site" \
-            "docker ps --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare' | xargs -r docker kill 2>/dev/null; \
-             docker ps -a --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare' | xargs -r docker rm -f 2>/dev/null" \
+            "docker ps -a --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare|^swarm-' | xargs -r docker rm -f 2>/dev/null" \
             2>/dev/null || warn "  Could not stop containers on $host"
     done
 
@@ -322,6 +321,21 @@ stop_all() {
     # Wait for containers to fully stop
     sleep 5
     ok "All containers stopped"
+}
+
+clean_local_deploy_dir() {
+    local dir_name=$1
+    local target="$DEPLOY_BASE/$dir_name"
+
+    [[ -e "$target" ]] || return 0
+    rm -rf "$target" 2>/dev/null \
+        || sudo rm -rf "$target" 2>/dev/null \
+        || docker run --rm -v "$DEPLOY_BASE:/cleanup" alpine \
+            rm -rf "/cleanup/$dir_name" 2>/dev/null \
+        || {
+            warn "Could not fully clean $target (root-owned files may remain)"
+            return 1
+        }
 }
 
 # ── Pre-pull Docker image on all remote machines ─────────────────────────
@@ -387,7 +401,8 @@ deploy_kits() {
     if [[ -n "$server_zip" && -f "$server_zip" ]]; then
         mkdir -p "$DEPLOY_BASE"
         cp "$server_zip" "$DEPLOY_BASE/"
-        cd "$DEPLOY_BASE" && rm -rf "$server_name" && unzip -qo "$(basename "$server_zip")"
+        clean_local_deploy_dir "$server_name"
+        cd "$DEPLOY_BASE" && unzip -qo "$(basename "$server_zip")"
         cd "$REPO_ROOT"
         ok "  Deployed server kit ($server_name) locally on Cosmos"
     fi
@@ -399,7 +414,8 @@ deploy_kits() {
     fi
     if [[ -n "$admin_zip" && -f "$admin_zip" ]]; then
         cp "$admin_zip" "$DEPLOY_BASE/"
-        cd "$DEPLOY_BASE" && rm -rf "$ADMIN_USER" && unzip -qo "$(basename "$admin_zip")"
+        clean_local_deploy_dir "$ADMIN_USER"
+        cd "$DEPLOY_BASE" && unzip -qo "$(basename "$admin_zip")"
         cd "$REPO_ROOT"
         ok "  Deployed admin kit ($ADMIN_USER) locally on Cosmos"
     fi
@@ -433,7 +449,7 @@ start_server() {
     info "Waiting 15s for server to initialize..."
     sleep 15
 
-    if docker ps --format '{{.Names}}' | grep -qE "odelia_swarm|nvflare"; then
+    if docker ps --format '{{.Names}}' | grep -qE "$NVFLARE_CONTAINER_RE"; then
         ok "Server container is running"
     else
         warn "Server container not detected — it may still be starting"
@@ -723,7 +739,7 @@ wait_for_completion() {
         fi
 
         # Also check if the server container died
-        if ! docker ps --format '{{.Names}}' | grep -qE "odelia_swarm|nvflare"; then
+        if ! docker ps --format '{{.Names}}' | grep -qE "$NVFLARE_CONTAINER_RE"; then
             # Container is gone — do a final check on the log
             if [[ -f "$server_log" ]]; then
                 local new_lines

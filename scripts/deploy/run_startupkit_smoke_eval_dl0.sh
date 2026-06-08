@@ -154,6 +154,7 @@ run_predict_on_dl0() {
     if remote_exec "
         docker run --rm \
             --gpus='$DL0_GPU' \
+            --ulimit nofile=65536:65536 \
             --net=host --ipc=host \
             -v '$data_dir:/data:ro' \
             -v '$remote_ckpt_dir:/workspace:ro' \
@@ -164,6 +165,7 @@ run_predict_on_dl0() {
             --env MODEL_NAME='$model' \
             --env TORCH_HOME=/torch_home \
             --env CONFIG=unilateral \
+            --env TORCH_MULTIPROCESSING_SHARING_STRATEGY=file_system \
             '$DOCKER_IMAGE' \
             python3 /MediSwarm/scripts/evaluation/predict.py \
                 --checkpoint /workspace/FL_global_model.pt \

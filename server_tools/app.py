@@ -20,6 +20,7 @@ import io
 import json
 import os
 import re
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -36,14 +37,24 @@ try:
 except ImportError:
     HAS_TBPARSE = False
 
-BASE = Path("/srv/mediswarm/live")
+BASE = Path(os.environ.get("MEDISWARM_LIVE_BASE", "/srv/mediswarm/live"))
+ROSTER_PATH = Path(
+    os.environ.get("MEDISWARM_MONITOR_SITES", str(BASE / "monitor_sites.json"))
+)
+STALE_AFTER_SECONDS = int(os.environ.get("MEDISWARM_STALE_AFTER_SECONDS", "300"))
+ROWS_CACHE_TTL_SECONDS = float(os.environ.get("MEDISWARM_MONITOR_CACHE_TTL", "5"))
+ERROR_TAIL_BYTES = int(os.environ.get("MEDISWARM_ERROR_TAIL_BYTES", "120000"))
+MAX_ERROR_SCAN_FILES = int(os.environ.get("MEDISWARM_MAX_ERROR_SCAN_FILES", "40"))
+
 app = FastAPI(title="MediSwarm Live Monitor")
+
+_ROWS_CACHE: dict[str, Any] = {"expires_at": 0.0, "value": None}
 
 # ---------------------------------------------------------------------------
 # Security helpers
 # ---------------------------------------------------------------------------
 
-_SAFE_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-]*$")
+_SAFE_SEGMENT_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._\-]*$")
 
 
 def _safe_segment(value: str) -> str:
@@ -125,10 +136,12 @@ tr:hover td { background: #eef2f7; }
 .badge { display: inline-block; padding: 2px 10px; border-radius: 12px;
          font-size: 0.75rem; font-weight: 600; color: #fff; }
 .badge-running { background: var(--green); }
+.badge-waiting { background: var(--purple); }
 .badge-finished { background: var(--blue); }
 .badge-unknown { background: var(--gray); }
 .badge-error { background: var(--red); }
 .badge-stale { background: var(--orange); }
+.badge-missing { background: var(--red); }
 .status-reason { font-size: 0.72rem; color: var(--red); font-style: italic;
                  display: inline-block; max-width: 300px; vertical-align: middle; }
 .artifact { font-size: 0.78rem; color: var(--text-light); }
@@ -142,8 +155,15 @@ a:hover { text-decoration: underline; }
 .age-stale { color: var(--orange); }
 .age-dead { color: var(--red); }
 .empty { text-align: center; padding: 3rem; color: var(--gray); }
-.version { font-family: var(--mono); font-size: 0.75rem; color: var(--text-light); }
+.version, .ip-address { font-family: var(--mono); font-size: 0.75rem; color: var(--text-light); }
 .job-id { font-family: var(--mono); font-size: 0.72rem; color: var(--purple); }
+.quick-links { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-left: auto; }
+.quick-links a { display: inline-block; padding: 3px 9px; border-radius: 999px;
+  background: #eef2f7; color: var(--accent); font-size: 0.76rem; text-decoration: none; }
+.quick-links a:hover { background: #dfe6e9; text-decoration: none; }
+.error-summary { color: var(--red); font-size: 0.78rem; margin-top: 0.25rem; }
+.error-source { font-family: var(--mono); font-size: 0.75rem; color: var(--text-light); }
+.error-excerpt { white-space: pre-wrap; background: #2d1115 !important; color: #ffd6d6 !important; }
 
 /* Job group header */
 .job-group-row td { background: #e8e4f0 !important; font-weight: 600;
@@ -195,16 +215,20 @@ def _status_badge(status: str, reason: str = "") -> str:
     cls = "badge-unknown"
     if status == "running":
         cls = "badge-running"
+    elif status == "waiting":
+        cls = "badge-waiting"
     elif status == "finished":
         cls = "badge-finished"
     elif status in ("error", "failed"):
         cls = "badge-error"
     elif status == "stale":
         cls = "badge-stale"
+    elif status == "missing":
+        cls = "badge-missing"
     title = f' title="{html_escape(reason)}"' if reason else ""
     badge = f'<span class="badge {cls}"{title}>{html_escape(status)}</span>'
     # Show reason text next to badge for error/stale states
-    if reason and status in ("error", "failed", "stale"):
+    if reason and status in ("error", "failed", "stale", "missing"):
         badge += f' <span class="status-reason">{html_escape(reason)}</span>'
     return badge
 
@@ -270,6 +294,13 @@ def parse_age(ts: str) -> str:
     try:
         dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         secs = int((datetime.now(timezone.utc) - dt).total_seconds())
+        if secs < -60:
+            skew = abs(secs)
+            if skew < 3600:
+                return f"clock +{skew // 60}m"
+            return f"clock +{skew // 3600}h {(skew % 3600) // 60}m"
+        if secs < 0:
+            return "0s"
         if secs < 60:
             return f"{secs}s"
         if secs < 3600:
@@ -298,7 +329,7 @@ def _read_heartbeat(run_dir: Path) -> dict[str, Any]:
         if p.exists():
             try:
                 return json.loads(p.read_text())
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as exc:
                 # Try to salvage malformed JSON (e.g. doubled quotes from
                 # build_heartbeat.sh extracting version strings with trailing ")
                 try:
@@ -312,58 +343,183 @@ def _read_heartbeat(run_dir: Path) -> dict[str, Any]:
                     fixed = re.sub(r'(\w)""(\s*[,}\n])', r'\1"\2', fixed)
                     return json.loads(fixed)
                 except Exception:
-                    pass
-            except Exception:
-                pass
+                    return {
+                        "_parse_error": f"{type(exc).__name__}: {exc}",
+                        "_parse_error_file": str(p),
+                    }
+            except Exception as exc:
+                return {
+                    "_parse_error": f"{type(exc).__name__}: {exc}",
+                    "_parse_error_file": str(p),
+                }
     return {}
 
 
-def _check_console_for_errors(run_dir: Path) -> str:
-    """Check console output for error patterns. Returns reason string or empty.
+def _read_expected_sites() -> dict[str, dict[str, Any]]:
+    """Read the expected collaborator roster.
 
-    Checks both server-side and client-side logs for fatal errors, timeouts,
-    and communication failures. Returns a human-readable reason string if an
-    error is detected, or empty string if no errors found.
+    The file may be either a list of site objects or {"sites": [...]}.
+    Disabled sites are ignored. Unknown/partial entries are skipped.
     """
-    # Ordered by specificity — first match wins
-    _ERROR_PATTERNS: list[tuple[str, str]] = [
-        # Timeout errors (most actionable — user can increase timeout values)
-        (r"TaskCompletionStatus\.TIMEOUT", "NVFlare task timed out (check learn_task_timeout / configure_task_timeout)"),
-        (r"learn_task.*timed?\s*out", "Training round exceeded learn_task_timeout (8h)"),
-        (r"progress_timeout.*exceeded|no progress.*timeout", "No progress reported within progress_timeout (8h)"),
-        (r"peer_read_timeout.*exceeded|peer.*read.*timed?\s*out", "P2P model transfer timed out (peer_read_timeout 30min)"),
-        (r"heartbeat_timeout.*exceeded|heartbeat.*dead|subprocess.*dead", "Subprocess heartbeat lost (heartbeat_timeout 15min)"),
-        (r"external_pre_init_timeout|flare\.init.*timed?\s*out", "Subprocess failed to call flare.init() within 10min"),
-        (r"last_result_transfer_timeout", "Final result transfer timed out (30min)"),
-        (r"configure_task_timeout|swarm_config.*TIMEOUT", "Client configuration timed out (configure_task_timeout 15min)"),
-        (r"start_task_timeout", "Client start timed out (start_task_timeout 30min)"),
-        # GPU / memory errors
-        (r"CUDA out of memory|OutOfMemoryError:", "GPU out of memory — reduce batch size or model size"),
-        (r"RuntimeError:.*CUDA|CUDA error|NCCL error", "CUDA/GPU runtime error"),
-        # NVFlare fatal errors
-        (r"FATAL_SYSTEM_ERROR", "NVFlare fatal system error"),
-        (r"EXECUTION_EXCEPTION.*abort", "NVFlare execution exception — job aborted"),
-        (r"ABORT_RUN", "Run was aborted"),
-        (r"asked to abort.*abort_signal", "Server triggered abort signal"),
-        # Communication errors
-        (r"CommunicateError|CommError", "Communication error between client and server"),
-        (r"ConnectionRefused|connection.*refused", "Connection refused — server may be down"),
-        # Generic Python errors (catch-all, lowest priority)
-        (r"RuntimeError:", "Python RuntimeError"),
-    ]
+    if not ROSTER_PATH.exists():
+        return {}
+    try:
+        raw = json.loads(ROSTER_PATH.read_text())
+    except Exception:
+        return {}
+    entries = raw.get("sites", []) if isinstance(raw, dict) else raw
+    if not isinstance(entries, list):
+        return {}
 
-    for name in ["nohup.out", "local_training_console_output.txt", "log.txt"]:
+    roster: dict[str, dict[str, Any]] = {}
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        if item.get("enabled", True) is False:
+            continue
+        site = str(item.get("site_name") or item.get("site") or "").strip()
+        if not site:
+            continue
+        roster[site] = {
+            "site_name": site,
+            "display_name": item.get("display_name", ""),
+            "ip_address": item.get("ip_address", ""),
+            "institution": item.get("institution", ""),
+            "expected_version": item.get("expected_version", ""),
+        }
+    return roster
+
+
+_ERROR_PATTERNS: list[dict[str, str]] = [
+    {
+        "category": "nvflare",
+        "pattern": r"TaskCompletionStatus\.TIMEOUT|learn_task.*timed?\s*out",
+        "summary": "NVFlare training task timed out",
+    },
+    {
+        "category": "nvflare",
+        "pattern": r"progress_timeout.*exceeded|no progress.*timeout",
+        "summary": "NVFlare progress timeout",
+    },
+    {
+        "category": "nvflare",
+        "pattern": r"peer_read_timeout.*exceeded|peer.*read.*timed?\s*out|CommunicateError|CommError|ConnectionRefused|connection.*refused",
+        "summary": "NVFlare communication or peer transfer failure",
+    },
+    {
+        "category": "nvflare",
+        "pattern": r"FATAL_SYSTEM_ERROR|EXECUTION_EXCEPTION.*abort|ABORT_RUN|asked to abort.*abort_signal|Server runner failed",
+        "summary": "NVFlare fatal error or aborted run",
+    },
+    {
+        "category": "deep_learning",
+        "pattern": r"CUDA out of memory|OutOfMemoryError|RuntimeError:.*CUDA|CUDA error|NCCL error",
+        "summary": "CUDA/GPU runtime error",
+    },
+    {
+        "category": "deep_learning",
+        "pattern": r"Traceback \(most recent call last\)|RuntimeError:|ValueError:|KeyError:|FileNotFoundError:|ModuleNotFoundError:",
+        "summary": "Python/deep-learning exception",
+    },
+    {
+        "category": "deep_learning",
+        "pattern": r"failed to load.*checkpoint|size mismatch|Missing key\(s\)|Unexpected key\(s\)|No such file or directory",
+        "summary": "Model/data/checkpoint loading failure",
+    },
+    {
+        "category": "live_sync",
+        "pattern": r"Live-sync: cannot connect|Permission denied|rsync.*failed|ssh:.*Could not|sync\.conf not found|Host key verification failed",
+        "summary": "Live-sync SSH/rsync failure",
+    },
+    {
+        "category": "system",
+        "pattern": r"Killed|oom-kill|Out of memory|No space left on device|Device or resource busy",
+        "summary": "System resource failure",
+    },
+]
+
+
+def _error_log_candidates(run_dir: Path) -> list[Path]:
+    candidates: list[Path] = []
+    for name in [
+        "nohup.out",
+        "local_training_console_output.txt",
+        "log.txt",
+        "live_sync_daemon.log",
+    ]:
         p = run_dir / name
-        if p.exists():
-            try:
-                # Read last 100KB to check for errors near the end
-                text = p.read_text(errors="replace")[-100_000:]
-                for pattern, reason in _ERROR_PATTERNS:
-                    if re.search(pattern, text):
-                        return reason
-            except Exception:
-                pass
-    return ""
+        if p.exists() and p.is_file():
+            candidates.append(p)
+
+    rd = run_dir / "run_dir"
+    if rd.exists():
+        for p in sorted(rd.rglob("*")):
+            if len(candidates) >= MAX_ERROR_SCAN_FILES:
+                break
+            if p.is_file() and (
+                p.name.endswith((".log", ".txt", ".out"))
+                or p.name in {"stderr", "stdout"}
+            ):
+                candidates.append(p)
+    return candidates
+
+
+def _extract_error_evidence(
+    run_dir: Path, hb: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
+    """Return structured fatal evidence if logs/heartbeat indicate failure."""
+    hb = hb or {}
+    if hb.get("_parse_error"):
+        return {
+            "category": "heartbeat",
+            "summary": "Heartbeat JSON parse error",
+            "source": hb.get("_parse_error_file", "heartbeat"),
+            "line": "",
+            "excerpt": hb.get("_parse_error", ""),
+            "pattern": "json_parse_error",
+        }
+
+    sync_status = str(hb.get("sync_status", "")).lower()
+    sync_error = str(hb.get("sync_error", "")).strip()
+    if sync_status == "error" or sync_error:
+        return {
+            "category": "live_sync",
+            "summary": sync_error or "Live-sync reported an error",
+            "source": "heartbeat",
+            "line": sync_error,
+            "excerpt": sync_error,
+            "pattern": "heartbeat_sync_error",
+        }
+
+    for p in _error_log_candidates(run_dir):
+        try:
+            text = p.read_text(errors="replace")[-ERROR_TAIL_BYTES:]
+        except Exception:
+            continue
+        lines = text.splitlines()
+        for idx, line in enumerate(lines):
+            for spec in _ERROR_PATTERNS:
+                if re.search(spec["pattern"], line, flags=re.IGNORECASE):
+                    start = max(0, idx - 4)
+                    end = min(len(lines), idx + 5)
+                    try:
+                        source = str(p.relative_to(run_dir))
+                    except Exception:
+                        source = str(p)
+                    return {
+                        "category": spec["category"],
+                        "summary": spec["summary"],
+                        "source": source,
+                        "line": line.strip(),
+                        "excerpt": "\n".join(lines[start:end]),
+                        "pattern": spec["pattern"],
+                    }
+    return None
+
+
+def _check_console_for_errors(run_dir: Path) -> str:
+    evidence = _extract_error_evidence(run_dir)
+    return evidence["summary"] if evidence else ""
 
 
 def _infer_status(hb: dict[str, Any], run_dir: Path) -> tuple[str, str]:
@@ -373,47 +529,53 @@ def _infer_status(hb: dict[str, Any], run_dir: Path) -> tuple[str, str]:
     of the status, especially useful for error/stale states.
 
     Rules:
-    - If heartbeat_final.json exists -> use its status (typically "finished")
-    - If status is "running" but heartbeat is >5 min old -> "stale"
-    - If status is "running" but heartbeat is >1 hour old -> "finished" (presumed)
-    - If console output contains fatal error patterns -> "error" with reason
-    - Otherwise use heartbeat status as-is
+    - Fatal heartbeat/log evidence always wins -> "error"
+    - Old running/waiting heartbeats become "stale", never presumed finished
+    - "finished" requires a final heartbeat or explicit completion evidence
+    - Swarm active heartbeats without a job_id are "waiting"
     """
+    evidence = _extract_error_evidence(run_dir, hb)
+    if evidence:
+        return "error", evidence["summary"]
+
     has_final = (run_dir / "heartbeat_final.json").exists()
-    raw_status = hb.get("status", "unknown")
+    raw_status = str(hb.get("status", "unknown") or "unknown").lower()
 
     if has_final:
         try:
             final = json.loads((run_dir / "heartbeat_final.json").read_text())
-            final_status = final.get("status", raw_status)
-            # Check if finished but with errors in console
-            error_reason = _check_console_for_errors(run_dir)
-            if final_status == "finished" and error_reason:
-                return "error", error_reason
+            final_status = str(final.get("status", raw_status) or raw_status).lower()
+            if final_status in {"error", "failed", "failure"}:
+                return "error", str(final.get("status_reason", "Final heartbeat reported error"))
+            if final_status in {"finished", "complete", "completed"}:
+                return "finished", ""
             return final_status, ""
         except Exception:
             pass
 
-    if raw_status == "running":
-        age = _age_seconds(hb.get("timestamp", ""))
-        if age > 3600:
-            error_reason = _check_console_for_errors(run_dir)
-            if error_reason:
-                return "error", error_reason
-            return "finished", "No heartbeat for >1h, presumed finished"
-        if age > 300:
-            error_reason = _check_console_for_errors(run_dir)
-            if error_reason:
-                return "error", error_reason
-            return "stale", f"No heartbeat for {age // 60}min"
+    age = _age_seconds(hb.get("timestamp", ""))
+    if raw_status in {"running", "waiting", "pending"} and age > STALE_AFTER_SECONDS:
+        minutes = max(1, age // 60)
+        return "stale", f"No heartbeat for {minutes}min"
 
-    # Check for errors even in running state (e.g. timeout detected mid-run)
-    if raw_status == "running":
-        error_reason = _check_console_for_errors(run_dir)
-        if error_reason:
-            return "error", error_reason
+    if raw_status in {"error", "failed", "failure"}:
+        return "error", str(hb.get("status_reason", "Heartbeat reported error"))
 
-    return raw_status, ""
+    if raw_status in {"finished", "complete", "completed"}:
+        return "finished", ""
+
+    if raw_status in {"waiting", "pending"}:
+        return "waiting", ""
+
+    if raw_status == "running" and run_dir.name == "_active" and not hb.get("job_id"):
+        return "waiting", ""
+
+    # Completion evidence for older uploads that predate heartbeat_final.json.
+    completion_text = read_text(run_dir / "nohup.out", limit=ERROR_TAIL_BYTES) + "\n" + read_text(run_dir / "log.txt", limit=ERROR_TAIL_BYTES)
+    if re.search(r"Server runner finished|job .*finished|run .*finished|finished all rounds", completion_text, flags=re.IGNORECASE):
+        return "finished", ""
+
+    return raw_status or "unknown", ""
 
 
 def _find_csv_files(run_dir: Path) -> list[str]:
@@ -469,10 +631,11 @@ def _find_all_files(run_dir: Path) -> list[dict[str, Any]]:
     return results
 
 
-def rows() -> list[dict[str, Any]]:
+def _collect_rows() -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    roster = _read_expected_sites()
     if not BASE.exists():
-        return out
+        return [_missing_row(site, data) for site, data in roster.items()]
 
     for site_dir in sorted(p for p in BASE.iterdir() if p.is_dir()):
         for mode_dir in sorted(p for p in site_dir.iterdir() if p.is_dir()):
@@ -481,9 +644,11 @@ def rows() -> list[dict[str, Any]]:
                 ts = hb.get("timestamp", "")
                 age = parse_age(ts)
                 status, status_reason = _infer_status(hb, run_dir)
+                error_evidence = _extract_error_evidence(run_dir, hb)
                 csv_files = _find_csv_files(run_dir)
                 tb_events = _find_tb_events(run_dir)
                 checkpoints = _find_checkpoints(run_dir)
+                roster_item = roster.get(site_dir.name, {})
 
                 # Count total files and size
                 total_files = 0
@@ -511,11 +676,21 @@ def rows() -> list[dict[str, Any]]:
                         "timestamp": ts,
                         "age": age,
                         "age_seconds": _age_seconds(ts),
-                        "kit_version": hb.get("kit_version", ""),
+                        "kit_version": hb.get("kit_version", "")
+                        or roster_item.get("expected_version", ""),
                         "hostname": hb.get("hostname", ""),
+                        "ip_address": hb.get("ip_address", "")
+                        or roster_item.get("ip_address", ""),
+                        "display_name": roster_item.get("display_name", ""),
+                        "institution": roster_item.get("institution", ""),
+                        "is_expected": site_dir.name in roster,
+                        "is_synthetic": False,
+                        "is_active_shadow": run_dir.name == "_active",
+                        "error_evidence": error_evidence or {},
                         "has_console": (run_dir / "nohup.out").exists()
                         or (run_dir / "local_training_console_output.txt").exists(),
                         "has_log": (run_dir / "log.txt").exists(),
+                        "has_sync_log": (run_dir / "live_sync_daemon.log").exists(),
                         "has_global_model": (run_dir / "FL_global_model.pt").exists(),
                         "has_best_model": (run_dir / "best_FL_global_model.pt").exists(),
                         "checkpoints": len(checkpoints),
@@ -527,9 +702,64 @@ def rows() -> list[dict[str, Any]]:
                     }
                 )
 
+    seen_sites = {x["site"] for x in out}
+    for site, data in roster.items():
+        if site not in seen_sites:
+            out.append(_missing_row(site, data))
+
     # Sort by timestamp descending (newest first)
     out.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     return out
+
+
+def _missing_row(site: str, data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "site": site,
+        "mode": "swarm",
+        "run_id": "_missing",
+        "run_name": "",
+        "job_id": "",
+        "status": "missing",
+        "status_reason": "No heartbeat uploaded for this site",
+        "raw_status": "missing",
+        "timestamp": "",
+        "age": "unknown",
+        "age_seconds": -1,
+        "kit_version": data.get("expected_version", ""),
+        "hostname": "",
+        "ip_address": data.get("ip_address", ""),
+        "display_name": data.get("display_name", ""),
+        "institution": data.get("institution", ""),
+        "is_expected": True,
+        "is_synthetic": True,
+        "is_active_shadow": False,
+        "error_evidence": {},
+        "has_console": False,
+        "has_log": False,
+        "has_sync_log": False,
+        "has_global_model": False,
+        "has_best_model": False,
+        "checkpoints": 0,
+        "csv_files": [],
+        "tb_events": 0,
+        "total_files": 0,
+        "total_size": 0,
+        "server_path": str(BASE / site),
+    }
+
+
+def rows(*, force: bool = False) -> list[dict[str, Any]]:
+    now = time.monotonic()
+    if (
+        not force
+        and _ROWS_CACHE["value"] is not None
+        and now < float(_ROWS_CACHE["expires_at"])
+    ):
+        return list(_ROWS_CACHE["value"])
+    value = _collect_rows()
+    _ROWS_CACHE["value"] = value
+    _ROWS_CACHE["expires_at"] = now + ROWS_CACHE_TTL_SECONDS
+    return list(value)
 
 
 # ---------------------------------------------------------------------------
@@ -591,7 +821,12 @@ def _get_console_text(site: str, mode: str, run_id: str) -> str:
     for name in ["nohup.out", "local_training_console_output.txt"]:
         p = run_dir / name
         if p.exists():
-            return read_text(p, limit=500_000)
+            # Read up to 50 MB so dataset-setup output (label distribution,
+            # printed once at the start of the run) and the full epoch history
+            # are both parseable. Long swarm runs can produce ~16 MB logs;
+            # the previous 500 KB tail dropped everything except the last
+            # handful of epochs.
+            return read_text(p, limit=50_000_000)
     return ""
 
 
@@ -761,6 +996,7 @@ def index(
     mode_filter: str = Query("", alias="mode"),
     status_filter: str = Query("", alias="status"),
     job_filter: str = Query("", alias="job"),
+    version_filter: str = Query("", alias="version"),
     group_by_job: bool = Query(False, alias="group"),
 ):
     r = rows()
@@ -771,6 +1007,7 @@ def index(
     all_modes = sorted({x["mode"] for x in r})
     all_statuses = sorted({x["status"] for x in r})
     all_jobs = sorted({x["job_id"] for x in r if x["job_id"]})
+    all_versions = sorted({x["kit_version"] for x in r if x.get("kit_version")})
 
     if not r:
         body = f"""
@@ -792,21 +1029,29 @@ def index(
         filtered = [x for x in filtered if x["status"] == status_filter]
     if job_filter:
         filtered = [x for x in filtered if x["job_id"] == job_filter]
+    if version_filter:
+        filtered = [x for x in filtered if x.get("kit_version") == version_filter]
 
     # Stats
     n_total = len(filtered)
+    n_expected = len({x["site"] for x in filtered if x.get("is_expected")})
+    n_seen = len({x["site"] for x in filtered if not x.get("is_synthetic")})
     n_running = sum(1 for x in filtered if x["status"] == "running")
     n_finished = sum(1 for x in filtered if x["status"] == "finished")
     n_stale = sum(1 for x in filtered if x["status"] == "stale")
-    n_sites = len({x["site"] for x in filtered})
+    n_error = sum(1 for x in filtered if x["status"] in {"error", "failed"})
+    n_missing = sum(1 for x in filtered if x["status"] == "missing")
 
     stats_html = f"""
 <div class="stats-bar">
   <div class="stat-card"><span class="stat-num">{n_total}</span><span class="stat-label">Total Runs</span></div>
+  <div class="stat-card"><span class="stat-num">{n_expected}</span><span class="stat-label">Expected</span></div>
+  <div class="stat-card"><span class="stat-num">{n_seen}</span><span class="stat-label">Seen</span></div>
   <div class="stat-card"><span class="stat-num">{n_running}</span><span class="stat-label">Running</span></div>
+  <div class="stat-card"><span class="stat-num">{n_missing}</span><span class="stat-label">Missing</span></div>
+  <div class="stat-card"><span class="stat-num">{n_error}</span><span class="stat-label">Errors</span></div>
   <div class="stat-card"><span class="stat-num">{n_finished}</span><span class="stat-label">Finished</span></div>
   <div class="stat-card"><span class="stat-num">{n_stale}</span><span class="stat-label">Stale</span></div>
-  <div class="stat-card"><span class="stat-num">{n_sites}</span><span class="stat-label">Sites</span></div>
 </div>"""
 
     # Filter bar
@@ -833,8 +1078,17 @@ def index(
     <label>Job:</label> {_select_opts("job", all_jobs, job_filter)}
   </div>
   <div class="filter-group">
+    <label>Version:</label> {_select_opts("version", all_versions, version_filter)}
+  </div>
+  <div class="filter-group">
     <label><input type="checkbox" name="group" value="true"{group_checked}
       onchange="this.form.submit()"> Group by Job</label>
+  </div>
+  <div class="quick-links">
+    <a href="/?status=error">Errors</a>
+    <a href="/?status=missing">Missing</a>
+    <a href="/?status=stale">Stale</a>
+    {f'<a href="/?version={html_escape(all_versions[-1])}">Latest version</a>' if all_versions else ''}
   </div>
   <a href="/" class="btn-small">Clear Filters</a>
 </form>"""
@@ -859,27 +1113,40 @@ def index(
             n_items = len(items)
             sites = ", ".join(sorted({x["site"] for x in items}))
             statuses = {x["status"] for x in items}
+            expected_sites = set(_read_expected_sites())
+            seen_sites = {x["site"] for x in items if not x.get("is_synthetic")}
+            missing_sites = sorted(expected_sites - seen_sites)
             if "error" in statuses or "failed" in statuses:
                 job_status = "error"
-                # Collect reasons from errored items
-                job_reason = "; ".join(
-                    f"{x['site']}: {x['status_reason']}"
-                    for x in items if x.get("status_reason")
-                )
-            elif "running" in statuses:
-                job_status = "running"
-                job_reason = ""
+            elif missing_sites:
+                job_status = "missing"
             elif "stale" in statuses:
                 job_status = "stale"
-                job_reason = ""
-            else:
+            elif "running" in statuses:
+                job_status = "running"
+            elif "waiting" in statuses:
+                job_status = "waiting"
+            elif statuses == {"finished"}:
                 job_status = "finished"
-                job_reason = ""
+            else:
+                job_status = "unknown"
+            reasons = [
+                f"{x['site']}: {x['status_reason']}"
+                for x in items if x.get("status_reason")
+            ]
+            if missing_sites:
+                reasons.append("missing: " + ", ".join(missing_sites))
+            job_reason = "; ".join(reasons)
             run_name = items[0].get("run_name", "") if items else ""
+            coverage = (
+                f"{len(seen_sites)}/{len(expected_sites)} clients seen"
+                if expected_sites
+                else f"{n_items} client(s)"
+            )
             table_rows.append(
-                f"""<tr class="job-group-row"><td colspan="11">
+                f"""<tr class="job-group-row"><td colspan="12">
                 Job: <span class="job-id">{html_escape(job_id)}</span>
-                &nbsp;&middot;&nbsp; {n_items} client(s): {html_escape(sites)}
+                &nbsp;&middot;&nbsp; {html_escape(coverage)}: {html_escape(sites)}
                 &nbsp;&middot;&nbsp; {_status_badge(job_status, job_reason)}
                 {f' &middot; {html_escape(run_name)}' if run_name else ''}
                 </td></tr>"""
@@ -905,7 +1172,7 @@ def index(
 {filter_html}
 <table>
 <thead><tr>
-  <th>Site</th><th>Host</th><th>Mode</th><th>Run</th><th>Status</th><th>Age</th>
+  <th>Site</th><th>Host</th><th>IP Address</th><th>Mode</th><th>Run</th><th>Status</th><th>Age</th>
   <th>Version</th><th>Artifacts</th><th>Size</th><th>Server Path</th><th>Links</th>
 </tr></thead>
 <tbody>
@@ -947,8 +1214,9 @@ def _build_table_row(x: dict[str, Any]) -> str:
     """Build a single <tr> for the index table."""
     # Links
     links = []
-    detail = f"/detail/{x['site']}/{x['mode']}/{x['run_id']}"
-    links.append(f'<a class="btn" href="{detail}">Details</a>')
+    if not x.get("is_synthetic"):
+        detail = f"/detail/{x['site']}/{x['mode']}/{x['run_id']}"
+        links.append(f'<a class="btn" href="{detail}">Details</a>')
     if x["has_console"]:
         label = "nohup" if x["mode"] == "swarm" else "console"
         links.append(
@@ -958,6 +1226,12 @@ def _build_table_row(x: dict[str, Any]) -> str:
         links.append(
             f"<a href=\"/log/{x['site']}/{x['mode']}/{x['run_id']}\">log</a>"
         )
+    if x.get("has_sync_log"):
+        links.append(
+            f"<a href=\"/download/{x['site']}/{x['mode']}/{x['run_id']}/live_sync_daemon.log\">sync</a>"
+        )
+    if not links:
+        links.append('<span class="no">-</span>')
 
     # Artifacts
     arts = []
@@ -983,6 +1257,8 @@ def _build_table_row(x: dict[str, Any]) -> str:
     run_display += f'<span class="run-id">{html_escape(x["run_id"])}</span>'
     if x["job_id"]:
         run_display += f'<br><span class="job-id">job: {html_escape(x["job_id"][:8])}...</span>'
+    if x.get("is_active_shadow"):
+        run_display += '<br><span class="job-id">active heartbeat</span>'
 
     # Age: use data-timestamp for client-side ticking
     ts_attr = html_escape(x.get("timestamp", ""))
@@ -1001,6 +1277,12 @@ def _build_table_row(x: dict[str, Any]) -> str:
         if hostname
         else '<span class="no">-</span>'
     )
+    ip_address = x.get("ip_address", "")
+    ip_td = (
+        f'<span class="ip-address">{html_escape(ip_address)}</span>'
+        if ip_address
+        else '<span class="no">-</span>'
+    )
 
     version = (
         f'<span class="version">{html_escape(x["kit_version"])}</span>'
@@ -1013,13 +1295,23 @@ def _build_table_row(x: dict[str, Any]) -> str:
         f'<span class="file-path" title="{html_escape(x["server_path"])}">'
         f'{html_escape(x["server_path"][-40:])}</span>'
     )
+    error_summary = ""
+    evidence = x.get("error_evidence") or {}
+    if evidence:
+        source = evidence.get("source", "")
+        error_summary = (
+            f'<div class="error-summary">{html_escape(evidence.get("category", "error"))}: '
+            f'{html_escape(evidence.get("summary", ""))}'
+            f'{f" ({html_escape(source)})" if source else ""}</div>'
+        )
 
     return f"""<tr>
   <td>{html_escape(x['site'])}</td>
   <td>{hostname_td}</td>
+  <td>{ip_td}</td>
   <td>{html_escape(x['mode'])}</td>
   <td>{run_display}</td>
-  <td>{_status_badge(x['status'], x.get('status_reason', ''))}</td>
+  <td>{_status_badge(x['status'], x.get('status_reason', ''))}{error_summary}</td>
   <td>{age_td}</td>
   <td>{version}</td>
   <td class="artifact">{' &middot; '.join(arts)}</td>
@@ -1039,6 +1331,7 @@ def detail(site: str, mode: str, run_id: str):
     run_dir = _resolve_run_dir(site, mode, run_id)
     hb = _read_heartbeat(run_dir)
     status, status_reason = _infer_status(hb, run_dir)
+    error_evidence = _extract_error_evidence(run_dir, hb)
     console_text = _get_console_text(site, mode, run_id)
     metrics = parse_console_metrics(console_text)
     csv_files = _find_csv_files(run_dir)
@@ -1058,6 +1351,12 @@ def detail(site: str, mode: str, run_id: str):
         ("timestamp", "Last Heartbeat"),
         ("status", "Raw Status"),
         ("kit_version", "Kit Version"),
+        ("ip_address", "IP Address"),
+        ("sync_version", "Live Sync Version"),
+        ("sync_status", "Live Sync Status"),
+        ("sync_error", "Live Sync Error"),
+        ("job_dir_seen", "Job Dir Seen"),
+        ("run_dir_seen", "Run Dir Seen"),
         ("kit_root", "Kit Root (client)"),
         ("run_dir", "Run Dir (client)"),
         ("log_file", "Log File (client)"),
@@ -1082,6 +1381,23 @@ def detail(site: str, mode: str, run_id: str):
         hb_rows += f"<tr><td>Heartbeat Age</td><td>{parse_age(ts)}</td></tr>\n"
     if not hb_rows:
         hb_rows = '<tr><td colspan="2">No heartbeat data available</td></tr>'
+
+    error_html = ""
+    if error_evidence:
+        source = html_escape(str(error_evidence.get("source", "")))
+        line = html_escape(str(error_evidence.get("line", "")))
+        excerpt = html_escape(str(error_evidence.get("excerpt", "")))
+        error_html = f"""
+<div class="card" style="grid-column: 1 / -1;">
+  <h2>Error Evidence</h2>
+  <table class="kv-table"><tbody>
+    <tr><td>Category</td><td>{html_escape(str(error_evidence.get("category", "")))}</td></tr>
+    <tr><td>Summary</td><td>{html_escape(str(error_evidence.get("summary", "")))}</td></tr>
+    <tr><td>Source</td><td>{source}</td></tr>
+    <tr><td>Matched Line</td><td>{line}</td></tr>
+  </tbody></table>
+  <pre class="error-excerpt">{excerpt}</pre>
+</div>"""
 
     # -- Training summary card --
     summary_html = ""
@@ -1515,6 +1831,7 @@ new Chart(ldCtx, {{
   </div>
 
   {summary_html}
+  {error_html}
   {p2p_html}
   {csv_links_html}
   {ckpt_html}
@@ -1732,6 +2049,13 @@ def api_metrics(site: str, mode: str, run_id: str):
 def api_heartbeat(site: str, mode: str, run_id: str):
     run_dir = _resolve_run_dir(site, mode, run_id)
     return _read_heartbeat(run_dir)
+
+
+@app.get("/api/errors/{site}/{mode}/{run_id}", response_class=JSONResponse)
+def api_errors(site: str, mode: str, run_id: str):
+    run_dir = _resolve_run_dir(site, mode, run_id)
+    hb = _read_heartbeat(run_dir)
+    return _extract_error_evidence(run_dir, hb) or {}
 
 
 @app.get("/api/files/{site}/{mode}/{run_id}", response_class=JSONResponse)
