@@ -297,6 +297,29 @@ run_docker_gpu_preflight_check () {
 }
 
 
+run_two_containers_in_parallel () {
+    # requires having built a startup kit
+    echo "[Run] Starting two containers in parallel (local dummy training via startup kit) ..."
+    cd "$PROJECT_DIR/prod_00/client_A/startup/"
+    CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
+    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT" &
+    sleep 1
+
+    CONSOLE_OUTPUT_A=docker_gpu_preflight_check_console_output_a.txt
+    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull --container_name MediSwarmODELIATestSecondContainer 2>&1 | tee "$CONSOLE_OUTPUT_A" &
+    sleep 60
+
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_A" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_A"; then
+        echo "✅ Expected output of running two containers in parallel found"
+    else
+        echo "❌ Missing expected output of running two containers in parallel"
+        exit 1
+    fi
+
+    cd "$CWD"
+}
+
+
 run_data_access_preflight_check () {
     # requires having built a startup kit and synthetic dataset
     echo "[Run] Data access preflight check..."
@@ -833,6 +856,12 @@ case "$1" in
     run_docker_gpu_preflight_check)
         create_startup_kits_and_check_contained_files
         run_docker_gpu_preflight_check
+        cleanup_temporary_data
+        ;;
+
+    run_two_containers_in_parallel)
+        create_startup_kits_and_check_contained_files
+        run_two_containers_in_parallel
         cleanup_temporary_data
         ;;
 
