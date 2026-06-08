@@ -31,6 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = ROOT / "workspace" / "odelia_single_site_eval"
 REPORT_PATH = ROOT / "docs" / "ODELIA_SINGLE_SITE_CKPT_CHALLENGE_EVAL_REPORT.md"
 CONDENSED_REPORT_PATH = ROOT / "docs" / "ODELIA_SINGLE_SITE_CKPT_CHALLENGE_EVAL_CONDENSED_REPORT.md"
+PARTNER_WORKBOOK_PATH = ROOT / "docs" / "supplementary" / "ODELIA_single_site_checkpoint_results_20260608.xlsx"
 OLE_REPORT_PATH = ROOT / "docs" / "OLE_SWARM_EVALUATION_ARTIFACT_REPORT.md"
 CHALLENGE_SWARM_REPORT_PATH = ROOT / "docs" / "CHALLENGE_SWARM_LOCAL_TEST_REPORT_20260513.md"
 FIGURE_DIR = ROOT / "docs" / "figures" / "odelia_single_site_eval"
@@ -45,6 +46,8 @@ CLASSES = (0, 1, 2)
 UKA_ZIP_DIR = Path("/mnt/nvme0n1p1/Jeff_projects/Odelia_local_training/UKA")
 UKA_ZIP_STAMP = "20260520T091501Z"
 UKA_RUN_ID = "1DivideAndConquer_unilateral_2026_05_04_082228"
+UMCU_ZIP_PATH = Path("/mnt/nvme0n1p1/scratch/jeff/Downloads/MST_unilateral_2026_06_01_205145-20260608T122612Z-3-001.zip")
+UMCU_RUN_ID = "MST_unilateral_2026_06_01_205145"
 
 
 @dataclass
@@ -128,7 +131,29 @@ def extract_uka() -> Path:
     return run_dir
 
 
-def base_run_sources(uka_run_dir: Path) -> list[RunSource]:
+def extract_umcu() -> Path:
+    """Extract the UMCU MST local-training zip into the workspace."""
+    dest = WORKSPACE / "raw" / "UMCU"
+    run_dir = dest / UMCU_RUN_ID
+    expected = [
+        run_dir / "last.ckpt",
+        run_dir / "last_global_model.ckpt",
+        run_dir / "epoch=0-step=767.ckpt",
+        run_dir / "site_model_gt_and_classprob_train.csv",
+        run_dir / "site_model_gt_and_classprob_validation.csv",
+    ]
+    if all(path.exists() for path in expected):
+        return run_dir
+    if not UMCU_ZIP_PATH.exists():
+        raise FileNotFoundError(f"UMCU zip not found: {UMCU_ZIP_PATH}")
+    run(["unzip", "-n", str(UMCU_ZIP_PATH), "-d", str(dest)])
+    missing = [path for path in expected if not path.exists()]
+    if missing:
+        raise FileNotFoundError("UMCU extraction did not produce expected files:\n" + "\n".join(map(str, missing)))
+    return run_dir
+
+
+def base_run_sources(uka_run_dir: Path, umcu_run_dir: Path) -> list[RunSource]:
     usz = ROOT / "workspace" / "usz_partner_eval"
     return [
         RunSource(
@@ -152,6 +177,19 @@ def base_run_sources(uka_run_dir: Path) -> list[RunSource]:
             str(usz / "runs" / "1DC_train.csv"),
             str(usz / "runs" / "1DC_validation.csv"),
             "USZ local 1DivideAndConquer retry; available checkpoints are epoch 14 best and last.",
+        ),
+        RunSource(
+            "UMCU_MST",
+            "UMCU",
+            "MST",
+            "MST",
+            UMCU_RUN_ID,
+            str(umcu_run_dir),
+            str(umcu_run_dir / "site_model_gt_and_classprob_train.csv"),
+            str(umcu_run_dir / "site_model_gt_and_classprob_validation.csv"),
+            "UMCU local MST artifacts supplied as a single zip on 2026-06-08. "
+            "Lightning selected epoch 0 because `ModelCheckpoint` monitors `val/ACC`; in this run, validation accuracy is already maximized by the class-0 majority baseline. "
+            "Later epochs improve AUROC/probability ranking but do not improve argmax accuracy or Class-2 recall.",
         ),
         RunSource(
             "UKA_1DC",
@@ -183,6 +221,17 @@ def base_run_sources(uka_run_dir: Path) -> list[RunSource]:
             "/srv/mediswarm/live/MHA_1/local/1DivideAndConquer_unilateral_2026_04_22_154631/run_dir",
             "/srv/mediswarm/live/MHA_1/local/1DivideAndConquer_unilateral_2026_04_22_154631/run_dir/site_model_gt_and_classprob_train.csv",
             "/srv/mediswarm/live/MHA_1/local/1DivideAndConquer_unilateral_2026_04_22_154631/run_dir/site_model_gt_and_classprob_validation.csv",
+        ),
+        RunSource(
+            "RSH_1DC",
+            "RSH",
+            "1DivideAndConquer",
+            "1DC",
+            "1DivideAndConquer_unilateral_2026_05_28_090751",
+            str(WORKSPACE / "raw" / "RSH_1DC" / "run_dir"),
+            str(WORKSPACE / "raw" / "RSH_1DC" / "run_dir" / "site_model_gt_and_classprob_train.csv"),
+            str(WORKSPACE / "raw" / "RSH_1DC" / "run_dir" / "site_model_gt_and_classprob_validation.csv"),
+            "RSH local 1DivideAndConquer artifacts supplied as local tar/zip chunks on 2026-06-02.",
         ),
         RunSource(
             "RSH_5Pimed",
@@ -618,8 +667,14 @@ def eval_on_dl0(snapshots: list[Snapshot], *, force: bool = False) -> None:
         for model_name, model_snapshots in sorted(by_model.items()):
             model_short = "1DC" if model_name == "1DivideAndConquer" else model_name
             out_dir = f"{DL0_STAGE}/odelia_eval/{model_short}/{eval_site}"
+            required_snapshot_checks = " && ".join(
+                f"grep -q {snapshot.snapshot_id!r} {out_dir}/prediction_results.json"
+                for snapshot in model_snapshots
+            )
             done = remote(
-                f"test -s {out_dir}/prediction_results.json && grep -q '\"metrics\"' {out_dir}/prediction_results.json && echo yes || echo no",
+                f"test -s {out_dir}/prediction_results.json && "
+                f"grep -q '\"metrics\"' {out_dir}/prediction_results.json && "
+                f"{required_snapshot_checks} && echo yes || echo no",
                 capture=True,
             ).stdout.strip()
             if done == "yes" and not force:
@@ -1061,6 +1116,125 @@ def source_model_selection_rows(aggregate_rows: list[dict], metrics_by_run: dict
     return rows
 
 
+def model_family_counts(run_sources: list[RunSource]) -> str:
+    counts = Counter(source.model_short for source in run_sources)
+    return ", ".join(f"{model}={counts[model]}" for model in sorted(counts))
+
+
+def run_training_status(epoch_count: int) -> str:
+    if epoch_count >= 90:
+        return f"complete ({epoch_count} epochs)"
+    if epoch_count > 1:
+        return f"short run ({epoch_count} epochs)"
+    return "single-epoch artifact"
+
+
+def external_result_readout(row: dict | None) -> str:
+    if not row or row.get("class2_auroc") is None:
+        return "not evaluated externally"
+    class2 = float(row["class2_auroc"])
+    recall = float(row.get("class2_recall") or 0.0)
+    if class2 >= 0.80:
+        strength = "strong external transfer"
+    elif class2 >= 0.70:
+        strength = "useful external transfer"
+    elif class2 >= 0.60:
+        strength = "modest external transfer"
+    else:
+        strength = "weak external transfer"
+    if recall == 0.0:
+        return f"{strength}; ranks better than argmax behavior (Class-2 recall 0)"
+    if recall < 0.20:
+        return f"{strength}; low Class-2 recall at default argmax"
+    return strength
+
+
+def local_training_review_rows(
+    run_sources: list[RunSource],
+    snapshots: list[Snapshot],
+    metrics_by_run: dict[str, dict[str, list[dict]]],
+    aggregate_rows: list[dict],
+) -> list[list[object]]:
+    aggregate_by_run: dict[str, list[dict]] = defaultdict(list)
+    for row in aggregate_rows:
+        aggregate_by_run[row["run_key"]].append(row)
+    unique_snapshot_counts = Counter(snapshot.run_key for snapshot in snapshots if not snapshot.duplicate_of)
+    alias_counts = Counter(snapshot.run_key for snapshot in snapshots if snapshot.duplicate_of)
+
+    rows: list[list[object]] = []
+    for source in run_sources:
+        val = metrics_by_run.get(source.run_key, {}).get("validation", [])
+        if not val:
+            continue
+        train = metrics_by_run.get(source.run_key, {}).get("train", [])
+        best_acc = max(val, key=lambda row: row["accuracy"])
+        best_c2 = max((row for row in val if row["class2_auroc"] is not None), key=lambda row: row["class2_auroc"], default=None)
+        external_rows = sorted(
+            aggregate_by_run.get(source.run_key, []),
+            key=lambda row: row.get("class2_auroc") or 0.0,
+            reverse=True,
+        )
+        selected = external_rows[0] if external_rows else None
+        ckpt_text = f"{unique_snapshot_counts[source.run_key]} unique"
+        if alias_counts[source.run_key]:
+            ckpt_text += f" (+{alias_counts[source.run_key]} duplicate alias)"
+        rows.append(
+            [
+                source.source_site,
+                source.model_short,
+                source.run_id,
+                run_training_status(len(val)),
+                ckpt_text,
+                f"best ACC e{best_acc['epoch']}={fmt(best_acc['accuracy'])}; "
+                + (f"best C2 e{best_c2['epoch']}={fmt(best_c2['class2_auroc'])}" if best_c2 else "best C2 NA"),
+                f"{selected['snapshot_id']} / C2 {fmt(selected['class2_auroc'])} / macro {fmt(selected['macro_auroc'])} / recall {fmt(selected['class2_recall'])}"
+                if selected
+                else "NA",
+                external_result_readout(selected),
+            ]
+        )
+    return rows
+
+
+def local_training_review_section(
+    run_sources: list[RunSource],
+    snapshots: list[Snapshot],
+    metrics_by_run: dict[str, dict[str, list[dict]]],
+    aggregate_rows: list[dict],
+) -> str:
+    sites = sorted({source.source_site for source in run_sources})
+    unique_count = sum(1 for snapshot in snapshots if not snapshot.duplicate_of)
+    duplicate_aliases = sum(1 for snapshot in snapshots if snapshot.duplicate_of)
+    sections = ["\n## Local Training Completion Review\n"]
+    sections.append(
+        f"Available local-training artifacts cover **{len(sites)} source sites** "
+        f"({', '.join(sites)}), **{len(run_sources)} run artifacts**, and **{model_family_counts(run_sources)}**. "
+        f"They contribute **{unique_count} unique checkpoints** to external ODELIA challenge evaluation"
+        f"{f' plus {duplicate_aliases} exact duplicate aliases' if duplicate_aliases else ''}. "
+        "All rows below have local train/validation prediction CSVs and at least one retained checkpoint; `short run` means the artifact is usable but is not a full 100-epoch local-training run.\n"
+    )
+    sections.append(
+        markdown_table(
+            local_training_review_rows(run_sources, snapshots, metrics_by_run, aggregate_rows),
+            [
+                "Source",
+                "Model",
+                "Run ID",
+                "Training status",
+                "Retained ckpts",
+                "Internal validation result",
+                "Best external ODELIA result",
+                "Readout",
+            ],
+        )
+    )
+    sections.append(
+        "\n\nMain pattern: 1DC transfers best externally (UKA, USZ, MHA are the strongest rows), while MST runs trained on very Class-2-sparse sites often show usable AUROC/ranking but poor default argmax Class-2 recall. "
+        "Internal validation is useful for overfitting and checkpoint-selection diagnosis, but it does not reliably rank external challenge transfer.\n"
+    )
+    return "".join(sections)
+
+
 def per_source_training_sections(
     run_sources: list[RunSource],
     metrics_by_run: dict[str, dict[str, list[dict]]],
@@ -1132,6 +1306,11 @@ def per_source_training_sections(
         if svg.exists():
             sections.append(
                 f"\n\n![{source.run_key} local training curves]({svg.relative_to(REPORT_PATH.parent)})\n"
+            )
+        lightning_svg = FIGURE_DIR / f"{source.run_key}_lightning_training_curves.svg"
+        if lightning_svg.exists():
+            sections.append(
+                f"\n\n![{source.run_key} Lightning-log training curves]({lightning_svg.relative_to(REPORT_PATH.parent)})\n"
             )
 
         if external_rows:
@@ -1328,6 +1507,10 @@ def generate_report(run_sources: list[RunSource], snapshots: list[Snapshot], met
         sections.append(
             "- Results are weighted by ODELIA challenge site sample count when aggregating across CAM/MHA/RSH/RUMC/UKA/UMCU.\n"
         )
+        if PARTNER_WORKBOOK_PATH.exists():
+            sections.append(
+                f"- Partner-shareable workbook for Google Sheets import: [{PARTNER_WORKBOOK_PATH.relative_to(ROOT)}]({PARTNER_WORKBOOK_PATH.relative_to(REPORT_PATH.parent)}).\n"
+            )
     else:
         sections.append("- Checkpoint inventory and local training curves are prepared; ODELIA challenge evaluations have not completed yet.\n")
     sections.append(
@@ -1341,6 +1524,7 @@ def generate_report(run_sources: list[RunSource], snapshots: list[Snapshot], met
 
     sections.append(validation_framing_section())
     sections.append(class_distribution_section(run_sources))
+    sections.append(local_training_review_section(run_sources, snapshots, metrics_by_run, aggregate_rows))
 
     if aggregate_rows:
         sections.append("\n## Condensed Selection: One Checkpoint per Source Model\n")
@@ -1395,6 +1579,9 @@ def generate_report(run_sources: list[RunSource], snapshots: list[Snapshot], met
         svg = FIGURE_DIR / f"{source.run_key}_training_curves.svg"
         if svg.exists():
             sections.append(f"- [{source.run_key} training curves]({svg.relative_to(REPORT_PATH.parent)})\n")
+        lightning_svg = FIGURE_DIR / f"{source.run_key}_lightning_training_curves.svg"
+        if lightning_svg.exists():
+            sections.append(f"- [{source.run_key} Lightning-log training curves]({lightning_svg.relative_to(REPORT_PATH.parent)})\n")
 
     sections.append(per_source_training_sections(run_sources, metrics_by_run, aggregate_rows))
 
@@ -1467,6 +1654,10 @@ def generate_report(run_sources: list[RunSource], snapshots: list[Snapshot], met
     sections.append(
         "- Class-distribution tables are written to `workspace/odelia_single_site_eval/tables/internal_class_distribution.csv` and `workspace/odelia_single_site_eval/tables/external_challenge_class_distribution.csv`.\n"
     )
+    if PARTNER_WORKBOOK_PATH.exists():
+        sections.append(
+            f"- Partner workbook for Google Sheets import: [{PARTNER_WORKBOOK_PATH.relative_to(ROOT)}]({PARTNER_WORKBOOK_PATH.relative_to(REPORT_PATH.parent)}).\n"
+        )
     sections.append("\n## Open Items\n")
     sections.append("- Confirm whether any unavailable intermediate checkpoints (for example an epoch-36 USZ 1DC checkpoint) were retained elsewhere; the USZ run currently exposes epoch-14 best and last only.\n")
     sections.append("- Decide whether exact `last.ckpt` / `last_global_model.ckpt` duplicates should be kept as aliases in the final table or collapsed entirely.\n")
@@ -1537,6 +1728,14 @@ def generate_condensed_report(run_sources: list[RunSource], snapshots: list[Snap
             )
             sections.append("\n")
 
+    sites = sorted({source.source_site for source in run_sources})
+    sections.append("\n## Local Training Coverage\n")
+    sections.append(
+        f"Completed/available local-training artifacts cover **{len(sites)} source sites** "
+        f"({', '.join(sites)}), **{len(run_sources)} run artifacts**, and **{model_family_counts(run_sources)}**. "
+        "The full report has the per-run completion table; the selected-checkpoint table below keeps one externally strongest checkpoint per source/model family.\n"
+    )
+
     sections.append("\n## Selected Single-Site Checkpoints\n")
     sections.append(
         markdown_table(
@@ -1603,6 +1802,7 @@ def generate_condensed_report(run_sources: list[RunSource], snapshots: list[Snap
     sections.append("\n## Files\n")
     sections.append(
         f"- Full detailed report: [{REPORT_PATH.relative_to(ROOT)}]({REPORT_PATH.relative_to(CONDENSED_REPORT_PATH.parent)})\n"
+        f"- Google Sheets / Excel workbook: [{PARTNER_WORKBOOK_PATH.relative_to(ROOT)}]({PARTNER_WORKBOOK_PATH.relative_to(CONDENSED_REPORT_PATH.parent)})\n"
         "- External per-site metrics: `workspace/odelia_single_site_eval/tables/challenge_summary_metrics.csv`\n"
         "- External aggregate metrics: `workspace/odelia_single_site_eval/tables/challenge_aggregate_metrics.csv`\n"
         "- Class distributions: `workspace/odelia_single_site_eval/tables/internal_class_distribution.csv` and `workspace/odelia_single_site_eval/tables/external_challenge_class_distribution.csv`\n"
@@ -1614,7 +1814,8 @@ def generate_condensed_report(run_sources: list[RunSource], snapshots: list[Snap
 def prepare() -> tuple[list[RunSource], list[Snapshot], dict[str, dict[str, list[dict]]]]:
     ensure_dirs()
     uka_run_dir = extract_uka()
-    run_sources = materialize_source_runs(base_run_sources(uka_run_dir))
+    umcu_run_dir = extract_umcu()
+    run_sources = materialize_source_runs(base_run_sources(uka_run_dir, umcu_run_dir))
     snapshots = annotate_checksums(known_snapshots(run_sources))
     write_manifest(run_sources, snapshots)
     metrics_by_run = write_epoch_metrics(run_sources)
@@ -1633,7 +1834,8 @@ def main() -> None:
     if args.summary_only:
         ensure_dirs()
         uka_run_dir = WORKSPACE / "raw" / "UKA" / UKA_RUN_ID
-        run_sources = materialize_source_runs(base_run_sources(uka_run_dir))
+        umcu_run_dir = extract_umcu()
+        run_sources = materialize_source_runs(base_run_sources(uka_run_dir, umcu_run_dir))
         snapshots = annotate_checksums(known_snapshots(run_sources))
         write_manifest(run_sources, snapshots)
         metrics_by_run = write_epoch_metrics(run_sources)
