@@ -75,8 +75,10 @@ fi
 
 # Only cache pretrained model weights for ODELIA builds (STAMP uses pre-extracted
 # H5 features and doesn't need DINOv2/challenge weights in the Docker image)
+# If an environment variable MEDISWARM_BUILD_CACHE_DIR is set, it will be used as a persistent cache,
+# otherwise data is stored in a temporary folder deleted after building.
 if [[ "$DOCKERFILE" != *"Dockerfile_STAMP"* ]]; then
-    ./scripts/build/_cacheAndCopyPretrainedModelWeights.sh $CWD $CLEAN_SOURCE_DIR
+    ./scripts/build/_cacheAndCopyPretrainedModelWeights.sh $CLEAN_SOURCE_DIR
 fi
 cd $CWD
 
