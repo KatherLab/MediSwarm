@@ -733,6 +733,7 @@ docker_cln_sh: |
           --model_name)          CLI_MODEL_NAME="$2"; shift ;;
           --num_epochs)          CLI_NUM_EPOCHS="$2"; shift ;;
           --config)              CLI_CONFIG="$2"; shift ;;
+          --container_name)      CONTAINER_NAME="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -797,7 +798,9 @@ docker_cln_sh: |
       docker pull "$DOCKER_IMAGE"
   fi
 
-  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
+  if [[ -z "$CONTAINER_NAME" ]]; then
+     CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
+  fi
   DOCKER_NOFILE_LIMIT="${DOCKER_NOFILE_LIMIT:-65536}"
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE --ulimit nofile=${DOCKER_NOFILE_LIMIT}:${DOCKER_NOFILE_LIMIT} --shm-size=16g -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
@@ -970,6 +973,7 @@ docker_cln_sh: |
       echo "                         when running with sudo, as sudo resets environment variables"
       echo "--num_epochs <n>         set number of training epochs (default: 100)"
       echo "--config <name>          set config name (default: unilateral)"
+      echo "--container_name <name>  set name for the Docker container to override default using version number"
       exit 1
   fi
 
