@@ -213,9 +213,9 @@ RUN apt update && apt install -y \
     libsmartcols1=2.37.2-4ubuntu3.5 \
     libss2=1.46.5-2ubuntu1.2 \
     libssl3=3.0.2-0ubuntu1.23 \
-    libsystemd0=249.11-0ubuntu3.20 \
+    libsystemd0=249.11-0ubuntu3.21 \
     libtasn1-6=4.18.0-4ubuntu0.2 \
-    libudev1=249.11-0ubuntu3.20 \
+    libudev1=249.11-0ubuntu3.21 \
     libuuid1=2.37.2-4ubuntu3.5 \
     linux-libc-dev=5.15.0-181.191 \
     logsave=1.46.5-2ubuntu1.2 \
