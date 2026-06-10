@@ -9,6 +9,7 @@ which is unavailable in CI, so we mock it via the _patch_heavy_imports fixture.
 import os
 import sys
 import re
+import types
 from pathlib import Path
 from unittest.mock import patch
 
@@ -27,6 +28,11 @@ def _importable_env_config(_patch_heavy_imports):
     Add the custom dir to sys.path and clear the cached module so each
     test gets a fresh import.
     """
+    torch_mod = types.ModuleType("torch")
+    torch_mp_mod = types.ModuleType("torch.multiprocessing")
+    torch_mp_mod.cpu_count = lambda: 8
+    torch_mod.multiprocessing = torch_mp_mod
+
     if str(SHARED_CUSTOM_DIR) not in sys.path:
         sys.path.insert(0, str(SHARED_CUSTOM_DIR))
 
@@ -34,7 +40,11 @@ def _importable_env_config(_patch_heavy_imports):
         if mod_name == "env_config":
             del sys.modules[mod_name]
 
-    yield
+    with patch.dict(
+        sys.modules,
+        {"torch": torch_mod, "torch.multiprocessing": torch_mp_mod},
+    ):
+        yield
 
     # Cleanup: remove from path (optional, keeps test isolation)
     if str(SHARED_CUSTOM_DIR) in sys.path:

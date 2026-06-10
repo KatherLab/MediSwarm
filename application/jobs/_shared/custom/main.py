@@ -13,6 +13,12 @@ TM_PREFLIGHT_CHECK = "preflight_check"
 TM_LOCAL_TRAINING = "local_training"
 TM_SWARM = "swarm"
 LOG_DATASET_DETAILS = 'LOG_DATASET_DETAILS' in os.environ
+SWARM_EXPORT_GT_PROBS = os.getenv("ODELIA_SWARM_EXPORT_GT_PROBS", "").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 if not TRAINING_MODE:
     raise ValueError("TRAINING_MODE environment variable must be set")
@@ -55,12 +61,20 @@ def main():
             torch.autograd.set_detect_anomaly(True)
 
             logger.info(f"Site name: {SITE_NAME}")
+            logger.info(f"Swarm aggregated GT/prob export enabled: {SWARM_EXPORT_GT_PROBS}")
 
             while flare.is_running():
                 input_model = flare.receive()
                 logger.info(f"Current round: {input_model.current_round}")
 
-                threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
+                threedcnn_ptl.validate_and_train(
+                    logger,
+                    data_module,
+                    model,
+                    trainer,
+                    path_run_dir,
+                    output_GT_and_classprob=SWARM_EXPORT_GT_PROBS,
+                )
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=False)

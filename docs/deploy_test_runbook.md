@@ -20,17 +20,18 @@ ssh swarm@dd-dl2
 ```
 Password fallback: `Ekfz_ekfz` (sshpass used by deploy scripts)
 
-**DNS fix required before every swarm run** — dl0/dl2 must resolve `dl3.tud.de` to Cosmos:
+**DNS is managed by the deploy runner** — `run_deploy_test.sh` updates each
+remote `/etc/hosts` entry for `dl3.tud.de` before client startup. By default it
+uses Cosmos's Tailscale IP. If a site needs a LAN/VPN route instead, add a
+per-site override to the deploy config:
+
 ```bash
-source deploy_sites_2node_test.conf
-COSMOS_IP=$(tailscale ip -4)
-for HOST in dd-dl0 dd-dl2; do
-    sshpass -p 'Ekfz_ekfz' ssh -o StrictHostKeyChecking=no swarm@$HOST \
-        "echo 'Ekfz_ekfz' | sudo -S bash -c \"grep -q 'dl3.tud.de' /etc/hosts && \
-         sed -i 's|^.*dl3.tud.de.*|${COSMOS_IP} dl3.tud.de|' /etc/hosts || \
-         echo '${COSMOS_IP} dl3.tud.de' >> /etc/hosts\""
-done
+# Example: force USZ to reach Cosmos over the LAN route used in the June 2026 smoke test.
+USZ_SERVER_IP_OVERRIDE=172.24.4.65
 ```
+
+If two logical clients share one host, their `*_SERVER_IP_OVERRIDE` values must
+match because `/etc/hosts` is host-wide.
 
 ---
 
@@ -130,8 +131,8 @@ for HOST in dd-dl0 dd-dl2; do
     ssh swarm@$HOST "docker pull jefftud/odelia:$VERSION" &
 done; wait
 
-# 6. Fix DNS
-# (see DNS fix command above)
+# 6. DNS and live monitor cleanup
+# run_deploy_test.sh handles /etc/hosts updates and stale live-sync cleanup.
 ```
 
 ---
@@ -153,6 +154,13 @@ bash scripts/deploy/run_deploy_test.sh \
 - Cosmos runs server + admin; submits jobs via NVFlare admin CLI using `expect`
 - Clients started on dl0/dl2 via SSH with `docker.sh --start_client`
 - `num_rounds=2` guarantees ≥1 full sync per node
+- The deploy runner enables the ODELIA preprocess cache by default:
+  `ODELIA_ENABLE_PREPROCESS_CACHE=1` and
+  `ODELIA_PREPROCESS_CACHE_DIR=$SCRATCHDIR/odelia_preprocess_cache`.
+  Add `<SITE>_PREPROCESS_CACHE=0` in the deploy config to disable it for a
+  site, or `<SITE>_PREPROCESS_CACHE_DIR=/path/to/cache` to override the path.
+- Before each client launch, stale swarm `live_sync.sh` daemons for that site
+  are stopped so the web monitor receives logs for the current run only.
 
 ---
 

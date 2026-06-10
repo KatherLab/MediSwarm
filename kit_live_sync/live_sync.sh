@@ -133,6 +133,15 @@ build_heartbeat() {
   "$SCRIPT_DIR/build_heartbeat.sh" "$@"
 }
 
+sync_final_heartbeat() {
+  local hb_file="$1"
+  local remote_dir="$2"
+  # Keep heartbeat_final.json for history, and overwrite heartbeat.json so the
+  # live monitor's current-state view does not stay stuck on "running".
+  rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
+  rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat.json" || true
+}
+
 find_latest_job_id() {
   find "$KIT_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name startup ! -name local ! -name transfer 2>/dev/null | while read -r d; do
     b="$(basename "$d")"
@@ -188,7 +197,7 @@ _finalize_local_run() {
   old_hb_final="$STATE_DIR/local_heartbeat_final_${old_run}.json"
   export SCRATCHDIR
   build_heartbeat "$SITE_NAME" "local" "$KIT_ROOT" "" "$old_run" "finished" "$old_hb_final" >/dev/null
-  rsync_cmd "$old_hb_final" "${REMOTE_USER}@${REMOTE_HOST}:${old_remote_dir}/heartbeat_final.json" || true
+  sync_final_heartbeat "$old_hb_final" "$old_remote_dir"
   sync_daemon_log "$old_remote_dir"
 
   # Final sync of the old run's artifacts
@@ -353,7 +362,7 @@ final_sync() {
       hb_file="$STATE_DIR/local_heartbeat_final.json"
       export SCRATCHDIR
       build_heartbeat "$SITE_NAME" "local" "$KIT_ROOT" "" "$run_name" "finished" "$hb_file" >/dev/null
-      rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
+      sync_final_heartbeat "$hb_file" "$remote_dir"
       sync_daemon_log "$remote_dir"
       if [ -n "$run_dir" ]; then
         rsync_cmd "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
@@ -369,7 +378,7 @@ final_sync() {
       hb_file="$STATE_DIR/swarm_heartbeat_final.json"
       export SCRATCHDIR
       build_heartbeat "$SITE_NAME" "swarm" "$KIT_ROOT" "$job_id" "$run_name" "finished" "$hb_file" >/dev/null
-      rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
+      sync_final_heartbeat "$hb_file" "$remote_dir"
       sync_daemon_log "$remote_dir"
 
       [ -f "$STARTUP_DIR/nohup.out" ] && \
@@ -400,7 +409,21 @@ final_sync() {
   fi
 }
 
-trap final_sync EXIT
+FINAL_SYNC_DONE=0
+
+final_sync_once() {
+  [ "$FINAL_SYNC_DONE" -eq 0 ] || return 0
+  FINAL_SYNC_DONE=1
+  final_sync
+}
+
+stop_live_sync() {
+  final_sync_once
+  exit 0
+}
+
+trap final_sync_once EXIT
+trap stop_live_sync INT TERM
 
 while true; do
   if [ "$MODE" = "local" ]; then

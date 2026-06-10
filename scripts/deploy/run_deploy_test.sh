@@ -161,6 +161,16 @@ site_var() {
     echo "${!full_var}"
 }
 
+site_var_default() {
+    local site=$1 var=$2 default_value="${3:-}"
+    local full_var="${site}_${var}"
+    if [[ -v "$full_var" ]]; then
+        echo "${!full_var}"
+    else
+        echo "$default_value"
+    fi
+}
+
 remote_exec() {
     local site=$1; shift
     local host user pass
@@ -213,9 +223,9 @@ resolve_server_startup_dir() {
 }
 
 # ── Fix DNS: ensure remote clients can reach the NVFlare server ──────────
-# The NVFlare server name (dl3.tud.de) must resolve to Cosmos's Tailscale IP
-# on all remote machines.  Some machines have stale /etc/hosts entries pointing
-# to a LAN IP (192.168.33.195) that isn't reachable via Tailscale.
+# The NVFlare server name (dl3.tud.de) must resolve to the IP reachable from
+# each remote machine.  By default this is Cosmos's Tailscale IP; per-site
+# SERVER_IP_OVERRIDE values in the deploy config can choose a LAN/VPN route.
 fix_remote_dns() {
     local server_fqdn="${SERVER_NAME:-dl3.tud.de}"
     local cosmos_ip
@@ -224,19 +234,26 @@ fix_remote_dns() {
         return 1
     }
 
-    step "Ensuring $server_fqdn resolves to $cosmos_ip on all remote machines"
+    step "Ensuring $server_fqdn resolves correctly on all remote machines"
 
     local -A visited_hosts=()
     for site in "${CLIENT_SITES[@]}"; do
-        local host
+        local host target_ip
         host=$(site_var "$site" HOST)
-        [[ -n "${visited_hosts[$host]:-}" ]] && continue
-        visited_hosts[$host]=1
+        target_ip=$(site_var_default "$site" SERVER_IP_OVERRIDE "$cosmos_ip")
+        if [[ -n "${visited_hosts[$host]:-}" ]]; then
+            if [[ "${visited_hosts[$host]}" != "$target_ip" ]]; then
+                err "Conflicting SERVER_IP_OVERRIDE values for host $host (${visited_hosts[$host]} vs $target_ip)"
+                return 1
+            fi
+            continue
+        fi
+        visited_hosts[$host]="$target_ip"
 
         # Skip if this machine IS Cosmos
         [[ "$host" == "localhost" || "$host" == "127.0.0.1" || "$host" == "$cosmos_ip" ]] && continue
 
-        info "Checking /etc/hosts on $host for $server_fqdn ..."
+        info "Checking /etc/hosts on $host for $server_fqdn → $target_ip ..."
 
         # Read the current mapping (if any)
         local current_ip
@@ -244,21 +261,21 @@ fix_remote_dns() {
             "grep -E '\\b${server_fqdn}\\b' /etc/hosts 2>/dev/null | awk '{print \$1}' | head -1" \
             2>/dev/null || true)
 
-        if [[ "$current_ip" == "$cosmos_ip" ]]; then
-            ok "  $host already maps $server_fqdn → $cosmos_ip"
+        if [[ "$current_ip" == "$target_ip" ]]; then
+            ok "  $host already maps $server_fqdn → $target_ip"
             continue
         fi
 
         if [[ -n "$current_ip" ]]; then
-            info "  $host maps $server_fqdn → $current_ip (wrong, updating to $cosmos_ip)"
+            info "  $host maps $server_fqdn → $current_ip (wrong, updating to $target_ip)"
             # Replace the existing entry
             remote_exec "$site" \
-                "echo '$(site_var "$site" PASS)' | sudo -S sed -i 's|^.*\\b${server_fqdn}\\b.*\$|${cosmos_ip} ${server_fqdn}|' /etc/hosts" \
+                "echo '$(site_var "$site" PASS)' | sudo -S sed -i 's|^.*\\b${server_fqdn}\\b.*\$|${target_ip} ${server_fqdn}|' /etc/hosts" \
                 2>/dev/null
         else
             info "  $host has no entry for $server_fqdn (adding)"
             remote_exec "$site" \
-                "echo '$(site_var "$site" PASS)' | sudo -S bash -c 'echo \"${cosmos_ip} ${server_fqdn}\" >> /etc/hosts'" \
+                "echo '$(site_var "$site" PASS)' | sudo -S bash -c 'echo \"${target_ip} ${server_fqdn}\" >> /etc/hosts'" \
                 2>/dev/null
         fi
 
@@ -267,8 +284,8 @@ fix_remote_dns() {
         verify_ip=$(remote_exec "$site" \
             "grep -E '\\b${server_fqdn}\\b' /etc/hosts | awk '{print \$1}' | head -1" \
             2>/dev/null || true)
-        if [[ "$verify_ip" == "$cosmos_ip" ]]; then
-            ok "  $host now maps $server_fqdn → $cosmos_ip"
+        if [[ "$verify_ip" == "$target_ip" ]]; then
+            ok "  $host now maps $server_fqdn → $target_ip"
         else
             err "  Failed to update /etc/hosts on $host (got: $verify_ip)"
             return 1
@@ -364,6 +381,37 @@ pre_pull_images() {
     ok "Docker image available on all remote machines"
 }
 
+cleanup_remote_live_sync() {
+    local site=$1
+    local site_name deploy_dir
+    site_name=$(site_var "$site" SITE_NAME)
+    deploy_dir=$(site_var "$site" DEPLOY_DIR)
+
+    info "Cleaning stale live-sync daemons for $site_name"
+    remote_exec "$site" "
+        set +e
+        startup_dir='$deploy_dir/$site_name/startup'
+        state_dir=\"\$startup_dir/.mediswarm_sync\"
+        if [ -d \"\$state_dir\" ]; then
+          for pid_file in \"\$state_dir\"/*_sync.pid \"\$state_dir\"/*_monitor.pid; do
+            [ -f \"\$pid_file\" ] || continue
+            old_pid=\$(cat \"\$pid_file\" 2>/dev/null || true)
+            if [ -n \"\$old_pid\" ] && kill -0 \"\$old_pid\" 2>/dev/null; then
+              kill \"\$old_pid\" 2>/dev/null || true
+            fi
+            rm -f \"\$pid_file\"
+          done
+        fi
+        ps -eo pid=,args= \
+          | grep -F 'live_sync.sh' \
+          | grep -F -- '--mode swarm' \
+          | grep -F -- '--site-name $site_name' \
+          | grep -v grep \
+          | awk '{print \$1}' \
+          | xargs -r kill 2>/dev/null || true
+    " 2>/dev/null || warn "  Could not clean live sync for $site_name"
+}
+
 # ── Deploy startup kits ───────────────────────────────────────────────────
 deploy_kits() {
     local prod_dir
@@ -389,6 +437,15 @@ deploy_kits() {
         remote_exec "$site" "mkdir -p '$deploy_dir'"
         remote_copy "$site" "$zip_file" "$deploy_dir/"
         remote_exec "$site" "cd '$deploy_dir' && rm -rf '${site_name}' && unzip -qo '$(basename "$zip_file")'"
+        local sync_remote_host
+        sync_remote_host=$(site_var_default "$site" SERVER_IP_OVERRIDE "$(tailscale ip -4 2>/dev/null || echo 100.100.101.100)")
+        remote_exec "$site" "
+            sync_conf='$deploy_dir/$site_name/startup/sync.conf'
+            if [ -f \"\$sync_conf\" ]; then
+                sed -i 's|^REMOTE_HOST=.*|REMOTE_HOST=\"$sync_remote_host\"|' \"\$sync_conf\"
+            fi
+        "
+        info "  Live sync target for $site_name: $sync_remote_host"
         ok "  Deployed $site_name to $host:$deploy_dir/"
     done
 
@@ -466,21 +523,50 @@ start_clients() {
     fi
 
     for site in "${CLIENT_SITES[@]}"; do
-        local site_name host deploy_dir datadir scratchdir gpu
+        local site_name host deploy_dir datadir scratchdir gpu cache_enabled cache_dir cache_host_dir cache_exports
         site_name=$(site_var "$site" SITE_NAME)
         host=$(site_var "$site" HOST)
         deploy_dir=$(site_var "$site" DEPLOY_DIR)
         datadir=$(site_var "$site" DATADIR)
         scratchdir=$(site_var "$site" SCRATCHDIR)
         gpu=$(site_var "$site" GPU)
+        cache_enabled=$(site_var_default "$site" PREPROCESS_CACHE "1")
+        cache_dir=$(site_var_default "$site" PREPROCESS_CACHE_DIR "/scratch/odelia_preprocess_cache")
+        cache_host_dir=""
+        if [[ "$cache_dir" == "$scratchdir" ]]; then
+            cache_dir="/scratch"
+            cache_host_dir="$scratchdir"
+        elif [[ "$cache_dir" == "$scratchdir/"* ]]; then
+            cache_host_dir="$cache_dir"
+            cache_dir="/scratch/${cache_dir#"$scratchdir"/}"
+        elif [[ "$cache_dir" == /scratch || "$cache_dir" == /scratch/* ]]; then
+            cache_host_dir="$scratchdir${cache_dir#/scratch}"
+        fi
 
         info "Starting client: $site_name @ $host"
+        cleanup_remote_live_sync "$site"
+
+        cache_exports=""
+        case "${cache_enabled,,}" in
+            0|false|no|off|disabled)
+                info "  Preprocess cache disabled for $site_name"
+                ;;
+            *)
+                info "  Preprocess cache enabled for $site_name at $cache_dir"
+                if [[ -n "$cache_host_dir" ]]; then
+                    remote_exec "$site" "mkdir -p '$cache_host_dir'" \
+                        || warn "  Could not pre-create preprocess cache dir: $cache_host_dir"
+                fi
+                cache_exports="export ODELIA_ENABLE_PREPROCESS_CACHE=1; export ODELIA_PREPROCESS_CACHE_DIR='$cache_dir';"
+                ;;
+        esac
 
         remote_exec "$site" \
             "cd '$deploy_dir/$site_name/startup' && \
              export SITE_NAME='$site_name' && \
              export DATADIR='$datadir' && \
              export SCRATCHDIR='$scratchdir' && \
+             $cache_exports \
              ./docker.sh --no_pull --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
 
         ok "  Client started: $site_name"

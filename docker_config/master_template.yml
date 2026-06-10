@@ -781,8 +781,8 @@ docker_cln_sh: |
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
   if [ -n "$MY_SCRATCH_DIR" ]; then
-      mkdir -p "$MY_SCRATCH_DIR"
-      chmod -R 777 "$MY_SCRATCH_DIR"
+      mkdir -p "$MY_SCRATCH_DIR" "$MY_SCRATCH_DIR/tmp" "$MY_SCRATCH_DIR/.mpl"
+      chmod 777 "$MY_SCRATCH_DIR" "$MY_SCRATCH_DIR/tmp" "$MY_SCRATCH_DIR/.mpl" 2>/dev/null || true
   fi
 
   # Networking & Cleanup
@@ -815,6 +815,8 @@ docker_cln_sh: |
   ENV_VARS="--env SITE_NAME={~~client_name~~} \
             --env DATA_DIR=/data \
             --env SCRATCH_DIR=/scratch \
+            --env TMPDIR=/scratch/tmp \
+            --env MPLCONFIGDIR=/scratch/.mpl \
             --env TORCH_HOME=/torch_home \
             --env GPU_DEVICE=$GPU2USE \
             --env MODEL_NAME=${CLI_MODEL_NAME:-${MODEL_NAME:-MST}} \
@@ -866,10 +868,33 @@ docker_cln_sh: |
   SYNC_STATE_DIR="$DIR/.mediswarm_sync"
   SITE_NAME_RESOLVED="{~~client_name~~}"
 
+  _cleanup_stale_live_sync() {
+    if [ -d "$SYNC_STATE_DIR" ]; then
+      for pid_file in "$SYNC_STATE_DIR"/*_sync.pid "$SYNC_STATE_DIR"/*_monitor.pid; do
+        [ -f "$pid_file" ] || continue
+        local old_pid
+        old_pid="$(cat "$pid_file" 2>/dev/null || true)"
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+          kill "$old_pid" || true
+          wait "$old_pid" 2>/dev/null || true
+        fi
+        rm -f "$pid_file"
+      done
+    fi
+
+    # Defensive cleanup for daemons from older kits that may not have a pid file.
+    ps -eo pid=,args= | grep -F "$DIR/live_sync.sh" | grep -v grep | awk '{print $1}' | while read -r old_pid; do
+      [ -n "$old_pid" ] || continue
+      [ "$old_pid" = "$$" ] && continue
+      kill "$old_pid" 2>/dev/null || true
+    done
+  }
+
   _start_live_sync() {
     local mode="$1"
     if [ ! -f "$DIR/live_sync.sh" ]; then return; fi
     mkdir -p "$SYNC_STATE_DIR"
+    _cleanup_stale_live_sync
 
     if [ "$mode" = "local" ]; then
       "$DIR/live_sync.sh" \
@@ -902,10 +927,44 @@ docker_cln_sh: |
   }
 
   _stop_live_sync() {
+    local mode="${1:-local}"
+    if [ "$mode" = "swarm" ]; then
+      local pid_file="$SYNC_STATE_DIR/swarm_sync.pid"
+      if [ -f "$pid_file" ]; then
+        local old_pid
+        old_pid="$(cat "$pid_file" 2>/dev/null || true)"
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+          kill "$old_pid" || true
+          wait "$old_pid" 2>/dev/null || true
+        fi
+        rm -f "$pid_file"
+      fi
+      return
+    fi
+
     if [ -n "${LIVE_SYNC_PID:-}" ] && kill -0 "$LIVE_SYNC_PID" 2>/dev/null; then
       kill "$LIVE_SYNC_PID" || true
       wait "$LIVE_SYNC_PID" || true
     fi
+  }
+
+  _monitor_swarm_client_exit() {
+    (
+      local missing_seconds=0
+      while true; do
+        if docker ps --filter "name=^/${CONTAINER_NAME}$" --format '{{.Names}}' | grep -Fx "$CONTAINER_NAME" >/dev/null 2>&1; then
+          missing_seconds=0
+        else
+          missing_seconds=$((missing_seconds + 30))
+          if [ "$missing_seconds" -ge 180 ]; then
+            break
+          fi
+        fi
+        sleep 30
+      done
+      _stop_live_sync swarm
+    ) > /dev/null 2>&1 < /dev/null &
+    echo $! > "$SYNC_STATE_DIR/swarm_client_monitor.pid"
   }
 
   # Execution modes
@@ -939,6 +998,7 @@ docker_cln_sh: |
       --health-interval=120s --health-start-period=180s --health-retries=3 \
       $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
+      _monitor_swarm_client_exit
 
   elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
