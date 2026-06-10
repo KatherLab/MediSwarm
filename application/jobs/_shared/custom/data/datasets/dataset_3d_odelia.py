@@ -332,6 +332,13 @@ class ODELIA_Dataset3D(data.Dataset):
             loader=self.load_img,
         )
 
+    @staticmethod
+    def _attach_source_path(image: tio.ScalarImage, path_img: Path) -> tio.ScalarImage:
+        # TorchIO keeps `.path` for file-backed images, but tensor-backed cached
+        # images need it restored so local diagnostics can point to the source.
+        image.path = str(path_img)
+        return image
+
     def __getitem__(self, index):
         idx = self.item_pointers[index]
         item = self.df.loc[idx]
@@ -340,7 +347,10 @@ class ODELIA_Dataset3D(data.Dataset):
 
         target = np.stack(item[self.labels].values)
         path_img = self.get_image_path(uid, institution)
-        img = self._load_source_image(path_img, institution, uid)
+        img = self._attach_source_path(
+            self._load_source_image(path_img, institution, uid),
+            path_img,
+        )
         img = self.transform(img)
 
         return {'uid': uid, 'source': img, 'target': target}

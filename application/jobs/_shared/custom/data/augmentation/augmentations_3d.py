@@ -1,3 +1,7 @@
+import json
+import os
+import time
+from pathlib import Path
 from typing import Union, Optional, Sequence
 
 import torchio as tio
@@ -17,6 +21,9 @@ import random
 
 import torch
 import torch.nn.functional as F
+
+
+_TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
 
 
 class Random3DAugmentation:
@@ -166,6 +173,79 @@ class ZNormalization(tio.ZNormalization):
         self.per_channel = per_channel
         self.per_slice = per_slice
 
+    @staticmethod
+    def _zero_std_guard_log_path() -> Path:
+        scratch_dir = os.getenv("SCRATCH_DIR") or os.getenv("SCRATCHDIR") or "/scratch"
+        return Path(scratch_dir) / "odelia_zero_std_guard.jsonl"
+
+    @staticmethod
+    def _stringify_image_path(image_path) -> str:
+        if image_path is None:
+            return ""
+        if isinstance(image_path, (list, tuple)):
+            return ";".join(str(path) for path in image_path)
+        return str(image_path)
+
+    @staticmethod
+    def _maybe_float(value):
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _json_safe_percentiles(percentiles):
+        try:
+            return torch.as_tensor(percentiles).detach().cpu().tolist()
+        except (TypeError, ValueError):
+            return str(percentiles)
+
+    def _write_zero_std_guard_event(
+        self,
+        *,
+        reason: str,
+        image_name: str,
+        image_path,
+        masked_voxels: int,
+        pre_clamp_std: float | None,
+        post_clamp_std: float | None = None,
+    ) -> None:
+        log_path = self._zero_std_guard_log_path()
+        record = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "pid": os.getpid(),
+            "reason": reason,
+            "image_name": str(image_name),
+            "image_path": self._stringify_image_path(image_path),
+            "masked_voxels": int(masked_voxels),
+            "pre_clamp_std": self._maybe_float(pre_clamp_std),
+            "post_clamp_std": self._maybe_float(post_clamp_std),
+            "percentiles": self._json_safe_percentiles(self.percentiles),
+        }
+
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, sort_keys=True) + "\n")
+        except OSError as exc:
+            print(
+                f"[ODELIA_ZERO_STD_GUARD_LOG_FAILED] reason={reason} "
+                f"image_name={image_name} error={type(exc).__name__}: {exc}",
+                flush=True,
+            )
+            return
+
+        detail = ""
+        if os.getenv("ODELIA_ZERO_STD_GUARD_LOG_DETAILS", "").lower() in _TRUTHY_ENV_VALUES:
+            detail = f" image_path={record['image_path']}"
+        print(
+            f"[ODELIA_ZERO_STD_GUARD] reason={reason} image_name={image_name} "
+            f"masked_voxels={masked_voxels} details_file={log_path}{detail}",
+            flush=True,
+        )
+
     def apply_normalization(self, subject: Subject, image_name: str, mask: torch.Tensor) -> None:
         image = subject[image_name]
         per_channel = parse_per_channel(self.per_channel, image.shape[0])
@@ -180,13 +260,32 @@ class ZNormalization(tio.ZNormalization):
         )
 
     def _znorm(self, image_data, mask, image_name, image_path):
-        cutoff = torch.quantile(image_data.masked_select(mask).float(), torch.tensor(self.percentiles) / 100.0)
+        masked = image_data.masked_select(mask).float()
+        masked_voxels = masked.numel()
+        pre_clamp_std = masked.std(unbiased=False).item() if masked_voxels else None
+
+        def _zeros(reason: str, post_clamp_std: float | None = None):
+            self._write_zero_std_guard_event(
+                reason=reason,
+                image_name=image_name,
+                image_path=image_path,
+                masked_voxels=masked_voxels,
+                pre_clamp_std=pre_clamp_std,
+                post_clamp_std=post_clamp_std,
+            )
+            return torch.zeros_like(image_data)
+
+        if masked_voxels < 2:
+            return _zeros("empty_or_too_small_mask")
+
+        percentiles = torch.tensor(self.percentiles, device=masked.device, dtype=masked.dtype) / 100.0
+        cutoff = torch.quantile(masked, percentiles)
         torch.clamp(image_data, *cutoff.to(image_data.dtype).tolist(), out=image_data)
         standardized = self.znorm(image_data, mask)
         if standardized is None:
-            raise RuntimeError(
-                f'Standard deviation is 0 for masked values in image "{image_name}" ({image_path})'
-            )
+            post_clamp_values = image_data.masked_select(mask).float()
+            post_clamp_std = post_clamp_values.std(unbiased=False).item() if post_clamp_values.numel() else None
+            return _zeros("zero_std_after_masking_or_clipping", post_clamp_std=post_clamp_std)
         return standardized
 
 
