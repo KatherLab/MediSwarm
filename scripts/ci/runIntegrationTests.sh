@@ -393,10 +393,10 @@ run_data_access_preflight_check () {
     fi
 
     if grep -q  "ID_0" "$CONSOLE_OUTPUT" ; then
-        echo "❌ Unexpected output of data access preflight check without logging dataset details found"
+        echo "❌ Unexpected output (UIDs) of data access preflight check without logging dataset details found"
         exit 1
     else
-        echo "✅ No unexpected output of data access preflight check with unproblematic dataset found"
+        echo "✅ No unexpected output of data access preflight check without logging dataset details found"
     fi
 
     if grep -q  "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                "$CONSOLE_OUTPUT" && \
@@ -416,6 +416,8 @@ run_data_access_preflight_check () {
     then
         echo "❌ Unexpected output of data access preflight check with unproblematic dataset found"
         exit 1
+    else
+        echo "✅ No unexpected output of data access preflight check with unproblematic dataset found"
     fi
     cd "$CWD"
 }
