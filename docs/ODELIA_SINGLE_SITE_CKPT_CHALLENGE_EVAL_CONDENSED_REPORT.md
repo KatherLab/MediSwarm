@@ -24,12 +24,17 @@ Internal validation cohorts used for checkpoint selection:
 | --- | --- | --- | --- |
 | USZ | MST | MST_unilateral_2026_04_28_083041 | n=814; 0=450, 1=276, 2=88 |
 | USZ | 1DC | 1DivideAndConquer_unilateral_2026_05_12_124440 | n=814; 0=450, 1=276, 2=88 |
+| UMCU | MST | MST_unilateral_2026_06_01_205145 | n=1557; 0=1361, 1=186, 2=10 |
 | UKA | 1DC | 1DivideAndConquer_unilateral_2026_05_04_082228 | n=4470; 0=1192, 1=2970, 2=308 |
 | CAM | 1DC | 1DivideAndConquer_unilateral_2026_04_28_161733 | n=142; 0=120, 1=11, 2=11 |
 | MHA | 1DC | 1DivideAndConquer_unilateral_2026_04_22_154631 | n=204; 0=167, 1=22, 2=15 |
+| RSH | 1DC | 1DivideAndConquer_unilateral_2026_05_28_090751 | n=87; 0=3, 1=32, 2=52 |
 | RSH | 5Pimed | challenge_5pimed_unilateral_2026_04_03_182744 | n=87; 0=3, 1=32, 2=52 |
 | RUMC | MST | MST_unilateral_2026_04_13_162111 | n=200; 0=199, 1=0, 2=1 |
 | RUMC | MST | MST_unilateral_2026_02_18_120355 | n=200; 0=199, 1=0, 2=1 |
+
+## Local Training Coverage
+Completed/available local-training artifacts cover **7 source sites** (CAM, MHA, RSH, RUMC, UKA, UMCU, USZ), **10 run artifacts**, and **1DC=5, 5Pimed=1, MST=4**. The full report has the per-run completion table; the selected-checkpoint table below keeps one externally strongest checkpoint per source/model family.
 
 ## Selected Single-Site Checkpoints
 | Source | Model | Selected checkpoint | Internal val C2 AUROC | Internal val ACC | External C2 AUROC | External macro AUROC | External ACC | External C2 recall |
@@ -39,6 +44,8 @@ Internal validation cohorts used for checkpoint selection:
 | MHA | 1DC | MHA_1DC_epoch37_step3876 | 0.808 | 0.828 | 0.795 | 0.658 | 0.710 | 0.404 |
 | USZ | MST | USZ_MST_epoch33_best | 0.774 | 0.617 | 0.723 | 0.612 | 0.363 | 0.486 |
 | CAM | 1DC | CAM_1DC_epoch52_step6466 | 0.965 | 0.866 | 0.682 | 0.616 | 0.630 | 0.433 |
+| RSH | 1DC | RSH_1DC_epoch58_step2596 | 0.586 | 0.655 | 0.634 | 0.585 | 0.183 | 0.890 |
+| UMCU | MST | UMCU_MST_last | 0.823 | 0.871 | 0.624 | 0.589 | 0.643 | 0.000 |
 | RUMC | MST | RUMC_MST_20260218_last | 0.568 | 0.995 | 0.523 | 0.495 | 0.643 | 0.000 |
 | RSH | 5Pimed | RSH_5Pimed_last | 0.620 | 0.598 | 0.456 | 0.498 | 0.190 | 0.879 |
 
@@ -61,9 +68,11 @@ Selection rule: one checkpoint per `(training source, model family)`, choosing t
 | --- | --- | --- | --- | --- | --- | --- |
 | USZ | MST | MST_unilateral_2026_04_28_083041 | 100 | e33 / 0.617 | e35 / 0.786 | e99 / 0.557 / 0.711 |
 | USZ | 1DC | 1DivideAndConquer_unilateral_2026_05_12_124440 | 100 | e26 / 0.635 | e39 / 0.797 | e99 / 0.588 / 0.752 |
+| UMCU | MST | MST_unilateral_2026_06_01_205145 | 100 | e0 / 0.874 | e88 / 0.845 | e99 / 0.871 / 0.823 |
 | UKA | 1DC | 1DivideAndConquer_unilateral_2026_05_04_082228 | 100 | e25 / 0.702 | e21 / 0.931 | e99 / 0.650 / 0.861 |
 | CAM | 1DC | 1DivideAndConquer_unilateral_2026_04_28_161733 | 100 | e73 / 0.873 | e37 / 0.975 | e99 / 0.852 / 0.940 |
 | MHA | 1DC | 1DivideAndConquer_unilateral_2026_04_22_154631 | 100 | e77 / 0.833 | e30 / 0.830 | e99 / 0.819 / 0.667 |
+| RSH | 1DC | 1DivideAndConquer_unilateral_2026_05_28_090751 | 100 | e58 / 0.655 | e25 / 0.618 | e99 / 0.621 / 0.595 |
 | RSH | 5Pimed | challenge_5pimed_unilateral_2026_04_03_182744 | 25 | e13 / 0.609 | e12 / 0.683 | e24 / 0.598 / 0.620 |
 | RUMC | MST | MST_unilateral_2026_04_13_162111 | 1 | e0 / 0.995 | e0 / 0.558 | e0 / 0.995 / 0.558 |
 | RUMC | MST | MST_unilateral_2026_02_18_120355 | 100 | e0 / 0.995 | e5 / 0.910 | e99 / 0.995 / 0.568 |
@@ -77,6 +86,7 @@ The 2026-05-13 challenge swarm/local artifact report has complete final artifact
 
 ## Files
 - Full detailed report: [docs/ODELIA_SINGLE_SITE_CKPT_CHALLENGE_EVAL_REPORT.md](ODELIA_SINGLE_SITE_CKPT_CHALLENGE_EVAL_REPORT.md)
+- Google Sheets / Excel workbook: [docs/supplementary/ODELIA_single_site_checkpoint_results_20260608.xlsx](supplementary/ODELIA_single_site_checkpoint_results_20260608.xlsx)
 - External per-site metrics: `workspace/odelia_single_site_eval/tables/challenge_summary_metrics.csv`
 - External aggregate metrics: `workspace/odelia_single_site_eval/tables/challenge_aggregate_metrics.csv`
 - Class distributions: `workspace/odelia_single_site_eval/tables/internal_class_distribution.csv` and `workspace/odelia_single_site_eval/tables/external_challenge_class_distribution.csv`
