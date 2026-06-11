@@ -253,17 +253,21 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
 
-    if grep -q "\-\-dummy_training"  "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
-       grep -q "\-\-preflight_check" "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
-       grep -q "\-\-local_training"  "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
-       grep -q "\-\-start_client"    "$PROJECT_DIR/prod_01/client_A/startup/docker.sh" && \
-       grep -q "\-\-list_licenses"   "$PROJECT_DIR/prod_01/client_A/startup/docker.sh";
-    then
-        echo "✅ Expected options for docker.sh in client startup kit found"
-    else
-        echo "Missing options for docker.sh in client startup kit "
-        exit 1
-    fi
+    DOCKER_SCRIPT="$PROJECT_DIR/prod_01/client_A/startup/docker.sh"
+    for EXPECTED_OUTPUT in "\-\-dummy_training"  \
+                           "\-\-preflight_check" \
+                           "\-\-local_training"  \
+                           "\-\-start_client"    \
+                           "\-\-list_licenses"   ;
+    do
+        if grep -q "$EXPECTED_OUTPUT" "$DOCKER_SCRIPT" ; then
+            echo "✅ Expected option $EXPECTED_OUTPUT for docker.sh in client startup kit found"
+        else
+            cat "$DOCKER_SCRIPT"
+            echo "❌ Expected option $EXPECTED_OUTPUT missing in docker.sh in client startup kit"
+            exit 1
+        fi
+    done
 
     ZIP_CONTENT=$(unzip -tv "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip")
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
@@ -366,20 +370,23 @@ run_data_access_preflight_check () {
     # also check that it finishes the single round within one minute
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    if grep -q  "Epoch 0: 100%"                                                                                     "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Run directory"                                                                  "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Run name"                                                                       "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in training set:"                                                 "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in validation set:"                                               "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in test set:"                                                     "$CONSOLE_OUTPUT" && \
-       grep -qx "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)"                                          "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in test set:"                                                     "$CONSOLE_OUTPUT" ;
-    then
-        echo "✅ Expected output (including expected warnings and errors) of data access preflight check with unproblematic dataset found"
-    else
-        echo "❌ Missing expected output of data access preflight check with unproblematic dataset"
-        exit 1
-    fi
+    for EXPECTED_OUTPUT in "Epoch 0: 100%"                                            \
+                           "INFO:threedcnn_ptl:Run directory"                         \
+                           "INFO:threedcnn_ptl:Run name"                              \
+                           "INFO:threedcnn_ptl:Total samples in training set:"        \
+                           "INFO:threedcnn_ptl:Total samples in validation set:"      \
+                           "INFO:threedcnn_ptl:Total samples in test set:"            \
+                           "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)" \
+                           "INFO:threedcnn_ptl:Total samples in test set:"            ;
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT of data access preflight check with unproblematic dataset found"
+        else
+            cat "$CONSOLE_OUTPUT"
+            echo "❌ Missing expected output $EXPECTED_OUTPUT of data access preflight check with unproblematic dataset"
+            exit 1
+        fi
+    done
 
     if grep -q  "ID_0" "$CONSOLE_OUTPUT" ; then
         echo "❌ Unexpected output (UIDs) of data access preflight check without logging dataset details found"
@@ -388,26 +395,29 @@ run_data_access_preflight_check () {
         echo "✅ No unexpected output of data access preflight check without logging dataset details found"
     fi
 
-    if grep -q  "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Duplicate image data detected. This should not happen."                                                  "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique"                                         "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended."                                "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended."                                "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended."                           "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended."                           "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only."                                "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only."                                      "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only."                                    "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen."            "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _right present and _left missing detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen."                        "$CONSOLE_OUTPUT" ;
-    then
-        echo "❌ Unexpected output of data access preflight check with unproblematic dataset found"
-        exit 1
-    else
-        echo "✅ No unexpected output of data access preflight check with unproblematic dataset found"
-    fi
+    for UNEXPECTED_OUTPUT in "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                \
+                             "ERROR:threedcnn_ptl:Duplicate image data detected. This should not happen."                                                  \
+                             "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique"                                         \
+                             "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended."                                \
+                             "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended."                                \
+                             "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended."                           \
+                             "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended."                           \
+                             "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only."                                \
+                             "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only."                                      \
+                             "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only."                                    \
+                             "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen."            \
+                             "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." \
+                             "WARNING:threedcnn_ptl:UIDs with among training data _right present and _left missing detected, make sure this was intended." \
+                             "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen."                        ;
+    do
+        if grep -q "$UNEXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            cat "$CONSOLE_OUTPUT"
+            echo "❌ Unexpected output $UNEXPECTED_OUTPUT of data access preflight check with unproblematic dataset found"
+            exit 1
+        fi
+    done
+    echo "✅ No unexpected output of data access preflight check with unproblematic dataset found"
+
     cd "$CWD"
 }
 
@@ -421,27 +431,30 @@ run_data_access_preflight_check_with_problems () {
     # also check that it finishes the single round within one minute
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    if grep -q  "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Duplicate image UIDs detected. This should not happen." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Duplicate image data detected. This should not happen." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique" "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs with among training data _right present and _left missing detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen." "$CONSOLE_OUTPUT" ;
-    then
-        echo "✅ Expected output (including expected warnings and errors) of data access preflight check with problematic dataset found"
-    else
-        echo "❌ Missing expected output of data access preflight check with problematic dataset"
-        exit 1
-    fi
+    for EXPECTED_OUTPUT in "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                \
+                           "ERROR:threedcnn_ptl:Duplicate image UIDs detected. This should not happen."                                                  \
+                           "ERROR:threedcnn_ptl:Duplicate image data detected. This should not happen."                                                  \
+                           "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique"                                         \
+                           "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended."                                \
+                           "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended."                                \
+                           "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended."                           \
+                           "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended."                           \
+                           "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only."                                \
+                           "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only."                                      \
+                           "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only."                                    \
+                           "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen."            \
+                           "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." \
+                           "WARNING:threedcnn_ptl:UIDs with among training data _right present and _left missing detected, make sure this was intended." \
+                           "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen."                        ;
+    do
+        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT (including expected warnings and errors) of data access preflight check with problematic dataset found"
+        else
+            cat "$CONSOLE_OUTPUT"
+            echo "❌ Expected output $EXPECTED_OUTPUT missing in data access preflight check with problematic dataset"
+            exit 1
+        fi
+    done
 
     if grep -q  "ID_0" "$CONSOLE_OUTPUT" ; then
         echo "❌ Unexpected output of data access preflight check with problematic dataset without logging dataset details found"
@@ -463,29 +476,32 @@ run_data_access_preflight_check_with_problems_log_details () {
     # also check that it finishes the single round within one minute
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT
 
-    if grep -q  "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:"                                                       "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                                                     "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:"                                                           "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:"                                   "$CONSOLE_OUTPUT" && \
-       grep -qx "Image UID ID_016_left .* appears 3 times"                                                                                 "$CONSOLE_OUTPUT" && \
-       grep -qx "Image data with hash .* appears 6 times: ID_000_left, ID_016_left, ID_016_right, ID_998_right, ID_999_left, SomeUID_both" "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference split.images: ID_017_left, ID_017_right"                                                 "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right"                                                 "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_017_left, ID_017_right"                                            "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference images.annotation: ID_014_left, ID_014_right"                                            "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right"                                            "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right"                                                  "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right"                                                "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:For the following UIDs among training data, _left is present and _right is missing: ID_999"         "$CONSOLE_OUTPUT" &&
-       grep -q  "WARNING:threedcnn_ptl:For the following UIDs among training data, _right is present and _left is missing: ID_998"         "$CONSOLE_OUTPUT" &&
-       grep -q  "ERROR:threedcnn_ptl:The following UIDs among training data do not end in _left or _right: SomeUID_both"                   "$CONSOLE_OUTPUT" &&
-       grep -q  "ERROR:threedcnn_ptl:The following exams are present in training and validation: ID_016"                                   "$CONSOLE_OUTPUT" ;
-    then
-        echo "✅ Expected output (including expected warnings and errors) of data access preflight check with problematic dataset and logged details found"
-    else
-        echo "❌ Missing expected output of data access preflight check with problematic dataset and logged details"
-        exit 1
-    fi
+    for EXPECTED_OUTPUT in "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:"                                                       \
+                           "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                                                     \
+                           "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:"                                                           \
+                           "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:"                                   \
+                           "Image UID ID_016_left .* appears 3 times"                                                                                 \
+                           "Image data with hash .* appears 6 times: ID_000_left, ID_016_left, ID_016_right, ID_998_right, ID_999_left, SomeUID_both" \
+                           "WARNING:threedcnn_ptl:Difference split.images: ID_017_left, ID_017_right"                                                 \
+                           "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right"                                                 \
+                           "WARNING:threedcnn_ptl:Difference annotation.images: ID_017_left, ID_017_right"                                            \
+                           "WARNING:threedcnn_ptl:Difference images.annotation: ID_014_left, ID_014_right"                                            \
+                           "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right"                                            \
+                           "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right"                                                  \
+                           "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right"                                                \
+                           "WARNING:threedcnn_ptl:For the following UIDs among training data, _left is present and _right is missing: ID_999"         \
+                           "WARNING:threedcnn_ptl:For the following UIDs among training data, _right is present and _left is missing: ID_998"         \
+                           "ERROR:threedcnn_ptl:The following UIDs among training data do not end in _left or _right: SomeUID_both"                   \
+                           "ERROR:threedcnn_ptl:The following exams are present in training and validation: ID_016"                                   ;
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT (including expected warnings and errors) of data access preflight check with problematic dataset and logged details found"
+        else
+            cat "$CONSOLE_OUTPUT"
+            echo "❌ Expected output $EXPECTED_OUTPUT missing in data access preflight check with problematic dataset and logged details"
+            exit 1
+        fi
+    done
 
     cd "$CWD"
 }
