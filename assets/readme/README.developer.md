@@ -88,7 +88,7 @@ See [README.participant.md](./README.participant.md).
 | `DATA_DIR`           | *from flag*     | Path to the host folder that contains your local data                |
 | `SCRATCH_DIR`        | *from flag*     | Path for saving training outputs and temporary files                 |
 | `GPU_DEVICE`         | `device=0`      | GPU identifier to use inside the container (or `all`)                |
-| `MODEL_NAME`         | `MST`           | Model architecture (note: challenge jobs hardcode this in main.py)   |
+| `MODEL_NAME`         | auto / `MST`    | For `--preflight_check` and `--local_training`, `docker.sh` derives this from `--job` and defaults to `1DivideAndConquer`. `MST` is the fallback when no job-derived model is selected. |
 | `INSTITUTION`        | `ODELIA`        | Institution name, used to group experiment logs                      |
 | `CONFIG`             | `unilateral`    | Configuration schema for dataset (e.g. label scheme)                 |
 | `NUM_EPOCHS`         | `1` (test mode) | Number of training epochs (used in preflight/local training)         |
@@ -111,9 +111,12 @@ For `--preflight_check` and `--local_training` modes, the `--job` flag selects w
 
 # Specific challenge model
 ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --job challenge_5pimed
+
+# MST baseline
+./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --job ODELIA_ternary_classification
 ```
 
-**Note:** Each challenge job hardcodes its `MODEL_NAME` in `main.py` to avoid the Docker env var override (`MODEL_NAME=${MODEL_NAME:-MST}`). The `--job` flag changes which job's `main.py` is executed, not the `MODEL_NAME` env var.
+**Note:** Prefer `--job` over exporting `MODEL_NAME` for preflight/local training. The startup-kit `docker.sh` maps `challenge_1DivideAndConquer` to `MODEL_NAME=1DivideAndConquer` by default and maps `ODELIA_ternary_classification` to `MODEL_NAME=MST`.
 
 ## Running the Application
 
@@ -134,7 +137,7 @@ For `--preflight_check` and `--local_training` modes, the `--job` flag selects w
 | `challenge_4abmil` | CrossModalAttentionABMIL + Swin | `application/jobs/challenge_4abmil` |
 | `challenge_5pimed` | ResNet18 | `application/jobs/challenge_5pimed` |
 
-Each challenge job has its own `config_fed_client.conf`, model code, and `main.py` with a hardcoded `MODEL_NAME`.
+Each challenge job has its own `config_fed_client.conf`; the startup-kit `docker.sh` selects the matching model via `--job`/`MODEL_NAME`.
 
 ## Contributing Application Code
 
