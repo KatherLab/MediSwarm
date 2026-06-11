@@ -12,6 +12,19 @@ If you have a clone without having initialized the submodule, use the following 
  git submodule update --init --recursive
  ```
 
+## Environment Variables
+
+Consider setting the following in your `.bashrc`:
+
+```bash
+export TMPDIR=<suitable location>
+export MEDISWARM_BUILD_CACHE_DIR=<suitable location>
+```
+
+Building the MediSwarm Docker image
+* creates a temporary directory with a clean clone of the source code in `/tmp` (that is only cleaned up after a successful build). A different location can be configured via `TMPDIR`.
+* caches downloaded pre-trained model weights (on the order of 1 GB) if MEDISWARM_BUILD_CACHE_DIR is set, otherwise they are downloaded for each build.
+
 ## Versioning of ODELIA Docker Images
 
 If needed, update the version number in file [odelia_image.version](../../odelia_image.version). It will be used
