@@ -697,7 +697,8 @@ run_dummy_training_in_swarm () {
 
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
-    CONSOLE_OUTPUT=nohup.out
+    CONSOLE_OUTPUT=combined_nohup.out
+    cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 9: 100%' \
                            'val/AUC_ROC' \
