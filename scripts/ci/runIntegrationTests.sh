@@ -425,9 +425,9 @@ run_data_access_preflight_check_with_problems () {
        grep -q  "ERROR:threedcnn_ptl:Duplicate image UIDs detected. This should not happen." "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Duplicate image data detected. This should not happen." "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique" "$CONSOLE_OUTPUT" && \
-       # grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       # grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
        grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
        grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only." "$CONSOLE_OUTPUT" && \
