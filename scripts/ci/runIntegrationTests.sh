@@ -992,11 +992,11 @@ case "$1" in
         create_synthetic_data
         run_data_access_preflight_check
         # wait for container to be cleaned up
-        sleep 2
+        sleep 4
         run_data_access_preflight_check_with_problems
-        sleep 2
+        sleep 4
         run_data_access_preflight_check_with_problems_log_details
-        sleep 2
+        sleep 4
         cleanup_synthetic_data
         run_data_access_preflight_check_without_data
         cleanup_temporary_data
