@@ -7,8 +7,8 @@ participants:
   - name: dl3.tud.de
     type: server
     org: TUD
-    fed_learn_port: 8092
-    admin_port: 8093
+    fed_learn_port: 8002
+    admin_port: 8003
   - name: TUD_1
     type: client
     org: TUD
@@ -92,7 +92,7 @@ builders:
         # 
         overseer_exists: false
         args:
-          sp_end_point: dl3.tud.de:8092:8093
+          sp_end_point: dl3.tud.de:8002:8003
 
   - path: nvflare.lighter.impl.cert.CertBuilder
   - path: nvflare.lighter.impl.signature.SignatureBuilder
