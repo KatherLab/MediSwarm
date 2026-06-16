@@ -186,7 +186,7 @@ RUN apt install -y \
     libcap2=1:2.44-1ubuntu0.22.04.3 \
     libcom-err2=1.46.5-2ubuntu1.2 \
     libext2fs2=1.46.5-2ubuntu1.2 \
-    libgnutls30=3.7.3-4ubuntu1.8 \
+    libgnutls30=3.7.3-4ubuntu1.9 \
     libgssapi-krb5-2=1.19.2-2ubuntu0.7 \
     libk5crypto3=1.19.2-2ubuntu0.7 \
     libkrb5-3=1.19.2-2ubuntu0.7 \
@@ -199,15 +199,15 @@ RUN apt install -y \
     libseccomp2=2.5.3-2ubuntu3~22.04.1 \
     libsmartcols1=2.37.2-4ubuntu3.5 \
     libss2=1.46.5-2ubuntu1.2 \
-    libssl3=3.0.2-0ubuntu1.23 \
-    libsystemd0=249.11-0ubuntu3.20 \
+    libssl3=3.0.2-0ubuntu1.25 \
+    libsystemd0=249.11-0ubuntu3.21 \
     libtasn1-6=4.18.0-4ubuntu0.2 \
-    libudev1=249.11-0ubuntu3.20 \
+    libudev1=249.11-0ubuntu3.21 \
     libuuid1=2.37.2-4ubuntu3.5 \
-    linux-libc-dev=5.15.0-177.187 \
+    linux-libc-dev=5.15.0-181.191 \
     logsave=1.46.5-2ubuntu1.2 \
     mount=2.37.2-4ubuntu3.5 \
-    openssl=3.0.2-0ubuntu1.23 \
+    openssl=3.0.2-0ubuntu1.25 \
     util-linux=2.37.2-4ubuntu3.5
 
 # Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
