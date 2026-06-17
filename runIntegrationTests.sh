@@ -310,6 +310,7 @@ run_data_access_preflight_check () {
         echo "✅ Output of data access preflight check contains no unexpected UIDs."
     fi
 
+    sleep 5  # wait for container cleanup that might interfere with subsequent tests
     cd "$CWD"
 }
 
@@ -342,6 +343,7 @@ run_data_access_preflight_check_log_details () {
         exit 1
     fi
 
+    sleep 5
     cd "$CWD"
 }
 
@@ -362,6 +364,7 @@ run_data_access_preflight_check_without_data () {
         exit 1
     fi
 
+    sleep 5
     cd "$CWD"
 }
 
