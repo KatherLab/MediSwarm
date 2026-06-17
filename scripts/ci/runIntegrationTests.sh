@@ -418,6 +418,8 @@ run_data_access_preflight_check () {
     done
     echo "✅ No unexpected output of data access preflight check with unproblematic dataset found"
 
+    # wait for container to be cleaned up
+    sleep 5
     cd "$CWD"
 }
 
@@ -463,6 +465,8 @@ run_data_access_preflight_check_with_problems () {
         echo "✅ Output of data access preflight check with problematic dataset contains no unexpected UIDs."
     fi
 
+    # wait for container to be cleaned up
+    sleep 5
     cd "$CWD"
 }
 
@@ -503,6 +507,8 @@ run_data_access_preflight_check_with_problems_log_details () {
         fi
     done
 
+    # wait for container to be cleaned up
+    sleep 5
     cd "$CWD"
 }
 
@@ -991,12 +997,8 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_data_access_preflight_check
-        # wait for container to be cleaned up
-        sleep 4
         run_data_access_preflight_check_with_problems
-        sleep 4
         run_data_access_preflight_check_with_problems_log_details
-        sleep 4
         cleanup_synthetic_data
         run_data_access_preflight_check_without_data
         cleanup_temporary_data
