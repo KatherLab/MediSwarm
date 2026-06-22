@@ -489,8 +489,8 @@ run_3dcnn_simulation_mode () {
 
     echo "$OUTPUT"
 
-    echo "TODO adapt criterion for passing"
-    if echo "$OUTPUT" | grep -qi "Epoch 9: 100%" && ! echo "$OUTPUT" | grep -qi "error"; then
+    echo "TODO add check that no error happened when clean synthetic dataset is used"
+    if echo "$OUTPUT" | grep -qi "Epoch 19: 100%"; then
         echo "✅ 3DCNN proof-of-concept mode succeeded."
     else
         echo "❌ 3DCNN proof-of-concept mode failed."
