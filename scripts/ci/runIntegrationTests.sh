@@ -458,7 +458,16 @@ run_data_access_preflight_check_without_data () {
 run_3dcnn_simulation_mode () {
     # requires having built a startup kit and synthetic dataset
     echo "[Run] Simulation mode of 3DCNN training in Docker"
-    _run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh
+
+    CONSOLE_OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh 2>&1)
+
+    if echo "$CONSOLE_OUTPUT" | grep -qie "error" ; then
+        echo "$CONSOLE_OUTPUT"
+        echo "❌ 3DCNN simulation mode failed."
+        exit 1
+    else
+        echo "✅ 3DCNN simulation mode succeeded."
+    fi
 }
 
 
