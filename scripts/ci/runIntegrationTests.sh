@@ -139,18 +139,24 @@ create_synthetic_stamp_data () {
 run_stamp_preflight_check () {
     echo "[Run] STAMP preflight check"
     _run_stamp_test_in_docker tests/integration_tests/stamp/_run_stamp_preflight_check.sh
+
+    echo "TODO check whether test has succeeded"
 }
 
 
 run_stamp_local_training () {
     echo "[Run] STAMP local training"
     _run_stamp_test_in_docker tests/integration_tests/stamp/_run_stamp_local_training.sh
+
+    echo "TODO check whether test has succeeded"
 }
 
 
 run_stamp_simulation_mode () {
     echo "[Run] STAMP simulation mode"
     _run_stamp_test_in_docker tests/integration_tests/stamp/_run_stamp_simulation_mode.sh
+
+    echo "TODO check whether test has succeeded"
 }
 
 
@@ -198,13 +204,33 @@ run_dummy_training_standalone(){
 }
 
 run_dummy_training_simulation_mode(){
-    echo "[Run] Minimal example, simulation mode"
-    _run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh
+    echo "[Run] Minimal example, simulation mode (capturing output)"
+
+    CONSOLE_OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
+
+    echo "$CONSOLE_OUTPUT"
+
+    if echo "$CONSOLE_OUTPUT" | grep -qi "Epoch 9: 100%" && ! echo "$CONSOLE_OUTPUT" | grep -qi "error"; then
+        echo "✅ Minimal example simulation mode succeeded."
+    else
+        echo "❌ Minimal example simulation mode failed."
+        exit 1
+    fi
 }
 
 run_dummy_training_poc_mode(){
-    echo "[Run] Minimal example, proof-of-concept mode"
-    _run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh
+    echo "[Run] Minimal example, proof-of-concept mode (capturing output)"
+
+    CONSOLE_OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1)
+
+    echo "$CONSOLE_OUTPUT"
+
+    if echo "$CONSOLE_OUTPUT" | grep -qi "Epoch 9: 100%" && ! echo "$CONSOLE_OUTPUT" | grep -qi "error"; then
+        echo "✅ Minimal example proof-of-concept mode succeeded."
+    else
+        echo "❌ Minimal example proof-of-concept mode failed."
+        exit 1
+    fi
 }
 
 run_nvflare_unit_tests(){
@@ -461,12 +487,14 @@ run_3dcnn_simulation_mode () {
 
     CONSOLE_OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh 2>&1)
 
-    if echo "$CONSOLE_OUTPUT" | grep -qie "error" ; then
-        echo "$CONSOLE_OUTPUT"
-        echo "❌ 3DCNN simulation mode failed."
-        exit 1
+    echo "$CONSOLE_OUTPUT"
+
+    echo "TODO adapt criterion for passing"
+    if echo "$CONSOLE_OUTPUT" | grep -qi "Epoch 9: 100%" && ! echo "$CONSOLE_OUTPUT" | grep -qi "error"; then
+        echo "✅ 3DCNN proof-of-concept mode succeeded."
     else
-        echo "✅ 3DCNN simulation mode succeeded."
+        echo "❌ 3DCNN proof-of-concept mode failed."
+        exit 1
     fi
 }
 
