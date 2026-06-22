@@ -35,7 +35,7 @@ check_files_on_github () {
     MAIN_README=$(cat "$CWD/README.md")
     for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
     do
-        if echo "$MAIN_README" | grep -qie "$ROLE" ; then
+        if echo "$MAIN_README" | grep -qi "$ROLE" ; then
             echo "✅ Instructions for $ROLE found"
         else
             echo "❌ Instructions for role $ROLE missing"
@@ -46,7 +46,7 @@ check_files_on_github () {
     PARTICIPANT_README=$(cat "$CWD/assets/readme/README.participant.md")
     for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node' 'Output files';
     do
-        if echo "$PARTICIPANT_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
+        if echo "$PARTICIPANT_README" | grep -qi "$EXPECTED_KEYWORDS" ; then
             echo "✅ Instructions on $EXPECTED_KEYWORDS found"
         else
             echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -57,7 +57,7 @@ check_files_on_github () {
     SWARM_OPERATOR_README=$(cat "$CWD/assets/readme/README.operator.md")
     for EXPECTED_KEYWORDS in 'Create Startup Kits' 'Starting a Swarm Training';
     do
-        if echo "$SWARM_OPERATOR_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
+        if echo "$SWARM_OPERATOR_README" | grep -qi "$EXPECTED_KEYWORDS" ; then
             echo "✅ Instructions on $EXPECTED_KEYWORDS found"
         else
             echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -68,7 +68,7 @@ check_files_on_github () {
     APC_DEVELOPER_README=$(cat "$CWD/assets/readme/README.developer.md")
     for EXPECTED_KEYWORDS in 'Contributing Application Code';
     do
-        if echo "$APC_DEVELOPER_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
+        if echo "$APC_DEVELOPER_README" | grep -qi "$EXPECTED_KEYWORDS" ; then
             echo "✅ Instructions on $EXPECTED_KEYWORDS found"
         else
             echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -79,7 +79,7 @@ check_files_on_github () {
     DUMMY_TRAINING_APC=$(cat "$CWD/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py")
     for EXPECTED_KEYWORDS in 'python3';
     do
-        if echo "$DUMMY_TRAINING_APC" | grep -qie "$EXPECTED_KEYWORDS" ; then
+        if echo "$DUMMY_TRAINING_APC" | grep -qi "$EXPECTED_KEYWORDS" ; then
             echo "✅ Dummy Training ApC: $EXPECTED_KEYWORDS found"
         else
             echo "❌ Dummy Training ApC: $EXPECTED_KEYWORDS missing"
@@ -330,7 +330,7 @@ run_list_licenses () {
     do
         for expected_keywords in 'scikit-learn' 'torch' 'nvflare_mediswarm' 'BSD License' 'MIT License' 'model weights';
         do
-            if echo "$license_output" | grep -qie "$expected_keywords" ; then
+            if echo "$license_output" | grep -qi "$expected_keywords" ; then
                 echo "✅ License check: $expected_keywords found"
             else
                 echo "❌ License check: $expected_keywords missing"
@@ -545,7 +545,7 @@ run_container_with_pulling () {
     cd localhost/startup
     OUTPUT=$(./docker.sh --list_licenses)
 
-    if echo "$OUTPUT" | grep -qie "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" ; then
+    if echo "$OUTPUT" | grep -qi "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" ; then
         echo "✅ Image pulled successfully"
     else
         echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
