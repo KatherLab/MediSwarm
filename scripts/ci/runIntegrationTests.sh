@@ -328,12 +328,12 @@ run_list_licenses () {
 
     for license_output in "$ADMIN_LICENSES" "$SERVER_LICENSES" "$CLIENT_LICENSES";
     do
-        for expected_keywords in 'scikit-learn' 'torch' 'nvflare_mediswarm' 'BSD License' 'MIT License' 'model weights';
+        for expected_keyword in 'scikit-learn' 'torch' 'nvflare_mediswarm' 'BSD License' 'MIT License' 'model weights';
         do
-            if echo "$license_output" | grep -qi "$expected_keywords" ; then
-                echo "✅ License check: $expected_keywords found"
+            if grep -q "$expected_keyword" <<< "$license_output"; then
+                echo "✅ License check: $expected_keyword found"
             else
-                echo "❌ License check: $expected_keywords missing"
+                echo "❌ License check: $expected_keyword missing"
                 exit 1
             fi
         done
