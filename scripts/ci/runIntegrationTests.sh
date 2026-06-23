@@ -23,9 +23,10 @@ fi
 
 check_files_on_github () {
     echo "[Run] Test whether expected content is available in the repo"
+    echo "TODO: change this back to checking files curled from github when repository is public again"
 
     LICENSE_LOCAL=$(cat "$CWD/LICENSE")
-    if echo "$LICENSE_LOCAL" | grep -q "MIT License" ; then
+    if grep -q "MIT License" <<< "$LICENSE_LOCAL" ; then
         echo "✅ Verified license in repo"
     else
         echo "❌ Could not verify license"
@@ -35,7 +36,7 @@ check_files_on_github () {
     MAIN_README=$(cat "$CWD/README.md")
     for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
     do
-        if echo "$MAIN_README" | grep -qi "$ROLE" ; then
+        if grep -qi "$ROLE" <<< "$MAIN_README" ; then
             echo "✅ Instructions for $ROLE found"
         else
             echo "❌ Instructions for role $ROLE missing"
@@ -46,7 +47,7 @@ check_files_on_github () {
     PARTICIPANT_README=$(cat "$CWD/assets/readme/README.participant.md")
     for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node' 'Output files';
     do
-        if echo "$PARTICIPANT_README" | grep -qi "$EXPECTED_KEYWORDS" ; then
+        if grep -qi "$EXPECTED_KEYWORDS" <<< "$PARTICIPANT_README" ; then
             echo "✅ Instructions on $EXPECTED_KEYWORDS found"
         else
             echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -57,7 +58,7 @@ check_files_on_github () {
     SWARM_OPERATOR_README=$(cat "$CWD/assets/readme/README.operator.md")
     for EXPECTED_KEYWORDS in 'Create Startup Kits' 'Starting a Swarm Training';
     do
-        if echo "$SWARM_OPERATOR_README" | grep -qi "$EXPECTED_KEYWORDS" ; then
+        if grep -qi "$EXPECTED_KEYWORDS" <<< "$SWARM_OPERATOR_README" ; then
             echo "✅ Instructions on $EXPECTED_KEYWORDS found"
         else
             echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -68,7 +69,7 @@ check_files_on_github () {
     APC_DEVELOPER_README=$(cat "$CWD/assets/readme/README.developer.md")
     for EXPECTED_KEYWORDS in 'Contributing Application Code';
     do
-        if echo "$APC_DEVELOPER_README" | grep -qi "$EXPECTED_KEYWORDS" ; then
+        if grep -qi "$EXPECTED_KEYWORDS" <<< "$APC_DEVELOPER_README" ; then
             echo "✅ Instructions on $EXPECTED_KEYWORDS found"
         else
             echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -79,7 +80,7 @@ check_files_on_github () {
     DUMMY_TRAINING_APC=$(cat "$CWD/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py")
     for EXPECTED_KEYWORDS in 'python3';
     do
-        if echo "$DUMMY_TRAINING_APC" | grep -qi "$EXPECTED_KEYWORDS" ; then
+        if grep -qi "$EXPECTED_KEYWORDS" <<< "$DUMMY_TRAINING_APC"; then
             echo "✅ Dummy Training ApC: $EXPECTED_KEYWORDS found"
         else
             echo "❌ Dummy Training ApC: $EXPECTED_KEYWORDS missing"
@@ -176,7 +177,7 @@ run_dummy_training_standalone(){
                     --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
                     "$DOCKER_IMAGE" 2>&1 || echo "")
 
-    if echo "$OUTPUT" | grep -q "✓ MediSwarm test running dummy training in standalone mode completed." ; then
+    if grep -q "✓ MediSwarm test running dummy training in standalone mode completed." <<< "$OUTPUT" ; then
         echo "✅ Running" $1 "in Docker completed."
     else
         echo "❌ Running" $1 "in Docker failed."
@@ -195,7 +196,7 @@ run_dummy_training_standalone(){
                                 --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
                                 "$DOCKER_IMAGE" 2>&1 || echo "")
 
-    if echo "$OUTPUT_WITHOUT_GPU" | grep -q "RuntimeError: This example does not work without GPU"; then
+    if grep -q "RuntimeError: This example does not work without GPU" <<< "$OUTPUT_WITHOUT_GPU"; then
         echo "✅ Verified that minimal example requires GPU"
     else
         echo "❌ Failed to verify that minimal example requires GPU"
@@ -210,7 +211,7 @@ run_dummy_training_simulation_mode(){
 
     echo "$OUTPUT"
 
-    if echo "$OUTPUT" | grep -qi "Epoch 9: 100%" && ! echo "$OUTPUT" | grep -qi "error"; then
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
         echo "✅ Minimal example simulation mode succeeded."
     else
         echo "❌ Minimal example simulation mode failed."
@@ -225,7 +226,7 @@ run_dummy_training_poc_mode(){
 
     echo "$OUTPUT"
 
-    if echo "$OUTPUT" | grep -qi "Epoch 9: 100%" && ! echo "$OUTPUT" | grep -qi "error"; then
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
         echo "✅ Minimal example proof-of-concept mode succeeded."
     else
         echo "❌ Minimal example proof-of-concept mode failed."
@@ -294,7 +295,7 @@ create_startup_kits_and_check_contained_files () {
     ZIP_CONTENT=$(unzip -tv "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip")
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
-        if echo "$ZIP_CONTENT" | grep -q "$FILE" ; then
+        if grep -q "$FILE" <<< "$ZIP_CONTENT"; then
             echo "✅ $FILE found in zip"
         else
             echo "❌ $FILE missing in zip"
@@ -490,7 +491,7 @@ run_3dcnn_simulation_mode () {
     echo "$OUTPUT"
 
     echo "TODO add check that no error happened when clean synthetic dataset is used"
-    if echo "$OUTPUT" | grep -qi "Epoch 19: 100%"; then
+    if grep -qi "Epoch 19: 100%" <<< "$OUTPUT"; then
         echo "✅ 3DCNN proof-of-concept mode succeeded."
     else
         echo "❌ 3DCNN proof-of-concept mode failed."
@@ -545,7 +546,7 @@ run_container_with_pulling () {
     cd localhost/startup
     OUTPUT=$(./docker.sh --list_licenses)
 
-    if echo "$OUTPUT" | grep -qi "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" ; then
+    if grep -qi "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" <<< "$OUTPUT"; then
         echo "✅ Image pulled successfully"
     else
         echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -608,7 +609,7 @@ verify_wrong_certificates_are_rejected () {
     # start admin console and verify that it gets rejected
     cd admin@test.odelia/startup
     CONSOLE_OUTPUT_FILE_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
-    if echo "$CONSOLE_OUTPUT_FILE_ADMIN" | grep -q "Communication Error - please try later"; then
+    if grep -q "Communication Error - please try later" <<< "$CONSOLE_OUTPUT_FILE_ADMIN"; then
         echo "✅ Connection by unauthorized admin console rejected successfully"
     else
         echo "❌ Connection with non-authorized admin console"
@@ -705,7 +706,7 @@ run_dummy_training_in_swarm () {
     FILES_PRESENT=$(find . -type f -name "*.*")
     for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
     do
-        if echo "$FILES_PRESENT" | grep -q "$EXPECTED_FILE" ; then
+        if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
             echo "❌ Expected file $EXPECTED_FILE missing"
@@ -815,7 +816,7 @@ run_3dcnn_training_in_swarm () {
     FILES_PRESENT=$(find . -type f -name "*.*")
     for EXPECTED_FILE in 'custom/threedcnn_ptl.py' 'FL_global_model.pt' ;
     do
-        if echo "$FILES_PRESENT" | grep -q "$EXPECTED_FILE" ; then
+        if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
             echo "❌ Expected file $EXPECTED_FILE missing"
