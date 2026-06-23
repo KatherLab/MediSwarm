@@ -119,6 +119,7 @@ run_dummy_training_standalone(){
     if echo "$OUTPUT" | grep -q "✓ MediSwarm test running dummy training in standalone mode completed." ; then
         echo "✅ Running" $1 "in Docker completed."
     else
+        echo "$OUTPUT"
         echo "❌ Running" $1 "in Docker failed."
         exit 1
     fi
@@ -138,6 +139,7 @@ run_dummy_training_standalone(){
     if echo "$OUTPUT_WITHOUT_GPU" | grep -q "RuntimeError: This example does not work without GPU"; then
         echo "✅ Verified that minimal example requires GPU"
     else
+        echo "$OUTPUT_WITHOUT_GPU"
         echo "❌ Failed to verify that minimal example requires GPU"
         exit 1
     fi
@@ -310,7 +312,7 @@ run_data_access_preflight_check () {
         echo "✅ Output of data access preflight check contains no unexpected UIDs."
     fi
 
-    sleep 5  # wait for container cleanup that might interfere with subsequent tests
+    sleep 10  # wait for container cleanup that might interfere with subsequent tests
     cd "$CWD"
 }
 
@@ -343,7 +345,7 @@ run_data_access_preflight_check_log_details () {
         exit 1
     fi
 
-    sleep 5
+    sleep 10
     cd "$CWD"
 }
 
@@ -364,7 +366,7 @@ run_data_access_preflight_check_without_data () {
         exit 1
     fi
 
-    sleep 5
+    sleep 10
     cd "$CWD"
 }
 
@@ -398,7 +400,7 @@ start_clients () {
     cd ../..
     cd client_B/startup
     ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --start_client
-    sleep 8
+    sleep 10
 
     cd "$CWD"
 }
@@ -410,6 +412,7 @@ start_server_and_clients () {
 
 
 start_registry_docker_and_push () {
+    echo "[Run] Starting local registry and pushing container ..."
     docker run -d --rm -p 5000:5000 --name local_test_registry_$CONTAINER_VERSION_SUFFIX registry:3
     sleep 10
     docker push localhost:5000/odelia:$VERSION
@@ -417,6 +420,7 @@ start_registry_docker_and_push () {
 
 
 run_container_with_pulling () {
+    echo "[Run] Removing container and pulling it from local registry ..."
     docker rmi localhost:5000/odelia:$VERSION
     cd "$PROJECT_DIR"/prod_00
     cd localhost/startup
@@ -425,6 +429,7 @@ run_container_with_pulling () {
     if echo "$OUTPUT" | grep -qie "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" ; then
         echo "✅ Image pulled successfully"
     else
+        echo "$OUTPUT"
         echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
         exit 1
     fi
@@ -469,6 +474,7 @@ verify_wrong_certificates_are_rejected () {
     CONSOLE_OUTPUT_CLIENT=client_A/startup/nohup.out
 
     if grep -q "Total clients: 1" $CONSOLE_OUTPUT_SERVER; then
+        cat "$CONSOLE_OUTPUT_SERVER"
         echo "❌ Could not verify that connection to unauthorized client was rejected"
         exit 1
     else
@@ -478,6 +484,7 @@ verify_wrong_certificates_are_rejected () {
     if grep -q "SSLCertVerificationError" $CONSOLE_OUTPUT_CLIENT; then
         echo "✅ Connection to unauthorized server rejected successfully by client"
     else
+        cat "$CONSOLE_OUTPUT_CLIENT"
         echo "❌ Could not verify that connection to unauthorized server was rejected"
         exit 1
     fi
@@ -488,6 +495,7 @@ verify_wrong_certificates_are_rejected () {
     if echo "$CONSOLE_OUTPUT_ADMIN" | grep -q "Communication Error - please try later"; then
         echo "✅ Connection by unauthorized admin console rejected successfully"
     else
+        cat "$CONSOLE_OUTPUT_ADMIN"
         echo "❌ Connection with non-authorized admin console"
         exit 1
     fi
@@ -495,7 +503,7 @@ verify_wrong_certificates_are_rejected () {
 
     # cleanup
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX
-    sleep 3
+    sleep 10
     rm -rf "$PROJECT_DIR"/prod_wrong_client
 
     cd "$CWD"
