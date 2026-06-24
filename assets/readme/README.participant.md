@@ -158,6 +158,15 @@ To have a baseline for swarm training, train the same model in a comparable way 
 
 1. Connect to VPN as described in [VPN setup guide(GUI).pdf](../VPN%20setup%20guide%28GUI%29.pdf) (GUI) or [VPN setup guide(CLI).md](../VPN%20setup%20guide%28CLI%29.md) (command line).
 
+2. **For multi-hour swarm runs, install the VPN as an auto-recovering systemd service (strongly recommended).** A manual/GUI OpenVPN connection that drops and does not reconnect quickly is the most common cause of a long run aborting. Install the tunnel in systemd mode (`mediswarm-vpn.service`, `Restart=always`) plus a health watchdog that re-ups it within ~30 s of a drop:
+   ```bash
+   # first time: install OpenVPN, store credentials, and register the systemd service
+   sudo ./scripts/client_node_setup/setup_vpntunnel.sh -d <YourSite> -n -s
+   # install a 30 s health-check timer that restarts the tunnel if the interface drops or the gateway is unreachable
+   sudo ./scripts/client_node_setup/vpn_health_monitor.sh --install-timer
+   ```
+   Verify with `systemctl status mediswarm-vpn mediswarm-vpn-health.timer`. Combined with the swarm's 24 h round timeouts, this lets a run ride out a brief VPN blip instead of aborting.
+
 #### Start the Client
 
 1. From the directory where you unpacked the startup kit:
@@ -215,6 +224,18 @@ ping dl3.tud.de
 * If dl3.tud.de cannot be resolved, double-check whether it is contained in `/etc/hosts`
 * If it cannot be reached at all, double-check if the VPN connection is working.
 * If intermittent package loss occurs, double-check if your network connection is working properly. Creating new VPN credentials and certificate for connection may also help, contact your Swarm Operator for this purpose.
+
+### VPN Drops During a Run / Node "deemed disconnected"?
+
+A multi-hour run can abort if your tunnel drops and does not come back quickly (the server logs the site as `deemed disconnected`, or a peer reports a transient comms error). To make the tunnel self-heal:
+
+* Run the VPN as the `mediswarm-vpn` **systemd service** (`Restart=always`), not a manual/GUI connection — see [Start Swarm Node → VPN](#vpn).
+* Install the health watchdog so a dropped tunnel is restarted within ~30 s:
+  ```bash
+  sudo ./scripts/client_node_setup/vpn_health_monitor.sh --install-timer
+  ```
+  It restarts the tunnel immediately if the `tun0` interface disappears, or after a few failed gateway pings. Check its log with `journalctl -t mediswarm-vpn-health`.
+* If drops recur, capture your OpenVPN client logs around the outage and report to your Swarm Operator (the gateway provider may need to investigate).
 
 ### Training Very Slow / GPU Under-utilized?
 
