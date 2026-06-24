@@ -19,6 +19,24 @@ run_3dcnn_simulation_mode () {
     echo "RUN ${APP_DIR} with MODEL_NAME=${MODEL_NAME}"
     cp -RL application/jobs/${APP_DIR} ${TMPDIR}/${APP_DIR}
     sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
+    # Production ODELIA jobs use long timeouts to ride out VPN stalls. This
+    # synthetic CI simulation should fail promptly and print the simulator log.
+    sed -i \
+        -e 's/start_task_timeout = .*/start_task_timeout = 300/' \
+        -e 's/progress_timeout = .*/progress_timeout = 600/' \
+        -e 's/configure_task_timeout = .*/configure_task_timeout = 300/' \
+        ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
+    sed -i \
+        -e 's/last_result_transfer_timeout = .*/last_result_transfer_timeout = 300/' \
+        -e 's/external_pre_init_timeout = .*/external_pre_init_timeout = 300/' \
+        -e 's/peer_read_timeout = .*/peer_read_timeout = 300/' \
+        -e 's/heartbeat_timeout = .*/heartbeat_timeout = 300/' \
+        -e 's/learn_task_timeout = .*/learn_task_timeout = 600/' \
+        -e 's/learn_task_abort_timeout = .*/learn_task_abort_timeout = 60/' \
+        -e 's/learn_task_ack_timeout = .*/learn_task_ack_timeout = 300/' \
+        -e 's/final_result_ack_timeout = .*/final_result_ack_timeout = 300/' \
+        -e 's/wait_time_after_min_resps_received = .*/wait_time_after_min_resps_received = 60/' \
+        ${TMPDIR}/${APP_DIR}/app/config/config_fed_client.conf
     export CONFIG=unilateral
     # Keep this integration test as an end-to-end smoke test. The default swarm
     # epoch weighting is sized for real training and expands this tiny synthetic
