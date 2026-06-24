@@ -165,6 +165,14 @@ To have a baseline for swarm training, train the same model in a comparable way 
    cd $SITE_NAME/startup  # Skip this if you just ran the pre-flight check
    ```
 
+> **Pre-run checklist — do this before _every_ swarm run, even if it passed last week.** Environments drift between runs (automatic OS/driver upgrades, IT changes, read-only mounts, re-synced or corrupted data), so a node that worked before can be broken today. Re-run the [dummy training](#local-testing-on-your-data) and [pre-flight check](#local-testing-on-your-data) above and confirm:
+> - the dummy training succeeds → the **GPU is usable inside the container**;
+> - your preprocessing cache `ODELIA_PREPROCESS_CACHE_DIR` is under `/scratch` (writable), **never under `/data`** (read-only);
+> - `dl3.tud.de:8002` is reachable (VPN up);
+> - when restarting a client, the old container is removed **and** any stale `daemon_pid.fl` is deleted.
+>
+> `docker.sh` now also runs **automatic pre-run checks** and prints a `Pre-run checks` block (PASS / WARN / FAIL) with remediation. In particular, if you are on Docker's `systemd` cgroup driver it will warn you to run `scripts/client_node_setup/fix_docker_cgroupfs.sh` to avoid the GPU dropping mid-run (see Troubleshooting below and [`docs/SWARM_FAILURE_MODES.md`](../../docs/SWARM_FAILURE_MODES.md)). Reserve enough time before the scheduled run to fix anything they flag.
+
 2. Start the client:
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --start_client
@@ -226,6 +234,41 @@ ODELIA_PREPROCESS_CACHE_DIR=$SCRATCHDIR/odelia_preprocess_cache \
 ```
 
 See [Run Local Training](#run-local-training) for details. This caches each preprocessed volume as a compressed `.npz` on fast local storage, so epochs after the first read quickly and the GPU stays fed. It applies to local training, the pre-flight check, and the swarm client.
+
+### GPU Lost Mid-Run (`NVML: Unknown Error`)
+
+If training crashes with `Failed to initialize NVML: Unknown Error` (or `This example does not work without GPU`) **while `nvidia-smi` on the host works fine**, the container lost access to the GPU. This happens on hosts using Docker's **systemd** cgroup driver (the Ubuntu default) when a `systemctl daemon-reload` runs — e.g. the **daily automatic apt upgrade** — which strips the GPU from already-running containers.
+
+* Quick check: `docker exec $(docker ps -q --filter name=odelia_swarm_client) nvidia-smi -L` fails while host `nvidia-smi` works.
+* **Durable fix** (persists across reboots, so the daily upgrade no longer breaks it):
+  ```bash
+  sudo bash scripts/client_node_setup/fix_docker_cgroupfs.sh
+  ```
+  Then recreate the client (next item). See [`docs/SWARM_FAILURE_MODES.md`](../../docs/SWARM_FAILURE_MODES.md) (F2).
+
+### Client Won't Start After a Restart (stale `daemon_pid.fl`)
+
+If you recreated the client (`docker rm -f …`) and it shows `Up … (healthy)` but never registers with the server, check `nohup.out` for `There seems to be one instance, pid=N, running … remove daemon_pid.fl`. An unclean stop left a lock file that makes `start.sh` refuse to launch.
+
+```bash
+docker rm -f $(docker ps -aq --filter name=odelia_swarm_client_$SITE_NAME)
+find . -maxdepth 2 -name daemon_pid.fl -delete      # from the kit root ($SITE_NAME/)
+./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --start_client
+```
+(The automatic pre-run check now clears a stale `daemon_pid.fl` for you when no client container is running.)
+
+### `Read-only file system` Crash
+
+If training crashes immediately with `OSError: [Errno 30] Read-only file system: '/data/...'`, your preprocessing cache points under `/data`, which is mounted read-only. Set it under `/scratch` (the container path), never under `/data`:
+```bash
+ODELIA_ENABLE_PREPROCESS_CACHE=1 \
+ODELIA_PREPROCESS_CACHE_DIR=/scratch/odelia_preprocess_cache \
+./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --start_client
+```
+
+### Node "Deemed Disconnected" Mid-Run (VPN drop)
+
+If the operator reports your node was `deemed disconnected` and the run aborted, your VPN tunnel to the server dropped *during* the run (the host stays up; only the VPN path fails). Check `ping dl3.tud.de` over time and `nc -vz dl3.tud.de 8002`. Persistent or intermittent drops should be raised with your network/VPN provider (a keepalive often helps) — in a wait-for-all swarm run, even a brief drop on one node can abort the whole round.
 
 ### Further Possible Issues
 

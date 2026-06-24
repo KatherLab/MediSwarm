@@ -136,6 +136,38 @@ For `--preflight_check` and `--local_training` modes, the `--job` flag selects w
 
 Each challenge job has its own `config_fed_client.conf`, model code, and `main.py` with a hardcoded `MODEL_NAME`.
 
+## Operating & Hardening Swarm Runs
+
+Real multi-site runs surfaced several recurring failure modes; each now has a
+fix, a pre-flight check, or both. The full catalogue + operator playbook is in
+[`docs/SWARM_FAILURE_MODES.md`](../../docs/SWARM_FAILURE_MODES.md); timeout values
+are in [`docs/TIMEOUTS.md`](../../docs/TIMEOUTS.md). Summary:
+
+| Failure | Fix | Where |
+|---------|-----|-------|
+| Slow site → status-timeout abort | 24 h `max_status_report_interval`/`progress_timeout`/`learn_task_timeout` | job `config_fed_*.conf` |
+| Slow site → `MODEL_UNRECOGNIZED` desync | `min_responses_required` = number of participating clients (wait-for-all) | job `config_fed_client.conf` |
+| GPU `NVML: Unknown Error` mid-run | switch host Docker to `cgroupfs` driver | `scripts/client_node_setup/fix_docker_cgroupfs.sh` |
+| Client won't restart (stale lock) | delete `daemon_pid.fl` before relaunch | pre-flight check auto-clears |
+| Read-only cache crash | cache under `/scratch`, not `/data` | pre-flight check fails fast |
+| VPN tunnel drop | network/VPN side; 24 h timeout bounds a brief drop | — |
+
+**Pre-flight checks.** `docker.sh` (generated from `docker_config/master_template.yml`,
+`_preflight_host_checks`) runs host checks for `--dummy_training`/`--preflight_check`/`--start_client`
+(GPU usable in container, cgroup-driver risk, cache path, server reachability, stale lock).
+Always have participants re-run dummy + pre-flight before every scheduled run.
+
+**`min_responses_required` must equal the participating-client count.** Wait-for-all
+prevents the slow-node desync but means any mid-round drop stalls the round until
+`learn_task_timeout`. Set it per run; lower it only if a flaky site must be tolerated.
+
+**Operator diagnostics.** Drive the live server with the admin kit
+(`./fl_admin.sh`): `check_status server` (a frozen last-connect = a stale/dead
+client), `check_status client`, `list_jobs`, `abort_job <id>` (needs a `y`),
+`submit_job <path>`. Post-mortem of a finished/failed job: the run workspace is
+in the job store at `/tmp/nvflare/jobs-storage/<job_id>/workspace` (a zip) inside
+the server container — `log_error.txt` has the abort reason.
+
 ## Contributing Application Code
 
 
