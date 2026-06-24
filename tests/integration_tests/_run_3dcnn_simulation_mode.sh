@@ -34,6 +34,15 @@ run_3dcnn_simulation_mode () {
     export TORCH_HOME=/torch_home
     export MODEL_NAME=${MODEL_NAME}
     export CONFIG=unilateral
+    # Keep this integration test as an end-to-end smoke test. The default swarm
+    # epoch weighting is sized for real training and expands this tiny synthetic
+    # dataset to 10 epochs per round, which makes CI hold GPU memory longer than
+    # necessary.
+    export EPOCHS_PER_ROUND="${EPOCHS_PER_ROUND:-1}"
+    export EPOCHS_REFERENCE_DATASET_SIZE="${EPOCHS_REFERENCE_DATASET_SIZE:-18}"
+    export EPOCHS_MAX_CAP="${EPOCHS_MAX_CAP:-1}"
+    export ODELIA_NUM_WORKERS="${ODELIA_NUM_WORKERS:-0}"
+    export ODELIA_HASH_NUM_WORKERS="${ODELIA_HASH_NUM_WORKERS:-0}"
     local WS=/tmp/${APP_DIR}
     local LOG=${TMPDIR}/sim.log
 

@@ -11,14 +11,20 @@ on:
 permissions:
   contents: read
 
-# Only one validation run at a time on the self-hosted runner to prevent
-# resource contention (GPU, Docker, disk) that causes flaky test failures.
+# Cancel superseded validation runs for the same PR/ref. The GPU-heavy
+# validate-swarm job below also queues globally to avoid self-hosted GPU
+# contention across different PRs.
 concurrency:
   group: pr-validation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   validate-swarm:
+    # The self-hosted runner has one shared GPU; running multiple validation jobs
+    # at once can OOM otherwise independent PRs.
+    concurrency:
+      group: mediswarm-self-hosted-gpu-validation
+      cancel-in-progress: false
     runs-on: [self-hosted, ci]
     timeout-minutes: 60
 
