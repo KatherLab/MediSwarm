@@ -7,32 +7,18 @@ run_3dcnn_simulation_mode () {
     # change training configuration to run 2 rounds
     cd /MediSwarm
     export TMPDIR=$(mktemp -d)
-    # Default to a valid 3D-CNN ternary model when MODEL_NAME is unset/empty.
-    # Without this the persistor's create_model() receives an empty name
-    # ("Unsupported model name: ."), both clients fail to configure, and the run
-    # aborts -- which previously still showed up as a CI pass (see #353).
-    MODEL_NAME="${MODEL_NAME:-ResNet18}"
-    if [[ $MODEL_NAME =~ ^[0-9] ]]; then
-        # this is a challenges team members name without challenge prefix
-        APP_DIR="challenge_"${MODEL_NAME}
-    else
-        if [[ $MODEL_NAME == challenge* ]]; then
-            # already correct app folder name
-            APP_DIR=${MODEL_NAME}
-        else
-            # probably either resnet or mst, use usual ternary folder
-            APP_DIR="ODELIA_ternary_classification"
-        fi
-    fi
-    echo "RUN ${APP_DIR} with MODEL_NAME=${MODEL_NAME}"
-    cp -RL application/jobs/${APP_DIR} ${TMPDIR}/${APP_DIR}
-    sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
     export TRAINING_MODE="swarm"
     export SITE_NAME="client_A"
     export DATA_DIR=/data
     export SCRATCH_DIR=/scratch
     export TORCH_HOME=/torch_home
-    export MODEL_NAME=${MODEL_NAME}
+    # Default to a valid lightweight 3D-CNN ternary model when MODEL_NAME is
+    # unset/empty. This CI smoke test should exercise ResNet18, not MST.
+    export MODEL_NAME="${MODEL_NAME:-ResNet18}"
+    export APP_DIR="ODELIA_ternary_classification"
+    echo "RUN ${APP_DIR} with MODEL_NAME=${MODEL_NAME}"
+    cp -RL application/jobs/${APP_DIR} ${TMPDIR}/${APP_DIR}
+    sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
     export CONFIG=unilateral
     # Keep this integration test as an end-to-end smoke test. The default swarm
     # epoch weighting is sized for real training and expands this tiny synthetic
