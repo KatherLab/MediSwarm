@@ -7,6 +7,11 @@ run_3dcnn_simulation_mode () {
     # change training configuration to run 2 rounds
     cd /MediSwarm
     export TMPDIR=$(mktemp -d)
+    # Default to a valid 3D-CNN ternary model when MODEL_NAME is unset/empty.
+    # Without this the persistor's create_model() receives an empty name
+    # ("Unsupported model name: ."), both clients fail to configure, and the run
+    # aborts -- which previously still showed up as a CI pass (see #353).
+    MODEL_NAME="${MODEL_NAME:-ResNet18}"
     if [[ $MODEL_NAME =~ ^[0-9] ]]; then
         # this is a challenges team members name without challenge prefix
         APP_DIR="challenge_"${MODEL_NAME}
@@ -19,7 +24,7 @@ run_3dcnn_simulation_mode () {
             APP_DIR="ODELIA_ternary_classification"
         fi
     fi
-    echo "RUN "$APP_DIR 
+    echo "RUN ${APP_DIR} with MODEL_NAME=${MODEL_NAME}"
     cp -RL application/jobs/${APP_DIR} ${TMPDIR}/${APP_DIR}
     sed -i 's/num_rounds = .*/num_rounds = 2/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
     export TRAINING_MODE="swarm"
@@ -29,8 +34,35 @@ run_3dcnn_simulation_mode () {
     export TORCH_HOME=/torch_home
     export MODEL_NAME=${MODEL_NAME}
     export CONFIG=unilateral
-    nvflare simulator -w /tmp/${APP_DIR} -n 2 -t 2 ${TMPDIR}/${APP_DIR} -c client_A,client_B
-    rm -rf ${TMPDIR}
+    local WS=/tmp/${APP_DIR}
+    local LOG=${TMPDIR}/sim.log
+
+    # `nvflare simulator` returns exit code 0 even when the federated run aborts
+    # with a FATAL_SYSTEM_ERROR, so the run outcome MUST be asserted explicitly
+    # (otherwise an aborted simulation silently passes CI -- #353).
+    set +e
+    nvflare simulator -w ${WS} -n 2 -t 2 ${TMPDIR}/${APP_DIR} -c client_A,client_B 2>&1 | tee ${LOG}
+    local RC=${PIPESTATUS[0]}
+    set -e
+
+    local fail=""
+    if grep -qiE "FATAL_SYSTEM_ERROR|Aborting current RUN|failed to configure clients" ${LOG}; then
+        fail="run aborted (FATAL_SYSTEM_ERROR / failed to configure clients)"
+    elif [ "${RC}" -ne 0 ]; then
+        fail="simulator exited with code ${RC}"
+    elif ! find ${WS} -name 'FL_global_model.pt' 2>/dev/null | grep -q .; then
+        # a completed run persists a global model; its absence means the run did not finish
+        fail="no global model (FL_global_model.pt) was produced"
+    fi
+
+    if [ -n "${fail}" ]; then
+        echo "=== 3DCNN Simulation Mode FAILED: ${fail} ==="
+        rm -rf ${TMPDIR} ${WS}
+        exit 1
+    fi
+
+    echo "=== 3DCNN Simulation Mode PASSED ==="
+    rm -rf ${TMPDIR} ${WS}
 }
 
 run_3dcnn_simulation_mode
