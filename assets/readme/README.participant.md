@@ -99,12 +99,17 @@ The dataset must be in the following format.
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check  2>&1 | tee preflight_check_console_output.txt
    ```
+    * Without `--job`, this runs the default ODELIA challenge model: `challenge_1DivideAndConquer` (`MODEL_NAME=1DivideAndConquer`).
     * Training time depends on the size of the local dataset.
     * To test a specific challenge model, use the `--job` flag:
       ```bash
       ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --job challenge_5pimed
       ```
-    * Available jobs: `challenge_1DivideAndConquer` (default), `ODELIA_ternary_classification`, `challenge_2BCN_AIM`, `challenge_3agaldran`, `challenge_4abmil`, `challenge_5pimed`
+    * To test the MST baseline instead, use:
+      ```bash
+      ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --job ODELIA_ternary_classification
+      ```
+    * Available jobs: `challenge_1DivideAndConquer` (default), `ODELIA_ternary_classification` (MST), `challenge_2BCN_AIM`, `challenge_3agaldran`, `challenge_4abmil`, `challenge_5pimed`
 5. Check your local dataset for discrepancies.
    * Check `preflight_check_console_output.txt` for errors and warnings about the dataset.
        * There should be no duplicate UIDs.
@@ -129,10 +134,15 @@ To have a baseline for swarm training, train the same model in a comparable way 
    ```bash
    ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training  2>&1 | tee local_training_console_output.txt
    ```
+    * Without `--job`, this trains `challenge_1DivideAndConquer` (`MODEL_NAME=1DivideAndConquer`).
     * This currently runs 100 epochs (somewhat comparable to 20 rounds with 5 epochs each in the swarm case).
     * To train a specific challenge model locally, use the `--job` flag:
       ```bash
       ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training --job challenge_2BCN_AIM 2>&1 | tee local_training_console_output.txt
+      ```
+    * To train the MST baseline locally, use:
+      ```bash
+      ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training --job ODELIA_ternary_classification 2>&1 | tee local_training_console_output.txt
       ```
     * **Speed up training (recommended for large datasets).** Enable the on-disk preprocessing cache so each image volume is preprocessed once and stored as a compressed `.npz`; later epochs read from the cache instead of re-decoding NIfTI every time. This removes the data-loading bottleneck and keeps the GPU busy. Set the two environment variables in front of the command:
       ```bash
