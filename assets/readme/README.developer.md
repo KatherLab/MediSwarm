@@ -93,6 +93,7 @@ See [README.participant.md](./README.participant.md).
 | `CONFIG`             | `unilateral`    | Configuration schema for dataset (e.g. label scheme)                 |
 | `NUM_EPOCHS`         | `1` (test mode) | Number of training epochs (used in preflight/local training)         |
 | `TRAINING_MODE`      | derived         | Internal use. Automatically set based on flags like `--start_client` |
+| `ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS` | `0` | Swarm: cadence of the per-round aggregated prediction CSV export (`0`=final round only, `1`=every round, `N`=every Nth round + final). Throttled by default — it runs full train+val inference and dominates round time (#314). |
 
 These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or exporting before run:
 
