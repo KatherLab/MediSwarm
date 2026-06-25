@@ -23,9 +23,10 @@ fi
 
 check_files_on_github () {
     echo "[Run] Test whether expected content is available in the repo"
+    echo "TODO: change this back to checking files curled from github when repository is public again"
 
     LICENSE_LOCAL=$(cat "$CWD/LICENSE")
-    if echo "$LICENSE_LOCAL" | grep -q "MIT License" ; then
+    if grep -q "MIT License" <<< "$LICENSE_LOCAL" ; then
         echo "✅ Verified license in repo"
     else
         echo "❌ Could not verify license"
@@ -35,7 +36,7 @@ check_files_on_github () {
     MAIN_README=$(cat "$CWD/README.md")
     for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
     do
-        if echo "$MAIN_README" | grep -qie "$ROLE" ; then
+        if grep -qi "$ROLE" <<< "$MAIN_README" ; then
             echo "✅ Instructions for $ROLE found"
         else
             echo "❌ Instructions for role $ROLE missing"
@@ -46,7 +47,7 @@ check_files_on_github () {
     PARTICIPANT_README=$(cat "$CWD/assets/readme/README.participant.md")
     for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node' 'Output files';
     do
-        if echo "$PARTICIPANT_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
+        if grep -qi "$EXPECTED_KEYWORDS" <<< "$PARTICIPANT_README" ; then
             echo "✅ Instructions on $EXPECTED_KEYWORDS found"
         else
             echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -57,7 +58,7 @@ check_files_on_github () {
     SWARM_OPERATOR_README=$(cat "$CWD/assets/readme/README.operator.md")
     for EXPECTED_KEYWORDS in 'Create Startup Kits' 'Starting a Swarm Training';
     do
-        if echo "$SWARM_OPERATOR_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
+        if grep -qi "$EXPECTED_KEYWORDS" <<< "$SWARM_OPERATOR_README" ; then
             echo "✅ Instructions on $EXPECTED_KEYWORDS found"
         else
             echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -68,7 +69,7 @@ check_files_on_github () {
     APC_DEVELOPER_README=$(cat "$CWD/assets/readme/README.developer.md")
     for EXPECTED_KEYWORDS in 'Contributing Application Code';
     do
-        if echo "$APC_DEVELOPER_README" | grep -qie "$EXPECTED_KEYWORDS" ; then
+        if grep -qi "$EXPECTED_KEYWORDS" <<< "$APC_DEVELOPER_README" ; then
             echo "✅ Instructions on $EXPECTED_KEYWORDS found"
         else
             echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -79,7 +80,7 @@ check_files_on_github () {
     DUMMY_TRAINING_APC=$(cat "$CWD/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py")
     for EXPECTED_KEYWORDS in 'python3';
     do
-        if echo "$DUMMY_TRAINING_APC" | grep -qie "$EXPECTED_KEYWORDS" ; then
+        if grep -qi "$EXPECTED_KEYWORDS" <<< "$DUMMY_TRAINING_APC"; then
             echo "✅ Dummy Training ApC: $EXPECTED_KEYWORDS found"
         else
             echo "❌ Dummy Training ApC: $EXPECTED_KEYWORDS missing"
@@ -139,18 +140,24 @@ create_synthetic_stamp_data () {
 run_stamp_preflight_check () {
     echo "[Run] STAMP preflight check"
     _run_stamp_test_in_docker tests/integration_tests/stamp/_run_stamp_preflight_check.sh
+
+    echo "TODO check whether test has succeeded"
 }
 
 
 run_stamp_local_training () {
     echo "[Run] STAMP local training"
     _run_stamp_test_in_docker tests/integration_tests/stamp/_run_stamp_local_training.sh
+
+    echo "TODO check whether test has succeeded"
 }
 
 
 run_stamp_simulation_mode () {
     echo "[Run] STAMP simulation mode"
     _run_stamp_test_in_docker tests/integration_tests/stamp/_run_stamp_simulation_mode.sh
+
+    echo "TODO check whether test has succeeded"
 }
 
 
@@ -170,7 +177,7 @@ run_dummy_training_standalone(){
                     --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
                     "$DOCKER_IMAGE" 2>&1 || echo "")
 
-    if echo "$OUTPUT" | grep -q "✓ MediSwarm test running dummy training in standalone mode completed." ; then
+    if grep -q "✓ MediSwarm test running dummy training in standalone mode completed." <<< "$OUTPUT" ; then
         echo "✅ Running" $1 "in Docker completed."
     else
         echo "❌ Running" $1 "in Docker failed."
@@ -189,7 +196,7 @@ run_dummy_training_standalone(){
                                 --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
                                 "$DOCKER_IMAGE" 2>&1 || echo "")
 
-    if echo "$OUTPUT_WITHOUT_GPU" | grep -q "RuntimeError: This example does not work without GPU"; then
+    if grep -q "RuntimeError: This example does not work without GPU" <<< "$OUTPUT_WITHOUT_GPU"; then
         echo "✅ Verified that minimal example requires GPU"
     else
         echo "❌ Failed to verify that minimal example requires GPU"
@@ -198,13 +205,33 @@ run_dummy_training_standalone(){
 }
 
 run_dummy_training_simulation_mode(){
-    echo "[Run] Minimal example, simulation mode"
-    _run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh
+    echo "[Run] Minimal example, simulation mode (capturing output)"
+
+    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
+
+    echo "$OUTPUT"
+
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
+        echo "✅ Minimal example simulation mode succeeded."
+    else
+        echo "❌ Minimal example simulation mode failed."
+        exit 1
+    fi
 }
 
 run_dummy_training_poc_mode(){
-    echo "[Run] Minimal example, proof-of-concept mode"
-    _run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh
+    echo "[Run] Minimal example, proof-of-concept mode (capturing output)"
+
+    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1)
+
+    echo "$OUTPUT"
+
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
+        echo "✅ Minimal example proof-of-concept mode succeeded."
+    else
+        echo "❌ Minimal example proof-of-concept mode failed."
+        exit 1
+    fi
 }
 
 run_nvflare_unit_tests(){
@@ -268,7 +295,7 @@ create_startup_kits_and_check_contained_files () {
     ZIP_CONTENT=$(unzip -tv "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip")
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
-        if echo "$ZIP_CONTENT" | grep -q "$FILE" ; then
+        if grep -q "$FILE" <<< "$ZIP_CONTENT"; then
             echo "✅ $FILE found in zip"
         else
             echo "❌ $FILE missing in zip"
@@ -302,12 +329,12 @@ run_list_licenses () {
 
     for license_output in "$ADMIN_LICENSES" "$SERVER_LICENSES" "$CLIENT_LICENSES";
     do
-        for expected_keywords in 'scikit-learn' 'torch' 'nvflare_mediswarm' 'BSD License' 'MIT License' 'model weights';
+        for expected_keyword in 'scikit-learn' 'torch' 'nvflare_mediswarm' 'BSD License' 'MIT License' 'model weights';
         do
-            if echo "$license_output" | grep -qie "$expected_keywords" ; then
-                echo "✅ License check: $expected_keywords found"
+            if grep -q "$expected_keyword" <<< "$license_output"; then
+                echo "✅ License check: $expected_keyword found"
             else
-                echo "❌ License check: $expected_keywords missing"
+                echo "❌ License check: $expected_keyword missing"
                 exit 1
             fi
         done
@@ -319,11 +346,11 @@ run_docker_gpu_preflight_check () {
     # requires having built a startup kit
     echo "[Run] Docker/GPU preflight check (local dummy training via startup kit) ..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
+    CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
     # also check that it finishes within one minute
-    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT"
+    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT_FILE"
 
-    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT"; then
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE"; then
         echo "✅ Expected output of Docker/GPU preflight check found"
     else
         echo "❌ Missing expected output of Docker/GPU preflight check"
@@ -338,15 +365,15 @@ run_two_containers_in_parallel () {
     # requires having built a startup kit
     echo "[Run] Starting two containers in parallel (local dummy training via startup kit) ..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    CONSOLE_OUTPUT=docker_gpu_preflight_check_console_output.txt
-    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT" &
+    CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
+    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT_FILE" &
     sleep 1
 
-    CONSOLE_OUTPUT_A=docker_gpu_preflight_check_console_output_a.txt
-    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull --container_name MediSwarmODELIATestSecondContainer 2>&1 | tee "$CONSOLE_OUTPUT_A" &
+    CONSOLE_OUTPUT_FILE_A=docker_gpu_preflight_check_console_output_a.txt
+    timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull --container_name MediSwarmODELIATestSecondContainer 2>&1 | tee "$CONSOLE_OUTPUT_FILE_A" &
     sleep 60
 
-    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_A" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_A"; then
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE_A" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE_A"; then
         echo "✅ Expected output of running two containers in parallel found"
     else
         echo "❌ Missing expected output of running two containers in parallel"
@@ -362,29 +389,29 @@ run_data_access_preflight_check () {
     echo "[Run] Data access preflight check..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
+    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # also check that it finishes the single round within one minute
-    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
-    if grep -q  "Train set: 18, Val set: 6"                                                                         "$CONSOLE_OUTPUT" && \
-       grep -q  "Epoch 0: 100%"                                                                                     "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Run directory"                                                                  "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Run name"                                                                       "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in training set:"                                                 "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in validation set:"                                               "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in test set:"                                                     "$CONSOLE_OUTPUT" && \
-       grep -qx "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)"                                          "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."      "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:Total samples in test set:"                                                     "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:Duplicate image data detected. Please make sure this was intended"           "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique"               "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended."      "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended."      "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended." "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only."      "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only."            "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only."          "$CONSOLE_OUTPUT" ;
+    if grep -q  "Train set: 18, Val set: 6"                                                                         "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "Epoch 0: 100%"                                                                                     "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "INFO:threedcnn_ptl:Run directory"                                                                  "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "INFO:threedcnn_ptl:Run name"                                                                       "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in training set:"                                                 "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in validation set:"                                               "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in test set:"                                                     "$CONSOLE_OUTPUT_FILE" && \
+       grep -qx "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)"                                          "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."      "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "INFO:threedcnn_ptl:Total samples in test set:"                                                     "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "WARNING:threedcnn_ptl:Duplicate image data detected. Please make sure this was intended"           "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique"               "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended."      "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended."      "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended." "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended." "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only."      "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only."            "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only."          "$CONSOLE_OUTPUT_FILE" ;
     then
         echo "✅ Expected output (including expected warnings and errors) of data access preflight check found"
     else
@@ -392,7 +419,7 @@ run_data_access_preflight_check () {
         exit 1
     fi
 
-    if grep -q  "ID_0" "$CONSOLE_OUTPUT" ; then
+    if grep -q  "ID_0" "$CONSOLE_OUTPUT_FILE" ; then
         echo "❌ Unexpected output of data access preflight check without logging dataset details found"
         exit 1
     else
@@ -408,22 +435,22 @@ run_data_access_preflight_check_log_details () {
     echo "[Run] Data access preflight check with logging dataset details..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
+    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # also check that it finishes the single round within one minute
-    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
-    if grep -q  "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:"                     "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                   "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:"                         "$CONSOLE_OUTPUT" && \
-       grep -q  "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT" && \
-       grep -qx "Image data with hash .* appears 2 times: ID_005_left, ID_005_right"                     "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference split.images: ID_016_left, ID_016_right"               "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right"               "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_016_left, ID_016_right"          "$CONSOLE_OUTPUT" && \
-       grep -qx "WARNING:threedcnn_ptl:Difference images.annotation: ID_014_left, ID_014_right"          "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right"          "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right"                "$CONSOLE_OUTPUT" && \
-       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right"              "$CONSOLE_OUTPUT" ;
+    if grep -q  "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:"                     "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                   "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:"                         "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:" "$CONSOLE_OUTPUT_FILE" && \
+       grep -qx "Image data with hash .* appears 2 times: ID_005_left, ID_005_right"                     "$CONSOLE_OUTPUT_FILE" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference split.images: ID_016_left, ID_016_right"               "$CONSOLE_OUTPUT_FILE" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right"               "$CONSOLE_OUTPUT_FILE" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference annotation.images: ID_016_left, ID_016_right"          "$CONSOLE_OUTPUT_FILE" && \
+       grep -qx "WARNING:threedcnn_ptl:Difference images.annotation: ID_014_left, ID_014_right"          "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩validation: ID_016_left, ID_016_right"          "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in training∩test: ID_016_left, ID_016_right"                "$CONSOLE_OUTPUT_FILE" && \
+       grep -q  "ERROR:threedcnn_ptl:Entries in validation∩test: ID_016_left, ID_016_right"              "$CONSOLE_OUTPUT_FILE" ;
     then
         echo "✅ Expected output (including expected warnings and errors) of data access preflight check found"
     else
@@ -440,11 +467,11 @@ run_data_access_preflight_check_without_data () {
     echo "[Run] Data access preflight check with logging dataset details..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
+    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # also check that it finishes the single round within one minute
-    timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
-    if grep -Eq "No such file or directory: '/data/client_A/metadata_unilateral/(annotation|split)\.csv'" "$CONSOLE_OUTPUT" ; then
+    if grep -Eq "No such file or directory: '/data/client_A/metadata_unilateral/(annotation|split)\.csv'" "$CONSOLE_OUTPUT_FILE" ; then
         echo "✅ Expected error output of data access preflight check found if no data is present"
     else
         echo "❌ Missing expected output of data access preflight check found if no data is present"
@@ -457,8 +484,22 @@ run_data_access_preflight_check_without_data () {
 
 run_3dcnn_simulation_mode () {
     # requires having built a startup kit and synthetic dataset
-    echo "[Run] Simulation mode of 3DCNN training in Docker"
-    _run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh
+    echo "[Run] Simulation mode of 3DCNN training in Docker (capturing output)"
+
+    if ! OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh 2>&1); then
+        echo "$OUTPUT"
+        echo "❌ 3DCNN simulation mode failed."
+        exit 1
+    fi
+
+    echo "$OUTPUT"
+
+    if grep -q "=== 3DCNN Simulation Mode PASSED ===" <<< "$OUTPUT"; then
+        echo "✅ 3DCNN simulation mode succeeded."
+    else
+        echo "❌ Missing 3DCNN simulation success marker."
+        exit 1
+    fi
 }
 
 
@@ -508,7 +549,7 @@ run_container_with_pulling () {
     cd localhost/startup
     OUTPUT=$(./docker.sh --list_licenses)
 
-    if echo "$OUTPUT" | grep -qie "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" ; then
+    if grep -qi "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" <<< "$OUTPUT"; then
         echo "✅ Image pulled successfully"
     else
         echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
@@ -551,17 +592,17 @@ verify_wrong_certificates_are_rejected () {
 
     sleep 20
 
-    CONSOLE_OUTPUT_SERVER=localhost/startup/nohup.out
-    CONSOLE_OUTPUT_CLIENT=client_A/startup/nohup.out
+    CONSOLE_OUTPUT_FILE_SERVER=localhost/startup/nohup.out
+    CONSOLE_OUTPUT_FILE_CLIENT=client_A/startup/nohup.out
 
-    if grep -q "Total clients: 1" $CONSOLE_OUTPUT_SERVER; then
+    if grep -q "Total clients: 1" $CONSOLE_OUTPUT_FILE_SERVER; then
         echo "❌ Could not verify that connection to unauthorized client was rejected"
         exit 1
     else
         echo "✅ Connection to unauthorized client rejected successfully by server"
     fi
 
-    if grep -q "SSLCertVerificationError" $CONSOLE_OUTPUT_CLIENT; then
+    if grep -q "SSLCertVerificationError" $CONSOLE_OUTPUT_FILE_CLIENT; then
         echo "✅ Connection to unauthorized server rejected successfully by client"
     else
         echo "❌ Could not verify that connection to unauthorized server was rejected"
@@ -570,8 +611,8 @@ verify_wrong_certificates_are_rejected () {
 
     # start admin console and verify that it gets rejected
     cd admin@test.odelia/startup
-    CONSOLE_OUTPUT_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
-    if echo "$CONSOLE_OUTPUT_ADMIN" | grep -q "Communication Error - please try later"; then
+    CONSOLE_OUTPUT_FILE_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
+    if grep -q "Communication Error - please try later" <<< "$CONSOLE_OUTPUT_FILE_ADMIN"; then
         echo "✅ Connection by unauthorized admin console rejected successfully"
     else
         echo "❌ Connection with non-authorized admin console"
@@ -618,7 +659,7 @@ run_dummy_training_in_swarm () {
 
     # check for expected output in server log (clients joined, job ID assigned, 5 rounds, start of round logged, finished training logged)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
-    CONSOLE_OUTPUT=nohup.out
+    CONSOLE_OUTPUT_FILE=nohup.out
     for EXPECTED_OUTPUT in 'Client: New client client_A.* joined.*' \
                            'Client: New client client_B.* joined.*' \
                            'Client: New client client_.* joined. Sent token: .* Total clients: 1' \
@@ -629,10 +670,10 @@ run_dummy_training_in_swarm () {
                            'all_done=True' \
                            'Server runner finished.';
     do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
         else
-            cat "$CONSOLE_OUTPUT"
+            cat "$CONSOLE_OUTPUT_FILE"
             echo "❌ Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
@@ -641,7 +682,7 @@ run_dummy_training_in_swarm () {
 
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
-    CONSOLE_OUTPUT=nohup.out
+    CONSOLE_OUTPUT_FILE=nohup.out
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 9: 100%' \
                            'val/AUC_ROC' \
@@ -654,10 +695,10 @@ run_dummy_training_in_swarm () {
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
                            'broadcasting learn task of round . to .*; aggregation happens on client_.';
     do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
         else
-            cat "$CONSOLE_OUTPUT"
+            cat "$CONSOLE_OUTPUT_FILE"
             echo "❌ Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
@@ -668,7 +709,7 @@ run_dummy_training_in_swarm () {
     FILES_PRESENT=$(find . -type f -name "*.*")
     for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
     do
-        if echo "$FILES_PRESENT" | grep -q "$EXPECTED_FILE" ; then
+        if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
             echo "❌ Expected file $EXPECTED_FILE missing"
@@ -699,10 +740,10 @@ run_3dcnn_local_training () {
     echo "[Run] 3DCNN local training..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT=local_training_console_output.txt
-    timeout --signal=kill 60m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    CONSOLE_OUTPUT_FILE=local_training_console_output.txt
+    timeout --signal=kill 60m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
-    if grep -q "Epoch 99: 100%" "$CONSOLE_OUTPUT" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT"; then
+    if grep -q "Epoch 99: 100%" "$CONSOLE_OUTPUT_FILE" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE"; then
         echo "✅ Expected output of 3DCNN local training found"
     else
         echo "❌ Missing expected output of 3DCNN local training"
@@ -743,15 +784,15 @@ run_3dcnn_training_in_swarm () {
 
     # check for expected output in server log (clients joined, job ID assigned, 20 rounds)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
-    CONSOLE_OUTPUT=nohup.out
+    CONSOLE_OUTPUT_FILE=nohup.out
     for EXPECTED_OUTPUT in 'updated status of client client_A on round 19: .* action=start_learn_task, all_done=False' \
                            'updated status of client client_B on round 19: .* action=start_learn_task, all_done=False' \
                            'all_done=True';
     do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
         else
-            cat "$CONSOLE_OUTPUT"
+            cat "$CONSOLE_OUTPUT_FILE"
             echo "❌ Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
@@ -760,14 +801,14 @@ run_3dcnn_training_in_swarm () {
 
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
-    CONSOLE_OUTPUT=nohup.out
+    CONSOLE_OUTPUT_FILE=nohup.out
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 99: 100%';
     do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
         else
-            cat "$CONSOLE_OUTPUT"
+            cat "$CONSOLE_OUTPUT_FILE"
             echo "❌ Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
@@ -778,7 +819,7 @@ run_3dcnn_training_in_swarm () {
     FILES_PRESENT=$(find . -type f -name "*.*")
     for EXPECTED_FILE in 'custom/threedcnn_ptl.py' 'FL_global_model.pt' ;
     do
-        if echo "$FILES_PRESENT" | grep -q "$EXPECTED_FILE" ; then
+        if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
             echo "❌ Expected file $EXPECTED_FILE missing"
@@ -791,10 +832,10 @@ run_3dcnn_training_in_swarm () {
 _verify_challenge_preflight_check() {
     MODEL_NAME=$1
     EXPECTED_OUTPUT=$2
-    CONSOLE_OUTPUT=preflight_check_console_output_$MODEL_NAME.txt
-    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job $MODEL_NAME --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    CONSOLE_OUTPUT_FILE=preflight_check_console_output_$MODEL_NAME.txt
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job $MODEL_NAME --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
-    if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+    if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
         echo "✅ Expected output of $MODEL_NAME preflight check found"
     else
         echo "❌ Missing expected output of $MODEL_NAME preflight check"
@@ -809,7 +850,7 @@ run_all_models_preflight_check () {
     echo "[Run] 3DCNN local training..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT=preflight_check_console_output.txt
+    CONSOLE_OUTPUT_FILE=preflight_check_console_output.txt
 
     _verify_challenge_preflight_check "challenge_1DivideAndConquer"   "3 | model   | ResidualEncoderClsNetwork"
     _verify_challenge_preflight_check "challenge_2BCN_AIM"            "3 | backbone | SwinUNETRMultiTask"
