@@ -58,9 +58,30 @@ jobs:
         run: |
           echo "Disk usage before cleanup:"
           df -h / | tail -1
-          # Remove stopped containers, dangling images, and build cache older
-          # than 24 h to prevent "no space left on device" failures.
+
+          echo "Docker usage before cleanup:"
+          docker system df || true
+
+          # Remove stopped containers, dangling images, and old build cache.
           docker system prune -f --filter "until=24h" || true
+
+          # PR validation builds large ODELIA/STAMP images with commit-specific
+          # tags. Superseded runs can fill the self-hosted runner even when the
+          # images are too recent for the stale-resource prune above.
+          docker image ls --format '{{.Repository}}:{{.Tag}} {{.ID}}' \
+            | awk '$1 ~ /^(localhost:5000\/)?(odelia|stamp):/ {print $2}' \
+            | sort -u \
+            | xargs -r docker rmi -f || true
+          docker builder prune -af || true
+
+          FREE_KB=$(df --output=avail / | tail -1)
+          if [ "$FREE_KB" -lt 15728640 ]; then
+            echo "Free disk below 15 GiB; pruning all unused Docker images."
+            docker system prune -af || true
+          fi
+
+          echo "Docker usage after cleanup:"
+          docker system df || true
           echo "Disk usage after cleanup:"
           df -h / | tail -1
 

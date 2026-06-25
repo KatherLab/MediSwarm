@@ -893,6 +893,8 @@ cleanup_temporary_data () {
     _rm_rf "$PROJECT_DIR"
 }
 
+trap cleanup_temporary_data EXIT
+
 
 case "$1" in
     check_files_on_github)
