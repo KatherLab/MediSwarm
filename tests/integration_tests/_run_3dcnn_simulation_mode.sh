@@ -17,12 +17,13 @@ run_3dcnn_simulation_mode () {
     export APP_DIR="ODELIA_ternary_classification"
     echo "RUN ${APP_DIR} with MODEL_NAME=${MODEL_NAME}"
     cp -RL application/jobs/${APP_DIR} ${TMPDIR}/${APP_DIR}
-    # CI runs only two simulator clients on one GPU. Keep this as a short
-    # fault-tolerance smoke: one client may fail under runner memory pressure,
-    # but one good client must complete and produce a global model.
+    # CI runs two simulator clients on one GPU. Keep this as a short 3D-CNN
+    # smoke by training only client_A; client_B remains an aggregator candidate
+    # to satisfy swarm participant validation without a second concurrent
+    # 3D-CNN trainer on constrained self-hosted runners.
     sed -i 's/num_rounds = .*/num_rounds = 1/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
     sed -i 's/min_clients = .*/min_clients = 1/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
-    sed -i '/min_clients =/a\      starting_client = "client_A"\n      result_clients = ["client_A"]\n      aggr_clients = ["client_A"]\n      train_clients = ["client_A", "client_B"]' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
+    sed -i '/min_clients =/a\      starting_client = "client_A"\n      result_clients = ["client_A"]\n      aggr_clients = ["client_A", "client_B"]\n      train_clients = ["client_A"]' ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
     sed -i 's/min_responses_required = .*/min_responses_required = 1/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_client.conf
     # Production ODELIA jobs use long timeouts to ride out VPN stalls. This
     # synthetic CI simulation should fail promptly and print the simulator log.
