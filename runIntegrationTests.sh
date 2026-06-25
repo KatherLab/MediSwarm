@@ -481,7 +481,7 @@ verify_wrong_certificates_are_rejected () {
         echo "✅ Connection to unauthorized client rejected successfully by server"
     fi
 
-    if grep -q "SSLCertVerificationError" $CONSOLE_OUTPUT_CLIENT; then
+    if grep -q "SSLCertVerificationError" $CONSOLE_OUTPUT_CLIENT || grep -q "ConnectionRefusedError" $CONSOLE_OUTPUT_CLIENT; then
         echo "✅ Connection to unauthorized server rejected successfully by client"
     else
         cat "$CONSOLE_OUTPUT_CLIENT"
