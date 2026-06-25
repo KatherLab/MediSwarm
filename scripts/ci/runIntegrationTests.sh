@@ -486,15 +486,18 @@ run_3dcnn_simulation_mode () {
     # requires having built a startup kit and synthetic dataset
     echo "[Run] Simulation mode of 3DCNN training in Docker (capturing output)"
 
-    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh 2>&1)
+    if ! OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_3dcnn_simulation_mode.sh 2>&1); then
+        echo "$OUTPUT"
+        echo "❌ 3DCNN simulation mode failed."
+        exit 1
+    fi
 
     echo "$OUTPUT"
 
-    echo "TODO add check that no error happened when clean synthetic dataset is used"
-    if grep -qi "Epoch 19: 100%" <<< "$OUTPUT"; then
-        echo "✅ 3DCNN proof-of-concept mode succeeded."
+    if grep -q "=== 3DCNN Simulation Mode PASSED ===" <<< "$OUTPUT"; then
+        echo "✅ 3DCNN simulation mode succeeded."
     else
-        echo "❌ 3DCNN proof-of-concept mode failed."
+        echo "❌ Missing 3DCNN simulation success marker."
         exit 1
     fi
 }
