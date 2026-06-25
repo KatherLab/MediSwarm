@@ -35,6 +35,7 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 - **Detection:** the pre-run check warns when the Docker cgroup driver is `systemd`; `docker exec <client> nvidia-smi -L` fails while host `nvidia-smi` works.
 - **Fix (host-level, durable):** run **`scripts/client_node_setup/fix_docker_cgroupfs.sh`** (as root) — switches Docker to the `cgroupfs` driver and validates that a `daemon-reload` no longer drops the GPU. Then recreate the client (see F3). The change persists across reboots.
 - **Prevention:** use the `cgroupfs` driver on all client hosts; the pre-run check flags `systemd`.
+- **Fallback (host stuck on `systemd`):** install `scripts/client_node_setup/gpu_container_watchdog.sh install` — a 2-min systemd timer that `docker restart`s a GPU-less (`unhealthy`) client **only when no GPU job is running**, so an idle container auto-recovers without disrupting an active training (#343).
 
 ## F3 — Stale `daemon_pid.fl` blocks client restart
 - **Symptom:** after `docker rm -f` of a client, the new container is `Up … (healthy)` (the healthcheck only runs `nvidia-smi`) but the site never registers; `nohup.out` shows `There seems to be one instance, pid=N, running … remove daemon_pid.fl`.
