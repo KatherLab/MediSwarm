@@ -8,11 +8,15 @@
 # Usage:
 #   ./vpn_health_monitor.sh                  # run once (suitable for cron/systemd timer)
 #   ./vpn_health_monitor.sh --daemon         # run in a loop (every INTERVAL seconds)
-#   ./vpn_health_monitor.sh --install-timer  # install a systemd timer that runs every minute
+#   ./vpn_health_monitor.sh --install-timer  # install a systemd timer that runs every 30 seconds
+#
+# A missing/IP-less tunnel interface triggers an immediate restart; gateway-ping
+# failures restart only after FAIL_THRESHOLD consecutive misses.
 #
 # Environment variables (all optional):
 #   VPN_GATEWAY        IP to ping              (default: 172.24.4.1)
 #   VPN_SERVICE        systemd service name    (default: mediswarm-vpn)
+#   VPN_IFACE          tunnel interface to check (default: tun0)
 #   FAIL_THRESHOLD     consecutive fails before restart (default: 3)
 #   PING_INTERVAL      seconds between checks in daemon mode (default: 60)
 #   STATE_FILE         path for failure counter (default: /tmp/mediswarm_vpn_health.state)
@@ -28,6 +32,7 @@ VPN_SERVICE="${VPN_SERVICE:-mediswarm-vpn}"
 FAIL_THRESHOLD="${FAIL_THRESHOLD:-3}"
 PING_INTERVAL="${PING_INTERVAL:-60}"
 STATE_FILE="${STATE_FILE:-/tmp/mediswarm_vpn_health.state}"
+VPN_IFACE="${VPN_IFACE:-tun0}"
 
 # ---------------------------------------------------------------------------
 # Logging helper
@@ -59,6 +64,21 @@ write_failures() {
 check_vpn() {
     local failures
     failures=$(read_failures)
+
+    # Fast path: a missing or IP-less tunnel interface is a definitive drop
+    # (OpenVPN exited, or NetworkManager tore tun0 down). Restart immediately
+    # instead of waiting out the ping threshold -- this is the failure that
+    # repeatedly stalled long swarm runs (see #348).
+    if ! ip -o addr show "$VPN_IFACE" 2>/dev/null | grep -q "inet "; then
+        log err "VPN interface $VPN_IFACE is down or has no IP -- restarting $VPN_SERVICE"
+        if sudo systemctl restart "$VPN_SERVICE"; then
+            log info "$VPN_SERVICE restarted (interface was down)"
+        else
+            log err "Failed to restart $VPN_SERVICE (exit code $?)"
+        fi
+        write_failures 0
+        return 0
+    fi
 
     if ping -c 2 -W 5 "$VPN_GATEWAY" &>/dev/null; then
         if (( failures > 0 )); then
@@ -103,15 +123,16 @@ ExecStart=$script_path
 Environment=VPN_GATEWAY=$VPN_GATEWAY
 Environment=VPN_SERVICE=$VPN_SERVICE
 Environment=FAIL_THRESHOLD=$FAIL_THRESHOLD
+Environment=VPN_IFACE=$VPN_IFACE
 EOF
 
     sudo tee /etc/systemd/system/mediswarm-vpn-health.timer >/dev/null <<EOF
 [Unit]
-Description=Run MediSwarm VPN health check every minute
+Description=Run MediSwarm VPN health check every 30 seconds
 
 [Timer]
 OnBootSec=120
-OnUnitActiveSec=60
+OnUnitActiveSec=30
 AccuracySec=5s
 
 [Install]

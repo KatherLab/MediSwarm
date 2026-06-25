@@ -10,13 +10,20 @@ ones, or the outer layer will kill a run that was still making progress.
 ```
 CI workflow timeout (3 days = 4320 min)
   └── Deploy script per-model timeout (7 days = 10080 min)
-        └── NVFlare progress_timeout (8 h = 28800 s)
-              └── learn_task_timeout (8 h = 28800 s)
+        └── NVFlare progress_timeout (24 h = 86400 s)
+              ├── max_status_report_interval (24 h = 86400 s)   # server declares a silent client dead
+              └── learn_task_timeout (24 h = 86400 s)
                     ├── heartbeat_timeout (15 min = 900 s)
                     ├── peer_read_timeout (30 min = 1800 s)
                     ├── external_pre_init_timeout (10 min = 600 s)
                     └── last_result_transfer_timeout (30 min = 1800 s)
 ```
+
+> **Heterogeneous (8-site) runs:** `progress_timeout`, `max_status_report_interval`,
+> and `learn_task_timeout` were raised to **24 h** because the slowest site (≈9× the
+> data of the others) gates every round and is *silent* for the whole duration of its
+> round. See [`SWARM_FAILURE_MODES.md`](SWARM_FAILURE_MODES.md) F1 and the
+> "Slow node & synchronization" section below.
 
 ---
 
@@ -56,10 +63,10 @@ These are set in each job's `config_fed_server.conf`:
 
 | Setting | Value | Description |
 |---------|-------|-------------|
-| `progress_timeout` | **28800 s** (8 h) | Max time without any client reporting progress before the server declares the job failed. |
-| `start_task_timeout` | **1800 s** (30 min) | Time for all clients to pull their startup kits, connect, and be ready. |
-| `configure_task_timeout` | **900 s** (15 min) | Time for clients to acknowledge the swarm configuration message. |
-| `max_status_report_interval` | **300 s** (5 min) | How often clients must report status to prove they are alive. |
+| `progress_timeout` | **86400 s** (24 h) | Max time without any client reporting progress before the server declares the job failed. |
+| `start_task_timeout` | **3600 s** (60 min) | Time for all clients to pull their startup kits, connect, and be ready. |
+| `configure_task_timeout` | **1800 s** (30 min) | Time for clients to acknowledge the swarm configuration message. |
+| `max_status_report_interval` | **86400 s** (24 h) | How long a client may be **silent** before the server declares it dead and aborts. A slow site is silent for the *entire* duration of its long round, so this must exceed the slowest per-round time. **Raised from 5 min — that was the cause of the UKA `didn't report status` abort (F1).** |
 
 **File:** `application/jobs/*/app/config/config_fed_server.conf`
 
@@ -75,17 +82,44 @@ These are set in each job's `config_fed_client.conf`:
 
 | Setting | Value | Description |
 |---------|-------|-------------|
-| `learn_task_timeout` | **28800 s** (8 h) | Max time for a single training round (all local epochs). The most critical timeout for large models. |
+| `learn_task_timeout` | **86400 s** (24 h) | Max time for a single training round (all local epochs). The most critical timeout for large models / large-data sites. |
 | `learn_task_abort_timeout` | **300 s** (5 min) | Grace period for a training round to finish after an abort is requested. |
 | `learn_task_ack_timeout` | **1800 s** (30 min) | Time for the training task acknowledgment, including streaming model weights to peers. |
 | `final_result_ack_timeout` | **1800 s** (30 min) | Time for the final aggregated result acknowledgment. |
-| `wait_time_after_min_resps_received` | **600 s** (10 min) | After `min_responses_required` clients have finished a round, wait this long for stragglers before proceeding. |
+| `min_responses_required` | **= number of participating clients** (wait-for-all) | How many client contributions a round must gather before aggregating and advancing. See "Slow node & synchronization" below. |
+| `wait_time_after_min_resps_received` | **36000 s** (10 h) | After `min_responses_required` clients finish a round, wait this long for stragglers. Largely **moot** when `min_responses_required` = all clients. |
 
 **File:** `application/jobs/*/app/config/config_fed_client.conf`
 
 **Risk if `learn_task_timeout` is too low:** Slow clients (small GPU, large
-model, many epochs) time out during training. The round is marked as failed and
-the job may abort. This was the bottleneck in early deploy tests (was 4h, now 8h).
+model, many epochs / large data) time out during training. The round is marked
+failed and the job may abort. Raised 4h → 8h → **24h** for 8-site runs.
+
+---
+
+## 4b. Slow node & synchronization
+
+Heterogeneous node speeds (one site with ~9× the data) exposed two distinct
+failure modes that are *not* fixed by timeouts alone — see
+[`SWARM_FAILURE_MODES.md`](SWARM_FAILURE_MODES.md):
+
+- **F1 — status timeout.** The slow site is silent for the whole duration of its
+  long round, so the server's `max_status_report_interval` declared it dead. Fixed
+  by raising that interval (and `progress_timeout` / `learn_task_timeout`) to 24 h.
+- **F5 — `MODEL_UNRECOGNIZED` desync.** With `min_responses_required = 2`, the fast
+  sites aggregated and advanced the round *without* the slow site; when it finally
+  submitted, the aggregator rejected its now-stale model and the run aborted.
+
+**Default: wait-for-all.** Set `min_responses_required` to the **number of
+participating clients** so a round cannot advance until every site (including the
+slowest) has submitted. This eliminates the desync.
+
+**Tradeoff (document for operators):** wait-for-all is robust against desync but
+**fragile to drops** — if any client disconnects mid-round (e.g. a VPN drop, F6),
+the round cannot reach the required count and **stalls until `learn_task_timeout`**
+(24 h) before failing. Set `min_responses_required` to the actual participating
+count for each run; if a flaky site must be tolerated, lower it (accepting that a
+much-slower site may desync).
 
 ---
 

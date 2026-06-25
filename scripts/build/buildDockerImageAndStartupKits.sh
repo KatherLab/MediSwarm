@@ -46,11 +46,19 @@ CONTAINER_VERSION_ID=`git rev-parse --short HEAD`
 # prepare clean version of source code repository clone for building Docker image
 
 CWD=`pwd`
-CLEAN_SOURCE_DIR=`mktemp -d`
-mkdir $CLEAN_SOURCE_DIR/MediSwarm
-git archive --format=tar HEAD | tar x -C $CLEAN_SOURCE_DIR/MediSwarm/
+CLEAN_SOURCE_DIR=""
+cleanup_build_context () {
+    if [[ -n "$CLEAN_SOURCE_DIR" && -d "$CLEAN_SOURCE_DIR" ]]; then
+        rm -rf "$CLEAN_SOURCE_DIR"
+    fi
+}
+trap cleanup_build_context EXIT
+
+CLEAN_SOURCE_DIR=`mktemp -d -t mediswarm-build.XXXXXXXXXX`
+mkdir "$CLEAN_SOURCE_DIR/MediSwarm"
+git archive --format=tar HEAD | tar x -C "$CLEAN_SOURCE_DIR/MediSwarm/"
 cd docker_config/NVFlare
-git archive --format=tar HEAD | tar x -C $CLEAN_SOURCE_DIR/MediSwarm/docker_config/NVFlare
+git archive --format=tar HEAD | tar x -C "$CLEAN_SOURCE_DIR/MediSwarm/docker_config/NVFlare"
 cd ../..
 
 cd $CLEAN_SOURCE_DIR/MediSwarm
@@ -78,7 +86,7 @@ fi
 # If an environment variable MEDISWARM_BUILD_CACHE_DIR is set, it will be used as a persistent cache,
 # otherwise data is stored in a temporary folder deleted after building.
 if [[ "$DOCKERFILE" != *"Dockerfile_STAMP"* ]]; then
-    ./scripts/build/_cacheAndCopyPretrainedModelWeights.sh $CLEAN_SOURCE_DIR
+    ./scripts/build/_cacheAndCopyPretrainedModelWeights.sh "$CLEAN_SOURCE_DIR"
 fi
 cd $CWD
 
@@ -93,6 +101,7 @@ echo "scripts/build/_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME"
 "$SCRIPT_DIR/_buildStartupKits.sh" $PROJECT_FILE $VERSION $CONTAINER_NAME
 echo "Startup kits built successfully"
 
-rm -rf $CLEAN_SOURCE_DIR
+rm -rf "$CLEAN_SOURCE_DIR"
+CLEAN_SOURCE_DIR=""
 
 echo "If you wish, manually push $CONTAINER_NAME now"
