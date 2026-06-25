@@ -35,6 +35,12 @@ jobs:
     steps:
       - name: Clean up root-owned files from previous Docker runs
         run: |
+          # Canceled self-hosted runs can leave GPU/NVFlare containers alive
+          # before their final cleanup step executes. Remove them before this
+          # run starts so stale processes cannot hold ports or GPU memory.
+          docker ps --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true
+          docker ps -a --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker rm -f 2>/dev/null || true
+
           # Docker-based tests create root-owned files (owned by root inside the
           # container) in the workspace/ directory.  The runner process cannot
           # remove them, which causes the checkout action's "clean" step to fail
