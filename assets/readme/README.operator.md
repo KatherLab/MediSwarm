@@ -88,3 +88,36 @@ passwords somewhere, they are only displayed once (or you can download them agai
 5. Start the *admin* startup kit using the respective `startup/docker.sh` script to start the admin console
 6. Log in using the user name configured as "name" of the node of type "admin" (only user name needed, auth happens via certificate)
 7. Deploy a job by `submit_job <job folder>`
+
+### Fresh vs Continue ODELIA Jobs
+
+Admin startup kits include `prepare_odelia_job.sh`, which copies an in-image job into the admin kit's mounted
+`local/mediswarm_jobs` folder and patches only that copied job.
+
+Fresh start:
+```bash
+cd <admin-kit>/startup
+./prepare_odelia_job.sh --job ODELIA_ternary_classification --warm-start fresh
+./docker.sh --no_pull
+```
+Submit the printed `_fresh` path, for example:
+```text
+submit_job /fl_admin/local/mediswarm_jobs/ODELIA_ternary_classification_fresh
+```
+
+Continue from the last client-local global checkpoint:
+```bash
+cd <admin-kit>/startup
+./prepare_odelia_job.sh --job ODELIA_ternary_classification --warm-start continue
+./docker.sh --no_pull
+```
+Submit the printed `_continue` path, for example:
+```text
+submit_job /fl_admin/local/mediswarm_jobs/ODELIA_ternary_classification_continue
+```
+
+`continue` is strict: each client must have `/scratch/mediswarm_latest_global.pt` available through the same
+`--scratch_dir` used by the previous run. If any client is missing that checkpoint, the job aborts with
+`WARM_START_REQUIRED_MISSING` instead of silently starting fresh. `fresh` ignores old local checkpoints without
+deleting them. Direct `submit_job MediSwarm/application/jobs/...` remains supported and keeps automatic warm-start
+behavior.

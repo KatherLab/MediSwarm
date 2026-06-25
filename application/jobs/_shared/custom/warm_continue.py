@@ -17,6 +17,9 @@ mirror on each client:
   not exist yet (the first run of a chain), it is disabled so the run initializes
   fresh instead of ``system_panic``; on later runs the mirror exists and the run
   warm-starts from it.
+* ``warm_start_mode`` lets the admin make that choice explicit per submitted job:
+  ``auto`` keeps the current best-effort behavior, ``fresh`` ignores the mirror
+  without deleting it, and ``require`` aborts if the mirror is missing.
 
 Wiring it into every job's client persistor with
 ``source_ckpt_file_full_name = latest_global_path`` makes a chain of short runs
@@ -33,23 +36,79 @@ from nvflare.app_common.app_event_type import AppEventType
 from nvflare.app_opt.pt.file_model_persistor import PTFileModelPersistor
 
 DEFAULT_LATEST_GLOBAL_PATH = "/scratch/mediswarm_latest_global.pt"
+WARM_START_MODE_AUTO = "auto"
+WARM_START_MODE_FRESH = "fresh"
+WARM_START_MODE_REQUIRE = "require"
+WARM_START_MODES = {
+    WARM_START_MODE_AUTO,
+    WARM_START_MODE_FRESH,
+    WARM_START_MODE_REQUIRE,
+}
+WARM_START_REQUIRED_MISSING = "WARM_START_REQUIRED_MISSING"
+
+
+def normalize_warm_start_mode(warm_start_mode: str) -> str:
+    mode = (warm_start_mode or WARM_START_MODE_AUTO).strip().lower()
+    if mode not in WARM_START_MODES:
+        expected = ", ".join(sorted(WARM_START_MODES))
+        raise ValueError(f"Invalid warm_start_mode '{warm_start_mode}'. Expected one of: {expected}")
+    return mode
+
+
+def resolve_source_checkpoint(source_ckpt_file_full_name: str, warm_start_mode: str, exists=os.path.exists):
+    """Return the source checkpoint path the base persistor should use.
+
+    ``auto`` preserves the historical behavior: missing absolute paths are
+    disabled so the run starts fresh, while existing paths are passed through.
+    ``fresh`` always disables warm-start. ``require`` passes through only an
+    existing source and raises a sentinel-bearing error otherwise.
+    """
+
+    mode = normalize_warm_start_mode(warm_start_mode)
+    source_ckpt = source_ckpt_file_full_name
+
+    if mode == WARM_START_MODE_FRESH:
+        return None
+
+    if not source_ckpt:
+        if mode == WARM_START_MODE_REQUIRE:
+            raise FileNotFoundError(f"{WARM_START_REQUIRED_MISSING}: no warm-start checkpoint path configured")
+        return None
+
+    if mode == WARM_START_MODE_REQUIRE:
+        if not exists(source_ckpt):
+            raise FileNotFoundError(
+                f"{WARM_START_REQUIRED_MISSING}: required warm-start checkpoint missing: {source_ckpt}"
+            )
+        return source_ckpt
+
+    if os.path.isabs(source_ckpt) and not exists(source_ckpt):
+        return None
+
+    return source_ckpt
 
 
 class WarmStartablePTFileModelPersistor(PTFileModelPersistor):
-    def __init__(self, latest_global_path: str = DEFAULT_LATEST_GLOBAL_PATH, **kwargs):
+    def __init__(
+        self,
+        latest_global_path: str = DEFAULT_LATEST_GLOBAL_PATH,
+        warm_start_mode: str = WARM_START_MODE_AUTO,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.latest_global_path = latest_global_path
-        # Graceful warm-start: if the configured source checkpoint is an absolute
-        # path that doesn't exist yet (first run of a chain), disable it so we
-        # init fresh instead of system_panic. On later runs the prior run's
-        # mirror is present and we warm-start from it.
+        self.warm_start_mode = normalize_warm_start_mode(warm_start_mode)
+
         sc = self.source_ckpt_file_full_name
-        if sc and os.path.isabs(sc):
-            if os.path.exists(sc):
-                self.logger.info(f"WarmStart: will warm-start from existing checkpoint {sc}")
-            else:
-                self.logger.info(f"WarmStart: source checkpoint {sc} not present yet; initializing fresh")
-                self.source_ckpt_file_full_name = None
+        resolved_sc = resolve_source_checkpoint(sc, self.warm_start_mode)
+        self.source_ckpt_file_full_name = resolved_sc
+
+        if self.warm_start_mode == WARM_START_MODE_FRESH:
+            self.logger.info("WarmStart: warm_start_mode=fresh; initializing fresh and ignoring any local checkpoint")
+        elif resolved_sc:
+            self.logger.info(f"WarmStart: will warm-start from checkpoint {resolved_sc} (mode={self.warm_start_mode})")
+        elif sc:
+            self.logger.info(f"WarmStart: source checkpoint {sc} not present yet; initializing fresh")
 
     def handle_event(self, event: str, fl_ctx: FLContext):
         # let the base persistor do its normal save/init first

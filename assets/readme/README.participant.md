@@ -198,6 +198,10 @@ To have a baseline for swarm training, train the same model in a comparable way 
    ```
    If you have multiple GPUs and 0 is busy, use a different one.
 
+   For admin-requested continuation runs, reuse the same `--scratch_dir` as the previous run. MediSwarm stores the
+   latest global checkpoint at `/scratch/mediswarm_latest_global.pt` inside the client container, backed by that scratch
+   directory on the host. A fresh-start job ignores this file without requiring you to delete it.
+
 3. Console output is captured in `nohup.out`, which may have been created with limited permissions in the container, so
    make it readable if necessary:
    ```bash
