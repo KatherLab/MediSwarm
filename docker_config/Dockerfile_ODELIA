@@ -274,6 +274,9 @@ RUN python3 -m pip install --no-cache-dir /workspace/nvflare && rm -rf /workspac
 # Copy pre-trained model weights BEFORE source code — weights rarely change,
 # so this layer stays cached even when source code changes every build.
 COPY ./torch_home_cache /torch_home
+COPY ./hf_home_cache /huggingface_home
+RUN chmod a+rwX /huggingface_home -R
+# permissions only needed for huggingface directory
 
 # Copy the source code for local training and deploying to the swarm
 COPY ./MediSwarm /MediSwarm
