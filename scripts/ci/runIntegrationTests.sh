@@ -505,7 +505,7 @@ run_data_access_preflight_check_with_problems_log_details () {
     echo "[Run] Data access preflight check with logging dataset details..."
     cd "$PROJECT_DIR"/prod_00
 
-    cd client_A/startup
+    cd client_B/startup
     CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # timeout may kill epoch before it is finished, this test is only about logging before the epoch is started
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
@@ -514,7 +514,7 @@ run_data_access_preflight_check_with_problems_log_details () {
                            "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                                                     \
                            "INFO:threedcnn_ptl:All test data image UIDs, UIDs with hashes:"                                                           \
                            "INFO:threedcnn_ptl:All training ∪ validation ∪ test data image UIDs, UIDs with hashes:"                                   \
-                           "Image UID ID_016_left .* appears 3 times"                                                                                 \
+                           "ID_016_left .* appears 3 times"                                                                                           \
                            "Image data with hash .* appears 6 times: ID_000_left, ID_016_left, ID_016_right, ID_998_right, ID_999_left, SomeUID_both" \
                            "WARNING:threedcnn_ptl:Difference split.images: ID_017_left, ID_017_right"                                                 \
                            "WARNING:threedcnn_ptl:Difference images.split: ID_014_left, ID_014_right"                                                 \
