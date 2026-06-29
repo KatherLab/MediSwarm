@@ -163,6 +163,10 @@ def _parse_args() -> argparse.Namespace:
         help="Batch size for prediction (default: 1).",
     )
     parser.add_argument(
+        "--device", type=str, default=os.environ.get("PREDICT_DEVICE", "auto"),
+        help="Device for prediction: auto, cpu, cuda, or cuda:<index> (default: auto).",
+    )
+    parser.add_argument(
         "--num-classes", type=int, default=3,
         help="Number of output classes (default: 3).",
     )
@@ -511,11 +515,19 @@ def setup_dataloader(
 def main():
     args = _parse_args()
 
-    if not torch.cuda.is_available():
-        logger.error("CUDA GPU required for prediction.")
+    requested_device = args.device.lower()
+    if requested_device == "auto":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device(requested_device)
+
+    if device.type == "cuda" and not torch.cuda.is_available():
+        logger.error("CUDA device requested for prediction, but CUDA is not available.")
         sys.exit(1)
 
-    device = torch.device("cuda")
+    if device.type == "cpu":
+        os.environ.setdefault("MEDISWARM_ALLOW_CPU_MODEL", "1")
+    logger.info(f"Using prediction device: {device}")
 
     # Resolve model name
     model_name = args.model_name or os.environ.get("MODEL_NAME", "MST")
@@ -620,7 +632,8 @@ def main():
 
             # Free GPU memory between models
             del model
-            torch.cuda.empty_cache()
+            if device.type == "cuda":
+                torch.cuda.empty_cache()
 
         except Exception as e:
             logger.error(f"Failed to evaluate {label}: {e}")
@@ -701,6 +714,15 @@ def main():
         json.dump(all_results, f, indent=2, default=str)
     logger.info(f"Results saved to: {results_file}")
     logger.info(f"Output directory: {output_dir}")
+
+    failed = [r for r in all_results if r.get("status") == "error"]
+    if failed or not successful:
+        logger.error(
+            "Prediction completed with %d failed checkpoint(s) and %d successful result(s).",
+            len(failed),
+            len(successful),
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

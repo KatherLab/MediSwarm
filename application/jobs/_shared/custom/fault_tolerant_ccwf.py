@@ -43,6 +43,12 @@ from nvflare.app_common.ccwf.server_ctl import ClientStatus
 from nvflare.app_common.ccwf.swarm_client_ctl import Gatherer, SwarmClientController
 from nvflare.app_common.ccwf.swarm_server_ctl import SwarmServerController
 
+WARM_START_REQUIRED_MISSING = "WARM_START_REQUIRED_MISSING"
+
+
+def is_non_tolerable_client_error(error) -> bool:
+    return bool(error and WARM_START_REQUIRED_MISSING in str(error))
+
 
 class FaultTolerantGatherer(Gatherer):
     """Gatherer that tolerates a peer submitting a bad result instead of failing
@@ -167,6 +173,13 @@ class FaultTolerantSwarmServerController(SwarmServerController):
 
         if report.error:
             remaining = len(self.client_statuses) - 1
+            if is_non_tolerable_client_error(report.error):
+                self.asked_to_stop = True
+                self.system_panic(
+                    f"received non-tolerable warm-start failure report from client {client_name}: {report.error}",
+                    fl_ctx,
+                )
+                return
             if self.min_clients and self.min_clients > 0 and remaining >= self.min_clients:
                 # FAULT TOLERANCE (#346): tolerate one client's transient failure
                 # (peer ERROR / MODEL_UNRECOGNIZED desync / drop) -- prune it and
