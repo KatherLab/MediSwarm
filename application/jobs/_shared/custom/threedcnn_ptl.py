@@ -193,9 +193,9 @@ def log_data_hash(ds_train, ds_val, ds_test, env_vars: dict, logger, log_dataset
 
             hashes = [item.hash for item in uids_with_hashes]
             if len(hashes) != len(set(hashes)):
-                logger.warning(f'Duplicate {where} detected. Please make sure this was intended')
+                logger.error(f'Duplicate {where} detected. This should not happen.')
                 if log_dataset_details:
-                    message = [f'Duplicate {where}:']
+                    message = []
                     if where == 'image UIDs':
                         for uid_hash in uids_with_hashes:
                             count = hashes.count(uid_hash.hash)
@@ -210,7 +210,8 @@ def log_data_hash(ds_train, ds_val, ds_test, env_vars: dict, logger, log_dataset
                                 message.append(
                                     f'Image data with hash {image_hash} appears {len(uids)} times: ' + ', '.join(sorted(uids))
                                 )
-                    logger.info('\n'.join(message))
+                    message.sort()
+                    logger.error(f'Duplicate {where}:\n' + '\n'.join(message))
 
         _check_separately_for_duplicates(uids_with_hashes_train, where, 'training', log_dataset_details)
         _check_separately_for_duplicates(uids_with_hashes_valid, where, 'validation', log_dataset_details)
