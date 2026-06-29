@@ -195,25 +195,23 @@ def log_data_hash(ds_train, ds_val, ds_test, env_vars: dict, logger, log_dataset
             if len(hashes) != len(set(hashes)):
                 logger.error(f'Duplicate {where} detected. This should not happen.')
                 if log_dataset_details:
-                    message = f'Duplicate {where}:\n'
+                    message = []
                     if where == 'image UIDs':
-                        multiplicity_messages = {}
                         for uid_hash in uids_with_hashes:
                             count = hashes.count(uid_hash.hash)
                             if count > 1:
-                                multiplicity_messages[uid_hash.uid] = f'Image UID {uid_hash.uid} ({uid_hash.hash}) appears {count} times'
-                        multiplicity_messages = list(multiplicity_messages.values())
-                        multiplicity_messages.sort()
-                        message += '\n'.join(multiplicity_messages)
-
+                                message.append(f'{uid_hash.uid} ({uid_hash.hash}) appears {count} times')
                     elif where == 'image data':
                         uids_for_hash = {}
                         for uid_hash in uids_with_hashes:
                             uids_for_hash.setdefault(uid_hash.hash, []).append(uid_hash.uid)
                         for image_hash, uids in uids_for_hash.items():
                             if len(uids) > 1:
-                                message += f'Image data with hash {image_hash} appears {len(uids)} times: ' + ', '.join(sorted(uids)) + '\n'
-                    logger.error(message)
+                                message.append(
+                                    f'Image data with hash {image_hash} appears {len(uids)} times: ' + ', '.join(sorted(uids))
+                                )
+                    message.sort()
+                    logger.error(f'Duplicate {where}:\n' + '\n'.join(message))
 
         _check_separately_for_duplicates(uids_with_hashes_train, where, 'training', log_dataset_details)
         _check_separately_for_duplicates(uids_with_hashes_valid, where, 'validation', log_dataset_details)
