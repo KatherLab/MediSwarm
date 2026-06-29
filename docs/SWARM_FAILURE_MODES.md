@@ -62,6 +62,7 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 - **Root cause:** the site's VPN tunnel drops (observed: a ~2.5 h GoodAccess outage for the Aachen node). Host stays up; only the VPN path to the server is down.
 - **Detection:** site shows `cannot send to 'server': target_unreachable` continuously; the pre-run check warns if the server `host:port` is not reachable at start.
 - **Fix / prevention:** stabilise the VPN (keepalive / dead-peer-detection / dedicated gateway; raise with the VPN provider). The 24 h timeouts give a long window for a brief drop to self-heal before the run aborts.
+- **Recovery:** if any abort mode (F1/F5/F6) does fire, the run can be resumed without losing progress — each client mirrors the latest global to `/scratch/mediswarm_latest_global.pt` every round. See [Recover an aborted run](../assets/readme/README.operator.md#recover-an-aborted-run).
 
 ## F7 — Shared-memory (`/dev/shm`) bus error
 - **Symptom:** `ERROR: Unexpected bus error … insufficient shared memory (shm)` / `DataLoader worker … killed by signal: Bus error`.
