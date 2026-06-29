@@ -106,6 +106,9 @@ See [README.participant.md](./README.participant.md).
 | `CONFIG`             | `unilateral`    | Configuration schema for dataset (e.g. label scheme)                 |
 | `NUM_EPOCHS`         | `1` (test mode) | Number of training epochs (used in preflight/local training)         |
 | `TRAINING_MODE`      | derived         | Internal use. Automatically set based on flags like `--start_client` |
+| `ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS` | `0` | Swarm: cadence of the per-round aggregated prediction CSV export (`0`=final round only, `1`=every round, `N`=every Nth round + final). Throttled by default — it runs full train+val inference and dominates round time (#314). |
+| `ODELIA_NUM_WORKERS`  | `min(CPU count, 16)` | DataLoader workers. Tune per node: set to roughly the CPU count on IO/CPU-bound nodes for faster rounds; lower it if the host is RAM-constrained (3D loaders are memory-heavy). Measure round-interval impact (#315). |
+| `ODELIA_HASH_NUM_WORKERS` | `0` | Worker threads for dataset hashing/dedup (0 = inline). |
 
 These are injected into the container as `--env` variables. You can modify their defaults by editing `docker.sh` or exporting before run:
 

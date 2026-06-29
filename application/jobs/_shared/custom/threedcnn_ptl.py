@@ -583,6 +583,30 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
     return data_module, model, checkpointing, trainer, path_run_dir, env_vars
 
 
+def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
+    """Whether to export per-sample aggregated predictions this swarm round (#314).
+
+    The per-round aggregated prediction export (full train+val inference at
+    batch_size=1 plus CSV writes, in output_GT_and_classprobs_csv) dominates swarm
+    round time -- it made the PR301 validation ~3.3x slower -- and is not
+    informative more than once or twice. It is therefore throttled via the
+    ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS environment variable:
+        unset / 0 -> final round only (default)
+        1         -> every round (legacy behaviour)
+        N (>1)    -> every Nth round, plus the final round
+    """
+    try:
+        every_n = int(os.environ.get("ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS", "0") or "0")
+    except (TypeError, ValueError):
+        every_n = 0
+    is_final = total_rounds is not None and total_rounds > 0 and current_round >= total_rounds - 1
+    if every_n <= 0:
+        return is_final
+    if every_n == 1:
+        return True
+    return is_final or (current_round % every_n == 0)
+
+
 def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=True) -> None:
     stage_timings: Dict[str, float] = {}
 

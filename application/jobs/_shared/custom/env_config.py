@@ -15,7 +15,12 @@ def _env_flag(name: str, default: bool = False) -> bool:
 
 def load_environment_variables():
     scratch_dir = os.environ['SCRATCH_DIR']
-    default_loader_workers = min(mp.cpu_count(), 8)
+    # Default DataLoader worker count. PR301 capped this at 8, which regressed
+    # loader concurrency on the ~16-CPU deploy nodes (the older path used all
+    # CPUs). Raise the cap to 16 so those nodes are not throttled by default,
+    # while still bounding very-large hosts. Tune per node via ODELIA_NUM_WORKERS
+    # (lower it on RAM-constrained nodes). See #315.
+    default_loader_workers = min(mp.cpu_count(), 16)
 
     return {
         'site_name': os.environ['SITE_NAME'],
