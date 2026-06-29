@@ -4,6 +4,8 @@
 CLIENT_SITES=(RSH MHA)
 
 COSMOS_DEPLOY_DIR=/home/jeff/deploy_test
+# Optional override when clients cannot reach the automatically selected Cosmos IP.
+# COSMOS_HOST_IP=172.24.4.65
 SERVER_NAME=dl3.tud.de
 ADMIN_USER=jiefu.zhu@tu-dresden.de
 

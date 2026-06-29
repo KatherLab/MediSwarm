@@ -31,7 +31,9 @@ import os
 import shutil
 
 from nvflare.apis.event_type import EventType
+from nvflare.apis.fl_constant import FLContextKey
 from nvflare.apis.fl_context import FLContext
+from nvflare.apis.workspace import WorkspaceConstants
 from nvflare.app_common.app_event_type import AppEventType
 from nvflare.app_opt.pt.file_model_persistor import PTFileModelPersistor
 
@@ -55,13 +57,20 @@ def normalize_warm_start_mode(warm_start_mode: str) -> str:
     return mode
 
 
-def resolve_source_checkpoint(source_ckpt_file_full_name: str, warm_start_mode: str, exists=os.path.exists):
+def resolve_source_checkpoint(
+    source_ckpt_file_full_name: str,
+    warm_start_mode: str,
+    exists=os.path.exists,
+    validate_required: bool = True,
+):
     """Return the source checkpoint path the base persistor should use.
 
     ``auto`` preserves the historical behavior: missing absolute paths are
     disabled so the run starts fresh, while existing paths are passed through.
     ``fresh`` always disables warm-start. ``require`` passes through only an
-    existing source and raises a sentinel-bearing error otherwise.
+    existing source and raises a sentinel-bearing error otherwise, unless
+    ``validate_required`` is disabled so the runtime persistor can report the
+    failure through NVFlare's normal ``system_panic`` path after client config.
     """
 
     mode = normalize_warm_start_mode(warm_start_mode)
@@ -72,11 +81,15 @@ def resolve_source_checkpoint(source_ckpt_file_full_name: str, warm_start_mode: 
 
     if not source_ckpt:
         if mode == WARM_START_MODE_REQUIRE:
+            if not validate_required:
+                return None
             raise FileNotFoundError(f"{WARM_START_REQUIRED_MISSING}: no warm-start checkpoint path configured")
         return None
 
     if mode == WARM_START_MODE_REQUIRE:
         if not exists(source_ckpt):
+            if not validate_required:
+                return source_ckpt
             raise FileNotFoundError(
                 f"{WARM_START_REQUIRED_MISSING}: required warm-start checkpoint missing: {source_ckpt}"
             )
@@ -100,15 +113,47 @@ class WarmStartablePTFileModelPersistor(PTFileModelPersistor):
         self.warm_start_mode = normalize_warm_start_mode(warm_start_mode)
 
         sc = self.source_ckpt_file_full_name
-        resolved_sc = resolve_source_checkpoint(sc, self.warm_start_mode)
+        resolved_sc = resolve_source_checkpoint(sc, self.warm_start_mode, validate_required=False)
         self.source_ckpt_file_full_name = resolved_sc
 
         if self.warm_start_mode == WARM_START_MODE_FRESH:
             self.logger.info("WarmStart: warm_start_mode=fresh; initializing fresh and ignoring any local checkpoint")
-        elif resolved_sc:
+        elif resolved_sc and (self.warm_start_mode != WARM_START_MODE_REQUIRE or os.path.exists(resolved_sc)):
             self.logger.info(f"WarmStart: will warm-start from checkpoint {resolved_sc} (mode={self.warm_start_mode})")
+        elif resolved_sc and self.warm_start_mode == WARM_START_MODE_REQUIRE:
+            self.logger.info(f"WarmStart: require mode will validate checkpoint at runtime: {resolved_sc}")
         elif sc:
             self.logger.info(f"WarmStart: source checkpoint {sc} not present yet; initializing fresh")
+
+    def _runtime_source_checkpoint_path(self, fl_ctx: FLContext):
+        source_ckpt = self.source_ckpt_file_full_name
+        if not source_ckpt:
+            return None
+        if os.path.isabs(source_ckpt):
+            return source_ckpt
+
+        app_root = fl_ctx.get_prop(FLContextKey.APP_ROOT)
+        if not app_root:
+            return source_ckpt
+        return os.path.join(app_root, WorkspaceConstants.CUSTOM_FOLDER_NAME, source_ckpt)
+
+    def load_model(self, fl_ctx: FLContext):
+        if self.warm_start_mode == WARM_START_MODE_REQUIRE:
+            ckpt_path = self._runtime_source_checkpoint_path(fl_ctx)
+            if not ckpt_path:
+                self.system_panic(
+                    reason=f"{WARM_START_REQUIRED_MISSING}: no warm-start checkpoint path configured",
+                    fl_ctx=fl_ctx,
+                )
+                return None
+            if not os.path.exists(ckpt_path):
+                self.system_panic(
+                    reason=f"{WARM_START_REQUIRED_MISSING}: required warm-start checkpoint missing: {ckpt_path}",
+                    fl_ctx=fl_ctx,
+                )
+                return None
+
+        return super().load_model(fl_ctx)
 
     def handle_event(self, event: str, fl_ctx: FLContext):
         # let the base persistor do its normal save/init first

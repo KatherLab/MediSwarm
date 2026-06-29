@@ -120,7 +120,9 @@ mkdir -p "$RESULTS_DIR"
 declare -A PASS_CACHE=()
 
 site_var() {
-    local site="$1" var="$2" name="${site}_${var}"
+    local site="$1"
+    local var="$2"
+    local name="${site}_${var}"
     echo "${!name-}"
 }
 
@@ -224,7 +226,8 @@ find_latest_prod() {
 }
 
 clean_local_deploy_dir() {
-    local dir_name="$1" target="$DEPLOY_BASE/$dir_name"
+    local dir_name="$1"
+    local target="$DEPLOY_BASE/$dir_name"
     [[ -e "$target" ]] || return 0
     rm -rf "$target" 2>/dev/null \
         || sudo rm -rf "$target" 2>/dev/null \
@@ -303,11 +306,19 @@ deploy_kits() {
 }
 
 fix_remote_dns() {
-    local cosmos_ip
-    cosmos_ip="$(tailscale ip -4 2>/dev/null)" || {
-        err "Cannot determine Cosmos Tailscale IP"
-        exit 1
-    }
+    local cosmos_ip="${COSMOS_HOST_IP:-}"
+    if [[ -z "$cosmos_ip" ]]; then
+        local first_host
+        first_host="$(site_var "${CLIENT_SITES[0]}" HOST)"
+        cosmos_ip="$(ip route get "$first_host" 2>/dev/null \
+            | awk '{for (i=1; i<=NF; i++) if ($i == "src") {print $(i+1); exit}}')"
+    fi
+    if [[ -z "$cosmos_ip" ]]; then
+        cosmos_ip="$(tailscale ip -4 2>/dev/null)" || {
+            err "Cannot determine Cosmos client-reachable IP"
+            exit 1
+        }
+    fi
 
     step "Ensuring $SERVER_NAME resolves to Cosmos ($cosmos_ip) on clients"
     for site in "${CLIENT_SITES[@]}"; do
@@ -507,7 +518,8 @@ wait_for_success() {
 }
 
 save_phase_logs() {
-    local phase="$1" phase_dir="$RESULTS_DIR/$phase"
+    local phase="$1"
+    local phase_dir="$RESULTS_DIR/$phase"
     mkdir -p "$phase_dir"
     cp "$(server_log)" "$phase_dir/server_nohup.out" 2>/dev/null || true
     for site in "${CLIENT_SITES[@]}"; do
@@ -546,7 +558,8 @@ assert_log_contains() {
 }
 
 collect_latest_globals() {
-    local phase="$1" checkpoint_dir="$RESULTS_DIR/$phase/checkpoints"
+    local phase="$1"
+    local checkpoint_dir="$RESULTS_DIR/$phase/checkpoints"
     rm -rf "$checkpoint_dir"
     mkdir -p "$checkpoint_dir"
     for site in "${CLIENT_SITES[@]}"; do
@@ -561,7 +574,9 @@ collect_latest_globals() {
 }
 
 evaluate_phase() {
-    local phase="$1" checkpoint_dir="$2" output_dir="$RESULTS_DIR/$phase/evaluation"
+    local phase="$1"
+    local checkpoint_dir="$2"
+    local output_dir="$RESULTS_DIR/$phase/evaluation"
     mkdir -p "$EVAL_SCRATCH_DIR" "$output_dir"
     docker run --rm \
         --gpus="$EVAL_GPU" \
@@ -588,7 +603,8 @@ evaluate_phase() {
 }
 
 latest_job_id_from_phase() {
-    local phase="$1" log_file="$RESULTS_DIR/$phase/server_nohup.out"
+    local phase="$1"
+    local log_file="$RESULTS_DIR/$phase/server_nohup.out"
     grep 'Server runner finished\.' "$log_file" 2>/dev/null \
         | tail -1 \
         | grep -oP 'run=\K[0-9a-f-]+' \

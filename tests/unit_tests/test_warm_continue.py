@@ -23,9 +23,13 @@ def _install_warm_continue_nvflare_mocks(monkeypatch):
         def __init__(self, **kwargs):
             self.source_ckpt_file_full_name = kwargs.get("source_ckpt_file_full_name")
             self.logger = _Logger()
+            self.panics = []
 
         def handle_event(self, event, fl_ctx):
             return None
+
+        def load_model(self, fl_ctx):
+            return "loaded"
 
         def log_info(self, fl_ctx, message):
             self.logger.info(message)
@@ -33,11 +37,16 @@ def _install_warm_continue_nvflare_mocks(monkeypatch):
         def log_warning(self, fl_ctx, message):
             self.logger.messages.append(("warning", message))
 
+        def system_panic(self, reason, fl_ctx):
+            self.panics.append(reason)
+
     modules = {
         "nvflare": types.ModuleType("nvflare"),
         "nvflare.apis": types.ModuleType("nvflare.apis"),
         "nvflare.apis.event_type": types.ModuleType("nvflare.apis.event_type"),
+        "nvflare.apis.fl_constant": types.ModuleType("nvflare.apis.fl_constant"),
         "nvflare.apis.fl_context": types.ModuleType("nvflare.apis.fl_context"),
+        "nvflare.apis.workspace": types.ModuleType("nvflare.apis.workspace"),
         "nvflare.app_common": types.ModuleType("nvflare.app_common"),
         "nvflare.app_common.app_event_type": types.ModuleType("nvflare.app_common.app_event_type"),
         "nvflare.app_opt": types.ModuleType("nvflare.app_opt"),
@@ -45,7 +54,9 @@ def _install_warm_continue_nvflare_mocks(monkeypatch):
         "nvflare.app_opt.pt.file_model_persistor": types.ModuleType("nvflare.app_opt.pt.file_model_persistor"),
     }
     modules["nvflare.apis.event_type"].EventType = object
+    modules["nvflare.apis.fl_constant"].FLContextKey = SimpleNamespace(APP_ROOT="__app_root__")
     modules["nvflare.apis.fl_context"].FLContext = object
+    modules["nvflare.apis.workspace"].WorkspaceConstants = SimpleNamespace(CUSTOM_FOLDER_NAME="custom")
     modules["nvflare.app_common.app_event_type"].AppEventType = SimpleNamespace(
         GLOBAL_BEST_MODEL_AVAILABLE="GLOBAL_BEST_MODEL_AVAILABLE"
     )
@@ -206,14 +217,19 @@ def test_require_present_checkpoint_warm_starts(warm_continue, tmp_path):
     assert persistor.source_ckpt_file_full_name == str(checkpoint)
 
 
-def test_require_missing_checkpoint_raises_clear_sentinel(warm_continue, tmp_path):
+def test_require_missing_checkpoint_panics_during_load_model(warm_continue, tmp_path):
     missing = tmp_path / "missing.pt"
 
-    with pytest.raises(FileNotFoundError, match="WARM_START_REQUIRED_MISSING"):
-        warm_continue.WarmStartablePTFileModelPersistor(
-            warm_start_mode="require",
-            source_ckpt_file_full_name=str(missing),
-        )
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(
+        warm_start_mode="require",
+        source_ckpt_file_full_name=str(missing),
+    )
+
+    assert persistor.source_ckpt_file_full_name == str(missing)
+    assert persistor.load_model(SimpleNamespace(get_prop=lambda key: None)) is None
+    assert len(persistor.panics) == 1
+    assert "WARM_START_REQUIRED_MISSING" in persistor.panics[0]
+    assert str(missing) in persistor.panics[0]
 
 
 def test_continue_negative_path_uses_expected_require_error_string(warm_continue, tmp_path):
