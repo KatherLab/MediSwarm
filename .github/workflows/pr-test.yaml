@@ -111,10 +111,10 @@ jobs:
       - name: Build Docker image and dummy startup kits
         run: ./scripts/build/buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
-      - name: Run integration test checking documentation on github
+      - name: Run integration test checking documentation in the repository
         continue-on-error: false
         run: |
-          ./scripts/ci/runIntegrationTests.sh check_files_on_github
+          ./scripts/ci/runIntegrationTests.sh check_files_in_repo
 
       - name: Run dummy training standalone
         continue-on-error: false
