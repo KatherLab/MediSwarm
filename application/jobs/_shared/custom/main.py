@@ -58,9 +58,19 @@ def main():
 
             while flare.is_running():
                 input_model = flare.receive()
-                logger.info(f"Current round: {input_model.current_round}")
+                current_round = input_model.current_round
+                total_rounds = getattr(input_model, "total_rounds", None)
+                logger.info(f"Current round: {current_round} (of {total_rounds})")
 
-                threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir)
+                # #314: the per-round aggregated prediction export is expensive and
+                # dominates swarm round time; throttle it (default: final round only).
+                export_predictions = threedcnn_ptl.should_export_aggregated_predictions(
+                    current_round, total_rounds
+                )
+                threedcnn_ptl.validate_and_train(
+                    logger, data_module, model, trainer, path_run_dir,
+                    output_GT_and_classprob=export_predictions,
+                )
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=False)
