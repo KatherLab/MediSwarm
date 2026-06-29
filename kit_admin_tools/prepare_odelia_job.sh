@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./prepare_odelia_job.sh --job JOB_NAME --warm-start fresh|continue
+  ./prepare_odelia_job.sh --job JOB_NAME --warm-start fresh|continue [--num-rounds N] [--min-clients N] [--min-responses N]
 
 Examples:
   ./prepare_odelia_job.sh --job ODELIA_ternary_classification --warm-start fresh
@@ -16,6 +16,9 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 JOB_NAME=""
 WARM_START=""
 OUTPUT_DIR="$DIR/../local/mediswarm_jobs"
+NUM_ROUNDS=""
+MIN_CLIENTS=""
+MIN_RESPONSES=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -41,6 +44,30 @@ while [ "$#" -gt 0 ]; do
         exit 2
       fi
       OUTPUT_DIR="${2:-}"
+      shift 2
+      ;;
+    --num-rounds)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --num-rounds" >&2
+        exit 2
+      fi
+      NUM_ROUNDS="${2:-}"
+      shift 2
+      ;;
+    --min-clients)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --min-clients" >&2
+        exit 2
+      fi
+      MIN_CLIENTS="${2:-}"
+      shift 2
+      ;;
+    --min-responses)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --min-responses" >&2
+        exit 2
+      fi
+      MIN_RESPONSES="${2:-}"
       shift 2
       ;;
     -h|--help)
@@ -108,6 +135,18 @@ OUTPUT_ROOT="$(cd "$OUTPUT_DIR" && pwd -P)"
 DEST_NAME="${JOB_NAME}_${WARM_START}"
 DEST_HOST="$OUTPUT_ROOT/$DEST_NAME"
 JOB_SRC="/MediSwarm/application/jobs/$JOB_NAME"
+PATCH_ARGS=(--job-dir "/job_out/$DEST_NAME" --mode "$CONFIG_MODE")
+if [ -n "$NUM_ROUNDS" ]; then
+  PATCH_ARGS+=(--num-rounds "$NUM_ROUNDS")
+fi
+if [ -n "$MIN_CLIENTS" ]; then
+  PATCH_ARGS+=(--min-clients "$MIN_CLIENTS")
+fi
+if [ -n "$MIN_RESPONSES" ]; then
+  PATCH_ARGS+=(--min-responses "$MIN_RESPONSES")
+fi
+
+printf -v PATCH_ARGS_QUOTED ' %q' "${PATCH_ARGS[@]}"
 
 rm -rf "$DEST_HOST"
 
@@ -115,11 +154,20 @@ docker run --rm \
   -u "$(id -u):$(id -g)" \
   -v "$OUTPUT_ROOT":/job_out \
   "$DOCKER_IMAGE" \
-  bash -lc "set -euo pipefail; test -d '$JOB_SRC'; cp -R '$JOB_SRC' '/job_out/$DEST_NAME'; python3 /MediSwarm/scripts/admin/patch_warm_start_job.py --job-dir '/job_out/$DEST_NAME' --mode '$CONFIG_MODE'"
+  bash -lc "set -euo pipefail; test -d '$JOB_SRC'; cp -R '$JOB_SRC' '/job_out/$DEST_NAME'; python3 /MediSwarm/scripts/admin/patch_warm_start_job.py$PATCH_ARGS_QUOTED"
 
 echo
 echo "Prepared job: $DEST_HOST"
 echo "Client config warm_start_mode: $CONFIG_MODE"
+if [ -n "$NUM_ROUNDS" ]; then
+  echo "Server config num_rounds: $NUM_ROUNDS"
+fi
+if [ -n "$MIN_CLIENTS" ]; then
+  echo "Server config min_clients: $MIN_CLIENTS"
+fi
+if [ -n "$MIN_RESPONSES" ]; then
+  echo "Client config min_responses_required: $MIN_RESPONSES"
+fi
 echo
 echo "Submit from the admin console:"
 echo "  submit_job /fl_admin/local/mediswarm_jobs/$DEST_NAME"
