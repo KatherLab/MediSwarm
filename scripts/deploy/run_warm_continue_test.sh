@@ -31,6 +31,10 @@ Options:
   --skip-build      Reuse existing Docker image/startup kits.
   --skip-push       Do not push the built Docker image before pulling on clients.
   --timeout MIN     Per-phase wait timeout in minutes (default: 240).
+
+Environment:
+  EVAL_DEVICE       Prediction device for Cosmos eval: cpu, auto, cuda, cuda:0 (default: cpu).
+  EVAL_GPU          Docker --gpus value when EVAL_DEVICE is not cpu (default: device=0).
 EOF
 }
 
@@ -110,6 +114,7 @@ ADMIN_USER="${ADMIN_USER:-jiefu.zhu@tu-dresden.de}"
 EVAL_SITE_NAME="${EVAL_SITE_NAME:-UKA_1}"
 EVAL_DATA_DIR="${EVAL_DATA_DIR:-/mnt/sda1/ODELIA_Challenge_unilateral}"
 EVAL_SCRATCH_DIR="${EVAL_SCRATCH_DIR:-/mnt/scratch/deploy_test_eval}"
+EVAL_DEVICE="${EVAL_DEVICE:-cpu}"
 EVAL_GPU="${EVAL_GPU:-device=0}"
 CLIENT_COUNT="${#CLIENT_SITES[@]}"
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
@@ -606,9 +611,15 @@ evaluate_phase() {
     local phase="$1"
     local checkpoint_dir="$2"
     local output_dir="$RESULTS_DIR/$phase/evaluation"
+    local gpu_args=()
     mkdir -p "$EVAL_SCRATCH_DIR" "$output_dir"
+
+    if [[ "${EVAL_DEVICE,,}" != "cpu" && "${EVAL_GPU,,}" != "none" ]]; then
+        gpu_args=(--gpus="$EVAL_GPU")
+    fi
+
     docker run --rm \
-        --gpus="$EVAL_GPU" \
+        "${gpu_args[@]}" \
         --net=host \
         --ipc=host \
         -v "$EVAL_DATA_DIR:/data/:ro" \
@@ -621,13 +632,16 @@ evaluate_phase() {
         --env MODEL_NAME="$MODEL_NAME" \
         --env TORCH_HOME=/torch_home \
         --env CONFIG=unilateral \
+        --env PREDICT_DEVICE="$EVAL_DEVICE" \
+        --env MEDISWARM_ALLOW_CPU_MODEL=1 \
         "$DOCKER_IMAGE" \
         python3 /MediSwarm/scripts/evaluation/predict.py \
             --workspace /workspace \
             --model-name "$MODEL_NAME" \
             --output-dir /output \
             --split test \
-        2>&1 | tee "$output_dir/predict_stdout.log"
+            --device "$EVAL_DEVICE" \
+        2>&1 | tee "$output_dir/predict_stdout.log" >&2
     echo "$output_dir"
 }
 

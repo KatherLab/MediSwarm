@@ -140,11 +140,19 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
         env_vars = load_environment_variables()
     model_name = get_unified_model_name(logger, model_name, env_vars)
 
-    if not torch.cuda.is_available():
+    allow_cpu_model = os.environ.get("MEDISWARM_ALLOW_CPU_MODEL", "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    if not torch.cuda.is_available() and not allow_cpu_model:
         raise RuntimeError("This example requires a GPU")
 
     logger.info(f"Running code version {env_vars['mediswarm_version']}")
-    logger.info(f"Using GPU for training")
+    if torch.cuda.is_available():
+        logger.info(f"Using GPU for training")
+    else:
+        logger.info("Using CPU for model creation")
     logger.info(f"Model name: {model_name}")
 
     # Default LR scheduler: CosineAnnealingWarmRestarts gives a cyclical
