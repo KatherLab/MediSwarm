@@ -77,6 +77,11 @@ resolve_path() {
 
 CONF_FILE="$(resolve_path "$CONF_FILE")"
 PROJECT_FILE="$(resolve_path "$PROJECT_FILE")"
+if [[ "$PROJECT_FILE" != "$REPO_ROOT/"* ]]; then
+    err "--project must point to a file under the repository root: $PROJECT_FILE"
+    exit 1
+fi
+PROJECT_FILE_FOR_BUILD="${PROJECT_FILE#$REPO_ROOT/}"
 
 if [[ ! -f "$CONF_FILE" ]]; then
     err "Config file not found: $CONF_FILE"
@@ -259,7 +264,7 @@ build_and_push() {
 
     step "Building Docker image and startup kits"
     bash "$REPO_ROOT/scripts/build/buildDockerImageAndStartupKits.sh" \
-        -p "$PROJECT_FILE" \
+        -p "$PROJECT_FILE_FOR_BUILD" \
         --use-docker-cache
 
     if [[ "$SKIP_PUSH" == true ]]; then
