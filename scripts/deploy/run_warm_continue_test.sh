@@ -471,12 +471,12 @@ phase_lines() {
 }
 
 wait_for_negative_continue() {
-    local start_line="$1" max_attempts=$((TIMEOUT_MINUTES * 2)) attempt=0
+    local phase="$1" start_line="$2" max_attempts=$((TIMEOUT_MINUTES * 2)) attempt=0
     while [[ $attempt -lt $max_attempts ]]; do
         local lines
         lines="$(phase_lines "$start_line")"
         if echo "$lines" | grep -q "WARM_START_REQUIRED_MISSING"; then
-            if echo "$lines" | grep -E "WARM_START_REQUIRED_MISSING.*pruning|pruning.*WARM_START_REQUIRED_MISSING" >/dev/null; then
+            if echo "$lines" | grep -Ei "WARM_START_REQUIRED_MISSING.*(prun|tolerat)|(prun|tolerat).*WARM_START_REQUIRED_MISSING" >/dev/null; then
                 err "Warm-start missing error was pruned/tolerated"
                 return 1
             fi
@@ -484,6 +484,30 @@ wait_for_negative_continue() {
                 ok "Negative continue aborted with WARM_START_REQUIRED_MISSING"
                 return 0
             fi
+        fi
+        if echo "$lines" | grep -q "Server runner finished\\."; then
+            save_phase_logs "$phase"
+            if echo "$lines" | grep -Ei "WARM_START_REQUIRED_MISSING.*(prun|tolerat)|(prun|tolerat).*WARM_START_REQUIRED_MISSING" >/dev/null; then
+                err "Warm-start missing error was pruned/tolerated"
+                return 1
+            fi
+
+            local all_clients_logged_error=true
+            for site in "${CLIENT_SITES[@]}"; do
+                local site_name log_file
+                site_name="$(site_var "$site" SITE_NAME)"
+                log_file="$RESULTS_DIR/$phase/${site_name}_nohup.out"
+                if ! grep -q "WARM_START_REQUIRED_MISSING" "$log_file"; then
+                    all_clients_logged_error=false
+                    warn "$site_name log did not contain WARM_START_REQUIRED_MISSING"
+                fi
+            done
+            if [[ "$all_clients_logged_error" == true ]]; then
+                ok "Negative continue aborted after clients reported WARM_START_REQUIRED_MISSING"
+                return 0
+            fi
+            err "Negative continue finished without WARM_START_REQUIRED_MISSING in all client logs"
+            return 1
         fi
         sleep 30
         attempt=$((attempt + 1))
@@ -640,7 +664,7 @@ run_phase() {
     submit_job "$warm_start"
 
     if [[ "$expectation" == "negative" ]]; then
-        wait_for_negative_continue "$start_line"
+        wait_for_negative_continue "$phase" "$start_line"
         save_phase_logs "$phase"
         record_phase "$phase" "pass"
         stop_all

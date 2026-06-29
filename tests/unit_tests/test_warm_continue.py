@@ -26,10 +26,17 @@ def _install_warm_continue_nvflare_mocks(monkeypatch):
             self.panics = []
 
         def handle_event(self, event, fl_ctx):
+            if event == "GLOBAL_BEST_MODEL_AVAILABLE" and getattr(self, "_best_ckpt_save_path", None):
+                Path(self._best_ckpt_save_path).parent.mkdir(parents=True, exist_ok=True)
+                Path(self._best_ckpt_save_path).write_bytes(b"best global")
             return None
 
         def load_model(self, fl_ctx):
             return "loaded"
+
+        def save_model(self, ml, fl_ctx):
+            Path(self._ckpt_save_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(self._ckpt_save_path).write_bytes(b"latest global")
 
         def log_info(self, fl_ctx, message):
             self.logger.info(message)
@@ -248,6 +255,30 @@ def test_invalid_warm_start_mode_raises(warm_continue):
             warm_start_mode="resume",
             source_ckpt_file_full_name=None,
         )
+
+
+def test_latest_global_save_is_mirrored_for_future_continue(warm_continue, tmp_path):
+    mirror = tmp_path / "scratch" / "mediswarm_latest_global.pt"
+    run_ckpt = tmp_path / "run" / "FL_global_model.pt"
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(latest_global_path=str(mirror))
+    persistor._ckpt_save_path = str(run_ckpt)
+
+    persistor.save_model(ml=object(), fl_ctx=SimpleNamespace())
+
+    assert mirror.read_bytes() == b"latest global"
+    assert ("info", f"WarmStart: mirrored latest global -> {mirror}") in persistor.logger.messages
+
+
+def test_best_global_event_is_still_mirrored(warm_continue, tmp_path):
+    mirror = tmp_path / "scratch" / "mediswarm_latest_global.pt"
+    best_ckpt = tmp_path / "run" / "best_FL_global_model.pt"
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(latest_global_path=str(mirror))
+    persistor._best_ckpt_save_path = str(best_ckpt)
+
+    persistor.handle_event("GLOBAL_BEST_MODEL_AVAILABLE", SimpleNamespace())
+
+    assert mirror.read_bytes() == b"best global"
+    assert ("info", f"WarmStart: mirrored best global -> {mirror}") in persistor.logger.messages
 
 
 def _make_controller_with_report(module, fl_context_cls, error):

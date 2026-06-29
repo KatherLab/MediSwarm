@@ -9,9 +9,11 @@ lost, and resuming would require shipping a ~689 MB checkpoint to every client
 ``WarmStartablePTFileModelPersistor`` solves both with a uniform, run-independent
 mirror on each client:
 
-* Every time a new best global is saved, it is also copied to a fixed local path
-  (``latest_global_path``, default ``/scratch/mediswarm_latest_global.pt``). That
-  path persists on the host scratch mount across runs, so the *next* run finds the
+* Every time a new global is saved, it is also copied to a fixed local path
+  (``latest_global_path``, default ``/scratch/mediswarm_latest_global.pt``). Best
+  globals are mirrored too, but continuation is based on the latest completed
+  global so jobs without a selected best metric can still continue. That path
+  persists on the host scratch mount across runs, so the *next* run finds the
   prior run's global locally -- no bundling, no per-site staging.
 * On start, if ``source_ckpt_file_full_name`` points at an absolute path that does
   not exist yet (the first run of a chain), it is disabled so the run initializes
@@ -155,20 +157,24 @@ class WarmStartablePTFileModelPersistor(PTFileModelPersistor):
 
         return super().load_model(fl_ctx)
 
+    def _mirror_checkpoint(self, src: str, fl_ctx: FLContext, label: str):
+        try:
+            if src and os.path.exists(src):
+                dst = os.path.abspath(self.latest_global_path)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copy2(src, dst)
+                self.log_info(fl_ctx, f"WarmStart: mirrored {label} global -> {dst}")
+        except Exception as e:
+            # mirroring is best-effort; never let it break the run
+            self.log_warning(fl_ctx, f"WarmStart: failed to mirror {label} global to {self.latest_global_path}: {e}")
+
+    def save_model(self, ml, fl_ctx: FLContext):
+        super().save_model(ml, fl_ctx)
+        self._mirror_checkpoint(getattr(self, "_ckpt_save_path", None), fl_ctx, "latest")
+
     def handle_event(self, event: str, fl_ctx: FLContext):
         # let the base persistor do its normal save/init first
         super().handle_event(event, fl_ctx)
 
         if event == AppEventType.GLOBAL_BEST_MODEL_AVAILABLE:
-            # mirror the just-saved best global to the uniform, run-independent
-            # path so the next run can warm-start from it locally (no bundling).
-            try:
-                src = getattr(self, "_best_ckpt_save_path", None)
-                if src and os.path.exists(src):
-                    dst = os.path.abspath(self.latest_global_path)
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    shutil.copy2(src, dst)
-                    self.log_info(fl_ctx, f"WarmStart: mirrored best global -> {dst}")
-            except Exception as e:
-                # mirroring is best-effort; never let it break the run
-                self.log_warning(fl_ctx, f"WarmStart: failed to mirror best global to {self.latest_global_path}: {e}")
+            self._mirror_checkpoint(getattr(self, "_best_ckpt_save_path", None), fl_ctx, "best")
