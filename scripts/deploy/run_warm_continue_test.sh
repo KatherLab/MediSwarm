@@ -443,7 +443,11 @@ prepare_admin_job() {
 }
 
 submit_job() {
-    local warm_start="$1" job_path="/fl_admin/local/mediswarm_jobs/${JOB_NAME}_${warm_start}"
+    # NB: keep these on separate lines -- `local a="$1" b="...$a..."` expands $a before
+    # the assignment lands, which under `set -u` aborts when no outer `warm_start` is in
+    # scope (e.g. when called from run_abort_recovery_phase rather than run_phase).
+    local warm_start="$1"
+    local job_path="/fl_admin/local/mediswarm_jobs/${JOB_NAME}_${warm_start}"
     local admin_startup expect_script
     admin_startup="$(admin_startup_dir)"
     expect_script="$(mktemp /tmp/mediswarm_warm_continue_XXXXXX.exp)"
