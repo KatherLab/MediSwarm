@@ -458,9 +458,9 @@ run_data_access_preflight_check_with_problems () {
     echo "[Run] Data access preflight check with problematic dataset ..."
     cd "$PROJECT_DIR"/prod_00
     cd client_B/startup
-    CONSOLE_OUTPUT=data_access_preflight_check_console_output.txt
+    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # also check that it finishes the single round within one minute
-    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                \
                            "ERROR:threedcnn_ptl:Duplicate image UIDs detected. This should not happen."                                                  \
@@ -478,16 +478,16 @@ run_data_access_preflight_check_with_problems () {
                            "WARNING:threedcnn_ptl:UIDs with among training data _right present and _left missing detected, make sure this was intended." \
                            "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen."                        ;
     do
-        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT"; then
+        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT (including expected warnings and errors) of data access preflight check with problematic dataset found"
         else
-            cat "$CONSOLE_OUTPUT"
+            cat "$CONSOLE_OUTPUT_FILE"
             echo "❌ Expected output $EXPECTED_OUTPUT missing in data access preflight check with problematic dataset"
             exit 1
         fi
     done
 
-    if grep -q  "ID_0" "$CONSOLE_OUTPUT" ; then
+    if grep -q  "ID_0" "$CONSOLE_OUTPUT_FILE" ; then
         echo "❌ Unexpected output of data access preflight check with problematic dataset without logging dataset details found"
         exit 1
     else
@@ -765,7 +765,7 @@ run_dummy_training_in_swarm () {
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT_FILE=combined_nohup.out
-    cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT
+    cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 9: 100%' \
                            'val/AUC_ROC' \
