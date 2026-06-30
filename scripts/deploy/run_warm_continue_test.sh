@@ -128,6 +128,7 @@ fi
 mkdir -p "$RESULTS_DIR"
 
 declare -A PASS_CACHE=()
+declare -A MIRROR_MD5=()   # "phase:site" -> md5 of that client's /scratch/mediswarm_latest_global.pt
 
 site_var() {
     local site="$1"
@@ -442,7 +443,11 @@ prepare_admin_job() {
 }
 
 submit_job() {
-    local warm_start="$1" job_path="/fl_admin/local/mediswarm_jobs/${JOB_NAME}_${warm_start}"
+    # NB: keep these on separate lines -- `local a="$1" b="...$a..."` expands $a before
+    # the assignment lands, which under `set -u` aborts when no outer `warm_start` is in
+    # scope (e.g. when called from run_abort_recovery_phase rather than run_phase).
+    local warm_start="$1"
+    local job_path="/fl_admin/local/mediswarm_jobs/${JOB_NAME}_${warm_start}"
     local admin_startup expect_script
     admin_startup="$(admin_startup_dir)"
     expect_script="$(mktemp /tmp/mediswarm_warm_continue_XXXXXX.exp)"
@@ -591,6 +596,88 @@ assert_log_contains() {
     done
 }
 
+mirror_md5() {
+    # md5 of a client's mirrored global, or empty if absent
+    local site="$1" scratch
+    scratch="$(site_scratch "$site")"
+    remote_exec "$site" "md5sum '$scratch/mediswarm_latest_global.pt' 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true
+}
+
+clear_mirrors() {
+    # delete every client's mirror so the next run's resume point is unambiguously the
+    # global produced by THAT run (not a leftover mirror from a previous phase)
+    local site site_name scratch
+    for site in "${CLIENT_SITES[@]}"; do
+        site_name="$(site_var "$site" SITE_NAME)"
+        scratch="$(site_scratch "$site")"
+        remote_exec "$site" "rm -f '$scratch/mediswarm_latest_global.pt'" >/dev/null 2>&1 || true
+        info "$site_name mirror cleared"
+    done
+}
+
+record_mirror_hashes() {
+    # snapshot every client's current mirror md5 under MIRROR_MD5["$phase:$site"]
+    local phase="$1" site site_name h
+    for site in "${CLIENT_SITES[@]}"; do
+        site_name="$(site_var "$site" SITE_NAME)"
+        h="$(mirror_md5 "$site")"
+        MIRROR_MD5["$phase:$site"]="$h"
+        info "$site_name mirror md5 [$phase]: ${h:-<none>}"
+    done
+}
+
+assert_mirror_unchanged_since() {
+    # each client's CURRENT mirror md5 must equal the one snapshotted for <ref_phase>;
+    # proves the mirror survived a client restart / crash and is byte-identical to what
+    # the reference run produced -- i.e. a continue loads exactly the prior run's global.
+    local ref_phase="$1" site site_name cur ref
+    for site in "${CLIENT_SITES[@]}"; do
+        site_name="$(site_var "$site" SITE_NAME)"
+        ref="${MIRROR_MD5["$ref_phase:$site"]:-}"
+        cur="$(mirror_md5 "$site")"
+        if [[ -z "$ref" || -z "$cur" ]]; then
+            err "$site_name continuity check missing a hash (ref[$ref_phase]=${ref:-<none>}, cur=${cur:-<none>})"
+            return 1
+        fi
+        if [[ "$cur" != "$ref" ]]; then
+            err "$site_name mirror changed since $ref_phase (continuity broken): $ref -> $cur"
+            return 1
+        fi
+        ok "$site_name mirror unchanged since $ref_phase ($cur) -- continuity holds"
+    done
+}
+
+mirror_hashes_json() {
+    # {"<site_name>": "<md5>", ...} from MIRROR_MD5 for a given phase
+    local phase="$1" site site_name h obj='{}'
+    for site in "${CLIENT_SITES[@]}"; do
+        site_name="$(site_var "$site" SITE_NAME)"
+        h="${MIRROR_MD5["$phase:$site"]:-}"
+        obj="$(echo "$obj" | jq --arg k "$site_name" --arg v "$h" '. + {($k):$v}')"
+    done
+    echo "$obj"
+}
+
+wait_for_mirror() {
+    # poll until EVERY client has a non-empty mirror (a round's global has been saved+mirrored)
+    local max_attempts=$((TIMEOUT_MINUTES * 4)) attempt=0 site scratch all
+    while [[ $attempt -lt $max_attempts ]]; do
+        all=true
+        for site in "${CLIENT_SITES[@]}"; do
+            scratch="$(site_scratch "$site")"
+            remote_exec "$site" "test -s '$scratch/mediswarm_latest_global.pt'" >/dev/null 2>&1 || all=false
+        done
+        if [[ "$all" == true ]]; then
+            ok "All clients mirrored a global (a round completed) -- safe to abort mid-run"
+            return 0
+        fi
+        sleep 15
+        attempt=$((attempt + 1))
+    done
+    err "Timed out waiting for a mirrored global before the abort"
+    return 1
+}
+
 collect_latest_globals() {
     local phase="$1"
     local checkpoint_dir="$RESULTS_DIR/$phase/checkpoints"
@@ -655,7 +742,8 @@ latest_job_id_from_phase() {
 }
 
 record_phase() {
-    local phase="$1" status="$2" checkpoint_dir="${3:-}" eval_dir="${4:-}" job_id
+    local phase="$1" status="$2" checkpoint_dir="${3:-}" eval_dir="${4:-}" extra="${5:-}" job_id
+    [[ -n "$extra" ]] || extra='{}'
     job_id="$(latest_job_id_from_phase "$phase")"
     jq -n \
         --arg phase "$phase" \
@@ -665,7 +753,8 @@ record_phase() {
         --arg eval_dir "$eval_dir" \
         --arg docker_image "$DOCKER_IMAGE" \
         --arg git_sha "$GIT_SHA" \
-        '{phase:$phase,status:$status,job_id:$job_id,checkpoint_dir:$checkpoint_dir,evaluation_dir:$eval_dir,docker_image:$docker_image,git_sha:$git_sha}' \
+        --argjson extra "$extra" \
+        '{phase:$phase,status:$status,job_id:$job_id,checkpoint_dir:$checkpoint_dir,evaluation_dir:$eval_dir,docker_image:$docker_image,git_sha:$git_sha} + $extra' \
         > "$RESULTS_DIR/${phase}_result.json"
 }
 
@@ -678,6 +767,13 @@ run_phase() {
     start_server
     start_clients
     wait_for_registration
+
+    # Continuity (P1): before a continue submits, the mirror it is about to load must be
+    # byte-identical to what the fresh run produced and have survived the client restart.
+    if [[ "$phase" == "continue" ]]; then
+        assert_mirror_unchanged_since "fresh"
+    fi
+
     prepare_admin_job "$warm_start" "$rounds"
     start_line="$(log_start_line)"
     submit_job "$warm_start"
@@ -693,6 +789,7 @@ run_phase() {
     wait_for_success "$phase" "$start_line"
     save_phase_logs "$phase"
     assert_latest_globals
+    record_mirror_hashes "$phase"
 
     if [[ "$phase" == "continue" ]]; then
         assert_log_contains "$phase" "WarmStart: will warm-start from checkpoint /scratch/mediswarm_latest_global.pt (mode=require)"
@@ -707,7 +804,60 @@ run_phase() {
         eval_dir="$(evaluate_phase "$phase" "$checkpoint_dir")"
     fi
 
-    record_phase "$phase" "pass" "$checkpoint_dir" "$eval_dir"
+    local extra='{}'
+    if [[ "$phase" == "continue" ]]; then
+        extra="$(jq -n --argjson m "$(mirror_hashes_json "fresh")" \
+            '{continuity_verified:true, reference_phase:"fresh", fresh_mirror_md5:$m}')"
+    fi
+    record_phase "$phase" "pass" "$checkpoint_dir" "$eval_dir" "$extra"
+}
+
+run_abort_recovery_phase() {
+    # The real #347 scenario: a run CRASHES mid-flight; a strict (require) continue must
+    # resume from the last mirrored global instead of restarting. (The other phases only
+    # chain two cleanly-completed runs.)
+    local phase="abort_recovery" start_line
+    step "Phase: $phase (crash mid-run, then resume from the last mirror)"
+
+    # 1. Start a fresh run with enough rounds that we can abort it mid-way.
+    stop_all
+    start_server
+    start_clients
+    wait_for_registration
+    clear_mirrors   # so the resume point is THIS run's global, not a leftover from a prior phase
+    prepare_admin_job "fresh" 3
+    start_line="$(log_start_line)"
+    submit_job "fresh"
+
+    # 2. As soon as every client has mirrored a round's global, snapshot it and simulate a crash.
+    wait_for_mirror
+    record_mirror_hashes "$phase"
+    save_phase_logs "$phase"
+    warn "Aborting the run mid-flight (docker rm -f all NVFlare containers) to simulate a crash"
+    stop_all
+
+    # 3. The mirror must survive the crash on the host /scratch mount.
+    assert_latest_globals
+    assert_mirror_unchanged_since "$phase"
+
+    # 4. Resume: a strict continue must load the surviving mirror and finish cleanly.
+    start_server
+    start_clients
+    wait_for_registration
+    assert_mirror_unchanged_since "$phase"   # mirror still intact after the client restart
+    prepare_admin_job "continue" 1
+    start_line="$(log_start_line)"
+    submit_job "continue"
+    wait_for_success "$phase" "$start_line"
+    save_phase_logs "$phase"
+    assert_latest_globals
+    assert_log_contains "$phase" "WarmStart: will warm-start from checkpoint /scratch/mediswarm_latest_global.pt (mode=require)"
+    stop_all
+
+    record_phase "$phase" "pass" "" "" \
+        "$(jq -n --argjson m "$(mirror_hashes_json "$phase")" \
+            '{resumed_from_crash:true, pre_abort_mirror_md5:$m}')"
+    ok "Abort-recovery: a crashed run resumed from the last mirrored global"
 }
 
 write_summary() {
@@ -751,6 +901,7 @@ run_phase "negative_continue" "continue" 2 "negative"
 run_phase "fresh" "fresh" 2 "eval"
 run_phase "continue" "continue" 2 "eval"
 run_phase "fresh_probe" "fresh" 1 "no_eval"
+run_abort_recovery_phase
 
 write_summary
 stop_all

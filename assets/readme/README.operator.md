@@ -121,3 +121,30 @@ submit_job /fl_admin/local/mediswarm_jobs/ODELIA_ternary_classification_continue
 `WARM_START_REQUIRED_MISSING` instead of silently starting fresh. `fresh` ignores old local checkpoints without
 deleting them. Direct `submit_job MediSwarm/application/jobs/...` remains supported and keeps automatic warm-start
 behavior.
+
+The direct-submit "automatic warm-start" is `warm_start_mode = "auto"` (the shipped default in the challenge job
+configs): the first run of a chain finds no mirror and initializes fresh, and every later run warm-starts from
+`/scratch/mediswarm_latest_global.pt` if it is present. Use `--warm-start fresh` to force a clean start, and
+`--warm-start continue` (strict `require`) to *insist* on resuming.
+
+### Recover an aborted run
+
+If a run aborts part-way (a node crash, a VPN drop, an operator `abort_job`), the latest aggregated global has
+already been mirrored to `/scratch/mediswarm_latest_global.pt` on each client at the end of every round, so progress
+is not lost. To resume:
+
+1. Confirm each client still has the mirror (it lives on the host `--scratch_dir`, so it survives a container
+   restart). From the admin host you can pull every site's mirror with `scripts/collect_swarm_globals.sh`.
+2. Re-start the clients and the server using the **same `--scratch_dir`** as the aborted run.
+3. Prepare and submit a continue job:
+   ```bash
+   ./prepare_odelia_job.sh --job <JOB> --warm-start continue
+   submit_job /fl_admin/local/mediswarm_jobs/<JOB>_continue
+   ```
+4. Confirm each client logs `WarmStart: will warm-start from checkpoint /scratch/mediswarm_latest_global.pt`
+   (followed by `Loading checkpoint from …`). If a client is missing the mirror, the strict continue aborts with
+   `WARM_START_REQUIRED_MISSING` rather than silently restarting — fix that client's `--scratch_dir` and retry.
+
+> **`/scratch` space & persistence.** The mirror is overwritten every round and is as large as the global model
+> (≈690 MB for `challenge_1DivideAndConquer`). Make sure each client's `--scratch_dir` has room for it and is on a
+> **persistent** host mount (not a tmpfs wiped on reboot), or a `continue` will not find it.
