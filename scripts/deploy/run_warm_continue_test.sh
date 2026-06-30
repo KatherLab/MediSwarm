@@ -438,8 +438,8 @@ prepare_admin_job() {
         --job "$JOB_NAME" \
         --warm-start "$warm_start" \
         --num-rounds "$rounds" \
-        --min-clients "$CLIENT_COUNT" \
-        --min-responses "$CLIENT_COUNT")
+        --min-clients "${MIN_CLIENTS:-$CLIENT_COUNT}" \
+        --min-responses "${MIN_RESPONSES:-$CLIENT_COUNT}")
 }
 
 submit_job() {
@@ -877,8 +877,8 @@ for cmd in docker expect jq sshpass unzip; do
     command -v "$cmd" >/dev/null 2>&1 || { err "Missing required command: $cmd"; exit 1; }
 done
 
-if [[ "$CLIENT_COUNT" -ne 2 ]]; then
-    err "This wrapper expects exactly two clients; got $CLIENT_COUNT"
+if [[ "$CLIENT_COUNT" -lt 2 ]]; then
+    err "This wrapper expects at least two clients; got $CLIENT_COUNT"
     exit 1
 fi
 if [[ ! -d "$EVAL_DATA_DIR/$EVAL_SITE_NAME" ]]; then
