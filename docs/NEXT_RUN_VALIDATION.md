@@ -34,6 +34,23 @@ shared them.
   `deploy_sites_rsh_mha.local.conf`; for the 3-site run, copy it to
   `deploy_sites_3site.local.conf` and add the USZ block (see §2).
 
+### On-disk secrets file (unattended pickup)
+
+For unattended runs / future chats on this machine, the passwords live in **`~/.mediswarm_secrets`**
+(`chmod 600`, **outside the repo, never committed**). Source it before a run:
+```bash
+source ~/.mediswarm_secrets   # exports RSH_PASS, MHA_PASS, USZ_PASS, UKA_PASS, DL_ADMIN_PASS
+```
+Template — fill with the real values and keep the file out of the repo (do not paste real
+passwords into anything tracked by git):
+```bash
+export RSH_PASS='…'        # asoro@172.24.4.71
+export MHA_PASS='…'        # odelia@172.24.4.91
+export USZ_PASS='…'        # user@172.24.4.75
+export UKA_PASS='…'        # swarm@172.24.4.79  (full-scale runs only)
+export DL_ADMIN_PASS='…'   # swarm@dl0 / dl2 / dl3 (server-admin + GPU eval)
+```
+
 ---
 
 ## 1. Scope of this run
