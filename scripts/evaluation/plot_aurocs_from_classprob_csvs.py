@@ -6,6 +6,7 @@ from pathlib import Path
 
 from sklearn.metrics import roc_auc_score
 from matplotlib.patches import Patch
+import matplotlib.lines as mlines
 import seaborn as sns
 import argparse
 import matplotlib.pyplot as plt
@@ -142,9 +143,9 @@ def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame], roc_auc_type: str) -> pd
 
         for site in merged_df.site.unique():
             print('Site: ' + site)
-            for epoch in tqdm(merged_df.epoch.unique()):
-                filter = (merged_df.epoch == epoch) & (merged_df.site == site)
-                df_site_epoch = merged_df[filter]
+            site_df=merged_df[merged_df.site == site]
+            for epoch in tqdm(site_df.epoch.unique()):
+                df_site_epoch = site_df[site_df.epoch==epoch]
                 macro_auroc = compute_macro_auroc(df_site_epoch, roc_auc_type)
                 twoclass_aurocs = compute_twoclass_aurocs(df_site_epoch)
                 tumor_auroc = compute_combined_auroc(df_site_epoch, ['score_1', 'score_2'], 0)
@@ -240,14 +241,32 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
     n_sites = len(auroc_df.site.unique())
     sites = sorted(auroc_df.site.unique())
 
+    palette = {'Swarm (agg, train)':  '#a6cee3',
+               'Swarm (agg, val)':    '#1f78b4',
+               'Swarm (site, train)': '#b2df8a',
+               'Swarm (site, val)':   '#33a02c',
+               'Local (train)':       '#fb9a99',
+               'Local (val)':         '#e31a1c'
+               }
+
+    dashes = {'Swarm (agg, train)':  (1,1),
+              'Swarm (agg, val)':    '',
+              'Swarm (site, train)': (1,1),
+              'Swarm (site, val)':   '',
+              'Local (train)':       (1,1),
+              'Local (val)':         ''
+              }
+
     for row_idx, auroc_type in enumerate(AUROC_TYPES):
         for col_idx, site in enumerate(sites):
             ax = axes[row_idx+1, col_idx]
 
             # Filter and plot
             plot_data = auroc_df[(auroc_df.site == site) & (auroc_df.auroc_type == auroc_type)]
+
             sns.lineplot(data=plot_data, x='epoch', y='AUROC', hue='setting',
-                         style='setting', ax=ax, legend=(row_idx == 0 and col_idx == n_sites - 1))
+                         style='setting', ax=ax, legend=(row_idx == 0 and col_idx == n_sites - 1),
+                         palette=palette, dashes=dashes)
 
             ax.set_ylim([0, 1.01])
             ax.set_xlim([auroc_df.epoch.min(), auroc_df.epoch.max() + 1])
@@ -261,7 +280,9 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
 
             # Legend only on top-right
             if row_idx == 0 and col_idx == n_sites - 1:
-                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=12)
+                linestyle = { col: ':' if dash == (1,1) else '-' for col, dash in dashes.items() }
+                handles = [mlines.Line2D([], [], color=palette[col], linestyle=linestyle[col], label=col) for col in palette.keys()]
+                ax.legend(handles=handles, bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=12)
 
 
 def verify_same_label_distribution_swarm_local(label_dist_df: pd.DataFrame) -> None:
@@ -283,17 +304,23 @@ def verify_same_label_distribution_swarm_local(label_dist_df: pd.DataFrame) -> N
 
 
 def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: bool) -> None:
-    # Plot combined label distributions - just use Swarm data since they're identical
-    # Compute max count for shared y-axis
+    # Plot combined label distributions
 
-    label_counts_df = label_dist_df[label_dist_df.source == 'Local'].groupby(['site', 'split', 'label']).size()
+    source = 'Local'
+    label_counts_df = label_dist_df[label_dist_df.source == source].groupby(['site', 'split', 'label']).size()
     ymax = label_counts_df.max()
+
+    if np.isnan(ymax):
+        # if data from local training not available, use data from swarm training instead
+        source = 'Swarm'
+        label_counts_df = label_dist_df[label_dist_df.source == source].groupby(['site', 'split', 'label']).size()
+        ymax = label_counts_df.max()
 
     for col_idx, site in enumerate(sorted(label_dist_df.site.unique())):
         ax = axes[0, col_idx]
 
         # Filter data - use Swarm only since we verified they're identical
-        plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == 'Local')]
+        plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == source)]
         plot_data_train = plot_data[plot_data.split == 'Train']
         plot_data_val = plot_data[plot_data.split == 'Val']
 
@@ -370,7 +397,11 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
     plt.close()
 
 
-def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str):
+def save_auroc_df(auroc_df: pd.DataFrame, save_auroc_df_filename: str) -> None:
+    auroc_df.to_pickle(save_auroc_df_filename)
+
+
+def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str, save_auroc_df_filename: str):
     setting_files = get_setting_files(root_dir)
 
     for setting, files in setting_files.items():
@@ -384,6 +415,8 @@ def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str):
 
     label_dist_df = compute_label_distributions(merged_dfs)
 
+    if save_auroc_df_filename:
+        save_auroc_df(auroc_df, save_auroc_df_filename)
     plot(auroc_df, label_dist_df, logscale_hist)
 
     print('Done.')
@@ -401,7 +434,10 @@ if __name__ == '__main__':
     parser.add_argument('--roc_auc_type',
                         choices=['ovo', 'ovr'], default='ovo',
                         help='Type of ROC_AUC to compute. ovo: one-vs-one (default), ovr: one-vs-rest')
+    parser.add_argument('--save_auroc_df_to',
+                        default='',
+                        help='Save computed AUROCs to file')
 
     args = parser.parse_args()
 
-    analyze(args.data_dir, args.logscale_hist, args.roc_auc_type)
+    analyze(args.data_dir, args.logscale_hist, args.roc_auc_type, args.save_auroc_df_to)
