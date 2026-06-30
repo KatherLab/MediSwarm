@@ -18,6 +18,7 @@ CONFIG_TEMPLATE = """components = [
   {
     id = "swarm_client"
     args {
+      final_result_ack_timeout = 86400
       min_responses_required = 5
     }
   }
@@ -83,6 +84,28 @@ def test_patch_config_can_patch_min_responses_required():
     assert "min_responses_required = 5" not in patched
 
 
+def test_patch_config_can_insert_broadcast_last_result():
+    patcher = _import_patcher()
+
+    patched = patcher.patch_config_text(CONFIG_TEMPLATE, "fresh", broadcast_last_result=False)
+
+    assert "broadcast_last_result = false" in patched
+    assert patched.index("final_result_ack_timeout = 86400") < patched.index("broadcast_last_result = false")
+
+
+def test_patch_config_can_replace_broadcast_last_result():
+    patcher = _import_patcher()
+    existing = CONFIG_TEMPLATE.replace(
+        "final_result_ack_timeout = 86400",
+        "final_result_ack_timeout = 86400\n      broadcast_last_result = true",
+    )
+
+    patched = patcher.patch_config_text(existing, "fresh", broadcast_last_result=False)
+
+    assert "broadcast_last_result = false" in patched
+    assert "broadcast_last_result = true" not in patched
+
+
 def test_patch_server_config_can_patch_rounds_and_min_clients():
     patcher = _import_patcher()
 
@@ -143,6 +166,7 @@ def test_patch_job_dir_smoke_prepares_admin_local_continue_job(tmp_path):
         min_clients=2,
         configure_min_clients=3,
         min_responses_required=2,
+        broadcast_last_result=False,
     )
 
     assert patched_config == config_path
@@ -150,6 +174,7 @@ def test_patch_job_dir_smoke_prepares_admin_local_continue_job(tmp_path):
     patched_server = server_config_path.read_text()
     assert 'warm_start_mode = "require"' in patched_client
     assert "min_responses_required = 2" in patched_client
+    assert "broadcast_last_result = false" in patched_client
     assert "num_rounds = 2" in patched_server
     assert "min_clients = 2" in patched_server
     assert "configure_min_clients = 3" in patched_server

@@ -247,6 +247,18 @@ remote_sudo_exec() {
     fi
 }
 
+local_sudo_exec() {
+    local cmd="$*"
+    if sudo -n true >/dev/null 2>&1; then
+        sudo bash -lc "$cmd"
+    elif [[ -n "${DL_SWARM_PASS:-}" ]]; then
+        printf '%s\n' "$DL_SWARM_PASS" | sudo -S bash -lc "$cmd"
+    else
+        err "sudo is required locally to update /etc/hosts; set DL_SWARM_PASS or configure passwordless sudo"
+        return 1
+    fi
+}
+
 remote_copy() {
     local site="$1" src="$2" dst="$3"
     local host user pass
@@ -462,7 +474,18 @@ fix_remote_dns() {
     server_ip="$(server_client_ip)"
     [[ -n "$server_ip" ]] || { err "Cannot determine server IP"; return 1; }
 
-    step "Ensure clients resolve $SERVER_NAME to $server_ip"
+    step "Ensure server/admin host and clients resolve $SERVER_NAME to $server_ip"
+    current="$(grep -E "\\b${SERVER_NAME}\\b" /etc/hosts 2>/dev/null | awk '{print $1}' | head -1 || true)"
+    if [[ "$current" == "$server_ip" ]]; then
+        ok "local host already maps $SERVER_NAME to $server_ip"
+    elif [[ -n "$current" ]]; then
+        local_sudo_exec "sed -i 's|^.*\\b${SERVER_NAME}\\b.*\$|${server_ip} ${SERVER_NAME}|' /etc/hosts" || return 1
+        ok "local host maps $SERVER_NAME to $server_ip"
+    else
+        local_sudo_exec "echo '${server_ip} ${SERVER_NAME}' >> /etc/hosts" || return 1
+        ok "local host maps $SERVER_NAME to $server_ip"
+    fi
+
     for site in "${CLIENT_SITES[@]}"; do
         current="$(remote_exec "$site" "grep -E '\\b${SERVER_NAME}\\b' /etc/hosts 2>/dev/null | awk '{print \$1}' | head -1" 2>/dev/null || true)"
         if [[ "$current" == "$server_ip" ]]; then
@@ -563,7 +586,14 @@ prepare_admin_job() {
     admin_startup="$(admin_startup_dir)"
     [[ -d "$admin_startup" ]] || { err "Missing admin startup dir: $admin_startup"; return 1; }
 
-    args=(--job "$job" --warm-start "$warm_start" --num-rounds "$rounds" --min-clients "$min_clients" --min-responses "$min_responses")
+    args=(
+        --job "$job"
+        --warm-start "$warm_start"
+        --num-rounds "$rounds"
+        --min-clients "$min_clients"
+        --min-responses "$min_responses"
+        --broadcast-last-result false
+    )
     if [[ -n "$configure_min_clients" ]]; then
         args+=(--configure-min-clients "$configure_min_clients")
     fi
