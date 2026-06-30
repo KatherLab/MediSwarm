@@ -439,6 +439,7 @@ prepare_admin_job() {
         --warm-start "$warm_start" \
         --num-rounds "$rounds" \
         --min-clients "${MIN_CLIENTS:-$CLIENT_COUNT}" \
+        --configure-min-clients "${CONFIGURE_MIN_CLIENTS:-$CLIENT_COUNT}" \
         --min-responses "${MIN_RESPONSES:-$CLIENT_COUNT}")
 }
 

@@ -86,10 +86,30 @@ def test_patch_config_can_patch_min_responses_required():
 def test_patch_server_config_can_patch_rounds_and_min_clients():
     patcher = _import_patcher()
 
-    patched = patcher.patch_server_config_text(SERVER_CONFIG_TEMPLATE, num_rounds=2, min_clients=2)
+    patched = patcher.patch_server_config_text(
+        SERVER_CONFIG_TEMPLATE,
+        num_rounds=2,
+        min_clients=2,
+        configure_min_clients=3,
+    )
 
     assert "num_rounds = 2" in patched
     assert "min_clients = 2  # tolerate drops" in patched
+    assert "configure_min_clients = 3" in patched
+    assert patched.index("min_clients = 2") < patched.index("configure_min_clients = 3")
+
+
+def test_patch_server_config_replaces_existing_configure_min_clients():
+    patcher = _import_patcher()
+    existing = SERVER_CONFIG_TEMPLATE.replace(
+        "min_clients = 5  # tolerate drops",
+        "min_clients = 5  # tolerate drops\n      configure_min_clients = 5",
+    )
+
+    patched = patcher.patch_server_config_text(existing, configure_min_clients=3)
+
+    assert "configure_min_clients = 3" in patched
+    assert "configure_min_clients = 5" not in patched
 
 
 def test_patch_numeric_assignment_rejects_missing_key():
@@ -121,6 +141,7 @@ def test_patch_job_dir_smoke_prepares_admin_local_continue_job(tmp_path):
         "continue",
         num_rounds=2,
         min_clients=2,
+        configure_min_clients=3,
         min_responses_required=2,
     )
 
@@ -131,3 +152,4 @@ def test_patch_job_dir_smoke_prepares_admin_local_continue_job(tmp_path):
     assert "min_responses_required = 2" in patched_client
     assert "num_rounds = 2" in patched_server
     assert "min_clients = 2" in patched_server
+    assert "configure_min_clients = 3" in patched_server
