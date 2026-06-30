@@ -176,7 +176,7 @@ RUN apt update && apt install -y \
     libpython3.10-minimal=3.10.12-1~22.04.15 \
     libpython3.10-stdlib=3.10.12-1~22.04.15 \
     libreadline8=8.1.2-1 \
-    libsqlite3-0=3.37.2-2ubuntu0.5 \
+    libsqlite3-0=3.37.2-2ubuntu0.6 \
     media-types=7.0.0 \
     python3-minimal=3.10.6-1~22.04.1 \
     python3.10-minimal=3.10.12-1~22.04.15 \
