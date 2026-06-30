@@ -150,6 +150,20 @@ def parse_per_channel(per_channel, channels):
         return per_channel
 
 
+class DegenerateImageError(RuntimeError):
+    """Raised when an image cannot be z-normalized because its masked region is
+    empty or constant -- i.e. a degenerate/unusable input, not a valid training
+    sample. The dataset catches this and skips/resamples (it must NOT be replaced
+    by a zero image, which would silently feed garbage into training)."""
+
+    def __init__(self, image_name, image_path, reason: str, masked_voxels: int):
+        self.image_name = image_name
+        self.image_path = "" if image_path is None else str(image_path)
+        self.reason = reason
+        self.masked_voxels = int(masked_voxels)
+        super().__init__(f"DegenerateImage[{reason}] name={image_name} masked_voxels={masked_voxels}")
+
+
 class ZNormalization(tio.ZNormalization):
     """Z-Normalization with support for per-channel and per-slice options, and percentile-based clipping."""
 
@@ -180,13 +194,18 @@ class ZNormalization(tio.ZNormalization):
         )
 
     def _znorm(self, image_data, mask, image_name, image_path):
-        cutoff = torch.quantile(image_data.masked_select(mask).float(), torch.tensor(self.percentiles) / 100.0)
+        masked = image_data.masked_select(mask).float()
+        if masked.numel() < 2:
+            # empty / near-empty intensity mask (e.g. a constant volume): cannot normalize.
+            raise DegenerateImageError(image_name, image_path, "empty_or_too_small_mask", masked.numel())
+        cutoff = torch.quantile(masked, torch.tensor(self.percentiles, dtype=masked.dtype) / 100.0)
         torch.clamp(image_data, *cutoff.to(image_data.dtype).tolist(), out=image_data)
         standardized = self.znorm(image_data, mask)
         if standardized is None:
-            raise RuntimeError(
-                f'Standard deviation is 0 for masked values in image "{image_name}" ({image_path})'
-            )
+            # zero std after masking/clipping: degenerate input, not a usable sample.
+            # NOTE: raised (not zero-filled) so the dataset can skip/resample instead of
+            # silently training on a zero image.
+            raise DegenerateImageError(image_name, image_path, "zero_std_after_masking_or_clipping", masked.numel())
         return standardized
 
 
