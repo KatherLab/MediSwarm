@@ -130,6 +130,8 @@ def _install_controller_nvflare_mocks(monkeypatch):
         "nvflare.app_common.ccwf.server_ctl": types.ModuleType("nvflare.app_common.ccwf.server_ctl"),
         "nvflare.app_common.ccwf.swarm_client_ctl": types.ModuleType("nvflare.app_common.ccwf.swarm_client_ctl"),
         "nvflare.app_common.ccwf.swarm_server_ctl": types.ModuleType("nvflare.app_common.ccwf.swarm_server_ctl"),
+        "nvflare.security": types.ModuleType("nvflare.security"),
+        "nvflare.security.logging": types.ModuleType("nvflare.security.logging"),
     }
     modules["nvflare.apis.fl_context"].FLContext = FakeFLContext
     modules["nvflare.apis.shareable"].ReturnCode = SimpleNamespace(OK="OK", EXECUTION_EXCEPTION="EXECUTION_EXCEPTION")
@@ -144,7 +146,9 @@ def _install_controller_nvflare_mocks(monkeypatch):
         AFTER_CONTRIBUTION_ACCEPT="after_contribution_accept",
     )
     modules["nvflare.app_common.ccwf.common"].Constant = SimpleNamespace(STATUS_REPORTS="status_reports")
+    modules["nvflare.app_common.ccwf.common"].ResultType = SimpleNamespace(BEST="best", LAST="last")
     modules["nvflare.app_common.ccwf.common"].status_report_from_dict = status_report_from_dict
+    modules["nvflare.security.logging"].secure_format_traceback = lambda *args, **kwargs: ""
     modules["nvflare.app_common.ccwf.server_ctl"].ClientStatus = FakeClientStatus
     modules["nvflare.app_common.ccwf.swarm_client_ctl"].Gatherer = FakeGatherer
     modules["nvflare.app_common.ccwf.swarm_client_ctl"].SwarmClientController = FakeSwarmClientController
