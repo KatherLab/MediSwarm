@@ -275,31 +275,49 @@ def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataF
 
 
 def plot_aurocs(auroc_df: pd.DataFrame, axes):
+    def add_data_for_test_result_line(plot_data: pd.DataFrame, max_epoch: int) -> pd.DataFrame:
+        plot_data_train_val = plot_data[(plot_data.epoch != -1)]
+        plot_data_test_swarm = plot_data[(plot_data.epoch == -1) & (plot_data.setting == 'Swarm (agg, test)')]
+        plot_data_test_swarm_b = plot_data_test_swarm.copy()
+        plot_data_test_swarm_b.drop('epoch', axis=1)
+        plot_data_test_swarm_b['epoch'] = max_epoch
+        print(plot_data_test_swarm_b)
+        plot_data = pd.concat([plot_data_train_val, plot_data_test_swarm, plot_data_test_swarm_b])
+        return plot_data
+
     n_sites = len(auroc_df.site.unique())
     sites = sorted(auroc_df.site.unique())
 
     palette = {'Swarm (agg, train)':  '#a6cee3',
                'Swarm (agg, val)':    '#1f78b4',
+               'Swarm (agg, test)':   '#1f78b4',
                'Swarm (site, train)': '#b2df8a',
                'Swarm (site, val)':   '#33a02c',
                'Local (train)':       '#fb9a99',
-               'Local (val)':         '#e31a1c'
+               'Local (val)':         '#e31a1c',
+               'Local (test)':        '#e31a1c'
                }
 
-    dashes = {'Swarm (agg, train)':  (1,1),
+    my_dotted = (1,1)
+    my_dashed = (2,2)
+    dashes = {'Swarm (agg, train)':  my_dotted,
               'Swarm (agg, val)':    '',
-              'Swarm (site, train)': (1,1),
+              'Swarm (agg, test)':   my_dashed,
+              'Swarm (site, train)': my_dotted,
               'Swarm (site, val)':   '',
-              'Local (train)':       (1,1),
-              'Local (val)':         ''
+              'Local (train)':       my_dotted,
+              'Local (val)':         '',
+              'Local (test)':        my_dashed
               }
 
     for row_idx, auroc_type in enumerate(AUROC_TYPES):
+        max_epoch = np.max(auroc_df[(auroc_df.auroc_type == auroc_type)].epoch)
         for col_idx, site in enumerate(sites):
             ax = axes[row_idx+1, col_idx]
 
             # Filter and plot
-            plot_data = auroc_df[(auroc_df.site == site) & (auroc_df.auroc_type == auroc_type) & (auroc_df.epoch != -1)]  # TODO handle test results
+            plot_data = auroc_df[(auroc_df.site == site) & (auroc_df.auroc_type == auroc_type)]
+            plot_data = add_data_for_test_result_line(plot_data, max_epoch)
 
             sns.lineplot(data=plot_data, x='epoch', y='AUROC', hue='setting',
                          style='setting', ax=ax, legend=(row_idx == 0 and col_idx == n_sites - 1),
@@ -317,7 +335,7 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
 
             # Legend only on top-right
             if row_idx == 0 and col_idx == n_sites - 1:
-                linestyle = { col: ':' if dash == (1,1) else '-' for col, dash in dashes.items() }
+                linestyle = { col: ':' if dash in [my_dotted, my_dashed] else '-' for col, dash in dashes.items() }
                 handles = [mlines.Line2D([], [], color=palette[col], linestyle=linestyle[col], label=col) for col in palette.keys()]
                 ax.legend(handles=handles, bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=12)
 
@@ -458,8 +476,6 @@ def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str, save_auroc_df
     if save_auroc_df_filename:
         save_auroc_df(auroc_df, save_auroc_df_filename)
     plot(auroc_df, label_dist_df, logscale_hist)
-
-    print('Done.')
 
 
 if __name__ == '__main__':
