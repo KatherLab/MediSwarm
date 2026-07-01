@@ -93,7 +93,7 @@ def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
         df = pd.read_csv(filename, skiprows=1, names=['UID', 'label', 'prediction', 'score_0', 'score_1', 'score_2'])
         df = df.drop('UID', axis=1)
         df = df.drop('prediction', axis=1)
-        df['epoch']=-1
+        df['epoch']=-1  # TODO set this appropriately once required information is available
         return df
 
     # Store merged dataframes for label distribution
@@ -234,6 +234,7 @@ def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataF
     local_train_dist['source'] = 'Local'
     local_train_dist['split'] = 'Train'
 
+
     # Val distributions - use only epoch 0
     if 'Swarm (agg, val)' in merged_dfs:
         swarm_val_dist = merged_dfs['Swarm (agg, val)'][merged_dfs['Swarm (agg, val)'].epoch == 0][['site', 'label']].copy()
@@ -250,7 +251,26 @@ def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataF
     local_val_dist['source'] = 'Local'
     local_val_dist['split'] = 'Val'
 
-    label_dist_df = pd.concat([swarm_train_dist, local_train_dist, swarm_val_dist, local_val_dist], ignore_index=True)
+
+    # Test distributions
+    if 'Swarm (agg, test)' in merged_dfs:
+        # there is only a single epoch
+        swarm_test_dist = merged_dfs['Swarm (agg, test)'][['site', 'label']].copy()
+    else:
+        swarm_test_dist = pd.DataFrame()
+    swarm_test_dist['source'] = 'Swarm'
+    swarm_test_dist['split'] = 'Test'
+
+    if 'Local (test)' in merged_dfs:
+        # there is only a single epoch
+        local_test_dist = merged_dfs['Local (test)'][['site', 'label']].copy()
+    else:
+        local_test_dist = pd.DataFrame()
+
+    local_test_dist['source'] = 'Local'
+    local_test_dist['split'] = 'Test'
+
+    label_dist_df = pd.concat([swarm_train_dist, local_train_dist, swarm_val_dist, local_val_dist, swarm_test_dist, local_test_dist], ignore_index=True)
     return label_dist_df
 
 
@@ -306,7 +326,7 @@ def verify_same_label_distribution_swarm_local(label_dist_df: pd.DataFrame) -> N
     success = True
     print('Verifying Swarm and Local have identical label distributions...')
     for site in sorted(label_dist_df.site.unique()):
-        for split in ['Train', 'Val']:
+        for split in ['Train', 'Val', 'Test']:
             swarm_counts = label_dist_df[(label_dist_df.site == site) &
                                          (label_dist_df.split == split) &
                                          (label_dist_df.source == 'Swarm')].label.value_counts().sort_index()
@@ -340,16 +360,17 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
         plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == source)]
         plot_data_train = plot_data[plot_data.split == 'Train']
         plot_data_val = plot_data[plot_data.split == 'Val']
-        plot_data = pd.concat([plot_data_train, plot_data_val])  # TODO handle test results
+        plot_data_test = plot_data[plot_data.split == 'Test']
+        plot_data = pd.concat([plot_data_train, plot_data_val, plot_data_test])
 
         if plot_data.empty:
             return
 
         # Plot with split as hue (Train vs Val)
         histogram = sns.histplot(data=plot_data, x='label', hue='split', multiple='dodge',
-                                 discrete=True, stat='count', shrink=0.8, ax=ax,
-                                 hue_order=['Train', 'Val'],
-                                 palette=['#1f77b4', '#ff7f0e'],
+                                 discrete=True, stat='count', shrink=0.6, ax=ax,
+                                 hue_order=['Train', 'Val', 'Test'],
+                                 palette=['#984ea3', '#ff7f00', '#ffff33'],
                                  legend=False, alpha=1)
 
         ax.set_ylabel('Count' if col_idx == 0 else '')
@@ -370,8 +391,8 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
         else:
             ax.set_ylim([0, ymax * 1.1])
 
-        # Add total sample count + split ratio in upper right
-        ax.text(1.0, 1.0, f'\n  n = {len(plot_data)}  \n  split: {len(plot_data_train)}/{len(plot_data_val)} ≈ {len(plot_data_train)/len(plot_data):.0g}/{len(plot_data_val)/len(plot_data):.0g}  \n',
+        # Add total sample count + split ratio in upper right  # FIXME add numbers for test
+        ax.text(1.0, 1.0, f'\n  n = {len(plot_data)}  \n  split: {len(plot_data_train)}/{len(plot_data_val)}/{len(plot_data_test)} ≈ {len(plot_data_train)/len(plot_data):.0g}/{len(plot_data_val)/len(plot_data):.0g}/{len(plot_data_test)/len(plot_data):.0g}  \n',
                transform=ax.transAxes, fontsize=11,
                va='top', ha='right', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
@@ -385,8 +406,9 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
 
     # Add legend for bar plots on bottom-right
     legend_handles = [
-        Patch(facecolor='#1f77b4', label='Train'),
-        Patch(facecolor='#ff7f0e', label='Val')
+        Patch(facecolor='#984ea3', label='Train'),
+        Patch(facecolor='#ff7f00', label='Val'),
+        Patch(facecolor='#ffff33', label='Test')
     ]
     axes[0, -1].legend(handles=legend_handles, bbox_to_anchor=(1.05, 1),
                        loc='upper left', fontsize=12, frameon=True)
