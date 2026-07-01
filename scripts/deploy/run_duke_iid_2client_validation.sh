@@ -88,6 +88,10 @@ Options:
 Environment:
   DL_SWARM_PASS            Recommended password env var used by the example config.
   EVAL_DEVICE              Passed to the dl0 evaluator through predict.py defaults.
+  SSH_CONNECT_TIMEOUT      Seconds to wait for SSH connection setup (default: 10).
+  START_CLIENT_ATTEMPTS    Attempts per client startup before failing (default: 12).
+  START_CLIENT_RETRY_SLEEP Seconds between client startup attempts (default: 30).
+  VERSION_OVERRIDE         Reuse an already-built image/startup-kit version.
 EOF
 }
 
@@ -161,7 +165,7 @@ if [[ "$PROJECT_FILE" != "$REPO_ROOT/"* ]]; then
 fi
 
 PROJECT_FILE_FOR_BUILD="${PROJECT_FILE#$REPO_ROOT/}"
-VERSION="$("$REPO_ROOT/scripts/build/getVersionNumber.sh")"
+VERSION="${VERSION_OVERRIDE:-$("$REPO_ROOT/scripts/build/getVersionNumber.sh")}"
 GIT_SHA="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
 DOCKER_IMAGE="$(grep 'docker_image:' "$PROJECT_FILE" \
     | sed 's/.*docker_image:[[:space:]]*//' \
@@ -174,7 +178,12 @@ DEPLOY_BASE="${COSMOS_DEPLOY_DIR:-/home/swarm/deploy_test_duke_iid_2client}"
 SERVER_NAME="${SERVER_NAME:-dl3.tud.de}"
 ADMIN_USER="${ADMIN_USER:-jiefu.zhu@tu-dresden.de}"
 CLIENT_COUNT="${#CLIENT_SITES[@]}"
-SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+SSH_CONNECT_TIMEOUT="${SSH_CONNECT_TIMEOUT:-10}"
+SSH_SERVER_ALIVE_INTERVAL="${SSH_SERVER_ALIVE_INTERVAL:-15}"
+SSH_SERVER_ALIVE_COUNT_MAX="${SSH_SERVER_ALIVE_COUNT_MAX:-2}"
+START_CLIENT_ATTEMPTS="${START_CLIENT_ATTEMPTS:-12}"
+START_CLIENT_RETRY_SLEEP="${START_CLIENT_RETRY_SLEEP:-30}"
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=$SSH_CONNECT_TIMEOUT -o ServerAliveInterval=$SSH_SERVER_ALIVE_INTERVAL -o ServerAliveCountMax=$SSH_SERVER_ALIVE_COUNT_MAX"
 NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-'
 
 mkdir -p "$RESULTS_DIR"
@@ -531,31 +540,52 @@ start_server() {
     sleep 15
 }
 
+client_model_running() {
+    local site="$1" model_name="$2" site_name
+    site_name="$(site_var "$site" SITE_NAME)"
+    remote_exec "$site" "
+        container=\$(docker ps --filter 'name=odelia_swarm_client_${site_name}_' --format '{{.Names}}' | head -1)
+        test -n \"\$container\"
+        docker inspect \"\$container\" --format '{{range .Config.Env}}{{println .}}{{end}}' |
+          grep -Fx 'MODEL_NAME=$model_name' >/dev/null
+    "
+}
+
 start_clients() {
-    local model_name="$1" site site_name deploy_dir datadir scratch gpu
+    local model_name="$1" site site_name deploy_dir datadir scratch gpu attempt
     for site in "${CLIENT_SITES[@]}"; do
         site_name="$(site_var "$site" SITE_NAME)"
         deploy_dir="$(site_var "$site" DEPLOY_DIR)"
         datadir="$(site_var "$site" DATADIR)"
         scratch="$(site_scratch "$site")"
         gpu="$(site_var "$site" GPU)"
-        remote_exec "$site" \
-            "cd '$deploy_dir/$site_name/startup' && ./docker.sh --no_pull --data_dir '$datadir' --scratch_dir '$scratch' --GPU '$gpu' --model_name '$model_name' --start_client" \
-            || return 1
-        ok "Started $site_name with MODEL_NAME=$model_name"
+        for ((attempt = 1; attempt <= START_CLIENT_ATTEMPTS; attempt++)); do
+            if remote_exec "$site" \
+                "cd '$deploy_dir/$site_name/startup' && ./docker.sh --no_pull --data_dir '$datadir' --scratch_dir '$scratch' --GPU '$gpu' --model_name '$model_name' --start_client"; then
+                ok "Started $site_name with MODEL_NAME=$model_name"
+                break
+            fi
+
+            if client_model_running "$site" "$model_name" >/dev/null 2>&1; then
+                ok "Started $site_name with MODEL_NAME=$model_name"
+                break
+            fi
+
+            if [[ "$attempt" -eq "$START_CLIENT_ATTEMPTS" ]]; then
+                err "Failed to start $site_name with MODEL_NAME=$model_name after $START_CLIENT_ATTEMPTS attempts"
+                return 1
+            fi
+
+            warn "Starting $site_name failed (attempt $attempt/$START_CLIENT_ATTEMPTS); retrying in ${START_CLIENT_RETRY_SLEEP}s"
+            sleep "$START_CLIENT_RETRY_SLEEP"
+        done
     done
 }
 
 verify_client_model_env() {
-    local model_name="$1" site site_name
+    local model_name="$1" site
     for site in "${CLIENT_SITES[@]}"; do
-        site_name="$(site_var "$site" SITE_NAME)"
-        remote_exec "$site" "
-            container=\$(docker ps --filter 'name=odelia_swarm_client_${site_name}_' --format '{{.Names}}' | head -1)
-            test -n \"\$container\"
-            docker inspect \"\$container\" --format '{{range .Config.Env}}{{println .}}{{end}}' |
-              grep -Fx 'MODEL_NAME=$model_name' >/dev/null
-        " || return 1
+        client_model_running "$site" "$model_name" || return 1
     done
 }
 
@@ -581,7 +611,7 @@ wait_for_registration() {
 }
 
 prepare_admin_job() {
-    local job="$1" warm_start="$2" rounds="$3" min_clients="$4" min_responses="$5" configure_min_clients="$6"
+    local job="$1" warm_start="$2" rounds="$3" min_clients="$4" min_responses="$5" configure_min_clients="$6" broadcast_last_result="${7:-true}"
     local admin_startup args=()
     admin_startup="$(admin_startup_dir)"
     [[ -d "$admin_startup" ]] || { err "Missing admin startup dir: $admin_startup"; return 1; }
@@ -592,7 +622,7 @@ prepare_admin_job() {
         --num-rounds "$rounds"
         --min-clients "$min_clients"
         --min-responses "$min_responses"
-        --broadcast-last-result false
+        --broadcast-last-result "$broadcast_last_result"
     )
     if [[ -n "$configure_min_clients" ]]; then
         args+=(--configure-min-clients "$configure_min_clients")
@@ -1041,7 +1071,7 @@ run_single_client_drop() {
     start_clients "$MODEL_NAME" || return 1
     verify_client_model_env "$MODEL_NAME" || return 1
     wait_for_registration || return 1
-    prepare_admin_job "$JOB_NAME" "fresh" "$DROP_ROUNDS" "1" "1" "$CLIENT_COUNT" || return 1
+    prepare_admin_job "$JOB_NAME" "fresh" "$DROP_ROUNDS" "1" "1" "$CLIENT_COUNT" "false" || return 1
     start_line="$(log_start_line)"
     submit_job "$JOB_NAME" "fresh" || return 1
     wait_for_mirror || return 1
