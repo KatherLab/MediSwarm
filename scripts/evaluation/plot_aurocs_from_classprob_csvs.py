@@ -38,15 +38,18 @@ def get_setting_files(root_dir: str) -> Dict[str, List[Path]]:
 
     swarm_agg_train_files = []
     swarm_agg_val_files = []
+    swarm_agg_test_files = []
     swarm_site_train_files = []
     swarm_site_val_files = []
     local_train_files = []
     local_val_files = []
+    local_test_files = []
 
     # Gather local files
     for site_dir in [d for d in local_dir.iterdir() if d.is_dir()]:
         add_file_or_warn(site_dir / 'site_model_gt_and_classprob_train.csv', local_train_files)
         add_file_or_warn(site_dir / 'site_model_gt_and_classprob_validation.csv', local_val_files)
+        # add_file_or_warn(site_dir / '.csv', local_test_files) # TODO
 
     # Gather swarm files
     for site_dir in [d for d in swarm_dir.iterdir() if d.is_dir()]:
@@ -54,13 +57,16 @@ def get_setting_files(root_dir: str) -> Dict[str, List[Path]]:
         add_file_or_warn(site_dir / 'site_model_gt_and_classprob_validation.csv', swarm_site_val_files)
         add_file_or_warn(site_dir / 'aggregated_model_gt_and_classprob_train.csv', swarm_agg_train_files)
         add_file_or_warn(site_dir / 'aggregated_model_gt_and_classprob_validation.csv', swarm_agg_val_files)
+        add_file_or_warn(site_dir / 'final_aggregated_model_gt_and_classprob_test.csv', swarm_agg_test_files)
 
     setting_files = { 'Swarm (agg, train)': swarm_agg_train_files,
                       'Swarm (agg, val)': swarm_agg_val_files,
+                      'Swarm (agg, test)': swarm_agg_test_files,
                       'Swarm (site, train)': swarm_site_train_files,
                       'Swarm (site, val)': swarm_site_val_files,
                       'Local (train)': local_train_files,
-                      'Local (val)': local_val_files
+                      'Local (val)': local_val_files,
+                      'Local (test)': local_test_files,
                      }
     return setting_files
 
@@ -83,6 +89,13 @@ def _verify_constant_labels_across_epochs(df: pd.DataFrame, name: str) -> None:
 
 
 def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
+    def _load_test_predictions(filename) -> pd.DataFrame:
+        df = pd.read_csv(filename, skiprows=1, names=['UID', 'label', 'prediction', 'score_0', 'score_1', 'score_2'])
+        df = df.drop('UID', axis=1)
+        df = df.drop('prediction', axis=1)
+        df['epoch']=-1
+        return df
+
     # Store merged dataframes for label distribution
     merged_dfs = {}
 
@@ -91,7 +104,11 @@ def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
 
         dfs = []
         for file in files:
-            df = pd.read_csv(file, names=['epoch', 'label', 'score_0', 'score_1', 'score_2'])
+            if 'final_aggregated_model_gt_and_classprob_test.csv' in str(file):
+                # file format is different
+                df = _load_test_predictions(file)
+            else:
+                df = pd.read_csv(file, names=['epoch', 'label', 'score_0', 'score_1', 'score_2'])
             df.loc[:, 'site'] = file.parts[1]
             dfs.append(df)
 
@@ -262,7 +279,7 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
             ax = axes[row_idx+1, col_idx]
 
             # Filter and plot
-            plot_data = auroc_df[(auroc_df.site == site) & (auroc_df.auroc_type == auroc_type)]
+            plot_data = auroc_df[(auroc_df.site == site) & (auroc_df.auroc_type == auroc_type) & (auroc_df.epoch != -1)]  # TODO handle test results
 
             sns.lineplot(data=plot_data, x='epoch', y='AUROC', hue='setting',
                          style='setting', ax=ax, legend=(row_idx == 0 and col_idx == n_sites - 1),
@@ -323,6 +340,7 @@ def plot_label_distributions(label_dist_df: pd.DataFrame, axes, logscale_hist: b
         plot_data = label_dist_df[(label_dist_df.site == site) & (label_dist_df.source == source)]
         plot_data_train = plot_data[plot_data.split == 'Train']
         plot_data_val = plot_data[plot_data.split == 'Val']
+        plot_data = pd.concat([plot_data_train, plot_data_val])  # TODO handle test results
 
         if plot_data.empty:
             return
