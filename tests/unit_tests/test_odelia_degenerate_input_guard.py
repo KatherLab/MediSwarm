@@ -10,6 +10,11 @@ REPO = Path(__file__).resolve().parents[2]
 CUSTOM = REPO / "application" / "jobs" / "_shared" / "custom"
 sys.path.insert(0, str(CUSTOM))
 
+# The ODELIA data pipeline requires torchio/pandas; the lightweight unit-test CI env
+# doesn't install them, so skip this module there (it runs fully in the odelia image).
+pytest.importorskip("torchio")
+pytest.importorskip("pandas")
+
 from data.augmentation.augmentations_3d import ZNormalization, DegenerateImageError  # noqa: E402
 from data.datasets.dataset_3d_odelia import ODELIA_Dataset3D  # noqa: E402
 
