@@ -123,7 +123,7 @@ sequenceDiagram
 
 | Pipeline | Domain | Input | Backbone(s) | Docker Image | Python | PyTorch |
 |----------|--------|-------|-------------|--------------|--------|---------|
-| **ODELIA** | Breast MRI classification | 3D NIfTI volumes | DenseNet-121, DINOv2 | `jefftud/odelia:1.2.0` | 3.10 | 2.2.2 |
+| **ODELIA** | Breast MRI classification | 3D NIfTI volumes | DenseNet-121, DINOv2 | `jefftud/odelia:1.5.0` | 3.10 | 2.2.2 |
 | **STAMP** | Computational pathology (classification / survival) | H5 feature files | VIT, MLP, TransMIL | `jefftud/stamp:<version>` | 3.11 | 2.7.1 |
 
 **ODELIA** — A 3D CNN pipeline for ternary classification on breast MRI,
