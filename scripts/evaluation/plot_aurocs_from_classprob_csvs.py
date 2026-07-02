@@ -16,6 +16,8 @@ from typing import List, Dict, Tuple
 
 
 AUROC_TYPES = ['macro', 'none vs benign (0v1)', 'none vs malignant (0v2)', 'benign vs malgignant (1v2)', 'none vs any (0v1/2)', 'none/benign vs malignant (0/1v2)']
+LAST_EPOCH_PLACEHOLDER = -2**30
+EPOCH_OFFSET_FOR_TEST_METRIC = 10
 
 def add_file_or_warn(file_path, file_list):
     if file_path.exists():
@@ -93,7 +95,7 @@ def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
         df = pd.read_csv(filename, skiprows=1, names=['UID', 'label', 'prediction', 'score_0', 'score_1', 'score_2'])
         df = df.drop('UID', axis=1)
         df = df.drop('prediction', axis=1)
-        df['epoch']=-1  # TODO set this appropriately once required information is available
+        df['epoch']=LAST_EPOCH_PLACEHOLDER
         return df
 
     # Store merged dataframes for label distribution
@@ -276,13 +278,13 @@ def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataF
 
 def plot_aurocs(auroc_df: pd.DataFrame, axes):
     def add_data_for_test_result_line(plot_data: pd.DataFrame, max_epoch: int) -> pd.DataFrame:
-        plot_data_train_val = plot_data[(plot_data.epoch != -1)]
-        plot_data_test_swarm = plot_data[(plot_data.epoch == -1) & (plot_data.setting == 'Swarm (agg, test)')]
-        plot_data_test_swarm_b = plot_data_test_swarm.copy()
-        plot_data_test_swarm_b.drop('epoch', axis=1)
-        plot_data_test_swarm_b['epoch'] = max_epoch
-        print(plot_data_test_swarm_b)
-        plot_data = pd.concat([plot_data_train_val, plot_data_test_swarm, plot_data_test_swarm_b])
+        plot_data_train_val = plot_data[(plot_data.epoch != LAST_EPOCH_PLACEHOLDER)]
+        plot_data_test_swarm_a = plot_data[(plot_data.epoch == LAST_EPOCH_PLACEHOLDER) & (plot_data.setting == 'Swarm (agg, test)')].copy()
+        plot_data_test_swarm_a.drop('epoch', axis=1)
+        plot_data_test_swarm_b = plot_data_test_swarm_a.copy()
+        plot_data_test_swarm_a.epoch = max_epoch
+        plot_data_test_swarm_b.epoch = max_epoch+EPOCH_OFFSET_FOR_TEST_METRIC
+        plot_data = pd.concat([plot_data_train_val, plot_data_test_swarm_a, plot_data_test_swarm_b])
         return plot_data
 
     n_sites = len(auroc_df.site.unique())
@@ -299,7 +301,7 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
                }
 
     my_dotted = (1,1)
-    my_dashed = (2,2)
+    my_dashed = (3,3)
     dashes = {'Swarm (agg, train)':  my_dotted,
               'Swarm (agg, val)':    '',
               'Swarm (agg, test)':   my_dashed,
@@ -324,7 +326,7 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
                          palette=palette, dashes=dashes)
 
             ax.set_ylim([0, 1.01])
-            ax.set_xlim([auroc_df.epoch.min(), auroc_df.epoch.max() + 1])
+            ax.set_xlim([0, auroc_df.epoch.max() + EPOCH_OFFSET_FOR_TEST_METRIC + 1])
             ax.set_ylabel('AUROC' if col_idx == 0 else '')
             ax.set_xlabel('Epoch')
 
@@ -335,7 +337,9 @@ def plot_aurocs(auroc_df: pd.DataFrame, axes):
 
             # Legend only on top-right
             if row_idx == 0 and col_idx == n_sites - 1:
-                linestyle = { col: ':' if dash in [my_dotted, my_dashed] else '-' for col, dash in dashes.items() }
+                linestyle = {col: '-' for col in dashes.keys()}
+                linestyle.update({col: ':' for col, dash in dashes.items() if dash == my_dotted})
+                linestyle.update({col: '--' for col, dash in dashes.items() if dash == my_dashed})
                 handles = [mlines.Line2D([], [], color=palette[col], linestyle=linestyle[col], label=col) for col in palette.keys()]
                 ax.legend(handles=handles, bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=12)
 
@@ -459,14 +463,18 @@ def save_auroc_df(auroc_df: pd.DataFrame, save_auroc_df_filename: str) -> None:
     auroc_df.to_pickle(save_auroc_df_filename)
 
 
-def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str, save_auroc_df_filename: str):
+def analyze(root_dir: str, logscale_hist: bool, roc_auc_type: str, save_auroc_df_filename: str, plot_from_saved_aurocs: str):
     setting_files = get_setting_files(root_dir)
 
     for setting, files in setting_files.items():
         print(f'Identified {len(files)} {setting} files.')
 
     merged_dfs = load_data(setting_files)
-    auroc_df = compute_aurocs(merged_dfs, roc_auc_type)
+
+    if plot_from_saved_aurocs:
+        auroc_df = pd.read_pickle(plot_from_saved_aurocs)
+    else:
+        auroc_df = compute_aurocs(merged_dfs, roc_auc_type)
 
     verify_constant_labels_across_epochs(merged_dfs)
     verify_same_label_distributions_at_epoch_zero(merged_dfs)
@@ -493,7 +501,10 @@ if __name__ == '__main__':
     parser.add_argument('--save_auroc_df_to',
                         default='',
                         help='Save computed AUROCs to file')
+    parser.add_argument('--plot_from_saved_aurocs',
+                        default='',
+                        help='Save computed AUROCs to file')
 
     args = parser.parse_args()
 
-    analyze(args.data_dir, args.logscale_hist, args.roc_auc_type, args.save_auroc_df_to)
+    analyze(args.data_dir, args.logscale_hist, args.roc_auc_type, args.save_auroc_df_to, args.plot_from_saved_aurocs)
