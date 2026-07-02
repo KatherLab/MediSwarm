@@ -429,10 +429,9 @@ def write_predictions_csv(
         for i in range(len(targets)):
             uid = uids[i] if i < len(uids) else f"sample_{i}"
             row = [uid, int(targets[i]), int(preds[i])]
-            row.extend([round(float(p), 6) for p in probs[i]])
+            row.extend([round(float(p), 16) for p in probs[i]])
             writer.writerow(row)
     logger.info(f"Predictions CSV written to: {output_path}")
-
 
 def print_metrics(label: str, metrics: Dict) -> None:
     """Print metrics to console in a readable format."""
