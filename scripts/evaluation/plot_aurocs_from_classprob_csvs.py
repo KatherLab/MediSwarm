@@ -146,7 +146,7 @@ def compute_aurocs(merged_dfs: Dict[str, pd.DataFrame], roc_auc_type: str) -> pd
                        1: df_site_epoch_ij.score_1,
                        2: df_site_epoch_ij.score_2}[j] / df_site_epoch_ij[[f'score_{i}', f'score_{j}']].sum(axis=1)
             ij_labels = (df_site_epoch_ij.label == j)
-            if len(ij_labels.unique()) == 2:
+            if len(ij_labels.unique()) == 2 and np.isfinite(np.sum(np.array(score_j))):
                 return roc_auc_score(ij_labels, score_j)
             else:
                 return np.nan
