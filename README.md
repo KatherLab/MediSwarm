@@ -7,6 +7,8 @@ the ODELIA consortium.
 [![Build](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml)
 [![Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml)
 
+> **Current release: [v1.5.0](https://github.com/KatherLab/MediSwarm/releases/tag/v1.5.0)** (swarm-robustness) — operators prepping a run see the [v1.5.0 rollout runbook](docs/ROLLOUT_v1.5.0.md).
+
 ## What is MediSwarm?
 
 MediSwarm is a federated / swarm learning framework for **medical imaging**. It
