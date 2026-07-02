@@ -37,6 +37,7 @@ DOCKER_IMAGE=""
 REMOTE_STAGE=""
 MODELS_CSV=""
 ODELIA_SITES_CSV="CAM,MHA,RSH,RUMC,UKA,UMCU"
+EXPECTED_CHECKPOINTS=3
 
 usage() {
     cat <<EOF
@@ -50,6 +51,7 @@ Options:
   --remote-stage DIR       dl0 staging dir (default: <DL0_SCRATCHDIR>/startupkit_smoke_eval/<run_id>)
   --models CSV             Models to evaluate (default: all six deploy-test models)
   --odelia-sites CSV       ODELIA institutions (default: CAM,MHA,RSH,RUMC,UKA,UMCU)
+  --expected-checkpoints N Expected number of collected client checkpoints (default: 3)
   -h, --help               Show this help
 EOF
 }
@@ -63,6 +65,7 @@ while [[ $# -gt 0 ]]; do
         --remote-stage)    REMOTE_STAGE="$2"; shift ;;
         --models)          MODELS_CSV="$2"; shift ;;
         --odelia-sites)    ODELIA_SITES_CSV="$2"; shift ;;
+        --expected-checkpoints) EXPECTED_CHECKPOINTS="$2"; shift ;;
         -h|--help)         usage; exit 0 ;;
         *)                 err "Unknown argument: $1"; usage; exit 1 ;;
     esac
@@ -103,6 +106,10 @@ SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLeve
 DL0_HOST="${DL0_HOST:?DL0_HOST must be set in $CONF_FILE}"
 DL0_USER="${DL0_USER:?DL0_USER must be set in $CONF_FILE}"
 DL0_PASS="${DL0_PASS:-}"
+DL0_PASS_ENV="${DL0_PASS_ENV:-}"
+if [[ -z "$DL0_PASS" && -n "$DL0_PASS_ENV" && -n "${!DL0_PASS_ENV-}" ]]; then
+    DL0_PASS="${!DL0_PASS_ENV}"
+fi
 DL0_DUKE_DATA="${DL0_DUKE_DATA:-/mnt/dlhd0/DUKE_iid}"
 DL0_ODELIA_DATA="${DL0_ODELIA_DATA:-/mnt/dlhd0/medswarmdata}"
 DL0_GPU="${DL0_GPU:-device=0}"
@@ -211,8 +218,8 @@ for model in "${MODELS[@]}"; do
         model_status="fail"
     else
         mapfile -t ckpts < <(find "$checkpoint_dir" -path '*/app_*/FL_global_model.pt' -type f | sort)
-        if [[ "${#ckpts[@]}" -ne 3 ]]; then
-            err "Expected exactly 3 FL_global_model.pt files for $model, found ${#ckpts[@]}"
+        if [[ "${#ckpts[@]}" -ne "$EXPECTED_CHECKPOINTS" ]]; then
+            err "Expected exactly $EXPECTED_CHECKPOINTS FL_global_model.pt files for $model, found ${#ckpts[@]}"
             checkpoint_status="fail"
             model_status="fail"
         else
@@ -223,7 +230,7 @@ for model in "${MODELS[@]}"; do
                 checkpoint_status="fail"
                 model_status="fail"
             else
-                ok "All three final global checkpoints are byte-identical for $model"
+                ok "All $EXPECTED_CHECKPOINTS final global checkpoints are byte-identical for $model"
             fi
         fi
     fi
@@ -280,6 +287,7 @@ jq -s \
     --arg docker_image "$DOCKER_IMAGE" \
     --arg conf_file "$CONF_FILE" \
     --arg checkpoint_root "$CHECKPOINT_ROOT" \
+    --argjson expected_checkpoints "$EXPECTED_CHECKPOINTS" \
     --arg output_dir "$OUTPUT_DIR" \
     --arg remote_stage "$REMOTE_STAGE" \
     --arg status "$overall_status" \
@@ -291,6 +299,7 @@ jq -s \
         docker_image:$docker_image,
         conf_file:$conf_file,
         checkpoint_root:$checkpoint_root,
+        expected_checkpoints:$expected_checkpoints,
         output_dir:$output_dir,
         remote_stage:$remote_stage,
         models:.
