@@ -38,10 +38,11 @@ from nvflare.apis.fl_context import FLContext
 from nvflare.apis.shareable import ReturnCode, make_reply
 from nvflare.app_common.app_constant import AppConstants
 from nvflare.app_common.app_event_type import AppEventType
-from nvflare.app_common.ccwf.common import Constant, status_report_from_dict
+from nvflare.app_common.ccwf.common import Constant, ResultType, status_report_from_dict
 from nvflare.app_common.ccwf.server_ctl import ClientStatus
 from nvflare.app_common.ccwf.swarm_client_ctl import Gatherer, SwarmClientController
 from nvflare.app_common.ccwf.swarm_server_ctl import SwarmServerController
+from nvflare.security.logging import secure_format_traceback
 
 WARM_START_REQUIRED_MISSING = "WARM_START_REQUIRED_MISSING"
 
@@ -125,6 +126,10 @@ class FaultTolerantGatherer(Gatherer):
 class FaultTolerantSwarmClientController(SwarmClientController):
     """SwarmClientController that uses FaultTolerantGatherer for aggregation."""
 
+    def __init__(self, *args, broadcast_last_result: bool = True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.broadcast_last_result = broadcast_last_result
+
     def start_run(self, fl_ctx: FLContext):
         # do_learn_task() instantiates the module-global ``Gatherer``; patch that
         # symbol so the aggregator role uses the fault-tolerant gatherer. (Done
@@ -135,6 +140,41 @@ class FaultTolerantSwarmClientController(SwarmClientController):
             _scc.Gatherer = FaultTolerantGatherer
             self.log_info(fl_ctx, "FaultTolerant: installed FaultTolerantGatherer (tolerates a failed peer in the gather)")
         super().start_run(fl_ctx)
+
+    def _distribute_final_results(self, aggr_result, fl_ctx: FLContext):
+        """Optionally skip duplicate LAST-result broadcast for validation jobs.
+
+        Stock CCWF sends BEST and then LAST. In short two-client DL validation
+        runs the BEST broadcast already verifies final model transfer; the
+        duplicate LAST broadcast can keep the workflow open for the full
+        final_result_ack_timeout when a peer is slow to service the second large
+        transfer. Production jobs keep the stock behavior by default.
+        """
+        best_client = aggr_result.get_header(Constant.CLIENT)
+        best_metric = aggr_result.get_header(Constant.METRIC)
+
+        if best_client:
+            if best_client == self.me:
+                self.log_info(fl_ctx, f"I have global best metric {best_metric}")
+                self.broadcast_final_result(
+                    fl_ctx, ResultType.BEST, self.best_result, self.best_metric, self.best_round
+                )
+            else:
+                try:
+                    self._ask_to_share_best_result(best_client, best_metric, fl_ctx)
+                except Exception:
+                    self.log_error(
+                        fl_ctx, f"error asking client {best_client} to share best result {secure_format_traceback()}"
+                    )
+        else:
+            self.log_info(fl_ctx, "No global best result!")
+
+        if self.broadcast_last_result:
+            self.log_info(fl_ctx, "distributing last result")
+            self.broadcast_final_result(fl_ctx, ResultType.LAST, self.last_result, round_num=self.last_round)
+        else:
+            self.log_info(fl_ctx, "skipping last result broadcast by configuration")
+            self.update_status(action="finished_broadcast_last_result", all_done=True)
 
 
 class FaultTolerantSwarmServerController(SwarmServerController):

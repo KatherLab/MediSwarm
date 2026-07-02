@@ -30,6 +30,8 @@ Usage:
 Options:
   --skip-build      Reuse existing Docker image/startup kits.
   --skip-push       Do not push the built Docker image before pulling on clients.
+  --phases LIST     Comma-separated phases to run (default: all).
+                    Known phases: negative_continue,fresh,continue,fresh_probe,abort_recovery
   --timeout MIN     Per-phase wait timeout in minutes (default: 240).
 
 Environment:
@@ -45,6 +47,7 @@ MODEL_NAME="5Pimed"
 RESULTS_DIR=""
 SKIP_BUILD=false
 SKIP_PUSH=false
+PHASES="${PHASES:-negative_continue,fresh,continue,fresh_probe,abort_recovery}"
 TIMEOUT_MINUTES=240
 RUN_ID="warm_continue_$(date -u +%Y%m%d_%H%M%S)"
 
@@ -57,6 +60,7 @@ while [[ $# -gt 0 ]]; do
         --results-dir) RESULTS_DIR="$2"; shift ;;
         --skip-build)  SKIP_BUILD=true ;;
         --skip-push)   SKIP_PUSH=true ;;
+        --phases)      PHASES="$2"; shift ;;
         --timeout)     TIMEOUT_MINUTES="$2"; shift ;;
         -h|--help)     usage; exit 0 ;;
         *)             err "Unknown argument: $1"; usage; exit 2 ;;
@@ -438,8 +442,9 @@ prepare_admin_job() {
         --job "$JOB_NAME" \
         --warm-start "$warm_start" \
         --num-rounds "$rounds" \
-        --min-clients "$CLIENT_COUNT" \
-        --min-responses "$CLIENT_COUNT")
+        --min-clients "${MIN_CLIENTS:-$CLIENT_COUNT}" \
+        --configure-min-clients "${CONFIGURE_MIN_CLIENTS:-$CLIENT_COUNT}" \
+        --min-responses "${MIN_RESPONSES:-$CLIENT_COUNT}")
 }
 
 submit_job() {
@@ -478,6 +483,11 @@ log_start_line() {
     else
         echo 0
     fi
+}
+
+server_container_running() {
+    docker ps --format '{{.Names}}' \
+        | grep -Eq "^odelia_swarm_server_.*_${GIT_SHA}$|^nvflare.*${GIT_SHA}"
 }
 
 phase_lines() {
@@ -660,8 +670,13 @@ mirror_hashes_json() {
 
 wait_for_mirror() {
     # poll until EVERY client has a non-empty mirror (a round's global has been saved+mirrored)
-    local max_attempts=$((TIMEOUT_MINUTES * 4)) attempt=0 site scratch all
+    local phase="${1:-abort_recovery}" max_attempts=$((TIMEOUT_MINUTES * 4)) attempt=0 site scratch all
     while [[ $attempt -lt $max_attempts ]]; do
+        if ! server_container_running; then
+            save_phase_logs "${phase}_pre_mirror_server_exit"
+            err "Server container exited before all clients mirrored a global"
+            return 1
+        fi
         all=true
         for site in "${CLIENT_SITES[@]}"; do
             scratch="$(site_scratch "$site")"
@@ -830,7 +845,7 @@ run_abort_recovery_phase() {
     submit_job "fresh"
 
     # 2. As soon as every client has mirrored a round's global, snapshot it and simulate a crash.
-    wait_for_mirror
+    wait_for_mirror "$phase"
     record_mirror_hashes "$phase"
     save_phase_logs "$phase"
     warn "Aborting the run mid-flight (docker rm -f all NVFlare containers) to simulate a crash"
@@ -873,12 +888,25 @@ write_summary() {
     ok "Summary written to $RESULTS_DIR/summary.json"
 }
 
+phase_enabled() {
+    local wanted="$1" phase
+    local -a phase_list
+    IFS=',' read -r -a phase_list <<< "$PHASES"
+    for phase in "${phase_list[@]}"; do
+        phase="${phase//[[:space:]]/}"
+        if [[ "$phase" == "all" || "$phase" == "$wanted" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 for cmd in docker expect jq sshpass unzip; do
     command -v "$cmd" >/dev/null 2>&1 || { err "Missing required command: $cmd"; exit 1; }
 done
 
-if [[ "$CLIENT_COUNT" -ne 2 ]]; then
-    err "This wrapper expects exactly two clients; got $CLIENT_COUNT"
+if [[ "$CLIENT_COUNT" -lt 2 ]]; then
+    err "This wrapper expects at least two clients; got $CLIENT_COUNT"
     exit 1
 fi
 if [[ ! -d "$EVAL_DATA_DIR/$EVAL_SITE_NAME" ]]; then
@@ -890,6 +918,7 @@ step "Warm-continue RSH/MHA test"
 info "Run ID: $RUN_ID"
 info "Docker image: $DOCKER_IMAGE"
 info "Results: $RESULTS_DIR"
+info "Phases: $PHASES"
 
 build_and_push
 preflight_clients
@@ -897,11 +926,11 @@ deploy_kits
 fix_remote_dns
 pre_pull_images
 
-run_phase "negative_continue" "continue" 2 "negative"
-run_phase "fresh" "fresh" 2 "eval"
-run_phase "continue" "continue" 2 "eval"
-run_phase "fresh_probe" "fresh" 1 "no_eval"
-run_abort_recovery_phase
+phase_enabled "negative_continue" && run_phase "negative_continue" "continue" 2 "negative"
+phase_enabled "fresh" && run_phase "fresh" "fresh" 2 "eval"
+phase_enabled "continue" && run_phase "continue" "continue" 2 "eval"
+phase_enabled "fresh_probe" && run_phase "fresh_probe" "fresh" 1 "no_eval"
+phase_enabled "abort_recovery" && run_abort_recovery_phase
 
 write_summary
 stop_all

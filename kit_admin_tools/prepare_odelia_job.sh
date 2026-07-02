@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./prepare_odelia_job.sh --job JOB_NAME --warm-start fresh|continue [--num-rounds N] [--min-clients N] [--min-responses N]
+  ./prepare_odelia_job.sh --job JOB_NAME --warm-start fresh|continue [--num-rounds N] [--min-clients N] [--configure-min-clients N] [--min-responses N] [--broadcast-last-result true|false]
 
 Examples:
   ./prepare_odelia_job.sh --job ODELIA_ternary_classification --warm-start fresh
@@ -18,7 +18,9 @@ WARM_START=""
 OUTPUT_DIR="$DIR/../local/mediswarm_jobs"
 NUM_ROUNDS=""
 MIN_CLIENTS=""
+CONFIGURE_MIN_CLIENTS=""
 MIN_RESPONSES=""
+BROADCAST_LAST_RESULT=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -62,12 +64,28 @@ while [ "$#" -gt 0 ]; do
       MIN_CLIENTS="${2:-}"
       shift 2
       ;;
+    --configure-min-clients)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --configure-min-clients" >&2
+        exit 2
+      fi
+      CONFIGURE_MIN_CLIENTS="${2:-}"
+      shift 2
+      ;;
     --min-responses)
       if [ "$#" -lt 2 ]; then
         echo "Missing value for --min-responses" >&2
         exit 2
       fi
       MIN_RESPONSES="${2:-}"
+      shift 2
+      ;;
+    --broadcast-last-result)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --broadcast-last-result" >&2
+        exit 2
+      fi
+      BROADCAST_LAST_RESULT="${2:-}"
       shift 2
       ;;
     -h|--help)
@@ -142,8 +160,14 @@ fi
 if [ -n "$MIN_CLIENTS" ]; then
   PATCH_ARGS+=(--min-clients "$MIN_CLIENTS")
 fi
+if [ -n "$CONFIGURE_MIN_CLIENTS" ]; then
+  PATCH_ARGS+=(--configure-min-clients "$CONFIGURE_MIN_CLIENTS")
+fi
 if [ -n "$MIN_RESPONSES" ]; then
   PATCH_ARGS+=(--min-responses "$MIN_RESPONSES")
+fi
+if [ -n "$BROADCAST_LAST_RESULT" ]; then
+  PATCH_ARGS+=(--broadcast-last-result "$BROADCAST_LAST_RESULT")
 fi
 
 printf -v PATCH_ARGS_QUOTED ' %q' "${PATCH_ARGS[@]}"
@@ -165,8 +189,14 @@ fi
 if [ -n "$MIN_CLIENTS" ]; then
   echo "Server config min_clients: $MIN_CLIENTS"
 fi
+if [ -n "$CONFIGURE_MIN_CLIENTS" ]; then
+  echo "Server config configure_min_clients: $CONFIGURE_MIN_CLIENTS"
+fi
 if [ -n "$MIN_RESPONSES" ]; then
   echo "Client config min_responses_required: $MIN_RESPONSES"
+fi
+if [ -n "$BROADCAST_LAST_RESULT" ]; then
+  echo "Client config broadcast_last_result: $BROADCAST_LAST_RESULT"
 fi
 echo
 echo "Submit from the admin console:"

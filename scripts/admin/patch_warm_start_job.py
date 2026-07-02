@@ -61,7 +61,68 @@ def patch_numeric_assignment(config_text: str, key: str, value: int) -> str:
     return patched
 
 
-def patch_config_text(config_text: str, mode: str, min_responses_required=None) -> str:
+def upsert_numeric_assignment(config_text: str, key: str, value: int, after_key: str) -> str:
+    try:
+        return patch_numeric_assignment(config_text, key, value)
+    except ValueError:
+        pass
+
+    value = _positive_int_or_none(value, key)
+    pattern = re.compile(
+        rf"^(\s*){re.escape(after_key)}\s*=\s*\d+[^\S\r\n]*(?:#.*)?(?:\r?\n|$)",
+        re.MULTILINE,
+    )
+    match = pattern.search(config_text)
+    if not match:
+        raise ValueError(f"Config does not contain numeric assignment for {after_key}")
+
+    line_end = match.group(0)
+    eol = "\r\n" if line_end.endswith("\r\n") else "\n"
+    insert = f"{match.group(1)}{key} = {value}{eol}"
+    return config_text[: match.end()] + insert + config_text[match.end() :]
+
+
+def _bool_or_none(value, name: str):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be true or false")
+
+
+def upsert_bool_assignment(config_text: str, key: str, value: bool, after_key: str) -> str:
+    bool_text = "true" if value else "false"
+    pattern = re.compile(
+        rf"^(\s*{re.escape(key)}\s*=\s*)(?:true|false)([^\S\r\n]*(?:#.*)?(?:\r?\n|$))",
+        re.IGNORECASE | re.MULTILINE,
+    )
+
+    def replace(match):
+        return f"{match.group(1)}{bool_text}{match.group(2)}"
+
+    patched, count = pattern.subn(replace, config_text, count=1)
+    if count == 1:
+        return patched
+
+    after_pattern = re.compile(
+        rf"^(\s*){re.escape(after_key)}\s*=\s*[^\r\n]*(?:\r?\n|$)",
+        re.MULTILINE,
+    )
+    match = after_pattern.search(config_text)
+    if not match:
+        raise ValueError(f"Config does not contain assignment for {after_key}")
+
+    eol = "\r\n" if match.group(0).endswith("\r\n") else "\n"
+    insert = f"{match.group(1)}{key} = {bool_text}{eol}"
+    return config_text[: match.end()] + insert + config_text[match.end() :]
+
+
+def patch_config_text(config_text: str, mode: str, min_responses_required=None, broadcast_last_result=None) -> str:
     internal_mode = normalize_warm_start_mode(mode)
     lines = config_text.splitlines(keepends=True)
 
@@ -100,18 +161,34 @@ def patch_config_text(config_text: str, mode: str, min_responses_required=None) 
     min_responses_required = _positive_int_or_none(min_responses_required, "min_responses_required")
     if min_responses_required is not None:
         patched = patch_numeric_assignment(patched, "min_responses_required", min_responses_required)
+    broadcast_last_result = _bool_or_none(broadcast_last_result, "broadcast_last_result")
+    if broadcast_last_result is not None:
+        patched = upsert_bool_assignment(
+            patched,
+            "broadcast_last_result",
+            broadcast_last_result,
+            after_key="final_result_ack_timeout",
+        )
 
     return patched
 
 
-def patch_server_config_text(config_text: str, num_rounds=None, min_clients=None) -> str:
+def patch_server_config_text(config_text: str, num_rounds=None, min_clients=None, configure_min_clients=None) -> str:
     patched = config_text
     num_rounds = _positive_int_or_none(num_rounds, "num_rounds")
     min_clients = _positive_int_or_none(min_clients, "min_clients")
+    configure_min_clients = _positive_int_or_none(configure_min_clients, "configure_min_clients")
     if num_rounds is not None:
         patched = patch_numeric_assignment(patched, "num_rounds", num_rounds)
     if min_clients is not None:
         patched = patch_numeric_assignment(patched, "min_clients", min_clients)
+    if configure_min_clients is not None:
+        patched = upsert_numeric_assignment(
+            patched,
+            "configure_min_clients",
+            configure_min_clients,
+            after_key="min_clients",
+        )
     return patched
 
 
@@ -120,22 +197,36 @@ def patch_job_dir(
     mode: str,
     num_rounds=None,
     min_clients=None,
+    configure_min_clients=None,
     min_responses_required=None,
+    broadcast_last_result=None,
 ) -> Path:
     config_path = job_dir / CONFIG_RELATIVE_PATH
     if not config_path.is_file():
         raise FileNotFoundError(f"Missing job config: {config_path}")
 
     config_text = config_path.read_text()
-    config_path.write_text(patch_config_text(config_text, mode, min_responses_required=min_responses_required))
+    config_path.write_text(
+        patch_config_text(
+            config_text,
+            mode,
+            min_responses_required=min_responses_required,
+            broadcast_last_result=broadcast_last_result,
+        )
+    )
 
-    if num_rounds is not None or min_clients is not None:
+    if num_rounds is not None or min_clients is not None or configure_min_clients is not None:
         server_config_path = job_dir / SERVER_CONFIG_RELATIVE_PATH
         if not server_config_path.is_file():
             raise FileNotFoundError(f"Missing job server config: {server_config_path}")
         server_config_text = server_config_path.read_text()
         server_config_path.write_text(
-            patch_server_config_text(server_config_text, num_rounds=num_rounds, min_clients=min_clients)
+            patch_server_config_text(
+                server_config_text,
+                num_rounds=num_rounds,
+                min_clients=min_clients,
+                configure_min_clients=configure_min_clients,
+            )
         )
 
     return config_path
@@ -152,9 +243,19 @@ def main() -> int:
     parser.add_argument("--num-rounds", type=int, help="Patch app/config/config_fed_server.conf num_rounds")
     parser.add_argument("--min-clients", type=int, help="Patch app/config/config_fed_server.conf min_clients")
     parser.add_argument(
+        "--configure-min-clients",
+        type=int,
+        help="Patch app/config/config_fed_server.conf configure_min_clients",
+    )
+    parser.add_argument(
         "--min-responses",
         type=int,
         help="Patch app/config/config_fed_client.conf min_responses_required",
+    )
+    parser.add_argument(
+        "--broadcast-last-result",
+        choices=("true", "false"),
+        help="Patch app/config/config_fed_client.conf broadcast_last_result",
     )
     args = parser.parse_args()
 
@@ -164,15 +265,24 @@ def main() -> int:
         internal_mode,
         num_rounds=args.num_rounds,
         min_clients=args.min_clients,
+        configure_min_clients=args.configure_min_clients,
         min_responses_required=args.min_responses,
+        broadcast_last_result=args.broadcast_last_result,
     )
     print(f'Patched {config_path}: warm_start_mode = "{internal_mode}"')
     if args.num_rounds is not None:
         print(f"Patched {args.job_dir / SERVER_CONFIG_RELATIVE_PATH}: num_rounds = {args.num_rounds}")
     if args.min_clients is not None:
         print(f"Patched {args.job_dir / SERVER_CONFIG_RELATIVE_PATH}: min_clients = {args.min_clients}")
+    if args.configure_min_clients is not None:
+        print(
+            f"Patched {args.job_dir / SERVER_CONFIG_RELATIVE_PATH}: "
+            f"configure_min_clients = {args.configure_min_clients}"
+        )
     if args.min_responses is not None:
         print(f"Patched {config_path}: min_responses_required = {args.min_responses}")
+    if args.broadcast_last_result is not None:
+        print(f"Patched {config_path}: broadcast_last_result = {args.broadcast_last_result}")
     return 0
 
 

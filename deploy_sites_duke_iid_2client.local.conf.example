@@ -1,0 +1,49 @@
+# Duke IID 2-client DL-server validation configuration.
+# Copy to deploy_sites_duke_iid_2client.local.conf and run from dl3 as the
+# server/admin host. Keep the real local copy untracked.
+#
+# Usage:
+#   cp deploy_sites_duke_iid_2client.local.conf.example deploy_sites_duke_iid_2client.local.conf
+#   export DL_SWARM_PASS='<password>'
+#   scripts/deploy/run_duke_iid_2client_validation.sh \
+#     --conf deploy_sites_duke_iid_2client.local.conf
+
+# CLIENT_SITES lists only the training clients. dl3 is server/admin only.
+CLIENT_SITES=(DL0 DL2)
+
+# Password lookup. The validation runner and dl0 evaluator read *_PASS_ENV.
+DL0_PASS_ENV=DL_SWARM_PASS
+DL2_PASS_ENV=DL_SWARM_PASS
+
+# Local server/admin host. Run this wrapper on dl3 so server/admin startup kits
+# can use local Docker and the clients can reach dl3.tud.de over Tailscale.
+COSMOS_HOST=localhost
+COSMOS_USER=swarm
+COSMOS_DEPLOY_DIR=/home/swarm/deploy_test_duke_iid_2client
+SERVER_HOST_IP=100.64.4.103
+
+# dl0: node_A
+DL0_HOST=100.64.4.100
+DL0_USER=swarm
+DL0_SITE_NAME=node_A
+DL0_DATADIR=/mnt/dlhd0/DUKE_iid
+DL0_DUKE_DATA=/mnt/dlhd0/DUKE_iid
+DL0_ODELIA_DATA=/mnt/dlhd0/medswarmdata
+DL0_SCRATCHDIR=/mnt/dlhd0/deploy_test_duke_iid_2client
+DL0_DEPLOY_DIR=/home/swarm/deploy_test_duke_iid_2client
+DL0_GPU="device=0"
+
+# dl2: node_B
+DL2_HOST=100.64.4.102
+DL2_USER=swarm
+DL2_SITE_NAME=node_B
+DL2_DATADIR=/mnt/sda1/DUKE_iid
+DL2_SCRATCHDIR=/mnt/sda1/deploy_test_duke_iid_2client
+DL2_DEPLOY_DIR=/home/swarm/deploy_test_duke_iid_2client
+DL2_GPU="device=0"
+
+# Defaults
+PROJECT_FILE=application/provision/project_duke_iid_2client_dl.yml
+DEFAULT_JOB=challenge_1DivideAndConquer
+ADMIN_USER=jiefu.zhu@tu-dresden.de
+SERVER_NAME=dl3.tud.de
