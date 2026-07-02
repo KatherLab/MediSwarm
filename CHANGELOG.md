@@ -2,6 +2,56 @@
 
 All notable changes to MediSwarm are documented in this file.
 
+## [1.5.0] - 2026-07-02
+
+Swarm-robustness release: the fixes from the June 8-site runs that repeatedly
+died at rounds 7–10. A single node's transient drop no longer aborts the whole
+run, an aborted run can resume from a mirrored global, and GPU/VPN paths
+self-recover. (The 1.4.x series was image-version bumps only and not tracked here.)
+
+### Added
+
+- **Fault-tolerant swarm controllers (#346)** — `FaultTolerantSwarmServerController`
+  / `FaultTolerantSwarmClientController` + tolerant gatherer are the default in the
+  challenge jobs. A client that errors is pruned and the run continues while
+  `>= min_clients` remain, instead of a `FATAL_SYSTEM_ERROR` whole-run abort.
+  Set `min_clients` / `min_responses_required` to (participants − allowed failures).
+- **Warm-continue / auto-resume (#347)** — `WarmStartablePTFileModelPersistor`
+  mirrors the aggregated global to `/scratch/mediswarm_latest_global.pt` on every
+  client each round (never stranded on the crashed node) and can resume from it
+  (`auto` / `fresh` / `require`). Admin flow: `prepare_odelia_job.sh --warm-start`.
+- **VPN auto-recovery (#348)** — `setup_vpntunnel.sh -s` installs the
+  `mediswarm-vpn` systemd service (system-stored creds, auto-reconnect) and
+  `vpn_health_monitor.sh --install-timer` re-ups `tun0` within ~30 s of a drop.
+- **GPU-container watchdog (#343)** — `gpu_container_watchdog.sh` restarts a
+  client that has silently lost its GPU; `fix_docker_cgroupfs.sh` switches Docker
+  to the cgroupfs driver so a `daemon-reload` (daily apt upgrade) can't strip the GPU.
+
+### Changed
+
+- **24 h swarm timeouts + wait-for-all (#345)** — outer and inner timeouts
+  (`peer_read_timeout` / `learn_task_ack_timeout` / `final_result_ack_timeout` /
+  `learn_task_timeout`) committed at 86400 s so a transient stall self-heals.
+- **Per-round prediction export throttled (#314)** — the ~3.3× round-time cost
+  is now final-round-only, the biggest per-round perf win for scaling.
+- **DataLoader worker cap 8 → `min(cpu_count, 16)` (#315)** — restores loader
+  concurrency on the ~16-CPU deploy nodes; per-node override via `ODELIA_NUM_WORKERS`.
+- **NVFlare fork bumped to `MediSwarm-2.7.2`** — includes the CCWF config-phase
+  quorum fix (`configure_min_clients`, separate from runtime fault tolerance).
+
+### Fixed
+
+- **CI 3DCNN simulation false-pass (#353)** — the simulation test now asserts a
+  successful run instead of silently passing on an aborted one.
+- **`nvflare` example pin (CVE-2026-24178)** — bumped `cifar10` requirement to
+  `~=2.7.2` (Dashboard authz-bypass advisory; not on the production install path).
+
+### Documentation
+
+- `docs/SWARM_FAILURE_MODES.md`, `docs/TIMEOUTS.md`, and the participant/operator
+  guides updated with the failure modes, timeout rationale, and host-side prep
+  (cgroupfs fix, VPN service + watchdog, preflight).
+
 ## [1.3.0] - 2026-04-05
 
 ### Added
