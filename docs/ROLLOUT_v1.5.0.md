@@ -13,7 +13,8 @@ from here without re-deriving context.
 | All-site startup kits | ✅ built (see paths below) |
 | Run quorum `8 / 7 / 7` | ✅ set via `prepare_odelia_job.sh` flags at job-prep time (**no rebuild** — byoc) |
 | Partner email | ✅ drafted (below) — **not yet sent** |
-| Live-sync SSH keys for UKA / UMCU / VHIO | ⛔ pending — sites must send pubkeys, then authorize on the monitor host |
+| Server node (dl3 = Cosmos) | ✅ **running** since 2026-07-02 12:11 — container `odelia_swarm_server_flserver_be9ef04` (`on-failure:5`; must be restarted manually after a host reboot: `cd <server kit>/startup && ./docker.sh --no_pull --start_server`) |
+| Live-sync SSH keys for UKA / UMCU / VHIO | ⏳ UMCU: key already authorized, needs only the host-key refresh (§4); UKA / VHIO pending pubkeys |
 | Run | ⛔ scheduled tomorrow / this weekend |
 
 ## 1. Release artifacts
@@ -113,6 +114,19 @@ sudo chmod 600 /home/mediswarm-upload/.ssh/authorized_keys
 **Always append** — overwriting breaks the working sites. Site verifies from their
 node (VPN up): `ssh -o BatchMode=yes mediswarm-upload@dl3.tud.de 'echo ok'` → `ok`.
 
+**"Host key verification failed" ≠ key problem.** The monitor host was re-keyed
+since April, so *returning* sites hit this instead of `ok` even with an authorized
+key (UMCU did on 2026-07-02 — their key was already in `authorized_keys`; only the
+stale `known_hosts` entry needed refreshing). Fix on the **site** node:
+
+```bash
+ssh-keygen -R dl3.tud.de 2>/dev/null
+ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 mediswarm-upload@dl3.tud.de 'echo ok'
+```
+
+Monitor-host key fingerprint for out-of-band verification (ED25519):
+`SHA256:UrpTNm/Rq/dOPiCV4XVx/Mal5LpQmVS9tbOQJaFBE5E`
+
 ## 5. Host-side prep required at every site (partner actions)
 
 1. **Docker cgroup driver** — `sudo scripts/client_node_setup/fix_docker_cgroupfs.sh`
@@ -177,20 +191,22 @@ bumps the git hash → new image tag → new kits. NOTE: job-config/quorum chang
 > | RSH | RSH_1 | ✅ working | Nothing |
 > | USZ | USZ_1 | ✅ working | Nothing |
 > | UKA | UKA_1 | ⚠️ stopped ~1 week ago | Run the key check below; if it fails, send us your key |
-> | UMCU | UMCU_1 | ❌ not since April | Run the key steps below and send us your public key |
+> | UMCU | UMCU_1 | ❌ not since April | Your key is already authorized — just do step 1 below (host-key refresh) and restart your live-sync |
 > | VHIO | VHIO_1 | ❌ never set up | Run the key steps below and send us your key; you especially need steps 1 & 2 |
 >
 > **Live-sync key steps (UKA / UMCU / VHIO only):**
 > ```bash
-> # 1) Verify first, with the VPN up:
-> ssh -o BatchMode=yes -o ConnectTimeout=5 mediswarm-upload@dl3.tud.de 'echo ok'
-> #    prints "ok"           -> your key already works, nothing to send.
-> #    fails / 255 / timeout -> do steps 2 and 3:
+> # 1) Refresh our server's host key (it changed since April), then verify, with the VPN up:
+> ssh-keygen -R dl3.tud.de 2>/dev/null
+> ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 mediswarm-upload@dl3.tud.de 'echo ok'
+> #    prints "ok"                        -> your key already works, nothing to send.
+> #    "Permission denied" / 255 / timeout -> do steps 2 and 3:
 > # 2) Create an upload key if you don't already have one:
 > [ -f ~/.ssh/id_ed25519 ] || ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "$(hostname)@mediswarm"
 > # 3) Reply to this email with your PUBLIC key line:
 > cat ~/.ssh/id_ed25519.pub
 > ```
+> (Our server's host-key fingerprint, if you want to verify it: ED25519 `SHA256:UrpTNm/Rq/dOPiCV4XVx/Mal5LpQmVS9tbOQJaFBE5E`.)
 > We'll authorize your key on our side; then re-run step 1 to confirm `ok`. The upload settings ship inside the kit — you don't edit anything. If step 1 still fails after we authorize your key, it's the VPN path (step 2), not the key.
 >
 > Please confirm steps 1–4 **by end of day today**. Thank you!
