@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 from dataclasses import dataclass, field
@@ -13,7 +14,14 @@ import torch
 import torch.utils.data as data
 import torchio as tio
 
-from data.augmentation.augmentations_3d import ImageOrSubjectToTensor, ZNormalization, CropOrPad
+from data.augmentation.augmentations_3d import (
+    ImageOrSubjectToTensor,
+    ZNormalization,
+    CropOrPad,
+    DegenerateImageError,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -184,6 +192,13 @@ class ODELIA_Dataset3D(data.Dataset):
         }
     }
 
+    # Degenerate / corrupt input handling (see DegenerateImageError + find_degenerate_inputs).
+    # A bad sample is skipped + resampled (never zero-filled), but the run aborts if too many
+    # are bad -- so a systematic data problem is surfaced rather than silently worked around.
+    SAME_ITEM_RETRIES = 2            # retry the same item (new random crop) before giving up on it
+    MAX_BAD_INPUT_FRACTION = 0.05    # abort once more than this fraction of items are unusable
+    MIN_BAD_INPUT_BUDGET = 8         # ...but always tolerate at least this many first
+
     def __init__(
             self,
             path_root=None,
@@ -276,10 +291,50 @@ class ODELIA_Dataset3D(data.Dataset):
             manifest = self.manifests[institution]
             dfs.append(manifest.dataframe(fold=fold, split=split, fraction=fraction))
         self.df = pd.concat(dfs).reset_index(drop=True)
+        self._apply_uid_exclusions()
         self.item_pointers = self.df.index.tolist()
+        self._bad_input_count = 0
+        self._bad_input_logged: set = set()
 
     def __len__(self):
         return len(self.item_pointers)
+
+    def _apply_uid_exclusions(self):
+        """Drop UIDs listed (one per line) in $ODELIA_EXCLUDE_UIDS_FILE -- the output of a
+        preflight ``find_degenerate_inputs`` scan, so known-bad inputs never enter the run."""
+        path = os.environ.get("ODELIA_EXCLUDE_UIDS_FILE", "")
+        if not path or not os.path.exists(path):
+            return
+        with open(path) as f:
+            excluded = {ln.strip() for ln in f if ln.strip() and not ln.startswith("#")}
+        if not excluded:
+            return
+        before = len(self.df)
+        self.df = self.df[~self.df["UID"].isin(excluded)].reset_index(drop=True)
+        removed = before - len(self.df)
+        if removed:
+            logger.warning("ODELIA: excluded %d sample(s) listed in %s (degenerate/corrupt inputs)",
+                           removed, path)
+
+    def _bad_input_log_path(self) -> Path:
+        scratch = os.environ.get("SCRATCH_DIR") or os.environ.get("ODELIA_HASH_CACHE_DIR") or tempfile.gettempdir()
+        return Path(scratch) / "odelia_bad_inputs.jsonl"
+
+    def _record_bad_input(self, uid, institution, reason):
+        # Loud, non-identifying warning to the console; the UID goes only to a local jsonl.
+        key = (uid, reason)
+        if key not in self._bad_input_logged:
+            self._bad_input_logged.add(key)
+            logger.warning("[ODELIA_BAD_INPUT] reason=%s institution=%s split=%s "
+                           "(skipping + resampling; UID in odelia_bad_inputs.jsonl)",
+                           reason, institution, self.split)
+        try:
+            with open(self._bad_input_log_path(), "a") as f:
+                json.dump({"uid": uid, "institution": institution, "reason": reason,
+                           "split": self.split, "config": self.config}, f)
+                f.write("\n")
+        except Exception:
+            pass
 
     @classmethod
     def _normalize_institutions(cls, institutions) -> List[str]:
@@ -333,17 +388,64 @@ class ODELIA_Dataset3D(data.Dataset):
         )
 
     def __getitem__(self, index):
-        idx = self.item_pointers[index]
-        item = self.df.loc[idx]
-        uid = item['UID']
-        institution = item['Institution']
+        # Skip (resample a different item) for a degenerate or unreadable input instead of
+        # crashing the run or -- worse -- silently substituting a zero image. The run still
+        # aborts if more than MAX_BAD_INPUT_FRACTION of items are bad, so a systematic data
+        # problem is surfaced. Real transform bugs (non-DegenerateImageError) still propagate.
+        n = len(self.item_pointers)
+        budget = max(self.MIN_BAD_INPUT_BUDGET, int(self.MAX_BAD_INPUT_FRACTION * n))
+        for offset in range(n):
+            idx = self.item_pointers[(index + offset) % n]
+            item = self.df.loc[idx]
+            uid = item['UID']
+            institution = item['Institution']
+            try:
+                path_img = self.get_image_path(uid, institution)
+                img = self._load_source_image(path_img, institution, uid)
+            except Exception as e:  # noqa: BLE001 -- any load failure == an unreadable/corrupt input
+                self._record_bad_input(uid, institution, f"load_error:{type(e).__name__}")
+            else:
+                try:
+                    target = np.stack(item[self.labels].values)
+                    img = self.transform(img)
+                    return {'uid': uid, 'source': img, 'target': target}
+                except DegenerateImageError as e:
+                    self._record_bad_input(uid, institution, e.reason)
+            self._bad_input_count += 1
+            if self._bad_input_count > budget:
+                raise RuntimeError(
+                    f"ODELIA: too many degenerate/corrupt inputs "
+                    f"({self._bad_input_count} > {budget} = {self.MAX_BAD_INPUT_FRACTION:.0%} of {n}); "
+                    f"run the preflight scan (find_degenerate_inputs) and fix/exclude the data."
+                )
+        raise RuntimeError(f"ODELIA: no usable input found while resampling around index {index} ({n} items)")
 
-        target = np.stack(item[self.labels].values)
-        path_img = self.get_image_path(uid, institution)
-        img = self._load_source_image(path_img, institution, uid)
-        img = self.transform(img)
-
-        return {'uid': uid, 'source': img, 'target': target}
+    def find_degenerate_inputs(self, limit: int | None = None):
+        """Preflight input check: list inputs that cannot be loaded (corrupt) or z-normalized
+        (constant volume / empty intensity mask). Loads each raw input once, WITHOUT
+        augmentation -- so it flags bad *inputs* independently of cropping. Returns
+        ``[(uid, institution, reason)]``; feed the UIDs to ``$ODELIA_EXCLUDE_UIDS_FILE`` to
+        keep them out of a run, and report them to the site to fix."""
+        bad = []
+        for count, idx in enumerate(self.item_pointers):
+            if limit is not None and count >= limit:
+                break
+            item = self.df.loc[idx]
+            uid = item['UID']
+            institution = item['Institution']
+            try:
+                img = self._load_source_image(self.get_image_path(uid, institution), institution, uid)
+            except Exception as e:  # noqa: BLE001
+                bad.append((uid, institution, f"load_error:{type(e).__name__}"))
+                continue
+            x = img.data.float()
+            mask = (x > x.min()) & (x < x.max())
+            n = int(mask.sum())
+            if n < 2:
+                bad.append((uid, institution, "empty_or_too_small_mask"))
+            elif float(x[mask].std()) == 0.0:
+                bad.append((uid, institution, "zero_std"))
+        return bad
 
     @classmethod
     def load_split(cls, filepath_or_buffer=None, fold=0, split=None, fraction=None):
