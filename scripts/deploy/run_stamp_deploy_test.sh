@@ -48,19 +48,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# ── Colors ─────────────────────────────────────────────────────────────────
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-BOLD='\033[1m'
-NC='\033[0m'
-
-info()  { echo -e "${BLUE}[INFO]${NC} $*" >&2; }
-ok()    { echo -e "${GREEN}[OK]${NC} $*" >&2; }
-warn()  { echo -e "${YELLOW}[WARN]${NC} $*" >&2; }
-err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
-step()  { echo -e "\n${BOLD}=== $* ===${NC}" >&2; }
+# Shared colour/logging + SSH/workspace helpers (#276).
+# shellcheck source=scripts/deploy/deploy_common.sh
+source "$SCRIPT_DIR/deploy_common.sh"
 
 # ── Parse arguments ────────────────────────────────────────────────────────
 CONF_FILE=""
@@ -255,62 +245,8 @@ EOF
     esac
 }
 
-# ── Helper functions ──────────────────────────────────────────────────────
-
-site_var() {
-    local site=$1 var=$2
-    local full_var="${site}_${var}"
-    echo "${!full_var}"
-}
-
-remote_exec() {
-    local site=$1; shift
-    local host user pass
-    host=$(site_var "$site" HOST)
-    user=$(site_var "$site" USER)
-    pass=$(site_var "$site" PASS)
-
-    sshpass -p "$pass" ssh $SSH_OPTS "$user@$host" "$@"
-}
-
-remote_copy() {
-    local site=$1 src=$2 dst=$3
-    local host user pass
-    host=$(site_var "$site" HOST)
-    user=$(site_var "$site" USER)
-    pass=$(site_var "$site" PASS)
-
-    sshpass -p "$pass" scp $SSH_OPTS "$src" "$user@$host:$dst"
-}
-
-find_latest_prod() {
-    if [[ ! -d "$WORKSPACE_DIR" ]]; then
-        err "Workspace not found: $WORKSPACE_DIR"
-        err "Run buildDockerImageAndStartupKits.sh first."
-        exit 1
-    fi
-    ls -d "$WORKSPACE_DIR"/prod_* 2>/dev/null | sort -V | tail -n 1
-}
-
-# ── Resolve server startup directory ───────────────────────────────────
-_server_startup_dir=""
-
-resolve_server_startup_dir() {
-    local server_name="${SERVER_NAME:-dl3.tud.de}"
-    local candidate="$DEPLOY_BASE/$server_name/startup"
-    if [[ -d "$candidate" ]]; then
-        _server_startup_dir="$candidate"
-    else
-        local prod_dir
-        prod_dir=$(find_latest_prod)
-        candidate="$prod_dir/$server_name/startup"
-        if [[ -d "$candidate" ]]; then
-            _server_startup_dir="$candidate"
-        else
-            _server_startup_dir=""
-        fi
-    fi
-}
+# site_var / remote_exec / remote_copy / find_latest_prod /
+# resolve_server_startup_dir are provided by deploy_common.sh (#276).
 
 # ── Fix DNS: ensure remote clients can reach the NVFlare server ──────────
 fix_remote_dns() {
