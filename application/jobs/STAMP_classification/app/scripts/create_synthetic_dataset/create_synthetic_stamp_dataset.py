@@ -1,34 +1,37 @@
 #!/usr/bin/env python3
 """Create synthetic STAMP-compatible datasets for integration testing.
 
-Generates 2 sites x 15 patients (5 per class for 3 classes) with:
+Generates 2 sites x 15 patients (5 per latent class for 3 classes) with:
 - H5 feature files matching STAMP 2.4.0's expected format
   (tile-level: 'feats' shape (N_tiles, dim_input), 'coords' shape (N_tiles, 2))
-- Clinical CSV tables with PATIENT and ground truth columns
+- Clinical CSV tables whose ground-truth column(s) depend on the task (#271):
+    classification -> a single categorical `Diagnosis` column
+    survival       -> continuous `Time` + binary `Event` columns
+    regression     -> a single continuous `Target` column
 
-Each class has a distinct feature distribution (mean shift) so models
-can learn during short integration test runs.
+Every task derives its label(s) from the same latent class that shifts the
+features, so a model can still learn during short integration-test runs.
 
 Usage:
-    python create_synthetic_stamp_dataset.py <output_folder>
+    python create_synthetic_stamp_dataset.py <output_folder>              # classification
+    python create_synthetic_stamp_dataset.py <output_folder> --task survival
+    python create_synthetic_stamp_dataset.py <output_folder> --task regression
 
-Output structure:
+Output structure (unchanged across tasks; only clini_table.csv columns differ):
     <output_folder>/
         client_A/
             features/
                 P_000.h5 ... P_014.h5
             clini_table.csv
         client_B/
-            features/
-                P_000.h5 ... P_014.h5
-            clini_table.csv
+            ...
 """
 
+import argparse
 import csv
 import os
 import pathlib
 import shutil
-import sys
 
 import h5py
 import numpy as np
@@ -45,7 +48,11 @@ DIM_INPUT = 1024  # Standard STAMP feature dimension (e.g., UNI, CTransPath)
 TILE_COUNT_RANGE = (20, 60)  # Random number of tiles per patient
 COORD_RANGE = (0, 50000)  # Micron coordinate range (realistic WSI coords)
 PATIENT_LABEL = "PATIENT"
-GROUND_TRUTH_LABEL = "Diagnosis"
+GROUND_TRUTH_LABEL = "Diagnosis"        # classification
+TIME_LABEL = "Time"                     # survival
+EVENT_LABEL = "Event"                   # survival (1 = event observed, 0 = censored)
+REGRESSION_LABEL = "Target"             # regression
+TASKS = ("classification", "survival", "regression")
 
 # Class-specific mean shifts in feature space so a model can learn
 # Each class gets a distinct offset added to random normal features
@@ -104,23 +111,70 @@ def create_h5_feature_file(
 # ---------------------------------------------------------------------------
 
 
+def _class_index(class_label: str) -> int:
+    """Map 'class_0'/'class_1'/'class_2' -> 0/1/2."""
+    return CLASSES.index(class_label)
+
+
+def build_label_columns(
+    task: str,
+    patient_ids: list,
+    class_labels: list,
+    rng: np.random.RandomState,
+) -> tuple:
+    """Return (fieldnames, rows) for the task's clinical table.
+
+    Labels are derived from the latent class so they correlate with the
+    class-shifted features and remain learnable:
+      - classification: Diagnosis = the categorical class
+      - survival: Time increases with class index; Event ~ 70% observed
+      - regression: Target increases linearly with class index
+    """
+    if task == "classification":
+        fieldnames = [PATIENT_LABEL, GROUND_TRUTH_LABEL]
+        rows = [
+            {PATIENT_LABEL: pid, GROUND_TRUTH_LABEL: lbl}
+            for pid, lbl in zip(patient_ids, class_labels)
+        ]
+    elif task == "survival":
+        fieldnames = [PATIENT_LABEL, TIME_LABEL, EVENT_LABEL]
+        rows = []
+        for pid, lbl in zip(patient_ids, class_labels):
+            idx = _class_index(lbl)
+            time = round(float(10.0 + 15.0 * idx + rng.normal(0.0, 2.0)), 3)
+            time = max(time, 0.1)
+            event = int(rng.random() < 0.7)  # ~30% censored
+            rows.append({PATIENT_LABEL: pid, TIME_LABEL: time, EVENT_LABEL: event})
+    elif task == "regression":
+        fieldnames = [PATIENT_LABEL, REGRESSION_LABEL]
+        rows = []
+        for pid, lbl in zip(patient_ids, class_labels):
+            idx = _class_index(lbl)
+            target = round(float(2.0 * idx + rng.normal(0.0, 0.3)), 4)
+            rows.append({PATIENT_LABEL: pid, REGRESSION_LABEL: target})
+    else:
+        raise ValueError(f"Unknown task: {task} (expected one of {TASKS})")
+    return fieldnames, rows
+
+
 def create_clini_table(
     filepath: pathlib.Path,
     patient_ids: list,
     class_labels: list,
+    task: str = "classification",
+    rng: np.random.RandomState = None,
 ) -> None:
-    """Create a STAMP-compatible clinical CSV table.
+    """Create a STAMP-compatible clinical CSV table for the given task.
 
-    Columns: PATIENT, Diagnosis
     This is the minimal table needed by STAMP's load_patient_level_data().
     """
+    if rng is None:
+        rng = np.random.RandomState(SEED)
+    fieldnames, rows = build_label_columns(task, patient_ids, class_labels, rng)
     with open(filepath, "w", newline="") as f:
-        writer = csv.DictWriter(
-            f, fieldnames=[PATIENT_LABEL, GROUND_TRUTH_LABEL]
-        )
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        for pid, label in zip(patient_ids, class_labels):
-            writer.writerow({PATIENT_LABEL: pid, GROUND_TRUTH_LABEL: label})
+        writer.writerows(rows)
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +194,7 @@ def generate_site_data(
     output_folder: pathlib.Path,
     site: str,
     rng: np.random.RandomState,
+    task: str = "classification",
 ) -> None:
     """Generate all data for a single site."""
     site_dir = output_folder / site
@@ -155,22 +210,26 @@ def generate_site_data(
         patient_ids.append(patient_id)
         class_labels.append(class_label)
 
-        # Create H5 feature file
+        # Create H5 feature file (class-shifted so any task is learnable)
         h5_path = feature_dir / f"{patient_id}.h5"
         create_h5_feature_file(h5_path, rng, class_label)
 
-    # Create clinical table
+    # Create clinical table (columns depend on the task)
     clini_path = site_dir / "clini_table.csv"
-    create_clini_table(clini_path, patient_ids, class_labels)
+    create_clini_table(clini_path, patient_ids, class_labels, task=task, rng=rng)
 
-    print(f"  {site}: {len(patient_ids)} patients, {len(CLASSES)} classes")
+    print(f"  {site}: {len(patient_ids)} patients, task={task}")
     print(f"    Features: {feature_dir}")
     print(f"    Clinical table: {clini_path}")
 
 
-def main(output_folder: pathlib.Path) -> None:
-    """Generate complete synthetic STAMP dataset."""
+def main(output_folder: pathlib.Path, task: str = "classification") -> None:
+    """Generate complete synthetic STAMP dataset for the given task."""
+    if task not in TASKS:
+        raise ValueError(f"Unknown task: {task} (expected one of {TASKS})")
+
     print(f"Creating synthetic STAMP dataset in: {output_folder}")
+    print(f"  Task: {task}")
     print(f"  Sites: {SITES}")
     print(f"  Patients per site: {NUM_PATIENTS_PER_SITE}")
     print(f"  Classes: {CLASSES}")
@@ -182,18 +241,31 @@ def main(output_folder: pathlib.Path) -> None:
     create_folder_structure(output_folder)
 
     for site in SITES:
-        generate_site_data(output_folder, site, rng)
+        generate_site_data(output_folder, site, rng, task=task)
 
     print()
     print("Synthetic STAMP dataset created successfully.")
     print(f"Patient label: {PATIENT_LABEL}")
-    print(f"Ground truth label: {GROUND_TRUTH_LABEL}")
+    if task == "classification":
+        print(f"Ground truth label: {GROUND_TRUTH_LABEL}")
+    elif task == "survival":
+        print(f"Survival labels: {TIME_LABEL} (time), {EVENT_LABEL} (event)")
+    elif task == "regression":
+        print(f"Regression label: {REGRESSION_LABEL}")
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Create a synthetic STAMP dataset.")
+    parser.add_argument("output_folder", type=pathlib.Path, help="Output directory.")
+    parser.add_argument(
+        "--task",
+        choices=TASKS,
+        default="classification",
+        help="Task type governing the clinical-table label column(s) (default: classification).",
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <output_folder>")
-        sys.exit(1)
-
-    output_folder = pathlib.Path(sys.argv[1])
-    main(output_folder)
+    args = _parse_args()
+    main(args.output_folder, task=args.task)

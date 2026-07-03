@@ -149,6 +149,59 @@ def compute_classification_metrics(
     }
 
 
+def compute_regression_metrics(y_true: List[float], y_pred: List[float]) -> Dict[str, Any]:
+    """Compute MSE, MAE, and (with >=2 samples) R^2 for a regression task (#271)."""
+    import numpy as np
+    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+    y_true_arr = np.asarray(y_true, dtype=float)
+    y_pred_arr = np.asarray(y_pred, dtype=float)
+    n = int(y_true_arr.shape[0])
+    return {
+        "mse": float(mean_squared_error(y_true_arr, y_pred_arr)) if n else None,
+        "mae": float(mean_absolute_error(y_true_arr, y_pred_arr)) if n else None,
+        "r2": float(r2_score(y_true_arr, y_pred_arr)) if n >= 2 else None,
+        "num_samples": n,
+    }
+
+
+def compute_survival_metrics(
+    times: List[float], events: List[int], risks: List[float]
+) -> Dict[str, Any]:
+    """Harrell's concordance index for survival (#271).
+
+    A higher predicted ``risk`` should correspond to a shorter observed
+    ``time``. A pair (i, j) is comparable when patient i had an event and
+    ``time[i] < time[j]``; concordant when ``risk[i] > risk[j]`` (ties = 0.5).
+    ``c_index`` is None when there are no comparable pairs.
+    """
+    import numpy as np
+
+    times_arr = np.asarray(times, dtype=float)
+    events_arr = np.asarray(events, dtype=int)
+    risks_arr = np.asarray(risks, dtype=float)
+    n = int(times_arr.shape[0])
+
+    concordant = 0.0
+    comparable = 0.0
+    for i in range(n):
+        if events_arr[i] != 1:
+            continue
+        for j in range(n):
+            if times_arr[i] < times_arr[j]:
+                comparable += 1.0
+                if risks_arr[i] > risks_arr[j]:
+                    concordant += 1.0
+                elif risks_arr[i] == risks_arr[j]:
+                    concordant += 0.5
+
+    return {
+        "c_index": float(concordant / comparable) if comparable > 0 else None,
+        "num_comparable_pairs": int(comparable),
+        "num_samples": n,
+    }
+
+
 # --------------------------------------------------------------------------- #
 #  STAMP-dependent runtime (torch + STAMP required)                           #
 # --------------------------------------------------------------------------- #
@@ -199,14 +252,15 @@ def _unpack_batch(batch):
 
 
 def run_inference(model, dataloader, device):
-    """Run the model over a dataloader, returning (y_true, y_prob) lists.
+    """Run the model over a dataloader; return (targets, outputs) as CPU tensors.
 
-    Mirrors ``STAMPPredictionCallback._write_predictions``: forward → softmax.
+    Task-agnostic collection (interpreted per task by evaluate_checkpoint):
+    forward pass mirrors ``STAMPPredictionCallback._write_predictions``.
     """
     import torch
 
-    y_true: List[int] = []
-    y_prob: List[List[float]] = []
+    targets_all: List[Any] = []
+    outputs_all: List[Any] = []
     with torch.no_grad():
         for batch in dataloader:
             bags, targets = _unpack_batch(batch)
@@ -214,23 +268,43 @@ def run_inference(model, dataloader, device):
                 continue
             bags = bags.to(device)
             try:
-                logits = model(bags)
+                out = model(bags)
             except Exception:  # noqa: BLE001 — some STAMP models use kwargs
-                logits = model(features=bags)
-            probs = torch.softmax(logits, dim=-1).cpu()
-            targets_cpu = targets.cpu()
-            for i in range(probs.shape[0]):
-                gt = targets_cpu[i]
-                if gt.dim() != 0:
-                    # survival/regression targets are not a scalar class index
-                    continue
-                y_true.append(int(gt.item()))
-                y_prob.append([float(x) for x in probs[i].tolist()])
-    return y_true, y_prob
+                out = model(features=bags)
+            out = out.detach().cpu()
+            tgt = targets.detach().cpu() if hasattr(targets, "detach") else targets
+            for i in range(out.shape[0]):
+                outputs_all.append(out[i])
+                targets_all.append(tgt[i])
+    return targets_all, outputs_all
+
+
+def _to_scalar(x) -> float:
+    """Squeeze a tensor/number to a single float (first element if a vector)."""
+    if hasattr(x, "numel"):
+        return float(x.item() if x.numel() == 1 else x.reshape(-1)[0].item())
+    if isinstance(x, (list, tuple)):
+        return float(x[0])
+    return float(x)
+
+
+def _survival_target(t):
+    """Extract (time, event) from a survival target; None if the shape is unrecognized."""
+    try:
+        if hasattr(t, "numel") and t.numel() >= 2:
+            flat = t.reshape(-1)
+            return float(flat[0].item()), int(round(float(flat[1].item())))
+        if isinstance(t, (list, tuple)) and len(t) >= 2:
+            return float(t[0]), int(round(float(t[1])))
+    except Exception:  # noqa: BLE001
+        return None
+    return None
 
 
 def evaluate_checkpoint(checkpoint: Dict[str, str], dataloader, env: Dict[str, Any], device) -> Dict[str, Any]:
-    """Evaluate one checkpoint on the eval dataloader; return a result record."""
+    """Evaluate one checkpoint on the eval dataloader; dispatch metrics by task."""
+    import torch
+
     task = env.get("task", "classification")
     record: Dict[str, Any] = {
         "site": checkpoint["site"],
@@ -239,16 +313,42 @@ def evaluate_checkpoint(checkpoint: Dict[str, str], dataloader, env: Dict[str, A
         "task": task,
     }
     model = build_and_load_model(checkpoint["path"], device)
-    y_true, y_prob = run_inference(model, dataloader, device)
-    record["num_samples"] = len(y_true)
+    targets, outputs = run_inference(model, dataloader, device)
+    record["num_samples"] = len(targets)
+    if not targets:
+        record["error"] = "no_eval_samples"
+        return record
 
     if task == "classification":
+        y_true: List[int] = []
+        y_prob: List[List[float]] = []
+        for tgt, out in zip(targets, outputs):
+            if getattr(tgt, "dim", lambda: 1)() != 0:
+                continue  # survival/regression target, not a scalar class index
+            y_true.append(int(tgt.item()))
+            y_prob.append([float(x) for x in torch.softmax(out, dim=-1).tolist()])
         if not y_true:
             record["error"] = "no_scalar_class_targets"
             return record
         record.update(compute_classification_metrics(y_true, y_prob))
+    elif task == "regression":
+        y_true_r = [_to_scalar(t) for t in targets]
+        y_pred_r = [_to_scalar(o) for o in outputs]
+        record.update(compute_regression_metrics(y_true_r, y_pred_r))
+    elif task == "survival":
+        times: List[float] = []
+        events: List[int] = []
+        risks: List[float] = []
+        for tgt, out in zip(targets, outputs):
+            te = _survival_target(tgt)
+            if te is None:
+                record["error"] = "survival_target_shape_unrecognized"
+                return record
+            times.append(te[0])
+            events.append(te[1])
+            risks.append(_to_scalar(out))
+        record.update(compute_survival_metrics(times, events, risks))
     else:
-        # #271 will add survival (c-index) / regression metrics.
         record["note"] = f"metric_not_implemented_for_task:{task}"
     return record
 
@@ -315,16 +415,19 @@ def main() -> int:
     out_path.write_text(json.dumps(payload, indent=2))
     logger.info("Wrote results to %s", out_path)
 
-    # Success if at least one checkpoint produced a usable metric.
-    scored = [r for r in results if r.get("auroc") is not None or r.get("accuracy") is not None]
+    # Success if at least one checkpoint produced a usable, task-appropriate metric.
+    metric_keys = ("accuracy", "auroc", "mse", "mae", "c_index")
+
+    def _scored(r: Dict[str, Any]) -> bool:
+        return any(r.get(k) is not None for k in metric_keys)
+
+    scored = [r for r in results if _scored(r)]
     if not scored:
         logger.error("No checkpoint produced a usable metric")
         return 1
     for r in scored:
-        logger.info(
-            "  %s/%s: accuracy=%s auroc=%s (n=%s)",
-            r["site"], r["checkpoint"], r.get("accuracy"), r.get("auroc"), r.get("num_samples"),
-        )
+        summary = {k: r.get(k) for k in metric_keys if r.get(k) is not None}
+        logger.info("  %s/%s: %s (n=%s)", r["site"], r["checkpoint"], summary, r.get("num_samples"))
     return 0
 
 
