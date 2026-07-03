@@ -71,25 +71,31 @@ TEST_MODELS=()
 EVALUATE=false          # run the post-training evaluation step (#270)
 EVAL_SITE_ARG=""        # site whose data to evaluate on (default: first client site)
 EVAL_DATA_DIR_ARG=""    # host path to eval data on this (server) machine
+TASK="classification"   # STAMP task: classification | survival | regression (#271)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --conf)          CONF_FILE="$2"; shift ;;
         --timeout)       TIMEOUT_MINUTES="$2"; shift ;;
         --models)        MODELS_ARG="$2"; shift ;;
+        --task)          TASK="$2"; shift ;;
         --evaluate)      EVALUATE=true ;;
         --eval-site)     EVAL_SITE_ARG="$2"; shift ;;
         --eval-data-dir) EVAL_DATA_DIR_ARG="$2"; shift ;;
         -h|--help)
             echo "Usage: $0 --conf CONF_FILE [--timeout MINUTES] [--models MODEL1,MODEL2,...]"
+            echo "          [--task classification|survival|regression]"
             echo "          [--evaluate [--eval-site SITE] [--eval-data-dir DIR]]"
             echo ""
             echo "  --conf           Path to site configuration file (required)"
             echo "  --timeout        Per-model training timeout in minutes (default: 120)"
             echo "  --models         Comma-separated STAMP models to test"
             echo "                   (default: vit,mlp,trans_mil,linear,barspoon)"
+            echo "  --task           STAMP task type (default: classification). The site"
+            echo "                   data must be generated for this task, e.g."
+            echo "                   create_synthetic_stamp_dataset.py <dir> --task survival (#271)."
             echo "  --evaluate       After training, collect global checkpoints and run"
-            echo "                   stamp_predict.py to record AUROC/accuracy (#270)."
+            echo "                   stamp_predict.py to record task metrics (#270)."
             echo "  --eval-site      Site whose data (on this machine) to evaluate on"
             echo "                   (default: first client site; needs its data locally)"
             echo "  --eval-data-dir  Host dir mounted as /data for evaluation"
@@ -162,6 +168,12 @@ resolve_test_models() {
 
 resolve_test_models
 
+# ── Validate task (#271) ───────────────────────────────────────────────────
+case "$TASK" in
+    classification|survival|regression) ;;
+    *) err "Invalid --task: $TASK (expected classification|survival|regression)"; exit 1 ;;
+esac
+
 # ── Load configuration ─────────────────────────────────────────────────────
 # shellcheck source=/dev/null
 source "$CONF_FILE"
@@ -206,12 +218,10 @@ setup_stamp_env() {
     cat <<EOF
 export STAMP_CLINI_TABLE="/data/${site_name}/clini_table.csv"
 export STAMP_FEATURE_DIR="/data/${site_name}/features"
-export STAMP_GROUND_TRUTH_LABEL="Diagnosis"
 export STAMP_PATIENT_LABEL="PATIENT"
-export STAMP_TASK="classification"
+export STAMP_TASK="${TASK}"
 export STAMP_MODEL_NAME="${model_name}"
 export STAMP_DIM_INPUT="1024"
-export STAMP_NUM_CLASSES="3"
 export STAMP_BAG_SIZE="64"
 export STAMP_BATCH_SIZE="8"
 export STAMP_MAX_EPOCHS="2"
@@ -223,6 +233,22 @@ export STAMP_EPOCHS_PER_ROUND="2"
 export STAMP_EPOCHS_REFERENCE_DATASET_SIZE="15"
 export STAMP_EPOCHS_MAX_CAP="4"
 EOF
+    # Task-specific label columns — must match create_synthetic_stamp_dataset.py (#271).
+    case "$TASK" in
+        classification)
+            echo 'export STAMP_GROUND_TRUTH_LABEL="Diagnosis"'
+            echo 'export STAMP_NUM_CLASSES="3"'
+            ;;
+        survival)
+            echo 'export STAMP_TIME_LABEL="Time"'
+            echo 'export STAMP_STATUS_LABEL="Event"'
+            echo 'export STAMP_NUM_CLASSES="1"'
+            ;;
+        regression)
+            echo 'export STAMP_GROUND_TRUTH_LABEL="Target"'
+            echo 'export STAMP_NUM_CLASSES="1"'
+            ;;
+    esac
 }
 
 # ── Helper functions ──────────────────────────────────────────────────────

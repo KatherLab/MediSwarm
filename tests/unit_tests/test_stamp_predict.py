@@ -152,3 +152,60 @@ def test_compute_metrics_rejects_1d_prob(sp):
     pytest.importorskip("sklearn")
     with pytest.raises(ValueError):
         sp.compute_classification_metrics([0, 1], [0.2, 0.8])
+
+
+# --------------------------------------------------------------------------- #
+#  compute_regression_metrics (#271)
+# --------------------------------------------------------------------------- #
+
+def test_compute_regression_perfect(sp):
+    pytest.importorskip("sklearn")
+    y = [1.0, 2.0, 3.0, 4.0]
+    m = sp.compute_regression_metrics(y, y)
+    assert m["mse"] == 0.0
+    assert m["mae"] == 0.0
+    assert m["r2"] == 1.0
+    assert m["num_samples"] == 4
+
+
+def test_compute_regression_with_error(sp):
+    pytest.importorskip("sklearn")
+    m = sp.compute_regression_metrics([1.0, 2.0, 3.0], [1.5, 2.5, 2.0])
+    assert m["mse"] > 0
+    assert m["mae"] > 0
+    assert m["r2"] is not None
+
+
+# --------------------------------------------------------------------------- #
+#  compute_survival_metrics — Harrell c-index (#271, pure numpy)
+# --------------------------------------------------------------------------- #
+
+def test_survival_cindex_perfect(sp):
+    # higher risk -> shorter time == perfectly concordant
+    m = sp.compute_survival_metrics(times=[1, 2, 3], events=[1, 1, 1], risks=[3.0, 2.0, 1.0])
+    assert m["c_index"] == 1.0
+    assert m["num_comparable_pairs"] == 3
+
+
+def test_survival_cindex_worst(sp):
+    m = sp.compute_survival_metrics(times=[1, 2, 3], events=[1, 1, 1], risks=[1.0, 2.0, 3.0])
+    assert m["c_index"] == 0.0
+
+
+def test_survival_cindex_ties_half(sp):
+    m = sp.compute_survival_metrics(times=[1, 2], events=[1, 1], risks=[5.0, 5.0])
+    assert m["c_index"] == 0.5  # one comparable pair, tie counts 0.5
+
+
+def test_survival_cindex_censoring_excludes_pairs(sp):
+    # patient 0 censored (event=0) -> not comparable as the earlier-time case
+    m = sp.compute_survival_metrics(times=[1, 2, 3], events=[0, 1, 1], risks=[9.0, 2.0, 1.0])
+    # only i=1 (t=2, event) vs j=2 (t=3) is comparable
+    assert m["num_comparable_pairs"] == 1
+    assert m["c_index"] == 1.0  # risk1=2 > risk2=1
+
+
+def test_survival_cindex_no_comparable_pairs(sp):
+    m = sp.compute_survival_metrics(times=[5, 5], events=[0, 0], risks=[1.0, 2.0])
+    assert m["c_index"] is None
+    assert m["num_comparable_pairs"] == 0
