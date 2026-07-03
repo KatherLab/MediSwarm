@@ -72,6 +72,7 @@ EVALUATE=false          # run the post-training evaluation step (#270)
 EVAL_SITE_ARG=""        # site whose data to evaluate on (default: first client site)
 EVAL_DATA_DIR_ARG=""    # host path to eval data on this (server) machine
 TASK="classification"   # STAMP task: classification | survival | regression (#271)
+COMPARE_LOCAL=false     # also train a local-only baseline and compare (#275)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -80,6 +81,7 @@ while [[ $# -gt 0 ]]; do
         --models)        MODELS_ARG="$2"; shift ;;
         --task)          TASK="$2"; shift ;;
         --evaluate)      EVALUATE=true ;;
+        --compare-local) COMPARE_LOCAL=true ;;
         --eval-site)     EVAL_SITE_ARG="$2"; shift ;;
         --eval-data-dir) EVAL_DATA_DIR_ARG="$2"; shift ;;
         -h|--help)
@@ -96,6 +98,8 @@ while [[ $# -gt 0 ]]; do
             echo "                   create_synthetic_stamp_dataset.py <dir> --task survival (#271)."
             echo "  --evaluate       After training, collect global checkpoints and run"
             echo "                   stamp_predict.py to record task metrics (#270)."
+            echo "  --compare-local  With --evaluate: also train a local-only baseline on the"
+            echo "                   eval site and compare federated vs local (#275)."
             echo "  --eval-site      Site whose data (on this machine) to evaluate on"
             echo "                   (default: first client site; needs its data locally)"
             echo "  --eval-data-dir  Host dir mounted as /data for evaluation"
@@ -841,6 +845,41 @@ evaluate_model() {
     local envfile="$eval_output_dir/stamp_env.list"
     setup_stamp_env "$eval_site_name" "$model_name" | sed 's/^export //; s/"//g' > "$envfile"
 
+    # Local-only baseline (#275): train on the eval site's data and evaluate that
+    # checkpoint on the SAME split as the federated model. Best-effort — a failure
+    # here just omits the comparison, it never fails the deploy test.
+    local baseline_args=()
+    if [[ "$COMPARE_LOCAL" == true ]]; then
+        local baseline_ckpt="$EVAL_SCRATCH_DIR/local_baseline_${model_name}.ckpt"
+        rm -f "$baseline_ckpt"
+        info "  Training local-only baseline for $model_name on $eval_site_name data" >&2
+        docker run --rm \
+            ${EVAL_GPU:+--gpus="$EVAL_GPU"} \
+            --net=host --ipc=host \
+            -v "$eval_data_dir:/data/:ro" \
+            -v "$EVAL_SCRATCH_DIR:/scratch/" \
+            --env-file "$envfile" \
+            --env SITE_NAME="$eval_site_name" \
+            --env SCRATCH_DIR=/scratch \
+            --env TRAINING_MODE=local_training \
+            --env MEDISWARM_VERSION="$VERSION" \
+            -w /MediSwarm/application/jobs/STAMP_classification/app/custom \
+            "$DOCKER_IMAGE" \
+            python3 main.py \
+            > "$eval_output_dir/local_training_stdout.log" 2>&1 \
+            || warn "  Local baseline training failed (see local_training_stdout.log) — comparison omitted" >&2
+        # Local training writes best_model.ckpt under /scratch/runs/<site>/STAMP_*/.
+        local produced
+        produced=$(find "$EVAL_SCRATCH_DIR/runs/$eval_site_name" -name best_model.ckpt 2>/dev/null | sort | tail -1)
+        if [[ -n "$produced" && -f "$produced" ]]; then
+            cp "$produced" "$baseline_ckpt"
+            baseline_args=(--baseline "/scratch/local_baseline_${model_name}.ckpt")
+            ok "  Local baseline checkpoint ready for comparison" >&2
+        else
+            warn "  No local baseline checkpoint produced — comparison omitted" >&2
+        fi
+    fi
+
     info "  Running stamp_predict.py in $DOCKER_IMAGE on $eval_site_name data (CPU unless EVAL_GPU set)" >&2
     local rc=0
     docker run --rm \
@@ -856,7 +895,7 @@ evaluate_model() {
         --env MEDISWARM_VERSION="$VERSION" \
         "$DOCKER_IMAGE" \
         python3 /MediSwarm/application/jobs/STAMP_classification/app/custom/stamp_predict.py \
-            --workspace /workspace --output-dir /output \
+            --workspace /workspace --output-dir /output "${baseline_args[@]}" \
         > "$eval_output_dir/stamp_predict_stdout.log" 2>&1 || rc=$?
 
     EVAL_RESULTS_FILE="$eval_output_dir/stamp_eval_results.json"

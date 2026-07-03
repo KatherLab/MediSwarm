@@ -203,6 +203,55 @@ def compute_survival_metrics(
 
 
 # --------------------------------------------------------------------------- #
+#  Federated-vs-local comparison (#275)                                       #
+# --------------------------------------------------------------------------- #
+
+# Primary metric per task, in priority order, and its optimization direction.
+PRIMARY_METRICS = {
+    "classification": ("auroc", "accuracy"),
+    "regression": ("mse", "mae"),
+    "survival": ("c_index",),
+}
+HIGHER_IS_BETTER = {"auroc": True, "accuracy": True, "c_index": True, "r2": True, "mse": False, "mae": False}
+
+
+def compare_federated_vs_local(
+    federated: Dict[str, Any], local: Dict[str, Any], task: str, tolerance: float = 0.0
+) -> Dict[str, Any]:
+    """Compare a federated metric record against a local-baseline record (#275).
+
+    Picks the first task-primary metric present in *both* records. ``delta`` is
+    signed so that positive always means "federated is better" regardless of the
+    metric's direction. ``regression_detected`` is True when the federated model
+    is worse than local by more than ``tolerance`` — the swarm-learning value
+    proposition is that federation should be at least as good as any single site.
+    """
+    metric = None
+    for key in PRIMARY_METRICS.get(task, ()):
+        if federated.get(key) is not None and local.get(key) is not None:
+            metric = key
+            break
+    if metric is None:
+        return {"comparable": False, "task": task}
+
+    fed_val = float(federated[metric])
+    local_val = float(local[metric])
+    higher_better = HIGHER_IS_BETTER.get(metric, True)
+    delta = (fed_val - local_val) if higher_better else (local_val - fed_val)
+    return {
+        "comparable": True,
+        "task": task,
+        "metric": metric,
+        "higher_is_better": higher_better,
+        "federated": fed_val,
+        "local": local_val,
+        "delta": float(delta),
+        "federated_at_least_as_good": bool(delta >= -tolerance),
+        "regression_detected": bool(delta < -tolerance),
+    }
+
+
+# --------------------------------------------------------------------------- #
 #  STAMP-dependent runtime (torch + STAMP required)                           #
 # --------------------------------------------------------------------------- #
 
@@ -365,7 +414,31 @@ def _parse_args() -> argparse.Namespace:
         help="With --workspace, only evaluate best_FL_global_model.pt.",
     )
     parser.add_argument("--results-name", type=str, default="stamp_eval_results.json", help="Results JSON filename.")
+    parser.add_argument(
+        "--baseline",
+        type=str,
+        default=None,
+        help="Local-only checkpoint to evaluate on the same split for a federated-vs-local "
+        "comparison (#275), e.g. a local-training best_model.ckpt.",
+    )
+    parser.add_argument(
+        "--regression-tolerance",
+        type=float,
+        default=0.0,
+        help="Tolerance for the federated-vs-local regression check (#275).",
+    )
     return parser.parse_args()
+
+
+def _best_result(results: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Pick the representative federated result: prefer best_FL_global_model.pt."""
+    scored = [r for r in results if any(r.get(k) is not None for k in ("auroc", "accuracy", "mse", "mae", "c_index"))]
+    if not scored:
+        return None
+    for r in scored:
+        if r.get("checkpoint") == "best_FL_global_model.pt":
+            return r
+    return scored[0]
 
 
 def main() -> int:
@@ -403,6 +476,25 @@ def main() -> int:
             logger.exception("Evaluation failed for %s", ckpt["path"])
             results.append({**ckpt, "error": str(exc)})
 
+    # Federated-vs-local baseline comparison (#275): evaluate the local
+    # checkpoint on the SAME split, then compare the best federated result.
+    baseline_record = None
+    comparison = None
+    if args.baseline:
+        logger.info("Evaluating local baseline checkpoint: %s", args.baseline)
+        bl_path = Path(args.baseline)
+        bl_ckpt = {"site": "local_baseline", "name": bl_path.name, "path": str(bl_path)}
+        try:
+            baseline_record = evaluate_checkpoint(bl_ckpt, dataloader, env, device)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Local baseline evaluation failed")
+            baseline_record = {**bl_ckpt, "error": str(exc)}
+        fed_best = _best_result(results)
+        if fed_best is not None and baseline_record is not None:
+            comparison = compare_federated_vs_local(
+                fed_best, baseline_record, env.get("task", "classification"), tolerance=args.regression_tolerance
+            )
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / args.results_name
@@ -411,9 +503,17 @@ def main() -> int:
         "model_name": env.get("model_name"),
         "eval_site": env.get("site_name"),
         "results": results,
+        "baseline": baseline_record,
+        "federated_vs_local": comparison,
     }
     out_path.write_text(json.dumps(payload, indent=2))
     logger.info("Wrote results to %s", out_path)
+    if comparison and comparison.get("comparable"):
+        logger.info(
+            "Federated vs local (%s): federated=%.4f local=%.4f delta=%+.4f regression=%s",
+            comparison["metric"], comparison["federated"], comparison["local"],
+            comparison["delta"], comparison["regression_detected"],
+        )
 
     # Success if at least one checkpoint produced a usable, task-appropriate metric.
     metric_keys = ("accuracy", "auroc", "mse", "mae", "c_index")

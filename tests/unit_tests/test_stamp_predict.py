@@ -209,3 +209,68 @@ def test_survival_cindex_no_comparable_pairs(sp):
     m = sp.compute_survival_metrics(times=[5, 5], events=[0, 0], risks=[1.0, 2.0])
     assert m["c_index"] is None
     assert m["num_comparable_pairs"] == 0
+
+
+# --------------------------------------------------------------------------- #
+#  compare_federated_vs_local (#275)
+# --------------------------------------------------------------------------- #
+
+def test_compare_classification_federated_better(sp):
+    fed = {"auroc": 0.90, "accuracy": 0.8}
+    local = {"auroc": 0.80, "accuracy": 0.7}
+    c = sp.compare_federated_vs_local(fed, local, "classification")
+    assert c["comparable"] is True
+    assert c["metric"] == "auroc"
+    assert c["delta"] == pytest.approx(0.10)
+    assert c["federated_at_least_as_good"] is True
+    assert c["regression_detected"] is False
+
+
+def test_compare_classification_regression_detected(sp):
+    fed = {"auroc": 0.70}
+    local = {"auroc": 0.85}
+    c = sp.compare_federated_vs_local(fed, local, "classification")
+    assert c["delta"] == pytest.approx(-0.15)
+    assert c["federated_at_least_as_good"] is False
+    assert c["regression_detected"] is True
+
+
+def test_compare_regression_lower_is_better(sp):
+    # mse: lower is better, so a lower federated mse => positive delta (better)
+    fed = {"mse": 0.20}
+    local = {"mse": 0.50}
+    c = sp.compare_federated_vs_local(fed, local, "regression")
+    assert c["metric"] == "mse"
+    assert c["higher_is_better"] is False
+    assert c["delta"] == pytest.approx(0.30)
+    assert c["regression_detected"] is False
+
+
+def test_compare_survival_cindex(sp):
+    c = sp.compare_federated_vs_local({"c_index": 0.75}, {"c_index": 0.60}, "survival")
+    assert c["metric"] == "c_index"
+    assert c["delta"] == pytest.approx(0.15)
+
+
+def test_compare_tolerance_absorbs_small_regression(sp):
+    fed = {"auroc": 0.78}
+    local = {"auroc": 0.80}
+    c = sp.compare_federated_vs_local(fed, local, "classification", tolerance=0.05)
+    # 0.02 drop is within tolerance -> not flagged
+    assert c["regression_detected"] is False
+    assert c["federated_at_least_as_good"] is True
+
+
+def test_compare_incomparable_when_metric_missing(sp):
+    c = sp.compare_federated_vs_local({"accuracy": 0.8}, {"auroc": 0.9}, "classification")
+    # federated has no auroc and local has no accuracy overlap on the top metric...
+    # auroc present only in local, accuracy present only in fed -> no shared metric
+    assert c["comparable"] is False
+
+
+def test_compare_falls_back_to_accuracy(sp):
+    # no auroc in either, but accuracy in both -> compares on accuracy
+    c = sp.compare_federated_vs_local({"accuracy": 0.9}, {"accuracy": 0.8}, "classification")
+    assert c["comparable"] is True
+    assert c["metric"] == "accuracy"
+    assert c["delta"] == pytest.approx(0.10)
