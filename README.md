@@ -6,6 +6,7 @@ the ODELIA consortium.
 [![PR Tests](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml)
 [![Build](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml)
 [![Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml)
+[![STAMP Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml)
 
 ## What is MediSwarm?
 
