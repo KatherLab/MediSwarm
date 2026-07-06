@@ -78,7 +78,12 @@ RUN python3 -m pip install --no-cache-dir \
     pyhocon \
     msgpack \
     docker \
-    websockets
+    websockets \
+    tensorboard==2.19.0
+# tensorboard is required by the shared --dummy_training sanity check
+# (minimal_training_pytorch_cnn uses Lightning's TensorBoardLogger). The ODELIA
+# image installs it too; without it, docker.sh --dummy_training fails on the
+# STAMP image with "Neither tensorboard nor tensorboardX is available".
 
 # Install packages needed for listing licenses and creating SBOM
 RUN python3 -m pip install --no-cache-dir \
