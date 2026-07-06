@@ -50,10 +50,34 @@ done
 [ -n "$STARTUP_DIR" ] || { echo "STARTUP_DIR missing" >&2; exit 1; }
 
 STATE_DIR="$STARTUP_DIR/.mediswarm_sync"
-mkdir -p "$STATE_DIR"
+
+# Ensure a writable state dir. A client previously started via `sudo` can leave
+# .mediswarm_sync (and its files) root-owned; under `set -euo pipefail` the
+# mkdir/touch below would then EACCES and silently kill the whole daemon so the
+# site stops reporting (issue #398). Reclaim ownership if we can (passwordless
+# sudo), otherwise fall back to a user-writable dir so live-sync keeps running.
+_state_dir_writable() { [ -d "$STATE_DIR" ] && ( : > "$STATE_DIR/.wtest" ) 2>/dev/null && rm -f "$STATE_DIR/.wtest" 2>/dev/null; }
+_ensure_writable_state_dir() {
+  mkdir -p "$STATE_DIR" 2>/dev/null || true
+  _state_dir_writable && return 0
+  if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+    sudo -n chown -R "$(id -u):$(id -g)" "$STATE_DIR" 2>/dev/null || true
+  fi
+  _state_dir_writable && return 0
+  local fallback="${TMPDIR:-/tmp}/mediswarm_sync_$(id -u)_$(printf '%s' "$STARTUP_DIR" | md5sum | cut -c1-8)"
+  mkdir -p "$fallback" 2>/dev/null || true
+  echo "[WARN] $STATE_DIR not writable (likely root-owned from a sudo-launched client); using $fallback. Fix: sudo chown -R \$(id -un): '$STATE_DIR'" >&2
+  STATE_DIR="$fallback"
+}
+_ensure_writable_state_dir
+
 LIVE_SYNC_LOG="$STATE_DIR/live_sync_daemon.log"
-touch "$LIVE_SYNC_LOG"
-exec > >(tee -a "$LIVE_SYNC_LOG") 2>&1
+touch "$LIVE_SYNC_LOG" 2>/dev/null || true
+if [ -w "$LIVE_SYNC_LOG" ]; then
+  exec > >(tee -a "$LIVE_SYNC_LOG") 2>&1
+else
+  echo "[WARN] cannot write $LIVE_SYNC_LOG; logging to stdout only" >&2
+fi
 
 SYNC_STATUS="ok"
 SYNC_ERROR=""
@@ -98,7 +122,7 @@ else
 fi
 
 LAST_CKPT_SYNC_FILE="$STATE_DIR/${MODE}_last_ckpt_sync_ts"
-touch "$LAST_CKPT_SYNC_FILE"
+touch "$LAST_CKPT_SYNC_FILE" 2>/dev/null || true
 
 # Track the run we are currently syncing so we can finalize it if a new run appears
 CURRENT_LOCAL_RUN=""
@@ -255,7 +279,7 @@ sync_local() {
       --include='*_model_gt_and_classprob_*.csv' \
       --exclude='*' \
       "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
-    echo "$now" > "$LAST_CKPT_SYNC_FILE"
+    echo "$now" > "$LAST_CKPT_SYNC_FILE" 2>/dev/null || true
   fi
 }
 
@@ -330,7 +354,7 @@ sync_swarm() {
         --include='*_model_gt_and_classprob_*.csv' \
         --exclude='*' \
         "$run_dir_for_sync/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
-      echo "$now" > "$LAST_CKPT_SYNC_FILE"
+      echo "$now" > "$LAST_CKPT_SYNC_FILE" 2>/dev/null || true
     fi
   fi
 }
