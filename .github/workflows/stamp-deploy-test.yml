@@ -1,0 +1,185 @@
+name: STAMP Deploy Test
+
+# 2-node STAMP federated deploy test (#272), modeled on odelia-deploy-test.yml.
+# Builds the STAMP image + kits, pushes the image, runs the deploy test across
+# dl0/dl2 (Cosmos = server/admin), and — when evaluate is on (#270) — evaluates
+# the trained global model with stamp_predict.py.
+#
+# Runs on the shared self-hosted Cosmos runner and drives dl0/dl2 over SSH, so
+# it is NOT triggered on every push (that could collide with production swarm
+# runs on the same machines). Use workflow_dispatch or the weekly schedule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_file:
+        description: "Provision YAML used to build STAMP startup kits"
+        required: false
+        default: "application/provision/project_deploy_test_2site.yml"
+        type: string
+      num_rounds:
+        description: "Number of FL rounds to bake into generated jobs"
+        required: false
+        default: "2"
+        type: string
+      conf_source:
+        description: "Deploy-site credential/config file on the Cosmos runner"
+        required: false
+        default: "/home/jeff/Projects/MediSwarm/deploy_sites_2node_stamp_test.conf"
+        type: string
+      models:
+        description: "Comma-separated STAMP models to test (e.g. vit,mlp)"
+        required: false
+        default: "vit"
+        type: string
+      evaluate:
+        description: "Run post-training evaluation (stamp_predict.py, #270)"
+        required: false
+        default: true
+        type: boolean
+      timeout_minutes:
+        description: "Per-model timeout passed to run_stamp_deploy_test.sh"
+        required: false
+        default: "120"
+        type: string
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC — weekly regression
+
+permissions:
+  contents: read
+
+concurrency:
+  # Shares dl0/dl2 with the ODELIA deploy test + production; never run concurrently.
+  group: stamp-deploy-test
+  cancel-in-progress: false
+
+jobs:
+  stamp-deploy-test:
+    # Must run on Cosmos — it orchestrates dl0/dl2 via SSH. dl0/dl2 are the
+    # remote clients managed by Cosmos and must NOT pick up this job.
+    runs-on: [self-hosted, cosmos]
+    timeout-minutes: 720  # 12 h (2-round synthetic run is fast; generous for VPN)
+
+    steps:
+      - name: Clean root-owned files from previous runs
+        run: |
+          # NVFlare server container creates root-owned workspace files that
+          # block actions/checkout@v4's git clean. Remove them before checkout.
+          sudo rm -rf "$GITHUB_WORKSPACE/workspace" 2>/dev/null || true
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Resolve deploy test parameters
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PROJECT_FILE: ${{ inputs.project_file }}
+          INPUT_NUM_ROUNDS: ${{ inputs.num_rounds }}
+          INPUT_CONF_SOURCE: ${{ inputs.conf_source }}
+          INPUT_MODELS: ${{ inputs.models }}
+          INPUT_EVALUATE: ${{ inputs.evaluate }}
+          INPUT_TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        run: |
+          set -euo pipefail
+
+          project_file="${INPUT_PROJECT_FILE:-application/provision/project_deploy_test_2site.yml}"
+          num_rounds="${INPUT_NUM_ROUNDS:-2}"
+          conf_source="${INPUT_CONF_SOURCE:-/home/jeff/Projects/MediSwarm/deploy_sites_2node_stamp_test.conf}"
+          models="${INPUT_MODELS:-vit}"
+          evaluate="${INPUT_EVALUATE:-true}"
+          timeout_minutes="${INPUT_TIMEOUT_MINUTES:-120}"
+
+          # Scheduled runs use the defaults above (evaluate on).
+          if [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            evaluate="true"
+          fi
+
+          case "$evaluate" in true|false) ;; *) echo "evaluate must be true/false: $evaluate"; exit 1 ;; esac
+          [[ "$num_rounds" =~ ^[0-9]+$ ]] || { echo "num_rounds must be an integer: $num_rounds"; exit 1; }
+          [[ "$timeout_minutes" =~ ^[0-9]+$ ]] || { echo "timeout_minutes must be an integer: $timeout_minutes"; exit 1; }
+          [[ -f "$project_file" ]] || { echo "Project file not found: $project_file"; exit 1; }
+          [[ -f "$conf_source" ]] || { echo "Deploy config not found: $conf_source"; exit 1; }
+
+          conf_file="$GITHUB_WORKSPACE/deploy_sites_stamp_ci.conf"
+          cp "$conf_source" "$conf_file"
+          {
+            echo ""
+            echo "# GitHub Actions override: keep build + deploy-runner workspace lookup aligned."
+            echo "PROJECT_FILE=$project_file"
+          } >> "$conf_file"
+          chmod 600 "$conf_file"
+
+          {
+            echo "DEPLOY_PROJECT_FILE=$project_file"
+            echo "DEPLOY_NUM_ROUNDS=$num_rounds"
+            echo "DEPLOY_CONF_FILE=$conf_file"
+            echo "DEPLOY_MODELS=$models"
+            echo "DEPLOY_EVALUATE=$evaluate"
+            echo "DEPLOY_TIMEOUT_MINUTES=$timeout_minutes"
+          } >> "$GITHUB_ENV"
+
+          echo "project_file=$project_file num_rounds=$num_rounds models=$models evaluate=$evaluate timeout=$timeout_minutes"
+
+      - name: Build STAMP Docker image + startup kits
+        run: |
+          ./scripts/build/buildDockerImageAndStartupKits.sh \
+            -p "$DEPLOY_PROJECT_FILE" \
+            -d docker_config/Dockerfile_STAMP \
+            --use-docker-cache \
+            --num-rounds "$DEPLOY_NUM_ROUNDS"
+
+      - name: Push Docker image to Docker Hub
+        run: |
+          # Remote clients pull the image from Docker Hub during startup.
+          VERSION=$(./scripts/build/getVersionNumber.sh)
+          docker push "jefftud/odelia:$VERSION"
+
+      - name: Prepare local evaluation data on Cosmos
+        if: ${{ env.DEPLOY_EVALUATE == 'true' }}
+        run: |
+          set -euo pipefail
+          # Evaluation runs on Cosmos and needs the eval site's data locally.
+          # Generate a synthetic STAMP dataset and remap the first generated
+          # site dir to the deploy eval-site name (default: first client site).
+          VERSION=$(./scripts/build/getVersionNumber.sh)
+          image="jefftud/odelia:$VERSION"
+
+          eval_root="$GITHUB_WORKSPACE/stamp_eval_data"
+          rm -rf "$eval_root"; mkdir -p "$eval_root"
+
+          docker run --rm -v "$eval_root":/data "$image" \
+            python3 application/jobs/STAMP_classification/app/scripts/create_synthetic_dataset/create_synthetic_stamp_dataset.py /data
+
+          # Resolve the eval site name from the conf (first client site).
+          eval_site_name=$(bash -c \
+            'source "$1"; s=${CLIENT_SITES[0]}; v="${s}_SITE_NAME"; echo "${!v}"' _ "$DEPLOY_CONF_FILE")
+          gen_site=$(ls "$eval_root" | head -1)
+          if [[ -n "$eval_site_name" && -n "$gen_site" && ! -d "$eval_root/$eval_site_name" ]]; then
+            cp -r "$eval_root/$gen_site" "$eval_root/$eval_site_name"
+          fi
+          echo "EVAL_DATA_ROOT=$eval_root" >> "$GITHUB_ENV"
+          echo "Prepared eval data at $eval_root for site '$eval_site_name' (from '$gen_site')"
+
+      - name: Run STAMP deploy test
+        run: |
+          set -euo pipefail
+          args=(--conf "$DEPLOY_CONF_FILE" --timeout "$DEPLOY_TIMEOUT_MINUTES" --models "$DEPLOY_MODELS")
+          if [[ "$DEPLOY_EVALUATE" == "true" ]]; then
+            args+=(--evaluate --eval-data-dir "$EVAL_DATA_ROOT")
+          fi
+          ./scripts/deploy/run_stamp_deploy_test.sh "${args[@]}"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stamp-deploy-test-results
+          path: workspace/deploy_test_stamp_results/
+
+      - name: Kill orphaned containers (cleanup)
+        if: always()
+        run: |
+          docker ps --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true
+          docker ps -a --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker rm -f 2>/dev/null || true

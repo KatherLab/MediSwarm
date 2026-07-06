@@ -6,6 +6,9 @@ the ODELIA consortium.
 [![PR Tests](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml)
 [![Build](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml)
 [![Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml)
+[![STAMP Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml)
+
+> **Current release: [v1.5.0](https://github.com/KatherLab/MediSwarm/releases/tag/v1.5.0)** (swarm-robustness) — operators prepping a run see the [v1.5.0 rollout runbook](docs/ROLLOUT_v1.5.0.md).
 
 ## What is MediSwarm?
 
@@ -121,7 +124,7 @@ sequenceDiagram
 
 | Pipeline | Domain | Input | Backbone(s) | Docker Image | Python | PyTorch |
 |----------|--------|-------|-------------|--------------|--------|---------|
-| **ODELIA** | Breast MRI classification | 3D NIfTI volumes | DenseNet-121, DINOv2 | `jefftud/odelia:1.2.0` | 3.10 | 2.2.2 |
+| **ODELIA** | Breast MRI classification | 3D NIfTI volumes | DenseNet-121, DINOv2 | `jefftud/odelia:1.5.0` | 3.10 | 2.2.2 |
 | **STAMP** | Computational pathology (classification / survival) | H5 feature files | VIT, MLP, TransMIL | `jefftud/stamp:<version>` | 3.11 | 2.7.1 |
 
 **ODELIA** — A 3D CNN pipeline for ternary classification on breast MRI,

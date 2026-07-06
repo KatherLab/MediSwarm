@@ -23,9 +23,15 @@ MODEL_WEIGHTS_FILE_MVIT=$CACHE_DIR'/application/jobs/challenge_3agaldran/app/cus
 MODEL_WEIGHTS_FILE_MVIT_URL=https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth
 MODEL_WEIGHTS_FILE_MVIT_SHA=94826d379879465b184689212bd62e62d50f40df
 
-MODEL_WEIGHTS_FILE_ODAC=$CACHE_DIR/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth
+MODEL_WEIGHTS_FILE_ODAC=$CACHE_DIR'/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth'
 MODEL_WEIGHTS_FILE_ODAC_SHA=b6d0badeb218ec2eb0b07300a53b8b855810019b
 
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/blobs/61224f9317fcce873366deb3703183e92cc47325b726b69691b33536244e10f4'
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/snapshots/758fe285bc8ab565eb4f9f965810f1d1a3f79491/resnet_18_23dataset.pth'
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_URL=https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet10/resolve/9d7c4c66c77bff89b79631369426612f09d0fe9b/resnet_18_23dataset.pth
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SHA=be6aeac9b376d4ee03d9a16ca0f82ac196f68eec
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_CONTENTS=758fe285bc8ab565eb4f9f965810f1d1a3f79491
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_FILE=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/refs/main'
 
 _cache_file_wget () {
     url=$1
@@ -83,6 +89,17 @@ cache_files () {
     _cache_odac_model
 
     _cache_file_wget "$MODEL_WEIGHTS_FILE_MVIT_URL" "$MODEL_WEIGHTS_FILE_MVIT"
+
+    _cache_file_wget "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_URL" "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN"
+    if [[ ! -f "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK" ]]; then
+        mkdir -p $(dirname $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK)
+        cd $(dirname $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK)
+        ln -s -f ../../blobs/$(basename $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN) $(basename $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK)
+    fi
+    if [[ ! -f "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_FILE" ]]; then
+        mkdir -p $(dirname $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_FILE)
+        echo $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_CONTENTS > $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_FILE
+    fi
 }
 
 
@@ -105,6 +122,7 @@ verify_files () {
     _verify_hash $MODEL_LICENSE_FILE_DINO_SHA $MODEL_LICENSE_FILE_DINO
     _verify_hash $MODEL_WEIGHTS_FILE_MVIT_SHA $MODEL_WEIGHTS_FILE_MVIT
     _verify_hash $MODEL_WEIGHTS_FILE_ODAC_SHA $MODEL_WEIGHTS_FILE_ODAC
+    _verify_hash $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SHA $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN
 }
 
 
@@ -112,6 +130,10 @@ copy_files() {
     # Copy MST pre-trained weights
     cp -r "$CACHE_DIR/torch_home_cache" "$TARGET_DIR/torch_home_cache"
     chmod a+rX "$TARGET_DIR/torch_home_cache" -R
+
+    # Copy ResNet18 pre-trained weights
+    cp -r "$CACHE_DIR/hf_home_cache" "$TARGET_DIR/hf_home_cache"
+    chmod a+rX "$TARGET_DIR/hf_home_cache" -R
 
     # Copy challenge model weights to a SEPARATE directory outside the job folders.
     # This is critical: NVFlare packages the entire job folder when submitting a job,

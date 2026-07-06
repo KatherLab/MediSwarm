@@ -27,7 +27,9 @@
 #   - Can run one or more STAMP models against STAMP_classification
 #   - Exports STAMP_* environment variables on remote hosts before docker.sh
 #   - Uses stamp_swarm container name prefix (not odelia_swarm)
-#   - Has no evaluation step (STAMP has no predict.py equivalent yet)
+#   - Optional post-training evaluation via --evaluate (#270): collects the
+#     global checkpoints and runs stamp_predict.py to record AUROC/accuracy.
+#     Needs the eval site's data staged on this machine (see --eval-data-dir).
 #   - Has no retry loop (simpler for initial testing)
 #
 # Usage:
@@ -46,19 +48,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# ── Colors ─────────────────────────────────────────────────────────────────
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-BOLD='\033[1m'
-NC='\033[0m'
-
-info()  { echo -e "${BLUE}[INFO]${NC} $*" >&2; }
-ok()    { echo -e "${GREEN}[OK]${NC} $*" >&2; }
-warn()  { echo -e "${YELLOW}[WARN]${NC} $*" >&2; }
-err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
-step()  { echo -e "\n${BOLD}=== $* ===${NC}" >&2; }
+# Shared colour/logging + SSH/workspace helpers (#276).
+# shellcheck source=scripts/deploy/deploy_common.sh
+source "$SCRIPT_DIR/deploy_common.sh"
 
 # ── Parse arguments ────────────────────────────────────────────────────────
 CONF_FILE=""
@@ -66,19 +58,42 @@ TIMEOUT_MINUTES=120   # 2 hours for a quick 2-round test
 MODELS_ARG=""
 ALL_STAMP_MODELS=(vit mlp trans_mil linear barspoon)
 TEST_MODELS=()
+EVALUATE=false          # run the post-training evaluation step (#270)
+EVAL_SITE_ARG=""        # site whose data to evaluate on (default: first client site)
+EVAL_DATA_DIR_ARG=""    # host path to eval data on this (server) machine
+TASK="classification"   # STAMP task: classification | survival | regression (#271)
+COMPARE_LOCAL=false     # also train a local-only baseline and compare (#275)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --conf)         CONF_FILE="$2"; shift ;;
-        --timeout)      TIMEOUT_MINUTES="$2"; shift ;;
-        --models)       MODELS_ARG="$2"; shift ;;
+        --conf)          CONF_FILE="$2"; shift ;;
+        --timeout)       TIMEOUT_MINUTES="$2"; shift ;;
+        --models)        MODELS_ARG="$2"; shift ;;
+        --task)          TASK="$2"; shift ;;
+        --evaluate)      EVALUATE=true ;;
+        --compare-local) COMPARE_LOCAL=true ;;
+        --eval-site)     EVAL_SITE_ARG="$2"; shift ;;
+        --eval-data-dir) EVAL_DATA_DIR_ARG="$2"; shift ;;
         -h|--help)
             echo "Usage: $0 --conf CONF_FILE [--timeout MINUTES] [--models MODEL1,MODEL2,...]"
+            echo "          [--task classification|survival|regression]"
+            echo "          [--evaluate [--eval-site SITE] [--eval-data-dir DIR]]"
             echo ""
-            echo "  --conf      Path to site configuration file (required)"
-            echo "  --timeout   Per-model training timeout in minutes (default: 120)"
-            echo "  --models    Comma-separated STAMP models to test"
-            echo "              (default: vit,mlp,trans_mil,linear,barspoon)"
+            echo "  --conf           Path to site configuration file (required)"
+            echo "  --timeout        Per-model training timeout in minutes (default: 120)"
+            echo "  --models         Comma-separated STAMP models to test"
+            echo "                   (default: vit,mlp,trans_mil,linear,barspoon)"
+            echo "  --task           STAMP task type (default: classification). The site"
+            echo "                   data must be generated for this task, e.g."
+            echo "                   create_synthetic_stamp_dataset.py <dir> --task survival (#271)."
+            echo "  --evaluate       After training, collect global checkpoints and run"
+            echo "                   stamp_predict.py to record task metrics (#270)."
+            echo "  --compare-local  With --evaluate: also train a local-only baseline on the"
+            echo "                   eval site and compare federated vs local (#275)."
+            echo "  --eval-site      Site whose data (on this machine) to evaluate on"
+            echo "                   (default: first client site; needs its data locally)"
+            echo "  --eval-data-dir  Host dir mounted as /data for evaluation"
+            echo "                   (default: the eval site's DATADIR from the conf)"
             exit 0
             ;;
         *)
@@ -147,6 +162,12 @@ resolve_test_models() {
 
 resolve_test_models
 
+# ── Validate task (#271) ───────────────────────────────────────────────────
+case "$TASK" in
+    classification|survival|regression) ;;
+    *) err "Invalid --task: $TASK (expected classification|survival|regression)"; exit 1 ;;
+esac
+
 # ── Load configuration ─────────────────────────────────────────────────────
 # shellcheck source=/dev/null
 source "$CONF_FILE"
@@ -171,6 +192,13 @@ mkdir -p "$RESULTS_DIR"
 # Job to run
 JOB_NAME="${DEFAULT_JOB:-STAMP_classification}"
 
+# ── Evaluation configuration (#270) ────────────────────────────────────────
+# Evaluation runs on THIS (server) machine and needs the eval site's data
+# locally (mounted as /data). CLI flags override; conf may set EVAL_SITE /
+# EVAL_DATA_DIR. Default eval site = first client site.
+EVAL_SITE="${EVAL_SITE_ARG:-${EVAL_SITE:-${CLIENT_SITES[0]:-}}}"
+EVAL_SCRATCH_DIR="${EVAL_SCRATCH_DIR:-$RESULTS_DIR/eval_scratch}"
+
 # ── STAMP environment variables ──────────────────────────────────────────
 # These are exported on each remote host BEFORE calling docker.sh.
 # The STAMP master template's env var forwarding loop (for _var in STAMP_*)
@@ -184,12 +212,10 @@ setup_stamp_env() {
     cat <<EOF
 export STAMP_CLINI_TABLE="/data/${site_name}/clini_table.csv"
 export STAMP_FEATURE_DIR="/data/${site_name}/features"
-export STAMP_GROUND_TRUTH_LABEL="Diagnosis"
 export STAMP_PATIENT_LABEL="PATIENT"
-export STAMP_TASK="classification"
+export STAMP_TASK="${TASK}"
 export STAMP_MODEL_NAME="${model_name}"
 export STAMP_DIM_INPUT="1024"
-export STAMP_NUM_CLASSES="3"
 export STAMP_BAG_SIZE="64"
 export STAMP_BATCH_SIZE="8"
 export STAMP_MAX_EPOCHS="2"
@@ -201,64 +227,26 @@ export STAMP_EPOCHS_PER_ROUND="2"
 export STAMP_EPOCHS_REFERENCE_DATASET_SIZE="15"
 export STAMP_EPOCHS_MAX_CAP="4"
 EOF
+    # Task-specific label columns — must match create_synthetic_stamp_dataset.py (#271).
+    case "$TASK" in
+        classification)
+            echo 'export STAMP_GROUND_TRUTH_LABEL="Diagnosis"'
+            echo 'export STAMP_NUM_CLASSES="3"'
+            ;;
+        survival)
+            echo 'export STAMP_TIME_LABEL="Time"'
+            echo 'export STAMP_STATUS_LABEL="Event"'
+            echo 'export STAMP_NUM_CLASSES="1"'
+            ;;
+        regression)
+            echo 'export STAMP_GROUND_TRUTH_LABEL="Target"'
+            echo 'export STAMP_NUM_CLASSES="1"'
+            ;;
+    esac
 }
 
-# ── Helper functions ──────────────────────────────────────────────────────
-
-site_var() {
-    local site=$1 var=$2
-    local full_var="${site}_${var}"
-    echo "${!full_var}"
-}
-
-remote_exec() {
-    local site=$1; shift
-    local host user pass
-    host=$(site_var "$site" HOST)
-    user=$(site_var "$site" USER)
-    pass=$(site_var "$site" PASS)
-
-    sshpass -p "$pass" ssh $SSH_OPTS "$user@$host" "$@"
-}
-
-remote_copy() {
-    local site=$1 src=$2 dst=$3
-    local host user pass
-    host=$(site_var "$site" HOST)
-    user=$(site_var "$site" USER)
-    pass=$(site_var "$site" PASS)
-
-    sshpass -p "$pass" scp $SSH_OPTS "$src" "$user@$host:$dst"
-}
-
-find_latest_prod() {
-    if [[ ! -d "$WORKSPACE_DIR" ]]; then
-        err "Workspace not found: $WORKSPACE_DIR"
-        err "Run buildDockerImageAndStartupKits.sh first."
-        exit 1
-    fi
-    ls -d "$WORKSPACE_DIR"/prod_* 2>/dev/null | sort -V | tail -n 1
-}
-
-# ── Resolve server startup directory ───────────────────────────────────
-_server_startup_dir=""
-
-resolve_server_startup_dir() {
-    local server_name="${SERVER_NAME:-dl3.tud.de}"
-    local candidate="$DEPLOY_BASE/$server_name/startup"
-    if [[ -d "$candidate" ]]; then
-        _server_startup_dir="$candidate"
-    else
-        local prod_dir
-        prod_dir=$(find_latest_prod)
-        candidate="$prod_dir/$server_name/startup"
-        if [[ -d "$candidate" ]]; then
-            _server_startup_dir="$candidate"
-        else
-            _server_startup_dir=""
-        fi
-    fi
-}
+# site_var / remote_exec / remote_copy / find_latest_prod /
+# resolve_server_startup_dir are provided by deploy_common.sh (#276).
 
 # ── Fix DNS: ensure remote clients can reach the NVFlare server ──────────
 fix_remote_dns() {
@@ -685,27 +673,207 @@ wait_for_completion() {
     return 1
 }
 
+# ── Collect global checkpoints from client machines (#270) ─────────────────
+collect_checkpoints() {
+    local model_name="$1"
+
+    step "Collecting global checkpoints for $model_name" >&2
+
+    # Find the job ID of the run that finished, from the server log.
+    resolve_server_startup_dir
+    local server_log="${_server_startup_dir}/nohup.out"
+    local job_id=""
+    if [[ -f "$server_log" ]]; then
+        job_id=$(grep 'Server runner finished\.' "$server_log" | tail -1 \
+            | grep -oP 'run=\K[0-9a-f-]+' || true)
+    fi
+    if [[ -n "$job_id" ]]; then
+        info "  Job ID from server log: $job_id" >&2
+    else
+        warn "  Could not determine job ID — falling back to glob" >&2
+    fi
+
+    local staging_dir="$RESULTS_DIR/${model_name}_checkpoints"
+    rm -rf "$staging_dir"
+    mkdir -p "$staging_dir"
+
+    local found_any=false
+    for site in "${CLIENT_SITES[@]}"; do
+        local site_name host deploy_dir user pass
+        site_name=$(site_var "$site" SITE_NAME)
+        host=$(site_var "$site" HOST)
+        deploy_dir=$(site_var "$site" DEPLOY_DIR)
+        user=$(site_var "$site" USER)
+        pass=$(site_var "$site" PASS)
+        local remote_base="$deploy_dir/$site_name"
+
+        local search_cmd
+        if [[ -n "$job_id" ]]; then
+            search_cmd="ls -1 '$remote_base/$job_id/app_${site_name}/FL_global_model.pt' '$remote_base/$job_id/app_${site_name}/best_FL_global_model.pt' 2>/dev/null || true"
+        else
+            search_cmd="find '$remote_base' -maxdepth 3 \( -name 'FL_global_model.pt' -o -name 'best_FL_global_model.pt' \) 2>/dev/null || true"
+        fi
+
+        local remote_files
+        remote_files=$(sshpass -p "$pass" ssh $SSH_OPTS "$user@$host" "$search_cmd" 2>/dev/null || true)
+        if [[ -z "$remote_files" ]]; then
+            info "  No checkpoints found on $site_name" >&2
+            continue
+        fi
+
+        local local_app_dir="$staging_dir/app_${site_name}"
+        mkdir -p "$local_app_dir"
+        while IFS= read -r remote_file; do
+            [[ -z "$remote_file" ]] && continue
+            local basename_file
+            basename_file=$(basename "$remote_file")
+            if sshpass -p "$pass" scp $SSH_OPTS "$user@$host:$remote_file" "$local_app_dir/$basename_file" 2>/dev/null; then
+                ok "  Collected $basename_file from $site_name" >&2
+                found_any=true
+            else
+                warn "  Failed to SCP $remote_file from $site_name" >&2
+            fi
+        done <<< "$remote_files"
+    done
+
+    if [[ "$found_any" == true ]]; then
+        echo "$staging_dir"
+        return 0
+    fi
+    err "No checkpoints collected for $model_name" >&2
+    return 1
+}
+
+# ── Evaluate the global model with stamp_predict.py (#270) ─────────────────
+# Runs on THIS machine; needs the eval site's data staged locally. Echoes the
+# eval status (pass|fail|skipped). Non-fatal: a skip/fail never fails the run.
+evaluate_model() {
+    local model_name="$1"
+
+    step "Evaluating $model_name" >&2
+
+    if [[ -z "$EVAL_SITE" ]]; then
+        warn "  No eval site resolved — skipping evaluation" >&2
+        echo "skipped"; return 0
+    fi
+
+    local eval_site_name eval_data_dir
+    eval_site_name=$(site_var "$EVAL_SITE" SITE_NAME 2>/dev/null || echo "$EVAL_SITE")
+    eval_data_dir="${EVAL_DATA_DIR_ARG:-$(site_var "$EVAL_SITE" DATADIR 2>/dev/null || true)}"
+
+    if [[ -z "$eval_data_dir" || ! -d "$eval_data_dir" ]]; then
+        warn "  Eval data not available on this machine ('$eval_data_dir') — skipping evaluation" >&2
+        warn "  (evaluation runs here; stage $eval_site_name's data locally or pass --eval-data-dir)" >&2
+        echo "skipped"; return 0
+    fi
+
+    local checkpoint_dir
+    if ! checkpoint_dir=$(collect_checkpoints "$model_name"); then
+        err "  Cannot evaluate $model_name — no checkpoints collected" >&2
+        echo "fail"; return 0
+    fi
+
+    mkdir -p "$EVAL_SCRATCH_DIR"
+    local eval_output_dir="$RESULTS_DIR/${model_name}_evaluation"
+    mkdir -p "$eval_output_dir"
+
+    # STAMP_* env for the eval site (same layout: /data/<site>/...).
+    local envfile="$eval_output_dir/stamp_env.list"
+    setup_stamp_env "$eval_site_name" "$model_name" | sed 's/^export //; s/"//g' > "$envfile"
+
+    # Local-only baseline (#275): train on the eval site's data and evaluate that
+    # checkpoint on the SAME split as the federated model. Best-effort — a failure
+    # here just omits the comparison, it never fails the deploy test.
+    local baseline_args=()
+    if [[ "$COMPARE_LOCAL" == true ]]; then
+        local baseline_ckpt="$EVAL_SCRATCH_DIR/local_baseline_${model_name}.ckpt"
+        rm -f "$baseline_ckpt"
+        info "  Training local-only baseline for $model_name on $eval_site_name data" >&2
+        docker run --rm \
+            ${EVAL_GPU:+--gpus="$EVAL_GPU"} \
+            --net=host --ipc=host \
+            -v "$eval_data_dir:/data/:ro" \
+            -v "$EVAL_SCRATCH_DIR:/scratch/" \
+            --env-file "$envfile" \
+            --env SITE_NAME="$eval_site_name" \
+            --env SCRATCH_DIR=/scratch \
+            --env TRAINING_MODE=local_training \
+            --env MEDISWARM_VERSION="$VERSION" \
+            -w /MediSwarm/application/jobs/STAMP_classification/app/custom \
+            "$DOCKER_IMAGE" \
+            python3 main.py \
+            > "$eval_output_dir/local_training_stdout.log" 2>&1 \
+            || warn "  Local baseline training failed (see local_training_stdout.log) — comparison omitted" >&2
+        # Local training writes best_model.ckpt under /scratch/runs/<site>/STAMP_*/.
+        local produced
+        produced=$(find "$EVAL_SCRATCH_DIR/runs/$eval_site_name" -name best_model.ckpt 2>/dev/null | sort | tail -1)
+        if [[ -n "$produced" && -f "$produced" ]]; then
+            cp "$produced" "$baseline_ckpt"
+            baseline_args=(--baseline "/scratch/local_baseline_${model_name}.ckpt")
+            ok "  Local baseline checkpoint ready for comparison" >&2
+        else
+            warn "  No local baseline checkpoint produced — comparison omitted" >&2
+        fi
+    fi
+
+    info "  Running stamp_predict.py in $DOCKER_IMAGE on $eval_site_name data (CPU unless EVAL_GPU set)" >&2
+    local rc=0
+    docker run --rm \
+        ${EVAL_GPU:+--gpus="$EVAL_GPU"} \
+        --net=host --ipc=host \
+        -v "$eval_data_dir:/data/:ro" \
+        -v "$EVAL_SCRATCH_DIR:/scratch/" \
+        -v "$checkpoint_dir:/workspace/:ro" \
+        -v "$eval_output_dir:/output/" \
+        --env-file "$envfile" \
+        --env SITE_NAME="$eval_site_name" \
+        --env SCRATCH_DIR=/scratch \
+        --env MEDISWARM_VERSION="$VERSION" \
+        "$DOCKER_IMAGE" \
+        python3 /MediSwarm/application/jobs/STAMP_classification/app/custom/stamp_predict.py \
+            --workspace /workspace --output-dir /output "${baseline_args[@]}" \
+        > "$eval_output_dir/stamp_predict_stdout.log" 2>&1 || rc=$?
+
+    EVAL_RESULTS_FILE="$eval_output_dir/stamp_eval_results.json"
+    if [[ $rc -eq 0 && -f "$EVAL_RESULTS_FILE" ]]; then
+        ok "  Evaluation completed for $model_name" >&2
+        echo "pass"; return 0
+    fi
+    err "  Evaluation failed for $model_name (exit $rc); see $eval_output_dir/stamp_predict_stdout.log" >&2
+    echo "fail"; return 0
+}
+
 # ── Record result ─────────────────────────────────────────────────────────
 record_result() {
     local model_name="$1"
     local job_name="$2"
-    local train_status="$3"   # pass or fail
+    local train_status="$3"       # pass or fail
     local duration_seconds="$4"
+    local eval_status="${5:-skipped}"   # pass, fail, or skipped
 
     local result_file="$RESULTS_DIR/deploy_test_stamp_${model_name}.json"
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    # Embed the eval metrics JSON if present, else null.
+    local eval_metrics="null"
+    local eval_results_file="$RESULTS_DIR/${model_name}_evaluation/stamp_eval_results.json"
+    if [[ "$eval_status" != "skipped" && -f "$eval_results_file" ]]; then
+        eval_metrics=$(cat "$eval_results_file")
+    fi
 
     cat > "$result_file" <<EOF
 {
     "model_name": "$model_name",
     "job_name": "$job_name",
     "training_status": "$train_status",
+    "evaluation_status": "$eval_status",
     "duration_seconds": $duration_seconds,
     "timestamp": "$timestamp",
     "docker_image": "$DOCKER_IMAGE",
     "version": "$VERSION",
-    "client_sites": $(printf '%s\n' "${CLIENT_SITES[@]}" | jq -R . | jq -s .)
+    "client_sites": $(printf '%s\n' "${CLIENT_SITES[@]}" | jq -R . | jq -s .),
+    "evaluation_metrics": $eval_metrics
 }
 EOF
 
@@ -777,19 +945,26 @@ run_single_model() {
         fi
     done
 
-    # 7. Stop all containers
+    # 7. Evaluate the trained global model (#270) — before stop_all, so the
+    #    client checkpoints are still collectable from the remote workspaces.
+    local eval_status="skipped"
+    if [[ "$EVALUATE" == true && "$train_status" == "pass" ]]; then
+        eval_status=$(evaluate_model "$model_name")
+    fi
+
+    # 8. Stop all containers
     stop_all
 
-    # 8. Record result
+    # 9. Record result
     local end_time
     end_time=$(date +%s)
     local duration=$(( end_time - start_time ))
 
-    record_result "$model_name" "$job_name" "$train_status" "$duration"
+    record_result "$model_name" "$job_name" "$train_status" "$duration" "$eval_status"
 
     echo ""
     if [[ "$train_status" == "pass" ]]; then
-        ok "PASSED: $model_name in ${duration}s"
+        ok "PASSED: $model_name in ${duration}s (evaluation: $eval_status)"
     else
         err "FAILED: $model_name in ${duration}s"
     fi
