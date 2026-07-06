@@ -173,7 +173,13 @@ esac
 source "$CONF_FILE"
 
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
-DOCKER_IMAGE="jefftud/odelia:$VERSION"
+# Derive the image name from the provision YAML's docker_image line (same source
+# the build script uses), so non-odelia projects (e.g. DECADE = jefftud/decade)
+# work without editing this script. Falls back to the historical default.
+DOCKER_IMAGE=$(grep -m1 "docker_image:" "$REPO_ROOT/$PROJECT_FILE" 2>/dev/null \
+    | sed 's/.*docker_image:[[:space:]]*//' \
+    | sed "s/__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__/$VERSION/")
+DOCKER_IMAGE="${DOCKER_IMAGE:-jefftud/odelia:$VERSION}"
 
 PROJECT_NAME=$(grep "^name: " "$REPO_ROOT/$PROJECT_FILE" \
     | sed 's/^name: //' \
