@@ -13,7 +13,7 @@ from here without re-deriving context.
 | All-site startup kits | ✅ built (see paths below) |
 | Run quorum `8 / 7 / 7` | ✅ set via `prepare_odelia_job.sh` flags at job-prep time (**no rebuild** — byoc) |
 | Partner email | ✅ drafted (below) — **not yet sent** |
-| Server node (dl3 = Cosmos) | ✅ **running** since 2026-07-02 12:11 — container `odelia_swarm_server_flserver_be9ef04` (`on-failure:5`; must be restarted manually after a host reboot: `cd <server kit>/startup && ./docker.sh --no_pull --start_server`) |
+| Server node (dl3 = Cosmos) | ✅ **running** since 2026-07-02 12:11 — container `odelia_swarm_server_flserver_be9ef04`. Kits built after #393 launch with `--restart=unless-stopped`, so the server (and clients) auto-restart after a host reboot. **Containers created before #393** are still `on-failure:5` and must either be recreated from a new kit or patched once in place: `docker update --restart unless-stopped <container>` (else restart manually after a reboot: `cd <server kit>/startup && ./docker.sh --no_pull --start_server`). |
 | Live-sync SSH keys for UKA / UMCU / VHIO | ⏳ UMCU: key already authorized, needs only the host-key refresh (§4); UKA / VHIO pending pubkeys |
 | Run | ⛔ scheduled tomorrow / this weekend |
 
