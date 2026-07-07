@@ -1026,7 +1026,7 @@ def _parse_p2p_transfers(text: str) -> list[dict[str, Any]]:
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 _JOBID_RE = re.compile(r"run=([0-9a-fA-F-]{36})")
 _ROUND_RE = re.compile(r"on round (\d+)")
-_PRUNE_RE = re.compile(r"client ([A-Z0-9_]+) reported error '([^']+)'.*?continuing with (\d+)")
+_PRUNE_RE = re.compile(r"client ([A-Za-z0-9_]+) reported error '([^']+)'.*?continuing with (\d+)")
 
 
 def _read_tail(path: Path, max_bytes: int = 500_000) -> str:
@@ -1082,7 +1082,7 @@ def parse_swarm_progress(log_path: str, now: "float | None" = None):
         for ln in jlines:
             if rtag not in ln:
                 continue
-            mp = re.search(r"peer=([A-Z0-9_]+)", ln)
+            mp = re.search(r"peer=([A-Za-z0-9_]+)", ln)
             ma = re.search(r"action=(\w+)", ln)
             if mp and ma:
                 clients[mp.group(1)] = ma.group(1)
