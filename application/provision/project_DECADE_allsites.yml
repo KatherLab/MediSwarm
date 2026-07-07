@@ -1,0 +1,62 @@
+api_version: 3
+name: decade___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___allsites
+description: >
+  DECADE consortium — STAMP (computational pathology) all-sites swarm project.
+  TUD hosts the server + admin only (no TUD training client); one client per
+  DECADE site. Build with the STAMP Dockerfile:
+    ./scripts/build/buildDockerImageAndStartupKits.sh \
+        -p application/provision/project_DECADE_allsites.yml \
+        -d docker_config/Dockerfile_STAMP
+  (STAMP-ness comes from Dockerfile_STAMP overriding master_template.yml inside
+  the image; this YAML keeps template_file: master_template.yml like all others.
+  The image is jefftud/decade, not jefftud/odelia.)
+
+participants:
+  - name: dl3.tud.de
+    type: server
+    org: TUD
+    fed_learn_port: 8002
+    admin_port: 8003
+
+  # ── DECADE client sites (one per hospital; site name = NVFlare identifier;
+  #    must match each site's data folder <SITE_NAME>/features + clini_table.csv) ──
+  - name: UKB_1        # Universitätsklinikum Bonn
+    type: client
+    org: UKB
+  - name: Mainz_1      # Universitätsmedizin Mainz
+    type: client
+    org: Mainz
+  - name: UKD_1        # Universitätsklinikum Düsseldorf
+    type: client
+    org: UKD
+  - name: UKHD_1       # Universitätsklinikum Heidelberg
+    type: client
+    org: UKHD
+
+  # ── TUD: admin only (project owner), no training client ──
+  - name: jiefu.zhu@tu-dresden.de
+    type: admin
+    org: TUD
+    role: project_admin
+
+builders:
+  - path: nvflare.lighter.impl.workspace.WorkspaceBuilder
+    args:
+      template_file: master_template.yml
+  - path: nvflare.lighter.impl.template.TemplateBuilder
+  - path: nvflare.lighter.impl.static_file.StaticFileBuilder
+    args:
+      config_folder: config
+      scheme: http
+      # docker.sh is generated on server/client/admin from this image name.
+      docker_image: jefftud/decade:__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__
+      overseer_agent:
+        path: nvflare.ha.dummy_overseer_agent.DummyOverseerAgent
+        overseer_exists: false
+        args:
+          # SERVER_NAME:FL_PORT:ADMIN_PORT — must match the server above.
+          # Server runs on TUD (Tailscale 100.100.101.100); clients map
+          # dl3.tud.de -> 100.100.101.100 in /etc/hosts.
+          sp_end_point: dl3.tud.de:8002:8003
+  - path: nvflare.lighter.impl.cert.CertBuilder
+  - path: nvflare.lighter.impl.signature.SignatureBuilder

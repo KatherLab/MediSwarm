@@ -173,13 +173,22 @@ class STAMPPredictionCallback(Callback):
         for batch_idx, batch in enumerate(dataloader):
             # STAMP 2.4.0 BagDataset yields tuples: (bags, targets, ...)
             # or dicts depending on the collate function.  Handle both.
+            # STAMP 2.4.0's BagDataset collate yields a 4-tuple:
+            #   (bags, coords, bag_sizes, targets)
+            # Older/other formats may yield (bags, targets[, patient_ids]) or a
+            # dict; handle all of them.
+            coords = None
+            patient_ids = None
             if isinstance(batch, (list, tuple)):
-                bags = batch[0]
-                targets = batch[1]
-                # Patient IDs may be in batch[2] if available
-                patient_ids = batch[2] if len(batch) > 2 else None
+                if len(batch) >= 4:
+                    bags, coords, _bag_sizes, targets = batch[0], batch[1], batch[2], batch[3]
+                elif len(batch) == 3:
+                    bags, targets, patient_ids = batch[0], batch[1], batch[2]
+                else:
+                    bags, targets = batch[0], batch[1]
             elif isinstance(batch, dict):
                 bags = batch.get("bags", batch.get("features"))
+                coords = batch.get("coords")
                 targets = batch.get("targets", batch.get("labels"))
                 patient_ids = batch.get("patient_ids", batch.get("patient_id"))
             else:
@@ -191,15 +200,19 @@ class STAMPPredictionCallback(Callback):
 
             bags = bags.to(device)
             targets = targets.to(device)
+            if coords is not None and hasattr(coords, "to"):
+                coords = coords.to(device)
 
-            # Forward pass — model returns logits
+            # Forward pass. STAMP's Lightning module wraps the network in
+            # ``model.model`` and invokes it as ``model.model(bags, coords=coords,
+            # mask=None)`` (see LitTileClassifier.predict_step). Mirror that; fall
+            # back to a plain positional call for non-STAMP models.
+            net = getattr(model, "model", model)
             try:
-                logits = model(bags)
+                logits = net(bags, coords=coords, mask=None)
             except Exception:
-                # Some STAMP models have different forward signatures
-                # Fall back to passing as keyword argument
                 try:
-                    logits = model(features=bags)
+                    logits = model(bags)
                 except Exception as e:
                     logger.warning(f"Could not run forward pass: {e}")
                     return

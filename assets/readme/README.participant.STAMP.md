@@ -28,11 +28,24 @@ inference (deployment) remain standalone steps that each site runs locally.
 
 ## Setup
 
-0. Add this line to your `/etc/hosts`: `172.24.4.65 dl3.tud.de dl3`
+0. Add a line mapping the swarm server to your `/etc/hosts`. Your swarm operator
+   will confirm the exact IP for your project:
+    * OpenVPN projects (e.g. ODELIA): `172.24.4.65 dl3.tud.de dl3`
+    * Tailscale projects (e.g. DECADE): `<SERVER_TAILSCALE_IP> dl3.tud.de dl3`
+      (the server's `100.x.y.z` Tailscale address).
 1. Make sure your compute node satisfies the specification and has the necessary
    software installed.
 2. Set up the VPN. A VPN is necessary so that the swarm nodes can communicate
-   with each other securely across firewalls.
+   with each other securely across firewalls. Your operator will tell you which
+   VPN your project uses.
+
+    **Option A — Tailscale (DECADE):**
+    1. Accept the Tailscale invitation your operator emailed and connect your
+       node to the tailnet.
+    2. Confirm the server is reachable: `ping dl3.tud.de` (after the `/etc/hosts`
+       entry in step 0).
+
+    **Option B — OpenVPN (ODELIA):**
     1. Install OpenVPN
        ```bash
        sudo apt-get install openvpn
@@ -43,6 +56,17 @@ inference (deployment) remain standalone steps that each site runs locally.
        to the VPN: [VPN setup guide(CLI).md](../VPN%20setup%20guide%28CLI%29.md)
     4. You may want to clone this repository or selectively download VPN-related
        scripts for this purpose.
+
+3. **Share an SSH public key with your swarm operator (for live-sync log
+   collection).** During a run, a small live-sync helper pushes only log/metadata
+   files (never patient data) to the operator's monitoring host so they can help
+   if a node stalls. Generate a key and send the operator the **public** half:
+   ```bash
+   ssh-keygen -t ed25519 -C "$(hostname)@mediswarm"   # press Enter for defaults
+   cat ~/.ssh/id_ed25519.pub                            # send THIS line to your operator
+   ```
+   Never send the private key. The operator authorizes your public key on the
+   monitoring host and confirms.
 
 ## Prepare Dataset
 
