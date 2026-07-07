@@ -174,7 +174,9 @@ PROJECT_NAME="$(grep '^name: ' "$PROJECT_FILE" \
     | sed 's/^name: //' \
     | sed "s#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__#$VERSION#")"
 WORKSPACE_DIR="$REPO_ROOT/workspace/$PROJECT_NAME"
-DEPLOY_BASE="${COSMOS_DEPLOY_DIR:-/home/swarm/deploy_test_duke_iid_2client}"
+# Local (dl3) deploy dir for the server/admin kits. Default under $HOME so it works
+# for whichever user runs this (not just 'swarm'); override with COSMOS_DEPLOY_DIR.
+DEPLOY_BASE="${COSMOS_DEPLOY_DIR:-$HOME/deploy_test_duke_iid_2client}"
 SERVER_NAME="${SERVER_NAME:-dl3.tud.de}"
 ADMIN_USER="${ADMIN_USER:-jiefu.zhu@tu-dresden.de}"
 CLIENT_COUNT="${#CLIENT_SITES[@]}"
@@ -512,6 +514,19 @@ fix_remote_dns() {
 
 pre_pull_images() {
     step "Pull $DOCKER_IMAGE on clients"
+    # Clients pull from the registry, so the image must be there. With --skip-build
+    # (reusing a locally-built image) the push is skipped, which otherwise leaves the
+    # clients failing with "manifest unknown". If the tag isn't on the registry but
+    # exists locally, push it now so the pull below can succeed.
+    if ! docker manifest inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
+        if docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
+            warn "$DOCKER_IMAGE is not on the registry (e.g. --skip-push); pushing it so clients can pull"
+            docker push "$DOCKER_IMAGE" || { err "Failed to push $DOCKER_IMAGE — run 'docker login' or drop --skip-push"; return 1; }
+        else
+            err "$DOCKER_IMAGE is neither on the registry nor built locally; build it or drop --skip-build"
+            return 1
+        fi
+    fi
     local site gpu
     for site in "${CLIENT_SITES[@]}"; do
         gpu="$(site_var "$site" GPU)"
