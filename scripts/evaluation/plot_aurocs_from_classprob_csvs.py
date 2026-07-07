@@ -19,6 +19,15 @@ AUROC_TYPES = ['macro', 'none vs benign (0v1)', 'none vs malignant (0v2)', 'beni
 LAST_EPOCH_PLACEHOLDER = -2**30
 EPOCH_OFFSET_FOR_TEST_METRIC = 10
 
+SETTING_swarm_agg_train = 'Swarm (agg, train)'
+SETTING_swarm_agg_val = 'Swarm (agg, val)'
+SETTING_swarm_agg_test = 'Swarm (agg, test)'
+SETTING_swarm_site_train = 'Swarm (site, train)'
+SETTING_swarm_site_val = 'Swarm (site, val)'
+SETTING_local_train = 'Local (train)'
+SETTING_local_val = 'Local (val)'
+SETTING_local_test = 'Local (test)'
+
 def add_file_or_warn(file_path, file_list):
     if file_path.exists():
         file_list.append(file_path)
@@ -51,7 +60,7 @@ def get_setting_files(root_dir: str) -> Dict[str, List[Path]]:
     for site_dir in [d for d in local_dir.iterdir() if d.is_dir()]:
         add_file_or_warn(site_dir / 'site_model_gt_and_classprob_train.csv', local_train_files)
         add_file_or_warn(site_dir / 'site_model_gt_and_classprob_validation.csv', local_val_files)
-        # add_file_or_warn(site_dir / '.csv', local_test_files) # TODO
+        add_file_or_warn(site_dir / 'site_model_gt_and_classprob_test.csv', local_test_files)
 
     # Gather swarm files
     for site_dir in [d for d in swarm_dir.iterdir() if d.is_dir()]:
@@ -61,14 +70,14 @@ def get_setting_files(root_dir: str) -> Dict[str, List[Path]]:
         add_file_or_warn(site_dir / 'aggregated_model_gt_and_classprob_validation.csv', swarm_agg_val_files)
         add_file_or_warn(site_dir / 'final_aggregated_model_gt_and_classprob_test.csv', swarm_agg_test_files)
 
-    setting_files = { 'Swarm (agg, train)': swarm_agg_train_files,
-                      'Swarm (agg, val)': swarm_agg_val_files,
-                      'Swarm (agg, test)': swarm_agg_test_files,
-                      'Swarm (site, train)': swarm_site_train_files,
-                      'Swarm (site, val)': swarm_site_val_files,
-                      'Local (train)': local_train_files,
-                      'Local (val)': local_val_files,
-                      'Local (test)': local_test_files,
+    setting_files = { SETTING_swarm_agg_train:   swarm_agg_train_files,
+                      SETTING_swarm_agg_val:     swarm_agg_val_files,
+                      SETTING_swarm_agg_test:    swarm_agg_test_files,
+                      SETTING_swarm_site_train:  swarm_site_train_files,
+                      SETTING_swarm_site_val:    swarm_site_val_files,
+                      SETTING_local_train:       local_train_files,
+                      SETTING_local_val:         local_val_files,
+                      SETTING_local_test:        local_test_files,
                      }
     return setting_files
 
@@ -106,7 +115,8 @@ def load_data(setting_files: Dict[str, List[Path]]) -> Dict[str, pd.DataFrame]:
 
         dfs = []
         for file in files:
-            if 'final_aggregated_model_gt_and_classprob_test.csv' in str(file):
+            if '_test' in str(file):
+                print('Loading from different format:', file)
                 # file format is different
                 df = _load_test_predictions(file)
             else:
@@ -194,23 +204,23 @@ def verify_constant_labels_across_epochs(merged_dfs: Dict[str, pd.DataFrame]) ->
 def verify_same_label_distributions_at_epoch_zero(merged_dfs: Dict[str, pd.DataFrame]) -> None:
     # For train: verify swarm agg and swarm site have same label distribution at epoch 0
     success = True
-    if 'Swarm (agg, train)' in merged_dfs.keys():
-        for site in merged_dfs['Swarm (agg, train)'].site.unique():
-            agg_labels = merged_dfs['Swarm (agg, train)'][(merged_dfs['Swarm (agg, train)'].site == site) &
-                                                          (merged_dfs['Swarm (agg, train)'].epoch == 0)].label.value_counts().sort_index()
-            site_labels = merged_dfs['Swarm (site, train)'][(merged_dfs['Swarm (site, train)'].site == site) &
-                                                            (merged_dfs['Swarm (site, train)'].epoch == 0)].label.value_counts().sort_index()
+    if SETTING_swarm_agg_train in merged_dfs.keys():
+        for site in merged_dfs[SETTING_swarm_agg_train].site.unique():
+            agg_labels = merged_dfs[SETTING_swarm_agg_train][(merged_dfs[SETTING_swarm_agg_train].site == site) &
+                                                          (merged_dfs[SETTING_swarm_agg_train].epoch == 0)].label.value_counts().sort_index()
+            site_labels = merged_dfs[SETTING_swarm_site_train][(merged_dfs[SETTING_swarm_site_train].site == site) &
+                                                            (merged_dfs[SETTING_swarm_site_train].epoch == 0)].label.value_counts().sort_index()
             if not agg_labels.equals(site_labels):
                 success = False
                 warn(f'Train label mismatch at epoch 0 for site {site}: agg={agg_labels.to_dict()}, site={site_labels.to_dict()}')
 
     # For val: verify swarm agg and swarm site have same label distribution at epoch 0
-    if 'Swarm (agg, val)' in merged_dfs.keys():
-        for site in merged_dfs['Swarm (agg, val)'].site.unique():
-            agg_labels = merged_dfs['Swarm (agg, val)'][(merged_dfs['Swarm (agg, val)'].site == site) &
-                                                        (merged_dfs['Swarm (agg, val)'].epoch == 0)].label.value_counts().sort_index()
-            site_labels = merged_dfs['Swarm (site, val)'][(merged_dfs['Swarm (site, val)'].site == site) &
-                                                          (merged_dfs['Swarm (site, val)'].epoch == 0)].label.value_counts().sort_index()
+    if SETTING_swarm_agg_val in merged_dfs.keys():
+        for site in merged_dfs[SETTING_swarm_agg_val].site.unique():
+            agg_labels = merged_dfs[SETTING_swarm_agg_val][(merged_dfs[SETTING_swarm_agg_val].site == site) &
+                                                        (merged_dfs[SETTING_swarm_agg_val].epoch == 0)].label.value_counts().sort_index()
+            site_labels = merged_dfs[SETTING_swarm_site_val][(merged_dfs[SETTING_swarm_site_val].site == site) &
+                                                          (merged_dfs[SETTING_swarm_site_val].epoch == 0)].label.value_counts().sort_index()
             if not agg_labels.equals(site_labels):
                 success = False
                 warn(f'Val label mismatch at epoch 0 for site {site}: agg={agg_labels.to_dict()}, site={site_labels.to_dict()}')
@@ -221,15 +231,15 @@ def verify_same_label_distributions_at_epoch_zero(merged_dfs: Dict[str, pd.DataF
 
 def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     # Train distributions - use only epoch 0 since we verified labels are constant across epochs
-    if 'Swarm (agg, train)' in merged_dfs:
-        swarm_train_dist = merged_dfs['Swarm (agg, train)'][merged_dfs['Swarm (agg, train)'].epoch == 0][['site', 'label']].copy()
+    if SETTING_swarm_agg_train in merged_dfs:
+        swarm_train_dist = merged_dfs[SETTING_swarm_agg_train][merged_dfs[SETTING_swarm_agg_train].epoch == 0][['site', 'label']].copy()
     else:
         swarm_train_dist = pd.DataFrame()
     swarm_train_dist['source'] = 'Swarm'
     swarm_train_dist['split'] = 'Train'
 
-    if 'Local (train)' in merged_dfs:
-        local_train_dist = merged_dfs['Local (train)'][merged_dfs['Local (train)'].epoch == 0][['site', 'label']].copy()
+    if SETTING_local_train in merged_dfs:
+        local_train_dist = merged_dfs[SETTING_local_train][merged_dfs[SETTING_local_train].epoch == 0][['site', 'label']].copy()
     else:
         local_train_dist = pd.DataFrame()
 
@@ -238,15 +248,15 @@ def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataF
 
 
     # Val distributions - use only epoch 0
-    if 'Swarm (agg, val)' in merged_dfs:
-        swarm_val_dist = merged_dfs['Swarm (agg, val)'][merged_dfs['Swarm (agg, val)'].epoch == 0][['site', 'label']].copy()
+    if SETTING_swarm_agg_val in merged_dfs:
+        swarm_val_dist = merged_dfs[SETTING_swarm_agg_val][merged_dfs[SETTING_swarm_agg_val].epoch == 0][['site', 'label']].copy()
     else:
         swarm_val_dist = pd.DataFrame()
     swarm_val_dist['source'] = 'Swarm'
     swarm_val_dist['split'] = 'Val'
 
-    if 'Local (val)' in merged_dfs:
-        local_val_dist = merged_dfs['Local (val)'][merged_dfs['Local (val)'].epoch == 0][['site', 'label']].copy()
+    if SETTING_local_val in merged_dfs:
+        local_val_dist = merged_dfs[SETTING_local_val][merged_dfs[SETTING_local_val].epoch == 0][['site', 'label']].copy()
     else:
         local_val_dist = pd.DataFrame()
 
@@ -255,17 +265,17 @@ def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataF
 
 
     # Test distributions
-    if 'Swarm (agg, test)' in merged_dfs:
+    if SETTING_swarm_agg_test in merged_dfs:
         # there is only a single epoch
-        swarm_test_dist = merged_dfs['Swarm (agg, test)'][['site', 'label']].copy()
+        swarm_test_dist = merged_dfs[SETTING_swarm_agg_test][['site', 'label']].copy()
     else:
         swarm_test_dist = pd.DataFrame()
     swarm_test_dist['source'] = 'Swarm'
     swarm_test_dist['split'] = 'Test'
 
-    if 'Local (test)' in merged_dfs:
+    if SETTING_local_test in merged_dfs:
         # there is only a single epoch
-        local_test_dist = merged_dfs['Local (test)'][['site', 'label']].copy()
+        local_test_dist = merged_dfs[SETTING_local_test][['site', 'label']].copy()
     else:
         local_test_dist = pd.DataFrame()
 
@@ -279,37 +289,37 @@ def compute_label_distributions(merged_dfs: Dict[str, pd.DataFrame]) -> pd.DataF
 def plot_aurocs(auroc_df: pd.DataFrame, axes):
     def add_data_for_test_result_line(plot_data: pd.DataFrame, max_epoch: int) -> pd.DataFrame:
         plot_data_train_val = plot_data[(plot_data.epoch != LAST_EPOCH_PLACEHOLDER)]
-        plot_data_test_swarm_a = plot_data[(plot_data.epoch == LAST_EPOCH_PLACEHOLDER) & (plot_data.setting == 'Swarm (agg, test)')].copy()
-        plot_data_test_swarm_a.drop('epoch', axis=1)
-        plot_data_test_swarm_b = plot_data_test_swarm_a.copy()
-        plot_data_test_swarm_a.epoch = max_epoch
-        plot_data_test_swarm_b.epoch = max_epoch+EPOCH_OFFSET_FOR_TEST_METRIC
-        plot_data = pd.concat([plot_data_train_val, plot_data_test_swarm_a, plot_data_test_swarm_b])
+        plot_data_test_a = plot_data[(plot_data.epoch == LAST_EPOCH_PLACEHOLDER) & ((plot_data.setting  ==SETTING_swarm_agg_test) | (plot_data.setting == SETTING_local_test) )].copy()
+        plot_data_test_a.drop('epoch', axis=1)
+        plot_data_test_b = plot_data_test_a.copy()
+        plot_data_test_a.epoch = max_epoch
+        plot_data_test_b.epoch = max_epoch+EPOCH_OFFSET_FOR_TEST_METRIC
+        plot_data = pd.concat([plot_data_train_val, plot_data_test_a, plot_data_test_b])
         return plot_data
 
     n_sites = len(auroc_df.site.unique())
     sites = sorted(auroc_df.site.unique())
 
-    palette = {'Swarm (agg, train)':  '#a6cee3',
-               'Swarm (agg, val)':    '#1f78b4',
-               'Swarm (agg, test)':   '#1f78b4',
-               'Swarm (site, train)': '#b2df8a',
-               'Swarm (site, val)':   '#33a02c',
-               'Local (train)':       '#fb9a99',
-               'Local (val)':         '#e31a1c',
-               'Local (test)':        '#e31a1c'
+    palette = {SETTING_swarm_agg_train:   '#a6cee3',
+               SETTING_swarm_agg_val:     '#1f78b4',
+               SETTING_swarm_agg_test:    '#1f78b4',
+               SETTING_swarm_site_train:  '#b2df8a',
+               SETTING_swarm_site_val:    '#33a02c',
+               SETTING_local_train:       '#fb9a99',
+               SETTING_local_val:         '#e31a1c',
+               SETTING_local_test:        '#e31a1c'
                }
 
     my_dotted = (1,1)
     my_dashed = (3,3)
-    dashes = {'Swarm (agg, train)':  my_dotted,
-              'Swarm (agg, val)':    '',
-              'Swarm (agg, test)':   my_dashed,
-              'Swarm (site, train)': my_dotted,
-              'Swarm (site, val)':   '',
-              'Local (train)':       my_dotted,
-              'Local (val)':         '',
-              'Local (test)':        my_dashed
+    dashes = {SETTING_swarm_agg_train:   my_dotted,
+              SETTING_swarm_agg_val:     '',
+              SETTING_swarm_agg_test:    my_dashed,
+              SETTING_swarm_site_train:  my_dotted,
+              SETTING_swarm_site_val:   '',
+              SETTING_local_train:       my_dotted,
+              SETTING_local_val:         '',
+              SETTING_local_test:        my_dashed
               }
 
     for row_idx, auroc_type in enumerate(AUROC_TYPES):
@@ -456,6 +466,7 @@ def plot(auroc_df: pd.DataFrame, label_dist_df: pd.DataFrame, logscale_hist: boo
 
     plt.tight_layout()
     plt.savefig('evaluation.png', bbox_inches='tight', dpi=100)
+    plt.savefig('evaluation.pdf')
     plt.close()
 
 
