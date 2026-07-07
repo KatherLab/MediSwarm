@@ -30,11 +30,12 @@ Internal validation cohorts used for checkpoint selection:
 | MHA | 1DC | 1DivideAndConquer_unilateral_2026_04_22_154631 | n=204; 0=167, 1=22, 2=15 |
 | RSH | 1DC | 1DivideAndConquer_unilateral_2026_05_28_090751 | n=87; 0=3, 1=32, 2=52 |
 | RSH | 5Pimed | challenge_5pimed_unilateral_2026_04_03_182744 | n=87; 0=3, 1=32, 2=52 |
+| RUMC | 1DC | 1DivideAndConquer_unilateral_2026_06_04_101650 | n=904; 0=896, 1=0, 2=8 |
 | RUMC | MST | MST_unilateral_2026_04_13_162111 | n=200; 0=199, 1=0, 2=1 |
 | RUMC | MST | MST_unilateral_2026_02_18_120355 | n=200; 0=199, 1=0, 2=1 |
 
 ## Local Training Coverage
-Completed/available local-training artifacts cover **7 source sites** (CAM, MHA, RSH, RUMC, UKA, UMCU, USZ), **10 run artifacts**, and **1DC=5, 5Pimed=1, MST=4**. The full report has the per-run completion table; the selected-checkpoint table below keeps one externally strongest checkpoint per source/model family.
+Completed/available local-training artifacts cover **7 source sites** (CAM, MHA, RSH, RUMC, UKA, UMCU, USZ), **11 run artifacts**, and **1DC=6, 5Pimed=1, MST=4**. If the target list is the full 8-site swarm participant set, **VHIO local-training results are still missing from this report**. The full report has the per-run completion table; the selected-checkpoint table below keeps one externally strongest checkpoint per source/model family.
 
 ## Selected Single-Site Checkpoints
 | Source | Model | Selected checkpoint | Internal val C2 AUROC | Internal val ACC | External C2 AUROC | External macro AUROC | External ACC | External C2 recall |
@@ -48,6 +49,7 @@ Completed/available local-training artifacts cover **7 source sites** (CAM, MHA,
 | UMCU | MST | UMCU_MST_last | 0.823 | 0.871 | 0.624 | 0.589 | 0.643 | 0.000 |
 | RUMC | MST | RUMC_MST_20260218_last | 0.568 | 0.995 | 0.523 | 0.495 | 0.643 | 0.000 |
 | RSH | 5Pimed | RSH_5Pimed_last | 0.620 | 0.598 | 0.456 | 0.498 | 0.190 | 0.879 |
+| RUMC | 1DC | RUMC_1DC_epoch0_step451 | 0.537 | 0.991 | 0.408 | 0.483 | 0.643 | 0.000 |
 
 Selection rule: one checkpoint per `(training source, model family)`, choosing the highest external ODELIA challenge weighted Class-2 AUROC. This removes repeated checkpoint variants from the presentation view while preserving the main comparison.
 
@@ -74,6 +76,7 @@ Selection rule: one checkpoint per `(training source, model family)`, choosing t
 | MHA | 1DC | 1DivideAndConquer_unilateral_2026_04_22_154631 | 100 | e77 / 0.833 | e30 / 0.830 | e99 / 0.819 / 0.667 |
 | RSH | 1DC | 1DivideAndConquer_unilateral_2026_05_28_090751 | 100 | e58 / 0.655 | e25 / 0.618 | e99 / 0.621 / 0.595 |
 | RSH | 5Pimed | challenge_5pimed_unilateral_2026_04_03_182744 | 25 | e13 / 0.609 | e12 / 0.683 | e24 / 0.598 / 0.620 |
+| RUMC | 1DC | 1DivideAndConquer_unilateral_2026_06_04_101650 | 1 | e0 / 0.991 | e0 / 0.537 | e0 / 0.991 / 0.537 |
 | RUMC | MST | MST_unilateral_2026_04_13_162111 | 1 | e0 / 0.995 | e0 / 0.558 | e0 / 0.995 / 0.558 |
 | RUMC | MST | MST_unilateral_2026_02_18_120355 | 100 | e0 / 0.995 | e5 / 0.910 | e99 / 0.995 / 0.568 |
 
