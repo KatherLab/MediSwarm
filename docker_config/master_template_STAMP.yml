@@ -795,9 +795,13 @@ docker_cln_sh: |
      ENV_VARS+=" --env LOG_DATASET_DETAILS=1"
   fi
 
-  # Forward all STAMP_* environment variables into the container
+  # Forward all STAMP_* environment variables into the container. Pass by NAME
+  # only (no =value): docker then inherits each value from this script's
+  # environment, which preserves values containing spaces (e.g. a clinical
+  # column named "Slide ID"). The "=value" form word-split on the unquoted
+  # $ENV_VARS expansion and broke the docker command for such values.
   for _var in $(env | grep '^STAMP_' | cut -d= -f1); do
-      ENV_VARS+=" --env ${_var}=${!_var}"
+      ENV_VARS+=" --env ${_var}"
   done
 
   # ── Live Sync Integration ──────────────────────────────────────────
