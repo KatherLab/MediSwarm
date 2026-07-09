@@ -56,8 +56,17 @@ source "$SCRIPT_DIR/deploy_common.sh"
 CONF_FILE=""
 TIMEOUT_MINUTES=120   # 2 hours for a quick 2-round test
 MODELS_ARG=""
-ALL_STAMP_MODELS=(vit mlp trans_mil linear barspoon)
+# Models supported by the STAMP version shipped in the image (2.4.0), i.e.
+# stamp.modeling.registry.ModelName == {vit, mlp, trans_mil, linear}.
+# `barspoon` was only added in STAMP 2.5.0 (models/barspoon.py) and raises
+# "'barspoon' is not a valid ModelName" here — see BARSPOON_MIN_STAMP below.
+ALL_STAMP_MODELS=(vit mlp trans_mil linear)
+BARSPOON_MIN_STAMP="2.5.0"
 TEST_MODELS=()
+
+# Populated by run_single_model(); drive the script's exit status.
+PASSED_MODELS=()
+FAILED_MODELS=()
 EVALUATE=false          # run the post-training evaluation step (#270)
 EVAL_SITE_ARG=""        # site whose data to evaluate on (default: first client site)
 EVAL_DATA_DIR_ARG=""    # host path to eval data on this (server) machine
@@ -82,7 +91,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --conf           Path to site configuration file (required)"
             echo "  --timeout        Per-model training timeout in minutes (default: 120)"
             echo "  --models         Comma-separated STAMP models to test"
-            echo "                   (default: vit,mlp,trans_mil,linear,barspoon)"
+            echo "                   (default: vit,mlp,trans_mil,linear; barspoon needs STAMP >= 2.5.0)"
             echo "  --task           STAMP task type (default: classification). The site"
             echo "                   data must be generated for this task, e.g."
             echo "                   create_synthetic_stamp_dataset.py <dir> --task survival (#271)."
@@ -144,6 +153,14 @@ resolve_test_models() {
     for model in "${raw_models[@]}"; do
         model="${model//[[:space:]]/}"
         [[ -z "$model" ]] && continue
+
+        if [[ "$model" == "barspoon" ]]; then
+            err "STAMP model 'barspoon' requires STAMP >= $BARSPOON_MIN_STAMP."
+            err "  The image ships STAMP 2.4.0, whose ModelName enum has no 'barspoon';"
+            err "  training would abort with \"'barspoon' is not a valid ModelName\"."
+            err "  Supported models: ${ALL_STAMP_MODELS[*]}"
+            exit 1
+        fi
 
         if ! is_supported_stamp_model "$model"; then
             err "Unsupported STAMP model: $model"
@@ -981,10 +998,14 @@ run_single_model() {
     echo ""
     if [[ "$train_status" == "pass" ]]; then
         ok "PASSED: $model_name in ${duration}s (evaluation: $eval_status)"
+        PASSED_MODELS+=("$model_name")
     else
         err "FAILED: $model_name in ${duration}s"
+        FAILED_MODELS+=("$model_name")
     fi
 
+    # Always return 0 so the caller keeps testing the remaining models; the
+    # script's exit status is decided from FAILED_MODELS at the end.
     return 0
 }
 
@@ -1027,3 +1048,17 @@ step "Selected STAMP models: ${TEST_MODELS[*]}"
 for model_name in "${TEST_MODELS[@]}"; do
     run_single_model "$JOB_NAME" "$model_name"
 done
+
+# ── Summary + exit status ────────────────────────────────────────────────
+# Previously the script always exited 0, so a failing model (e.g. barspoon,
+# which the shipped STAMP cannot instantiate) still reported success to CI.
+step "STAMP deploy test summary"
+for m in "${PASSED_MODELS[@]:-}"; do [[ -n "$m" ]] && ok "  PASS  $m"; done
+for m in "${FAILED_MODELS[@]:-}"; do [[ -n "$m" ]] && err "  FAIL  $m"; done
+info "  ${#PASSED_MODELS[@]} passed, ${#FAILED_MODELS[@]} failed (results: $RESULTS_DIR)"
+
+if [[ ${#FAILED_MODELS[@]} -gt 0 ]]; then
+    err "Deploy test FAILED for: ${FAILED_MODELS[*]}"
+    exit 1
+fi
+ok "All ${#PASSED_MODELS[@]} model(s) passed"
