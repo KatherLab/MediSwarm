@@ -178,7 +178,7 @@ export STAMP_PATIENT_LABEL="PATIENT"               # patient ID column name
 
 # ── Task & Model ──
 export STAMP_TASK="classification"                 # classification, regression, or survival
-export STAMP_MODEL_NAME="vit"                      # vit, mlp, trans_mil, linear, barspoon
+export STAMP_MODEL_NAME="vit"                      # vit, mlp, trans_mil, linear
 export STAMP_DIM_INPUT="1024"                      # must match your feature extractor
 export STAMP_NUM_CLASSES="3"                        # number of output classes
 
@@ -209,7 +209,7 @@ Your swarm operator will tell you the correct values for `STAMP_MODEL_NAME`,
 | MLP | `mlp` | Multi-layer perceptron |
 | TransMIL | `trans_mil` | Transformer-based multiple instance learning |
 | Linear | `linear` | Linear classifier |
-| Barspoon | `barspoon` | Encoder-decoder transformer |
+| Barspoon | `barspoon` | Encoder-decoder transformer — **not available**: requires STAMP ≥ 2.5.0, the swarm image ships 2.4.0 |
 
 ### Local Testing on Your Data
 
