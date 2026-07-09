@@ -84,6 +84,14 @@ Coordinate with your swarm operator to ensure all sites use the **same feature
 extractor, tile size, and feature dimension** — mismatched features will cause
 training failures.
 
+**STAMP version for extraction (DECADE): 2.5.0.** Extract with standalone STAMP
+2.5.0 (it requires Python 3.13). The swarm training image itself runs STAMP
+2.4.0 — because NVFlare/PyTorch in the image are on Python 3.11 — but it is
+patched to read features extracted by STAMP up to 2.5.0. The feature H5 layout
+and the UNI extractor are identical between 2.4.0 and 2.5.0, so this is safe.
+If you extract with a STAMP newer than 2.5.0, training will refuse the features
+— tell your swarm operator first.
+
 ### Folder Structure
 
 ```
