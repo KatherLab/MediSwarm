@@ -307,11 +307,11 @@ def log_data_hash(ds_train, ds_val, ds_test, env_vars: dict, logger, log_dataset
     imagedata_hashes_test = sorted(item.hash for item in imagedata_hashes_test)
 
     hash_all = _hexdigest_string(
-        ''.join(imageuid_hashes_train)
-        + ''.join(imageuid_hashes_validation)
-        + ''.join(imageuid_hashes_test)
-        + ''.join(imagedata_hashes_train)
-        + ''.join(imagedata_hashes_validation)
+        ''.join(imageuid_hashes_train) + '|'
+        + ''.join(imageuid_hashes_validation) + '|'
+        + ''.join(imageuid_hashes_test) + '|'
+        + ''.join(imagedata_hashes_train) + '|'
+        + ''.join(imagedata_hashes_validation) + '|'
         + ''.join(imagedata_hashes_test)
     )
     logger.info(f"Data hash: {hash_all}")
