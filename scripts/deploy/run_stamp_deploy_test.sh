@@ -198,6 +198,9 @@ mkdir -p "$RESULTS_DIR"
 # Job to run
 JOB_NAME="${DEFAULT_JOB:-STAMP_classification}"
 
+# Set by submit_job() once the admin returns a real job id.
+SUBMITTED_JOB_ID=""
+
 # ── Evaluation configuration (#270) ────────────────────────────────────────
 # Evaluation runs on THIS (server) machine and needs the eval site's data
 # locally (mounted as /data). CLI flags override; conf may set EVAL_SITE /
@@ -600,12 +603,19 @@ expect eof
 EXPECT_EOF
     chmod +x "$expect_script"
 
+    # Capture the admin session: `expect` exits 0 even when the admin failed to
+    # reach the server, so its exit status alone must never be trusted.
+    local submit_log="$RESULTS_DIR/submit_${job_name}.log"
     cd "$admin_startup"
-    expect -f "$expect_script" || true
+    local rc=0
+    expect -f "$expect_script" > "$submit_log" 2>&1 || rc=$?
     cd "$REPO_ROOT"
-
     rm -f "$expect_script"
-    ok "Job submitted: $job_name"
+
+    # `expect` exits 0 even when the admin never reached the server (rc=$rc is
+    # not trustworthy); only a real job id proves the submission landed.
+    SUBMITTED_JOB_ID=$(assert_job_submitted "$submit_log" "$job_name") || exit 1
+    ok "Job submitted: $job_name (id: $SUBMITTED_JOB_ID)"
 }
 
 # ── Wait for training completion ──────────────────────────────────────────
@@ -1002,6 +1012,9 @@ stop_all
 # Deploy startup kits to all sites
 step "Deploying startup kits to all sites"
 deploy_kits
+
+# Fix DNS: this (admin/server) host first — the admin container uses --net=host
+ensure_local_dns
 
 # Fix DNS on remote machines
 fix_remote_dns
