@@ -13,7 +13,7 @@ trains on raw 3D NIfTI volumes, STAMP expects HDF5 (`.h5`) feature files that
 have already been extracted from WSIs using a foundation model (e.g. UNI,
 CTransPath, RetCCL).
 
-Only the **training** step is federated. Feature extraction (preprocessing) and
+Only the **training** step is done as swarm learning. Feature extraction (preprocessing) and
 inference (deployment) remain standalone steps that each site runs locally.
 
 ## Prerequisites
