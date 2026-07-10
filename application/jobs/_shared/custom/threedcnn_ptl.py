@@ -427,42 +427,42 @@ def create_run_directory(env_vars):
     )
 
 
-def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv_filename_train, csv_filename_validation) -> None:
-    def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader, device: torch.device):
-        results = []
-        for batch in data_loader:
-            source, target = batch['source'], batch['target']
+def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader, device: torch.device):
+    results = []
+    for batch in data_loader:
+        source, target = batch['source'], batch['target']
 
-            with torch.no_grad():
-                logits = model(source.to(device))
+        with torch.no_grad():
+            logits = model(source.to(device))
 
-            pred_prob = model.logits2probabilities(logits).detach().cpu()
+        pred_prob = model.logits2probabilities(logits).detach().cpu()
 
-            for b in range(pred_prob.size(0)):
-                results.append({'GT': target[b].tolist(),
-                                'pred_prob': pred_prob[b].tolist(),
-                                })
-        return results
+        for b in range(pred_prob.size(0)):
+            results.append({'GT': target[b].tolist(),
+                            'pred_prob': pred_prob[b].tolist(),
+                            })
+    return results
 
-    def output_csv(results, epoch: int, csv_filename) -> None:
-        with open(csv_filename, 'a') as csvfile:
-            datawriter = csv.writer(csvfile)
-            for datapoint in results:
-                output_data = [epoch, datapoint['GT'][0]] + datapoint['pred_prob']
-                datawriter.writerow(output_data)
 
+def _output_GT_and_classprobs_csv(results, epoch: int, csv_filename) -> None:
+    with open(csv_filename, 'a') as csvfile:
+        datawriter = csv.writer(csvfile)
+        for datapoint in results:
+            output_data = [epoch, datapoint['GT'][0]] + datapoint['pred_prob']
+            datawriter.writerow(output_data)
+
+
+def output_GT_and_classprobs_csv_train_val(model, data_module: DataModule, epoch: int, csv_filename_train, csv_filename_validation) -> None:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     model = model.to(device)
 
     train_loader = data_module.train_dataloader()
     val_loader = data_module.val_dataloader()
 
     results_train = _determine_GT_and_classprobs(model, train_loader, device)
-    output_csv(results_train, epoch, csv_filename_train)
+    _output_GT_and_classprobs_csv(results_train, epoch, csv_filename_train)
     results_validation = _determine_GT_and_classprobs(model, val_loader, device)
-    output_csv(results_validation, epoch, csv_filename_validation)
-
+    _output_GT_and_classprobs_csv(results_validation, epoch, csv_filename_validation)
 
 
 class GT_PredProb_Output_Callback(Callback):
@@ -473,11 +473,11 @@ class GT_PredProb_Output_Callback(Callback):
         super().__init__()
 
     def on_train_epoch_end(self, trainer, pl_module):
-        output_GT_and_classprobs_csv(pl_module,
-                                     self.data_module,
-                                     trainer.current_epoch,
-                                     self.csv_filename_train,
-                                     self.csv_filename_validation)
+        output_GT_and_classprobs_csv_train_val(pl_module,
+                                               self.data_module,
+                                               trainer.current_epoch,
+                                               self.csv_filename_train,
+                                               self.csv_filename_validation)
 
 
 def prepare_training(logger, max_epochs: int, site_name: str = None,
@@ -587,7 +587,7 @@ def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
     """Whether to export per-sample aggregated predictions this swarm round (#314).
 
     The per-round aggregated prediction export (full train+val inference at
-    batch_size=1 plus CSV writes, in output_GT_and_classprobs_csv) dominates swarm
+    batch_size=1 plus CSV writes, in output_GT_and_classprobs_csv_train_val) dominates swarm
     round time -- it made the PR301 validation ~3.3x slower -- and is not
     informative more than once or twice. It is therefore throttled via the
     ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS environment variable:
@@ -616,7 +616,7 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
 
     if output_GT_and_classprob:
         with timed_stage(logger, "Aggregated prediction export", stage_timings):
-            output_GT_and_classprobs_csv(
+            output_GT_and_classprobs_csv_train_val(
                 model,
                 data_module,
                 trainer.current_epoch,
