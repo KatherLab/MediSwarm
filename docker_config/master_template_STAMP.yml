@@ -795,6 +795,42 @@ docker_cln_sh: |
      ENV_VARS+=" --env LOG_DATASET_DETAILS=1"
   fi
 
+  # Fail early (with an actionable message) when the STAMP_* configuration this
+  # mode needs is not visible to *this script*. The classic cause is running
+  # `sudo ./docker.sh ...`: sudo resets the environment, so the STAMP_* variables
+  # the user exported in their own shell never reach us, and training would die
+  # deep inside Python with `KeyError: 'STAMP_CLINI_TABLE'`.
+  if [ -n "${PREFLIGHT_CHECK:-}${LOCAL_TRAINING:-}${START_CLIENT:-}" ]; then
+      _missing=""
+      for _req in STAMP_CLINI_TABLE STAMP_FEATURE_DIR; do
+          eval "_val=\${${_req}:-}"
+          [ -z "$_val" ] && _missing="$_missing $_req"
+      done
+      if [ -n "$_missing" ]; then
+          echo "❗ Missing required STAMP environment variable(s):$_missing"
+          echo ""
+          if [ -n "${SUDO_USER:-}" ]; then
+              echo "   You ran this through 'sudo', which resets the environment, so the"
+              echo "   STAMP_* variables you exported are not visible to docker.sh."
+              echo ""
+              echo "   Preferred — run Docker without sudo (one-time setup, then re-login):"
+              echo "       sudo usermod -aG docker \$USER && newgrp docker"
+              echo "       ./docker.sh ..."
+              echo ""
+              echo "   Or preserve your environment through sudo:"
+              echo "       sudo -E ./docker.sh ..."
+          else
+              echo "   Export them before calling docker.sh, for example:"
+              echo "       export STAMP_CLINI_TABLE=\"/data/<SITE_NAME>/clini_table.csv\""
+              echo "       export STAMP_FEATURE_DIR=\"/data/<SITE_NAME>/features\""
+              echo "   (these are paths *inside* the container: --data_dir is mounted at /data)"
+          fi
+          echo ""
+          echo "   Check what this script can see with:  env | grep '^STAMP_'"
+          exit 1
+      fi
+  fi
+
   # Forward all STAMP_* environment variables into the container. Pass by NAME
   # only (no =value): docker then inherits each value from this script's
   # environment, which preserves values containing spaces (e.g. a clinical
