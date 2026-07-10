@@ -15,6 +15,9 @@ participants:
   - name: client_B
     type: client
     org: Test_Org
+  - name: client_P
+    type: client
+    org: Test_Org
   - name: admin@test.odelia
     type: admin
     org: Test_Org
