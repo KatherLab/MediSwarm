@@ -53,6 +53,12 @@ participants:
   - name: RUMC_1
     type: client
     org: RUMC
+  - name: MPU_1
+    type: client
+    org: MPU
+  - name: MPU_2
+    type: client
+    org: MPU
   - name: jiefu.zhu@tu-dresden.de
     type: admin
     org: TUD
