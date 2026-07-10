@@ -6,6 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# shellcheck source=scripts/ci/_error_filter.sh
+source "$SCRIPT_DIR/_error_filter.sh"
+
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
 CONTAINER_VERSION_SUFFIX=$(git rev-parse --short HEAD)
 DOCKER_IMAGE=localhost:5000/odelia:$VERSION
@@ -211,7 +214,7 @@ run_dummy_training_simulation_mode(){
 
     echo "$OUTPUT"
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example simulation mode succeeded."
     else
         echo "❌ Minimal example simulation mode failed."
@@ -226,7 +229,7 @@ run_dummy_training_poc_mode(){
 
     echo "$OUTPUT"
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example proof-of-concept mode succeeded."
     else
         echo "❌ Minimal example proof-of-concept mode failed."
