@@ -161,8 +161,13 @@ class BasicClassifier(BasicModel):
         self.out_ch = out_ch
         self.spatial_dims = spatial_dims
 
-        if loss_kwargs is None:
-            loss_kwargs = {}
+        # Defensive copies. These are mutable default arguments and the code below
+        # pops/updates them: without copying, `loss_kwargs.pop('weight')` empties the
+        # caller's dict (a second model built from the same config would silently train
+        # unweighted) and the shared defaults stay polluted for the process (#430).
+        loss_kwargs = dict(loss_kwargs) if loss_kwargs else {}
+        aucroc_kwargs = dict(aucroc_kwargs) if aucroc_kwargs else {}
+        acc_kwargs = dict(acc_kwargs) if acc_kwargs else {}
 
         # Store class weights as a buffer so they move to the correct device
         # with the model (e.g. GPU).  nn.CrossEntropyLoss.weight is NOT an
