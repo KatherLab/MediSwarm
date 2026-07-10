@@ -207,3 +207,6 @@ runs
 
 # Duke benchmark output
 duke_results/
+
+# DECADE local deploy creds (never commit)
+deploy_sites_decade_2node.conf

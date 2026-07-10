@@ -290,13 +290,21 @@ def build_and_load_model(checkpoint_path: str, device):
 
 
 def _unpack_batch(batch):
-    """Return (bags, targets) from a STAMP dataloader batch (tuple or dict)."""
+    """Return (bags, coords, targets) from a STAMP dataloader batch.
+
+    STAMP 2.4.0's BagDataset collate yields (bags, coords, bag_sizes, targets);
+    older/other formats may yield (bags, targets) or a dict. coords is None when
+    unavailable.
+    """
     if isinstance(batch, (list, tuple)):
-        return batch[0], batch[1]
+        if len(batch) >= 4:
+            return batch[0], batch[1], batch[3]
+        return batch[0], None, batch[1]
     if isinstance(batch, dict):
         bags = batch.get("bags", batch.get("features"))
+        coords = batch.get("coords")
         targets = batch.get("targets", batch.get("labels"))
-        return bags, targets
+        return bags, coords, targets
     raise ValueError(f"Unexpected batch type: {type(batch).__name__}")
 
 
@@ -312,14 +320,21 @@ def run_inference(model, dataloader, device):
     outputs_all: List[Any] = []
     with torch.no_grad():
         for batch in dataloader:
-            bags, targets = _unpack_batch(batch)
+            bags, coords, targets = _unpack_batch(batch)
             if bags is None or targets is None:
                 continue
             bags = bags.to(device)
+            if coords is not None and hasattr(coords, "to"):
+                coords = coords.to(device)
+            # STAMP's Lightning module wraps the net in ``model.model`` and calls
+            # it as ``model.model(bags, coords=coords, mask=None)`` (cf.
+            # LitTileClassifier.predict_step). Mirror that; fall back to a plain
+            # positional call for non-STAMP models.
+            net = getattr(model, "model", model)
             try:
+                out = net(bags, coords=coords, mask=None)
+            except Exception:  # noqa: BLE001 — non-STAMP fallback
                 out = model(bags)
-            except Exception:  # noqa: BLE001 — some STAMP models use kwargs
-                out = model(features=bags)
             out = out.detach().cpu()
             tgt = targets.detach().cpu() if hasattr(targets, "detach") else targets
             for i in range(out.shape[0]):
@@ -372,8 +387,12 @@ def evaluate_checkpoint(checkpoint: Dict[str, str], dataloader, env: Dict[str, A
         y_true: List[int] = []
         y_prob: List[List[float]] = []
         for tgt, out in zip(targets, outputs):
-            if getattr(tgt, "dim", lambda: 1)() != 0:
-                continue  # survival/regression target, not a scalar class index
+            # STAMP 2.4.0 encodes classification targets as one-hot vectors
+            # (cross_entropy(logits, targets); AUROC uses targets.argmax(-1)).
+            # Reduce a one-hot / vector target to its class index; a 0-dim
+            # target is already the index.
+            if hasattr(tgt, "dim") and tgt.dim() > 0:
+                tgt = tgt.argmax(dim=-1)
             y_true.append(int(tgt.item()))
             y_prob.append([float(x) for x in torch.softmax(out, dim=-1).tolist()])
         if not y_true:
