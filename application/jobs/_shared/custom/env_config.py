@@ -13,6 +13,26 @@ def _env_flag(name: str, default: bool = False) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
+NUM_FOLDS = 5  # split.csv is generated with 5-fold nested StratifiedGroupKFold
+
+
+def _fold_from_env():
+    """Cross-validation fold to train on (#411).
+
+    Run-level, not per-site: NVFlare distributes one job to every client, so all
+    sites train the same fold. K-fold CV = K sequential swarm runs. Defaults to 0,
+    which is the fold the code trained before this was configurable.
+    """
+    raw = os.environ.get('FOLD', '0').strip() or '0'
+    try:
+        fold = int(raw)
+    except ValueError:
+        raise ValueError(f"FOLD must be an integer, got {raw!r}")
+    if not 0 <= fold < NUM_FOLDS:
+        raise ValueError(f"FOLD must be in [0, {NUM_FOLDS - 1}], got {fold}")
+    return fold
+
+
 def load_environment_variables():
     scratch_dir = os.environ['SCRATCH_DIR']
     # Default DataLoader worker count. PR301 capped this at 8, which regressed
@@ -34,6 +54,7 @@ def load_environment_variables():
         'use_adaptive_sync': _env_flag('USE_ADAPTIVE_SYNC', default=False),
         'sync_frequency': int(os.environ.get('SYNC_FREQUENCY', 1024)),
         'model_name': os.environ.get('MODEL_NAME', 'ResNet101'),
+        'fold': _fold_from_env(),
         'prediction_flag': os.environ.get('PREDICT_FLAG', 'ext'),
         'mediswarm_version': os.environ.get('MEDISWARM_VERSION', 'unset'),
         'odelia_num_workers': int(os.environ.get('ODELIA_NUM_WORKERS', default_loader_workers)),
@@ -66,6 +87,7 @@ def resolve_odelia_runtime_settings(env_vars=None):
         'institution': os.environ.get('INSTITUTION', env_vars['site_name']),
         'model_name': os.environ.get('MODEL_NAME', env_vars['model_name']),
         'config': os.environ.get('CONFIG', 'unilateral'),
+        'fold': env_vars['fold'],
         'data_dir': env_vars['data_dir'],
         'scratch_dir': env_vars['scratch_dir'],
     }
@@ -91,8 +113,9 @@ def prepare_odelia_dataset(logger, log_dataset_details: bool = False, manifests=
     if manifests is None:
         manifests = build_odelia_manifests(env_vars)
 
+    fold = settings['fold']
     current_time = datetime.now().strftime("%Y_%m_%d_%H%M%S")
-    run_name = f'{model}_{config}_{current_time}'
+    run_name = f'{model}_{config}_fold{fold}_{current_time}'
     path_run_dir = Path(settings['scratch_dir']) / 'runs' / institution / run_name
     path_run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -101,6 +124,7 @@ def prepare_odelia_dataset(logger, log_dataset_details: bool = False, manifests=
         institutions=institution,
         split='train',
         config=config,
+        fold=fold,
         random_flip=True,
         random_rotate=True,
         random_inverse=False,
@@ -115,6 +139,7 @@ def prepare_odelia_dataset(logger, log_dataset_details: bool = False, manifests=
         institutions=institution,
         split='val',
         config=config,
+        fold=fold,
         manifests=manifests,
         enable_preprocess_cache=env_vars['odelia_enable_preprocess_cache'] if env_vars else False,
         preprocess_cache_dir=env_vars['odelia_preprocess_cache_dir'] if env_vars else None,
@@ -125,6 +150,7 @@ def prepare_odelia_dataset(logger, log_dataset_details: bool = False, manifests=
         institutions=institution,
         split='test',
         config=config,
+        fold=fold,
         manifests=manifests,
         enable_preprocess_cache=env_vars['odelia_enable_preprocess_cache'] if env_vars else False,
         preprocess_cache_dir=env_vars['odelia_preprocess_cache_dir'] if env_vars else None,
@@ -152,6 +178,7 @@ def prepare_odelia_dataset_without_augmentation(manifests=None, env_vars=None):
         institutions=institution,
         split='train',
         config=config,
+        fold=settings['fold'],
         transform='USE_UNPROCESSED_IMAGES',
         manifests=manifests,
     )
@@ -160,6 +187,7 @@ def prepare_odelia_dataset_without_augmentation(manifests=None, env_vars=None):
         institutions=institution,
         split='val',
         config=config,
+        fold=settings['fold'],
         transform='USE_UNPROCESSED_IMAGES',
         manifests=manifests,
     )
@@ -168,6 +196,7 @@ def prepare_odelia_dataset_without_augmentation(manifests=None, env_vars=None):
         institutions=institution,
         split='test',
         config=config,
+        fold=settings['fold'],
         transform='USE_UNPROCESSED_IMAGES',
         manifests=manifests,
     )

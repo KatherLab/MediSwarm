@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./prepare_odelia_job.sh --job JOB_NAME --warm-start fresh|continue [--num-rounds N] [--min-clients N] [--configure-min-clients N] [--min-responses N] [--broadcast-last-result true|false]
+  ./prepare_odelia_job.sh --job JOB_NAME --warm-start fresh|continue [--num-rounds N] [--min-clients N] [--configure-min-clients N] [--min-responses N] [--broadcast-last-result true|false] [--fold N]
 
 Examples:
   ./prepare_odelia_job.sh --job ODELIA_ternary_classification --warm-start fresh
@@ -15,6 +15,7 @@ EOF
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 JOB_NAME=""
 WARM_START=""
+FOLD=""
 OUTPUT_DIR="$DIR/../local/mediswarm_jobs"
 NUM_ROUNDS=""
 MIN_CLIENTS=""
@@ -46,6 +47,14 @@ while [ "$#" -gt 0 ]; do
         exit 2
       fi
       OUTPUT_DIR="${2:-}"
+      shift 2
+      ;;
+    --fold)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --fold" >&2
+        exit 2
+      fi
+      FOLD="${2:-}"
       shift 2
       ;;
     --num-rounds)
@@ -151,9 +160,15 @@ fi
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_ROOT="$(cd "$OUTPUT_DIR" && pwd -P)"
 DEST_NAME="${JOB_NAME}_${WARM_START}"
+if [ -n "$FOLD" ]; then
+  DEST_NAME="${DEST_NAME}_fold${FOLD}"
+fi
 DEST_HOST="$OUTPUT_ROOT/$DEST_NAME"
 JOB_SRC="/MediSwarm/application/jobs/$JOB_NAME"
 PATCH_ARGS=(--job-dir "/job_out/$DEST_NAME" --mode "$CONFIG_MODE")
+if [ -n "$FOLD" ]; then
+  PATCH_ARGS+=(--fold "$FOLD")
+fi
 if [ -n "$NUM_ROUNDS" ]; then
   PATCH_ARGS+=(--num-rounds "$NUM_ROUNDS")
 fi

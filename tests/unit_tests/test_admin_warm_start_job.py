@@ -178,3 +178,73 @@ def test_patch_job_dir_smoke_prepares_admin_local_continue_job(tmp_path):
     assert "num_rounds = 2" in patched_server
     assert "min_clients = 2" in patched_server
     assert "configure_min_clients = 3" in patched_server
+
+
+# ---------------------------------------------------------------------------
+# --fold (#411): launcher env prefix + per-fold warm-start mirror
+# ---------------------------------------------------------------------------
+
+LAUNCHER_CONFIG_TEMPLATE = """
+  {
+    id = "launcher"
+    path = "nvflare.app_common.launchers.subprocess_launcher.SubprocessLauncher"
+    args {
+      script = "KEY_METRIC=val/AUC_ROC MODEL_NAME=1DivideAndConquer python3 custom/{app_script}  {app_config} "
+      launch_once = true
+    }
+  }
+"""
+
+
+def _fold_config():
+    return CONFIG_TEMPLATE + LAUNCHER_CONFIG_TEMPLATE
+
+
+def test_patch_launcher_env_prepends_fold_token():
+    patched = _import_patcher().patch_launcher_env(_fold_config(), "FOLD", 2)
+    assert 'script = "FOLD=2 KEY_METRIC=val/AUC_ROC MODEL_NAME=1DivideAndConquer python3' in patched
+
+
+def test_patch_launcher_env_is_idempotent():
+    once = _import_patcher().patch_launcher_env(_fold_config(), "FOLD", 2)
+    twice = _import_patcher().patch_launcher_env(once, "FOLD", 4)
+    assert twice.count("FOLD=") == 1
+    assert 'script = "FOLD=4 KEY_METRIC=val/AUC_ROC' in twice
+
+
+def test_patch_launcher_env_preserves_other_tokens():
+    patched = _import_patcher().patch_launcher_env(_fold_config(), "FOLD", 3)
+    assert "KEY_METRIC=val/AUC_ROC" in patched
+    assert "MODEL_NAME=1DivideAndConquer" in patched
+    assert "python3 custom/{app_script}" in patched
+
+
+def test_fold_zero_keeps_the_legacy_mirror_path():
+    patched = _import_patcher().patch_fold_global_paths(_fold_config(), 0)
+    assert '"/scratch/mediswarm_latest_global.pt"' in patched
+    assert "_fold" not in patched
+
+
+def test_nonzero_fold_gets_its_own_mirror_path():
+    patched = _import_patcher().patch_fold_global_paths(_fold_config(), 2)
+    assert patched.count('"/scratch/mediswarm_latest_global_fold2.pt"') == 2
+    assert '"/scratch/mediswarm_latest_global.pt"' not in patched
+
+
+def test_fold_mirror_path_patch_is_idempotent():
+    once = _import_patcher().patch_fold_global_paths(_fold_config(), 2)
+    twice = _import_patcher().patch_fold_global_paths(once, 3)
+    assert twice.count('"/scratch/mediswarm_latest_global_fold3.pt"') == 2
+    assert "fold2" not in twice
+
+
+def test_patch_config_text_without_fold_leaves_launcher_and_mirror_alone():
+    patched = _import_patcher().patch_config_text(_fold_config(), "fresh")
+    assert "FOLD=" not in patched
+    assert '"/scratch/mediswarm_latest_global.pt"' in patched
+
+
+def test_patch_config_text_with_fold_sets_both():
+    patched = _import_patcher().patch_config_text(_fold_config(), "fresh", fold=2)
+    assert 'script = "FOLD=2 KEY_METRIC=val/AUC_ROC' in patched
+    assert patched.count('"/scratch/mediswarm_latest_global_fold2.pt"') == 2
