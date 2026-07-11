@@ -37,7 +37,18 @@ if [[ "$cmd" =~ ^mkdir\ -p\ \'(/srv/mediswarm/live/[A-Za-z0-9._@=+/-]+)\'$ ]]; t
     exec mkdir -p -- "$d"
 fi
 
-# 3) rsync upload only: write-only (blocks any download/exfil). OS permissions
+# 3) rm -rf '<path>' strictly under the upload root. live_sync.sh clears its
+#    per-run `_active` marker this way (live_sync.sh:281). The account already owns
+#    this tree and can delete within it via `rsync --delete`, so this grants no new
+#    power. Anchored pattern: no traversal, no command chaining.
+if [[ "$cmd" =~ ^rm\ -rf\ \'(/srv/mediswarm/live/[A-Za-z0-9._@=+/-]+)\'$ ]]; then
+    d="${BASH_REMATCH[1]}"
+    if [[ "$d" == *..* ]]; then log reject-traversal; exit 1; fi
+    log allow-rm
+    exec rm -rf -- "$d"
+fi
+
+# 4) rsync upload only: write-only (blocks any download/exfil). OS permissions
 #    confine writes to what the account owns (the upload root). rrsync also
 #    filters dangerous rsync options (e.g. --rsync-path).
 if [[ "$cmd" == "rsync --server "* ]]; then
