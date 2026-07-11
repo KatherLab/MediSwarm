@@ -173,14 +173,14 @@ RUN apt update && apt install -y \
     libexpat1=2.4.7-1ubuntu0.7 \
     libmpdec3=2.5.1-2build2 \
     libpython3-stdlib=3.10.6-1~22.04.1 \
-    libpython3.10-minimal=3.10.12-1~22.04.15 \
-    libpython3.10-stdlib=3.10.12-1~22.04.15 \
+    libpython3.10-minimal=3.10.12-1~22.04.16 \
+    libpython3.10-stdlib=3.10.12-1~22.04.16 \
     libreadline8=8.1.2-1 \
     libsqlite3-0=3.37.2-2ubuntu0.6 \
     media-types=7.0.0 \
     python3-minimal=3.10.6-1~22.04.1 \
-    python3.10-minimal=3.10.12-1~22.04.15 \
-    python3.10=3.10.12-1~22.04.15 \
+    python3.10-minimal=3.10.12-1~22.04.16 \
+    python3.10=3.10.12-1~22.04.16 \
     python3=3.10.6-1~22.04.1 \
     readline-common=8.1.2-1 \
     base-files=12ubuntu4.7 \
@@ -241,7 +241,7 @@ RUN apt update && apt install -y \
     libksba8=1.6.0-2ubuntu0.2 \
     libldap-2.5-0=2.5.20+dfsg-0ubuntu0.22.04.1 \
     libldap-common=2.5.20+dfsg-0ubuntu0.22.04.1 \
-    libnghttp2-14=1.43.0-1ubuntu0.3 \
+    libnghttp2-14=1.43.0-1ubuntu0.4 \
     libnpth0=1.6-3build2 \
     libpsl5=0.21.0-1.2build2 \
     librtmp1=2.4+20151223.gitfa8646d.1-2build4 \
