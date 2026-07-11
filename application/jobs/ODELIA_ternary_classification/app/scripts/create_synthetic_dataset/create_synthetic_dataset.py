@@ -12,9 +12,12 @@ from tqdm import tqdm
 
 np.random.seed(1)
 
+unproblematic_sites = ('client_A', 'client_B')
+problematic_sites = ('client_P',)
+sites = unproblematic_sites + problematic_sites  # this must match the swarm project definition
+
 size = (32, 256, 256)
 num_images_per_site = 15
-sites = ('client_A', 'client_B')  # this must match the swarm project definition
 metadata_folder = 'metadata_unilateral'
 data_folder = 'data_unilateral'
 other_unused_folders = ('data_raw', 'data')
@@ -116,13 +119,13 @@ if __name__ == '__main__':
                 os.mkdir(side_folder)
                 image = get_image(i, j, lesion_class)
                 sitk.WriteImage(image, side_folder / 'Sub_1.nii.gz')
-                if (site == 'client_A') or (j < num_images_per_site - 1):  # one image per side without table entry for client_B
+                if ((site not in problematic_sites) or (j < num_images_per_site - 1)):  # one image per side without table entry for problematic sites
                     for f in range(num_folds):
                         table_data.append(
                             {'UID': uid, 'PatientID': patientid, 'Lesion': lesion_class, 'Age': some_age + i + j, 'Fold': f,
                              'Split': get_split(j, f)})
 
-        if site == 'client_B':
+        if site in problematic_sites:
             for patientid in ('SomeUID_both', 'ID_016_right', 'ID_016_left', 'ID_998_right', 'ID_999_left'):
                 folder = output_folder/site/data_folder/patientid
                 os.mkdir(folder)
