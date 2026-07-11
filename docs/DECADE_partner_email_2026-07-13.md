@@ -37,6 +37,11 @@ All sites must also agree on the **same feature extractor + feature dimension**.
 We propose **UNI (dim 1024)** — tell us if you extracted with something else
 (e.g. CTransPath = 768).
 
+**Extract with standalone STAMP 2.5.0** (it needs Python 3.13). Our training
+image runs STAMP 2.4.0 and is patched to read 2.5.0-extracted features — the
+feature H5 layout and the UNI extractor are identical between the two versions.
+Please do **not** use a STAMP newer than 2.5.0 without telling us first.
+
 ## Your site identifier
 
 | Site | Your NVFlare `SITE_NAME` |
