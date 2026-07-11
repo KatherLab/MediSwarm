@@ -13,7 +13,7 @@ trains on raw 3D NIfTI volumes, STAMP expects HDF5 (`.h5`) feature files that
 have already been extracted from WSIs using a foundation model (e.g. UNI,
 CTransPath, RetCCL).
 
-Only the **training** step is federated. Feature extraction (preprocessing) and
+Only the **training** step is done as swarm learning. Feature extraction (preprocessing) and
 inference (deployment) remain standalone steps that each site runs locally.
 
 ## Prerequisites
@@ -140,10 +140,32 @@ The patient ID column name is configured via `STAMP_PATIENT_LABEL` (default:
 identifiers in the clinical table, or a separate slide table must be provided
 to map between them.
 
-#### Optional: Slide Table
+#### Optional: Slide Table (patients with multiple slides)
 
-If patients have multiple slides, provide a slide table (`STAMP_SLIDE_TABLE`)
-that maps patient IDs to slide filenames.
+If any patient has **more than one slide**, your `clini_table.csv` has one row per
+*patient*, while `features/` has one `.h5` per *slide*. A **slide table** maps the
+two together, so STAMP can pool all of a patient's slides into one bag.
+
+Provide a second CSV with one row per slide — a patient-ID column and a slide
+filename column — and point STAMP at it:
+
+```bash
+export STAMP_SLIDE_TABLE="/data/<SITE_NAME>/slide_table.csv"
+export STAMP_PATIENT_LABEL="PATIENT"     # patient-ID column (both tables)
+export STAMP_FILENAME_LABEL="FILENAME"   # slide-filename column (slide table)
+```
+
+`slide_table.csv`:
+
+| PATIENT | FILENAME |
+|---------|----------|
+| P_001   | slide_001.h5 |
+| P_001   | slide_002.h5 |
+| P_002   | slide_003.h5 |
+
+The `FILENAME` values must match the files in `STAMP_FEATURE_DIR`. Without a slide
+table, STAMP expects each H5 filename (minus `.h5`) to equal a patient identifier,
+which only works when every patient has exactly one slide.
 
 ### Synthetic Test Data
 
@@ -168,6 +190,20 @@ patients across 3 classes.
 STAMP uses environment variables (all prefixed with `STAMP_`) to configure the
 training. These must be exported **before** calling `docker.sh` — the script
 automatically forwards all `STAMP_*` variables into the Docker container.
+
+> **Do not run `docker.sh` with `sudo`.** `sudo` resets the environment, so the
+> `STAMP_*` variables you exported are *not* visible to `docker.sh` and training
+> fails with `KeyError: 'STAMP_CLINI_TABLE'` — even though `echo $STAMP_CLINI_TABLE`
+> prints the right value in your own shell.
+>
+> If you need root to talk to Docker, add your user to the `docker` group once and
+> then run without `sudo`:
+> ```bash
+> sudo usermod -aG docker $USER && newgrp docker
+> ./docker.sh ...
+> ```
+> As a fallback, preserve the environment explicitly: `sudo -E ./docker.sh ...`.
+> To see what `docker.sh` will forward: `env | grep '^STAMP_'`.
 
 ```bash
 # ── Required ──

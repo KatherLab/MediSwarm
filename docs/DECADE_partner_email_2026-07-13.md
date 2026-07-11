@@ -12,7 +12,7 @@
 
 Dear DECADE partners,
 
-Next **Monday 13 July** we will do our first federated (swarm) training run for
+Next **Monday 13 July** we will do our first swarm training run for
 DECADE. Unlike the ODELIA breast-MRI runs, DECADE uses **STAMP**, which trains on
 **pre-extracted pathology features (H5 files)** rather than raw images. This week,
 please (a) send us the two values in the box below, and (b) work through Steps 1–5
@@ -148,7 +148,7 @@ authorize it on the monitoring host and confirm.
 ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training 2>&1 | tee local_training_console_output.txt
 ```
 
-Trains a model on only your data, so on Monday we can compare the federated model
+Trains a model on only your data, so on Monday we can compare the swarm model
 against your local baseline. Checkpoints/metrics land in `$SCRATCHDIR` under a
 timestamped folder.
 
