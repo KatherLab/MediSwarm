@@ -378,6 +378,40 @@ def compute_weighted_epochs(num_train_samples: int, site_name: str = "") -> int:
     return epochs
 
 
+def _select_precision(task: str, use_gpu: bool) -> str:
+    """Pick a Lightning precision that the task's loss can actually backprop.
+
+    ``STAMP_PRECISION`` overrides this if set.
+
+    Mixed fp16 is a big speed win and is fine for classification/regression. It is
+    **not** usable for ``survival``: STAMP's Cox loss calls ``torch.logcumsumexp``
+    (``stamp/modeling/models/cox.py``), whose backward has no half kernel, so
+    training dies with::
+
+        RuntimeError: "logcumsumexp_backward" not implemented for 'Half'
+
+    Measured on a client GPU: fp16 backward FAILS, bf16 OK, fp32 OK. So for
+    survival prefer bf16 where the GPU supports it and fall back to full precision.
+    On CPU always use full precision (fp16/bf16 backward is unsupported on some
+    CPU platforms, e.g. DNNL with avx2_vnni_2).
+    """
+    override = os.environ.get("STAMP_PRECISION", "").strip()
+    if override:
+        return override
+
+    if not use_gpu:
+        return "32-true"
+
+    if task == "survival":
+        try:
+            bf16_ok = torch.cuda.is_bf16_supported()
+        except Exception:  # noqa: BLE001 — older torch / odd driver
+            bf16_ok = False
+        return "bf16-mixed" if bf16_ok else "32-true"
+
+    return "16-mixed"
+
+
 def prepare_training(
     env: dict,
     max_epochs: int,
@@ -476,9 +510,11 @@ def prepare_training(
     # CPU because bf16/fp16 backward is not supported on all CPU platforms
     # (e.g. DNNL with avx2_vnni_2 raises RuntimeError).
     use_gpu = torch.cuda.is_available()
+    precision = _select_precision(env["task"], use_gpu)
+    logger.info(f"Trainer precision: {precision} (task={env['task']}, gpu={use_gpu})")
     trainer = Trainer(
         accelerator="gpu" if use_gpu else "cpu",
-        precision="16-mixed" if use_gpu else "32-true",
+        precision=precision,
         default_root_dir=str(output_dir),
         callbacks=callbacks,
         enable_checkpointing=True,
