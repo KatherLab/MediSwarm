@@ -110,7 +110,14 @@ def load_stamp_data(env: dict) -> Tuple[Dict[str, Any], str]:
         patient_to_data: Mapping of patient_id → PatientData
         feature_type: Detected or overridden feature type string
     """
-    from stamp.modeling.data import load_patient_level_data, detect_feature_type
+    from stamp.modeling.data import (
+        detect_feature_type,
+        filter_complete_patient_data_,
+        load_patient_level_data,
+        patient_to_ground_truth_from_clini_table_,
+        patient_to_survival_from_clini_table_,
+        slide_to_patient_from_slide_table_,
+    )
 
     clini_table = Path(env["clini_table"])
     feature_dir = Path(env["feature_dir"])
@@ -119,17 +126,72 @@ def load_stamp_data(env: dict) -> Tuple[Dict[str, Any], str]:
     patient_label = env["patient_label"]
     time_label = env["time_label"] if env["time_label"] else None
     status_label = env["status_label"] if env["status_label"] else None
+    slide_table = Path(env["slide_table"]) if env["slide_table"] else None
+    filename_label = env["filename_label"]
 
-    # Load patient data (STAMP 2.4.0 API)
-    patient_to_data = load_patient_level_data(
-        task=task,
-        clini_table=clini_table,
-        feature_dir=feature_dir,
-        patient_label=patient_label,
-        ground_truth_label=ground_truth_label,
-        time_label=time_label,
-        status_label=status_label,
-    )
+    if slide_table is not None:
+        # A site whose patients have several slides (or whose H5 files are named
+        # per slide rather than per patient). ``load_patient_level_data`` cannot
+        # be used here: it hardcodes ``feature_dir / f"{patient_id}.h5"``, so every
+        # patient would look "missing" and we'd silently train on 0 patients.
+        # Compose STAMP's slide-table path instead.
+        if not slide_table.exists():
+            raise FileNotFoundError(
+                f"STAMP_SLIDE_TABLE is set but the file does not exist: {slide_table}. "
+                "Note this must be a path *inside* the container (under /data/)."
+            )
+
+        if task == "survival":
+            if not (time_label and status_label):
+                raise ValueError(
+                    "task=survival requires STAMP_TIME_LABEL and STAMP_STATUS_LABEL"
+                )
+            patient_to_ground_truth = patient_to_survival_from_clini_table_(
+                clini_table_path=clini_table,
+                patient_label=patient_label,
+                time_label=time_label,
+                status_label=status_label,
+            )
+        else:
+            if not ground_truth_label:
+                raise ValueError(
+                    f"task={task} requires STAMP_GROUND_TRUTH_LABEL"
+                )
+            patient_to_ground_truth = patient_to_ground_truth_from_clini_table_(
+                clini_table_path=clini_table,
+                patient_label=patient_label,
+                ground_truth_label=ground_truth_label,
+            )
+
+        slide_to_patient = slide_to_patient_from_slide_table_(
+            slide_table_path=slide_table,
+            feature_dir=feature_dir,
+            patient_label=patient_label,
+            filename_label=filename_label,
+        )
+
+        patient_to_data = filter_complete_patient_data_(
+            patient_to_ground_truth=patient_to_ground_truth,
+            slide_to_patient=slide_to_patient,
+            drop_patients_with_missing_ground_truth=True,
+        )
+
+        logger.info(
+            f"Slide table: {slide_table} "
+            f"({len(slide_to_patient)} slides -> {len(patient_to_data)} patients, "
+            f"patient_label={patient_label!r}, filename_label={filename_label!r})"
+        )
+    else:
+        # One feature file per patient, named <patient_id>.h5.
+        patient_to_data = load_patient_level_data(
+            task=task,
+            clini_table=clini_table,
+            feature_dir=feature_dir,
+            patient_label=patient_label,
+            ground_truth_label=ground_truth_label,
+            time_label=time_label,
+            status_label=status_label,
+        )
 
     # Detect feature type from H5 files, or use override
     if env["feature_type"]:
@@ -139,6 +201,30 @@ def load_stamp_data(env: dict) -> Tuple[Dict[str, Any], str]:
 
     logger.info(f"Loaded {len(patient_to_data)} patients, feature_type={feature_type}")
     logger.info(f"Task: {task}, model: {env['model_name']}")
+
+    if not patient_to_data:
+        # Without this, training dies much later inside sklearn with the opaque
+        # "With n_samples=0, test_size=0.25 ... the resulting train set will be empty".
+        hint = (
+            "Every patient in the clinical table lacks a matching feature file.\n"
+            f"  clini table : {clini_table} (patient column: {patient_label!r})\n"
+            f"  feature dir : {feature_dir}\n"
+        )
+        if slide_table is not None:
+            hint += (
+                f"  slide table : {slide_table} "
+                f"(patient column: {patient_label!r}, filename column: {filename_label!r})\n"
+                "  Check that STAMP_PATIENT_LABEL / STAMP_FILENAME_LABEL name real columns in the\n"
+                "  slide table, and that its filenames match the files in the feature directory.\n"
+            )
+        else:
+            hint += (
+                "  No STAMP_SLIDE_TABLE is set, so each patient's features must be a single file\n"
+                f"  named <patient_id>.h5 in the feature directory. If your H5 files are named per\n"
+                "  slide, or a patient has several slides, provide a slide table via\n"
+                "  STAMP_SLIDE_TABLE (+ STAMP_FILENAME_LABEL).\n"
+            )
+        raise ValueError("No patients could be loaded — nothing to train on.\n" + hint)
 
     return patient_to_data, feature_type
 
