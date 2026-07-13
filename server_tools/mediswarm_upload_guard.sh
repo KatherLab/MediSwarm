@@ -53,7 +53,15 @@ fi
 #    filters dangerous rsync options (e.g. --rsync-path).
 if [[ "$cmd" == "rsync --server "* ]]; then
     log allow-rsync
-    exec /usr/bin/rrsync -wo /
+    # -no-lock: rrsync otherwise takes an exclusive flock() on the restricted root
+    # (here "/"), which serialises uploads across the WHOLE account. With several
+    # sites live-syncing every 30s, the first site's daemon holds the lock and every
+    # other site is refused with
+    #     rrsync error: Another instance of rrsync is already accessing this directory.
+    # Observed in DECADE: one site's daemon blocked uploads for all the others, so we
+    # were blind during the run. Each site writes into its own subdirectory, so the
+    # single-run lock buys us nothing.
+    exec /usr/bin/rrsync -wo -no-lock /
 fi
 
 log REJECT
