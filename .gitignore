@@ -210,3 +210,6 @@ duke_results/
 
 # DECADE local deploy creds (never commit)
 deploy_sites_decade_2node.conf
+
+# temp project yml written during kit provisioning
+*.build.yml
