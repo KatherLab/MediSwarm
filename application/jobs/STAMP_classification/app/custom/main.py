@@ -46,8 +46,19 @@ elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
     SITE_NAME = os.getenv("SITE_NAME")
     if not SITE_NAME:
         raise ValueError("SITE_NAME environment variable must be set for local training")
+    # The two modes want very different epoch budgets:
+    #   preflight_check  — a smoke test: 1 epoch is the point.
+    #   local_training   — the site's *baseline*, which the swarm model is compared
+    #                      against. It must train properly, so it follows
+    #                      STAMP_MAX_EPOCHS (STAMP's own default: 32).
+    # Defaulting both to NUM_EPOCHS=1 silently produced a 1-epoch baseline, making
+    # the swarm-vs-local comparison meaningless.
+    if TRAINING_MODE == TM_LOCAL_TRAINING:
+        default_epochs = os.getenv("STAMP_MAX_EPOCHS", "32")
+    else:
+        default_epochs = "1"
     try:
-        NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", "1"))
+        NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", default_epochs))
     except ValueError:
         raise ValueError("NUM_EPOCHS must be an integer")
     USE_WEIGHTED_EPOCHS = False
