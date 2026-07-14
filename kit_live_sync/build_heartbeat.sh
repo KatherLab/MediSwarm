@@ -25,6 +25,20 @@ if [ -n "$docker_sh" ] && [ -f "$docker_sh" ]; then
   kit_version="${kit_version#\"}"
 fi
 
+# kit_version above is what the kit CLAIMS (scraped from docker.sh). Once the image
+# can be overridden (startup/image.conf / --image) that is no longer necessarily what
+# is RUNNING, so also report the image the live container actually resolved to. Without
+# this, version skew between sites is undetectable.
+image_ref=""
+image_id=""
+if command -v docker >/dev/null 2>&1; then
+  hb_container="$(docker ps --filter 'name=odelia_swarm_client' --format '{{.Names}}' 2>/dev/null | head -1)"
+  if [ -n "$hb_container" ]; then
+    image_ref="$(docker inspect --format '{{.Config.Image}}' "$hb_container" 2>/dev/null || true)"
+    image_id="$(docker inspect --format '{{.Image}}' "$hb_container" 2>/dev/null | cut -c1-19 || true)"
+  fi
+fi
+
 # Strip ANSI escape codes from RUN_NAME (may come from colored terminal output)
 RUN_NAME="$(printf '%s' "$RUN_NAME" | sed 's/\x1b\[[0-9;]*m//g')"
 
@@ -79,6 +93,8 @@ export HB_RUN_NAME="$RUN_NAME"
 export HB_TIMESTAMP="$timestamp"
 export HB_STATUS="$STATUS"
 export HB_KIT_VERSION="$kit_version"
+export HB_IMAGE_REF="$image_ref"
+export HB_IMAGE_ID="$image_id"
 export HB_KIT_ROOT="$KIT_ROOT"
 export HB_LOG_FILE="$log_file"
 export HB_CONSOLE_FILE="$console_file"
@@ -110,6 +126,8 @@ data = {
     "timestamp": os.environ.get("HB_TIMESTAMP", ""),
     "status": os.environ.get("HB_STATUS", ""),
     "kit_version": os.environ.get("HB_KIT_VERSION", ""),
+    "image_ref": os.environ.get("HB_IMAGE_REF", ""),
+    "image_id": os.environ.get("HB_IMAGE_ID", ""),
     "kit_root": os.environ.get("HB_KIT_ROOT", ""),
     "log_file": os.environ.get("HB_LOG_FILE", ""),
     "console_file": os.environ.get("HB_CONSOLE_FILE", ""),

@@ -295,6 +295,45 @@ def _html_page(title: str, body: str, *, refresh: int = 0, extra_head: str = "")
 </html>"""
 
 
+def compute_version_skew(rows):
+    """Sites whose running image disagrees with the rest of the swarm (or the roster).
+
+    All clients in a federated run must execute the same code. Nothing checked this
+    before: `expected_version` was only ever used as a display fallback, never
+    compared, so a site running a stale image was invisible.
+
+    Returns {site_name: reason} for every site that is out of line.
+    """
+    live = [r for r in rows if r.get("image_id") or r.get("kit_version")]
+    if len(live) < 2:
+        return {}
+
+    def identity(row):
+        # image_id is the definitive answer (a tag can move); fall back to what we have.
+        return row.get("image_id") or row.get("image_ref") or row.get("kit_version") or ""
+
+    counts = {}
+    for row in live:
+        key = identity(row)
+        if key:
+            counts[key] = counts.get(key, 0) + 1
+    if not counts:
+        return {}
+    majority = max(counts, key=lambda k: counts[k])
+
+    skew = {}
+    for row in live:
+        key = identity(row)
+        if key and key != majority:
+            skew[row["name"]] = f"running {row.get('image_ref') or key}, swarm majority is on a different image"
+            continue
+        expected = row.get("expected_version") or ""
+        seen = row.get("kit_version") or ""
+        if expected and seen and expected != seen:
+            skew[row["name"]] = f"kit {seen}, expected {expected}"
+    return skew
+
+
 def _format_size(size_bytes: int) -> str:
     if size_bytes < 1024:
         return f"{size_bytes} B"
@@ -707,6 +746,13 @@ def _collect_rows() -> list[dict[str, Any]]:
                         "age_seconds": _age_seconds(ts),
                         "kit_version": hb.get("kit_version", "")
                         or roster_item.get("expected_version", ""),
+                        # What the site is ACTUALLY running. kit_version is only what
+                        # the kit claims (scraped from docker.sh); once the image can be
+                        # overridden per site, the two can differ -- and a silent version
+                        # skew across sites corrupts a federated run.
+                        "image_ref": hb.get("image_ref", ""),
+                        "image_id": hb.get("image_id", ""),
+                        "expected_version": roster_item.get("expected_version", ""),
                         "hostname": hb.get("hostname", ""),
                         "ip_address": hb.get("ip_address", "")
                         or roster_item.get("ip_address", ""),
@@ -786,6 +832,10 @@ def rows(*, force: bool = False) -> list[dict[str, Any]]:
     ):
         return list(_ROWS_CACHE["value"])
     value = _collect_rows()
+    # Stamp version skew here -- the single choke point every view goes through.
+    skew = compute_version_skew(value)
+    for row in value:
+        row["version_skew"] = skew.get(row["name"], "")
     _ROWS_CACHE["value"] = value
     _ROWS_CACHE["expires_at"] = now + ROWS_CACHE_TTL_SECONDS
     return list(value)
@@ -1447,11 +1497,18 @@ def _build_table_row(x: dict[str, Any]) -> str:
         else '<span class="no">-</span>'
     )
 
-    version = (
-        f'<span class="version">{html_escape(x["kit_version"])}</span>'
-        if x["kit_version"]
-        else '<span class="no">-</span>'
-    )
+    skew_reason = x.get("version_skew", "")
+    if skew_reason:
+        version = (
+            f'<span class="version" style="background:#b91c1c;color:#fff" '
+            f'title="{html_escape(skew_reason)}">&#9888; {html_escape(x["kit_version"] or "?")}</span>'
+        )
+    else:
+        version = (
+            f'<span class="version">{html_escape(x["kit_version"])}</span>'
+            if x["kit_version"]
+            else '<span class="no">-</span>'
+        )
 
     size_str = _format_size(x["total_size"]) if x["total_size"] else "-"
     server_path = (
