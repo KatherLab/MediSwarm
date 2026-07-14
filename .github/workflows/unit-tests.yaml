@@ -47,6 +47,10 @@ jobs:
           pip install lightning scikit-learn pytest
           # fastapi: server_tools/app.py imports it; needed by test_swarm_progress.py (#398)
           pip install fastapi
+          # torchio + pandas gate the ODELIA dataset tests (degenerate-input guard,
+          # fold validation). Without them pytest silently SKIPS those files, which is
+          # how a broken guard test reached main (#416/#423).
+          pip install torchio pandas
 
       - name: Run unit tests
         run: |
