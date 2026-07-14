@@ -1,0 +1,75 @@
+# Replaces the old update-apt-versions cron (#395).
+#
+# That job tried to make builds reproducible by freezing apt versions. It did the
+# opposite: pins froze OLD patch versions while the Ubuntu archive garbage-collected
+# them, so builds both missed security updates and eventually broke. It also failed
+# silently -- its "did anything change?" check compared a commit range while the
+# regenerated pins sat uncommitted in the working tree, so it green-ticked for 11
+# days while skipping its own push and PR steps.
+#
+# This replaces the constraint with a TEST: build the image from current (unpinned)
+# sources, prove it still works, and scan it for vulnerabilities. It fails loudly.
+name: Daily image verify + CVE scan
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: mediswarm-self-hosted-gpu-validation
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: [self-hosted, ci]
+    timeout-minutes: 90
+    env:
+      PYTHONUNBUFFERED: 1
+
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Pin the image version for the whole run
+        run: |
+          VERSION=$(./scripts/build/getVersionNumber.sh)
+          echo "MEDISWARM_IMAGE_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "IMAGE=localhost:5000/odelia:$VERSION" >> $GITHUB_ENV
+
+      - name: Build the image from current sources
+        run: ./scripts/build/buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml
+
+      # The point of the old cron was "do current package versions still work?".
+      # Answer it by actually running the tests, instead of freezing versions.
+      - name: Verify the build still trains
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_standalone
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_simulation_mode
+
+      - name: Generate + retain the SBOM
+        run: |
+          mkdir -p artifacts
+          docker run --rm "$IMAGE" bash /MediSwarm/scripts/_list_licenses.sh > artifacts/sbom.json || true
+          test -s artifacts/sbom.json
+
+      - name: Scan the built image for vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          format: table
+          severity: CRITICAL,HIGH
+          # Only fail on vulnerabilities that HAVE a fix -- those are the ones we can
+          # act on. Unfixed CVEs in the CUDA base are reported, not blocking.
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ env.MEDISWARM_IMAGE_VERSION }}
+          path: artifacts/sbom.json
+          retention-days: 90
