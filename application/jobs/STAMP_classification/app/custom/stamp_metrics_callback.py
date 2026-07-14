@@ -136,8 +136,17 @@ class STAMPPredictionCallback(Callback):
         self.csv_valid = output_dir / FILENAME_GT_PREDPROB_SITE_VALIDATION
 
     def on_train_epoch_end(self, trainer: Any, pl_module: Any) -> None:
-        """Run inference on train/val sets and write prediction CSVs."""
+        """Run inference on train/val sets and write prediction CSVs.
+
+        Restores the module's original train/eval mode afterwards: ``_write_predictions``
+        switches the model to ``eval()``, and Lightning does **not** put it back before
+        the next epoch. Leaking eval mode meant every epoch after the first (and every
+        swarm round after the first, since NVFlare calls ``fit()`` per round) trained
+        with dropout disabled — which Lightning reports as
+        "Found N module(s) in eval mode at the start of training".
+        """
         epoch = trainer.current_epoch
+        was_training = pl_module.training
 
         try:
             self._write_predictions(pl_module, self.train_dl, epoch, self.csv_train)
@@ -145,6 +154,9 @@ class STAMPPredictionCallback(Callback):
         except Exception as e:
             # Don't crash training if prediction CSV writing fails
             logger.warning(f"STAMPPredictionCallback failed at epoch {epoch}: {e}")
+        finally:
+            if was_training:
+                pl_module.train()
 
     @torch.no_grad()
     def _write_predictions(

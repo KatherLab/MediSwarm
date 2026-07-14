@@ -583,6 +583,13 @@ def validate_and_train(
             model, train_dl, valid_dl, current_round, output_dir,
         )
 
+    # trainer.validate() (and the prediction export above) leave the module in
+    # eval mode, and Lightning does not restore it before fit(). It warns
+    # "Found N module(s) in eval mode at the start of training" — which alarmed
+    # sites — and, more importantly, any module left in eval would train with
+    # dropout disabled. Put it back explicitly.
+    model.train()
+
     logger.info("--- Train new model ---")
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=valid_dl)
 
