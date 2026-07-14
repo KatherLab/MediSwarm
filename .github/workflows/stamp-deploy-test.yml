@@ -144,13 +144,23 @@ jobs:
           # Generate a synthetic STAMP dataset and remap the first generated
           # site dir to the deploy eval-site name (default: first client site).
           VERSION=$(./scripts/build/getVersionNumber.sh)
-          image="jefftud/odelia:$VERSION"
+          # Derive the image from the provision YAML's docker_image line (the build
+          # script uses the same source), so non-odelia projects (e.g. DECADE =
+          # jefftud/decade) work. Falls back to the historical default.
+          image=$(grep -m1 "docker_image:" "$DEPLOY_PROJECT_FILE" 2>/dev/null \
+            | sed 's/.*docker_image:[[:space:]]*//' \
+            | sed "s/__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__/$VERSION/")
+          image="${image:-jefftud/odelia:$VERSION}"
+          echo "Using image: $image"
 
           eval_root="$GITHUB_WORKSPACE/stamp_eval_data"
           rm -rf "$eval_root"; mkdir -p "$eval_root"
 
+          # The image's WORKDIR is /workspace, but the source lives at /MediSwarm,
+          # so the script must be addressed by absolute path (a relative path fails
+          # with "can't open file '/workspace/application/...'").
           docker run --rm -v "$eval_root":/data "$image" \
-            python3 application/jobs/STAMP_classification/app/scripts/create_synthetic_dataset/create_synthetic_stamp_dataset.py /data
+            python3 /MediSwarm/application/jobs/STAMP_classification/app/scripts/create_synthetic_dataset/create_synthetic_stamp_dataset.py /data
 
           # Resolve the eval site name from the conf (first client site).
           eval_site_name=$(bash -c \
