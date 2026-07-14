@@ -732,6 +732,7 @@ docker_cln_sh: |
           --log_dataset_details) LOG_DATASET_DETAILS="1";;
           --model_name)          CLI_MODEL_NAME="$2"; shift ;;
           --num_epochs)          CLI_NUM_EPOCHS="$2"; shift ;;
+          --fold)                CLI_FOLD="$2"; shift ;;
           --config)              CLI_CONFIG="$2"; shift ;;
           --container_name)      CONTAINER_NAME="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
@@ -811,7 +812,8 @@ docker_cln_sh: |
   DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
 
   # Common ENV vars
-  # CLI flags (--model_name, --num_epochs, --config) take priority over env vars,
+  # CLI flags (--model_name, --num_epochs, --config, --fold) take priority over env
+  # vars,
   # which in turn take priority over defaults. This ensures values survive "sudo"
   # (which resets the environment) when passed as CLI arguments.
   ENV_VARS="--env SITE_NAME={~~client_name~~} \
@@ -822,6 +824,7 @@ docker_cln_sh: |
             --env GPU_DEVICE=$GPU2USE \
             --env MODEL_NAME=${CLI_MODEL_NAME:-${MODEL_NAME:-MST}} \
             --env NUM_EPOCHS=${CLI_NUM_EPOCHS:-${NUM_EPOCHS:-100}} \
+            --env FOLD=${CLI_FOLD:-${FOLD:-0}} \
             --env CONFIG=${CLI_CONFIG:-${CONFIG:-unilateral}} \
             --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__ \
             --env TORCH_MULTIPROCESSING_SHARING_STRATEGY=${TORCH_MULTIPROCESSING_SHARING_STRATEGY:-file_system} \
@@ -1046,6 +1049,10 @@ docker_cln_sh: |
       echo "--model_name <name>      set model name (default: auto-derived from --job). Use this instead of 'export MODEL_NAME=...'"
       echo "                         when running with sudo, as sudo resets environment variables"
       echo "--num_epochs <n>         set number of training epochs (default: 100)"
+      echo "--fold <n>               cross-validation fold for --local_training /"
+      echo "                         --preflight_check (default: 0). For a swarm run the"
+      echo "                         fold is fixed by the admin in the job, so this flag"
+      echo "                         is ignored by --start_client."
       echo "--config <name>          set config name (default: unilateral)"
       echo "--container_name <name>  set name for the Docker container to override default using version number"
       exit 1
