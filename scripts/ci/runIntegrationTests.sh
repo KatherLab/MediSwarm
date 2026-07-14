@@ -723,10 +723,16 @@ run_dummy_training_in_swarm () {
     cd "$CWD"
 
     # Poll for completion instead of a fixed sleep.  The server log will
-    # contain "Server runner finished." once all rounds are done.  We check
-    # every 10 seconds for up to 5 minutes (30 iterations).
+    # contain "Server runner finished." once all rounds are done.
+    #
+    # #388: 30 attempts (300s) was too tight. The self-hosted runner shares a host
+    # with image builds and deploy tests, and the observed failures show the swarm
+    # still making progress ("Round 2 started", "Contribution ... ACCEPTED") when we
+    # gave up — i.e. we were timing out on a *slow* run, not a hung one, and then
+    # failing the assertions below. Poll for up to 15 min; a genuinely hung run still
+    # fails, just later. Override with CI_SWARM_WAIT_ATTEMPTS if needed.
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local max_attempts=30
+    local max_attempts=${CI_SWARM_WAIT_ATTEMPTS:-90}
     local attempt=0
     echo "  Waiting for swarm training to finish (checking every 10s, max ${max_attempts}0s) ..."
     while [ $attempt -lt $max_attempts ]; do
