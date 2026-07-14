@@ -45,11 +45,22 @@ def test_blank_fold_falls_back_to_zero(mock_env_vars, monkeypatch):
     assert _import_env_config().load_environment_variables()["fold"] == 0
 
 
-@pytest.mark.parametrize("bad", ["-1", "5", "99"])
-def test_out_of_range_fold_is_rejected(mock_env_vars, monkeypatch, bad):
-    monkeypatch.setenv("FOLD", bad)
-    with pytest.raises(ValueError, match="FOLD must be in"):
+def test_negative_fold_is_rejected(mock_env_vars, monkeypatch):
+    monkeypatch.setenv("FOLD", "-1")
+    with pytest.raises(ValueError, match="FOLD must be >= 0"):
         _import_env_config().load_environment_variables()
+
+
+@pytest.mark.parametrize("high", ["5", "99"])
+def test_high_fold_is_not_rejected_here(mock_env_vars, monkeypatch, high):
+    """The site's split.csv is the authority on which folds exist, not a constant.
+
+    A fold beyond the site's data must fail against the DATA (with a message naming
+    the folds that do exist), not against a hard-coded count that cannot know how
+    many folds this site generated.
+    """
+    monkeypatch.setenv("FOLD", high)
+    assert _import_env_config().load_environment_variables()["fold"] == int(high)
 
 
 def test_non_integer_fold_is_rejected(mock_env_vars, monkeypatch):

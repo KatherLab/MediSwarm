@@ -13,23 +13,25 @@ def _env_flag(name: str, default: bool = False) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
-NUM_FOLDS = 5  # split.csv is generated with 5-fold nested StratifiedGroupKFold
-
-
 def _fold_from_env():
     """Cross-validation fold to train on (#411).
 
     Run-level, not per-site: NVFlare distributes one job to every client, so all
     sites train the same fold. K-fold CV = K sequential swarm runs. Defaults to 0,
     which is the fold the code trained before this was configurable.
+
+    Only the type/sign is checked here. The number of folds is a property of each
+    site's split.csv (a generator setting, not an invariant), so whether the fold
+    actually EXISTS is validated against the data itself -- see
+    ODELIA_Dataset3D._require_non_empty / log_UID_discrepancies.
     """
     raw = os.environ.get('FOLD', '0').strip() or '0'
     try:
         fold = int(raw)
     except ValueError:
         raise ValueError(f"FOLD must be an integer, got {raw!r}")
-    if not 0 <= fold < NUM_FOLDS:
-        raise ValueError(f"FOLD must be in [0, {NUM_FOLDS - 1}], got {fold}")
+    if fold < 0:
+        raise ValueError(f"FOLD must be >= 0, got {fold}")
     return fold
 
 

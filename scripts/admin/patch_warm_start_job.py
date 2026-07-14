@@ -15,7 +15,10 @@ LAUNCHER_SCRIPT_RE = re.compile(r'^(\s*script\s*=\s*")([^"]*)(")', re.MULTILINE)
 # Each fold needs its own warm-start mirror, or `continue` resumes from another
 # fold's global model (cross-fold leakage).
 GLOBAL_PATH_KEYS = ("source_ckpt_file_full_name", "latest_global_path")
-NUM_FOLDS = 5
+# Admin-side typo guard only (catches `--fold 50` before a job reaches six sites).
+# It is NOT the authority on how many folds exist: that is a property of each
+# site's split.csv, and is validated there against the data (#411).
+MAX_ADMIN_FOLD = 4
 
 MODE_AUTO = "auto"
 MODE_FRESH = "fresh"
@@ -317,7 +320,7 @@ def main() -> int:
     parser.add_argument(
         "--fold",
         type=int,
-        choices=range(NUM_FOLDS),
+        choices=range(MAX_ADMIN_FOLD + 1),
         help="Cross-validation fold every site trains this run (run-level; default 0)",
     )
     args = parser.parse_args()
