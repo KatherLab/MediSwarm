@@ -97,6 +97,9 @@ jobs:
           VERSION=$(./scripts/build/getVersionNumber.sh)
           echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Pin the version for every later step. Without this a run that crosses
+          # local midnight builds one tag and then looks up another (#428).
+          echo "MEDISWARM_IMAGE_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build Docker image for real project (MEVIS)
         run: |
