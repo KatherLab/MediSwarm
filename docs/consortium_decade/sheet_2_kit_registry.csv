@@ -1,0 +1,4 @@
+Kit version,Released,Status,Applies to,sha256 (of the .zip),What changed,Action required
+1.5.0-dev.260706.9b0148b,2026-07-06,DEPRECATED,All DECADE sites,(fill from build),First distributed kit,Superseded — do not use
+1.5.0-dev.260710.a295c6b,2026-07-10,DEPRECATED,All DECADE sites,(fill from build),"Reads STAMP 2.5.0 features; column names with spaces; sudo detection",Superseded — do not use
+1.5.0-dev.260713.6bc06c4,2026-07-13,ACTIVE,All DECADE sites,(fill from build),"Multi-slide slide table (loaded 0 patients before); local training now 32 epochs not 1; model no longer trains with dropout disabled; empty-var arg validation",Install this and re-run the local baseline
