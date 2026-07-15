@@ -1,5 +1,5 @@
 api_version: 3
-name: decade___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___allsites
+name: decade_allsites
 description: >
   DECADE consortium — STAMP (computational pathology) all-sites swarm project.
   TUD hosts the server + admin only (no TUD training client); one client per

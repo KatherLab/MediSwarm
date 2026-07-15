@@ -72,7 +72,7 @@ All STAMP-specific variables use the `STAMP_` prefix to avoid collision with ODE
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STAMP_MODEL_NAME` | `vit` | Model architecture: `vit`, `mlp`, `trans_mil`, `linear`, `barspoon` |
+| `STAMP_MODEL_NAME` | `vit` | Model architecture: `vit`, `mlp`, `trans_mil`, `linear` (`barspoon` needs STAMP ≥ 2.5.0) |
 | `STAMP_FEATURE_TYPE` | *(auto-detect)* | Feature level: `tile`, `slide`, or `patient` |
 | `STAMP_DIM_INPUT` | `1024` | Input feature dimension (UNI/UNI2=1024, CTransPath=768) |
 | `STAMP_NUM_CLASSES` | `3` | Number of output classes |
@@ -118,7 +118,7 @@ Each site needs:
 | MLP | `mlp` | Multi-layer perceptron |
 | TransMIL | `trans_mil` | Transformer-based MIL |
 | Linear | `linear` | Linear classifier |
-| Barspoon | `barspoon` | Encoder-decoder transformer |
+| Barspoon | `barspoon` | Encoder-decoder transformer — **unavailable**: added in STAMP 2.5.0; image ships 2.4.0 |
 
 ## Quick Start
 

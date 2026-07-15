@@ -48,6 +48,11 @@ UKA_ZIP_STAMP = "20260520T091501Z"
 UKA_RUN_ID = "1DivideAndConquer_unilateral_2026_05_04_082228"
 UMCU_ZIP_PATH = Path("/mnt/nvme0n1p1/scratch/jeff/Downloads/MST_unilateral_2026_06_01_205145-20260608T122612Z-3-001.zip")
 UMCU_RUN_ID = "MST_unilateral_2026_06_01_205145"
+RUMC_1DC_RUN_ID = "1DivideAndConquer_unilateral_2026_06_04_101650"
+RUMC_1DC_ZIP_PATHS = (
+    Path("/mnt/nvme0n1p1/scratch/jeff/Downloads/1DivideAndConquer_unilateral_2026_06_04_101650-20260619T085949Z-3-001.zip"),
+    Path("/mnt/nvme0n1p1/scratch/jeff/Downloads/1DivideAndConquer_unilateral_2026_06_04_101650-20260619T085949Z-3-002.zip"),
+)
 
 
 @dataclass
@@ -153,7 +158,30 @@ def extract_umcu() -> Path:
     return run_dir
 
 
-def base_run_sources(uka_run_dir: Path, umcu_run_dir: Path) -> list[RunSource]:
+def extract_rumc_1dc() -> Path:
+    """Extract the RUMC 1DC local-training zip pair into the workspace."""
+    dest = WORKSPACE / "raw" / "RUMC_1DC"
+    run_dir = dest / RUMC_1DC_RUN_ID
+    expected = [
+        run_dir / "last.ckpt",
+        run_dir / "epoch=0-step=451.ckpt",
+        run_dir / "site_model_gt_and_classprob_train.csv",
+        run_dir / "site_model_gt_and_classprob_validation.csv",
+    ]
+    if all(path.exists() for path in expected):
+        return run_dir
+    missing_zips = [path for path in RUMC_1DC_ZIP_PATHS if not path.exists()]
+    if missing_zips:
+        raise FileNotFoundError("RUMC 1DC zip(s) not found:\n" + "\n".join(map(str, missing_zips)))
+    for zip_path in RUMC_1DC_ZIP_PATHS:
+        run(["unzip", "-n", str(zip_path), "-d", str(dest)])
+    missing = [path for path in expected if not path.exists()]
+    if missing:
+        raise FileNotFoundError("RUMC 1DC extraction did not produce expected files:\n" + "\n".join(map(str, missing)))
+    return run_dir
+
+
+def base_run_sources(uka_run_dir: Path, umcu_run_dir: Path, rumc_1dc_run_dir: Path) -> list[RunSource]:
     usz = ROOT / "workspace" / "usz_partner_eval"
     return [
         RunSource(
@@ -243,6 +271,18 @@ def base_run_sources(uka_run_dir: Path, umcu_run_dir: Path) -> list[RunSource]:
             "/srv/mediswarm/live/RSH_1/local/challenge_5pimed_unilateral_2026_04_03_182744/run_dir/site_model_gt_and_classprob_train.csv",
             "/srv/mediswarm/live/RSH_1/local/challenge_5pimed_unilateral_2026_04_03_182744/run_dir/site_model_gt_and_classprob_validation.csv",
             "RSH local 5Pimed run from the Cosmos dashboard mirror.",
+        ),
+        RunSource(
+            "RUMC_1DC",
+            "RUMC",
+            "1DivideAndConquer",
+            "1DC",
+            RUMC_1DC_RUN_ID,
+            str(rumc_1dc_run_dir),
+            str(rumc_1dc_run_dir / "site_model_gt_and_classprob_train.csv"),
+            str(rumc_1dc_run_dir / "site_model_gt_and_classprob_validation.csv"),
+            "RUMC local 1DivideAndConquer artifacts supplied as two zip chunks on 2026-06-19. "
+            "The validation cohort is almost entirely class 0, so `val/ACC` selects epoch 0 and should not be read as a useful malignant-detection endpoint.",
         ),
         RunSource(
             "RUMC_MST_20260413",
@@ -935,6 +975,26 @@ def internal_class_distribution_rows(run_sources: list[RunSource]) -> list[dict]
                     "distribution": class_count_text(counts),
                 }
             )
+        if source.run_key == "RUMC_1DC":
+            # The partner-provided console log includes the held-out local test
+            # split; only train/validation prediction CSVs are included in the
+            # Google Drive zip pair.
+            test_counts = Counter({0: 1110, 1: 1, 2: 11})
+            rows.append(
+                {
+                    "source_site": source.source_site,
+                    "model_short": source.model_short,
+                    "run_key": source.run_key,
+                    "run_id": source.run_id,
+                    "split": "test",
+                    "epoch_used": "",
+                    "samples": sum(test_counts.values()),
+                    "class0": test_counts.get(0, 0),
+                    "class1": test_counts.get(1, 0),
+                    "class2": test_counts.get(2, 0),
+                    "distribution": class_count_text(test_counts),
+                }
+            )
     return rows
 
 
@@ -1211,7 +1271,12 @@ def local_training_review_section(
         f"({', '.join(sites)}), **{len(run_sources)} run artifacts**, and **{model_family_counts(run_sources)}**. "
         f"They contribute **{unique_count} unique checkpoints** to external ODELIA challenge evaluation"
         f"{f' plus {duplicate_aliases} exact duplicate aliases' if duplicate_aliases else ''}. "
-        "All rows below have local train/validation prediction CSVs and at least one retained checkpoint; `short run` means the artifact is usable but is not a full 100-epoch local-training run.\n"
+        + (
+            "If the target list is the full 8-site swarm participant set, **VHIO local-training results are still missing from this report**. "
+            if "VHIO" not in sites
+            else ""
+        )
+        + "All rows below have local train/validation prediction CSVs and at least one retained checkpoint; `short run` means the artifact is usable but is not a full 100-epoch local-training run.\n"
     )
     sections.append(
         markdown_table(
@@ -1733,7 +1798,12 @@ def generate_condensed_report(run_sources: list[RunSource], snapshots: list[Snap
     sections.append(
         f"Completed/available local-training artifacts cover **{len(sites)} source sites** "
         f"({', '.join(sites)}), **{len(run_sources)} run artifacts**, and **{model_family_counts(run_sources)}**. "
-        "The full report has the per-run completion table; the selected-checkpoint table below keeps one externally strongest checkpoint per source/model family.\n"
+        + (
+            "If the target list is the full 8-site swarm participant set, **VHIO local-training results are still missing from this report**. "
+            if "VHIO" not in sites
+            else ""
+        )
+        + "The full report has the per-run completion table; the selected-checkpoint table below keeps one externally strongest checkpoint per source/model family.\n"
     )
 
     sections.append("\n## Selected Single-Site Checkpoints\n")
@@ -1815,7 +1885,8 @@ def prepare() -> tuple[list[RunSource], list[Snapshot], dict[str, dict[str, list
     ensure_dirs()
     uka_run_dir = extract_uka()
     umcu_run_dir = extract_umcu()
-    run_sources = materialize_source_runs(base_run_sources(uka_run_dir, umcu_run_dir))
+    rumc_1dc_run_dir = extract_rumc_1dc()
+    run_sources = materialize_source_runs(base_run_sources(uka_run_dir, umcu_run_dir, rumc_1dc_run_dir))
     snapshots = annotate_checksums(known_snapshots(run_sources))
     write_manifest(run_sources, snapshots)
     metrics_by_run = write_epoch_metrics(run_sources)
@@ -1835,7 +1906,8 @@ def main() -> None:
         ensure_dirs()
         uka_run_dir = WORKSPACE / "raw" / "UKA" / UKA_RUN_ID
         umcu_run_dir = extract_umcu()
-        run_sources = materialize_source_runs(base_run_sources(uka_run_dir, umcu_run_dir))
+        rumc_1dc_run_dir = extract_rumc_1dc()
+        run_sources = materialize_source_runs(base_run_sources(uka_run_dir, umcu_run_dir, rumc_1dc_run_dir))
         snapshots = annotate_checksums(known_snapshots(run_sources))
         write_manifest(run_sources, snapshots)
         metrics_by_run = write_epoch_metrics(run_sources)

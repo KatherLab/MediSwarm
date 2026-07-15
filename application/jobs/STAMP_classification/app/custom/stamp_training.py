@@ -110,7 +110,14 @@ def load_stamp_data(env: dict) -> Tuple[Dict[str, Any], str]:
         patient_to_data: Mapping of patient_id → PatientData
         feature_type: Detected or overridden feature type string
     """
-    from stamp.modeling.data import load_patient_level_data, detect_feature_type
+    from stamp.modeling.data import (
+        detect_feature_type,
+        filter_complete_patient_data_,
+        load_patient_level_data,
+        patient_to_ground_truth_from_clini_table_,
+        patient_to_survival_from_clini_table_,
+        slide_to_patient_from_slide_table_,
+    )
 
     clini_table = Path(env["clini_table"])
     feature_dir = Path(env["feature_dir"])
@@ -119,17 +126,72 @@ def load_stamp_data(env: dict) -> Tuple[Dict[str, Any], str]:
     patient_label = env["patient_label"]
     time_label = env["time_label"] if env["time_label"] else None
     status_label = env["status_label"] if env["status_label"] else None
+    slide_table = Path(env["slide_table"]) if env["slide_table"] else None
+    filename_label = env["filename_label"]
 
-    # Load patient data (STAMP 2.4.0 API)
-    patient_to_data = load_patient_level_data(
-        task=task,
-        clini_table=clini_table,
-        feature_dir=feature_dir,
-        patient_label=patient_label,
-        ground_truth_label=ground_truth_label,
-        time_label=time_label,
-        status_label=status_label,
-    )
+    if slide_table is not None:
+        # A site whose patients have several slides (or whose H5 files are named
+        # per slide rather than per patient). ``load_patient_level_data`` cannot
+        # be used here: it hardcodes ``feature_dir / f"{patient_id}.h5"``, so every
+        # patient would look "missing" and we'd silently train on 0 patients.
+        # Compose STAMP's slide-table path instead.
+        if not slide_table.exists():
+            raise FileNotFoundError(
+                f"STAMP_SLIDE_TABLE is set but the file does not exist: {slide_table}. "
+                "Note this must be a path *inside* the container (under /data/)."
+            )
+
+        if task == "survival":
+            if not (time_label and status_label):
+                raise ValueError(
+                    "task=survival requires STAMP_TIME_LABEL and STAMP_STATUS_LABEL"
+                )
+            patient_to_ground_truth = patient_to_survival_from_clini_table_(
+                clini_table_path=clini_table,
+                patient_label=patient_label,
+                time_label=time_label,
+                status_label=status_label,
+            )
+        else:
+            if not ground_truth_label:
+                raise ValueError(
+                    f"task={task} requires STAMP_GROUND_TRUTH_LABEL"
+                )
+            patient_to_ground_truth = patient_to_ground_truth_from_clini_table_(
+                clini_table_path=clini_table,
+                patient_label=patient_label,
+                ground_truth_label=ground_truth_label,
+            )
+
+        slide_to_patient = slide_to_patient_from_slide_table_(
+            slide_table_path=slide_table,
+            feature_dir=feature_dir,
+            patient_label=patient_label,
+            filename_label=filename_label,
+        )
+
+        patient_to_data = filter_complete_patient_data_(
+            patient_to_ground_truth=patient_to_ground_truth,
+            slide_to_patient=slide_to_patient,
+            drop_patients_with_missing_ground_truth=True,
+        )
+
+        logger.info(
+            f"Slide table: {slide_table} "
+            f"({len(slide_to_patient)} slides -> {len(patient_to_data)} patients, "
+            f"patient_label={patient_label!r}, filename_label={filename_label!r})"
+        )
+    else:
+        # One feature file per patient, named <patient_id>.h5.
+        patient_to_data = load_patient_level_data(
+            task=task,
+            clini_table=clini_table,
+            feature_dir=feature_dir,
+            patient_label=patient_label,
+            ground_truth_label=ground_truth_label,
+            time_label=time_label,
+            status_label=status_label,
+        )
 
     # Detect feature type from H5 files, or use override
     if env["feature_type"]:
@@ -139,6 +201,30 @@ def load_stamp_data(env: dict) -> Tuple[Dict[str, Any], str]:
 
     logger.info(f"Loaded {len(patient_to_data)} patients, feature_type={feature_type}")
     logger.info(f"Task: {task}, model: {env['model_name']}")
+
+    if not patient_to_data:
+        # Without this, training dies much later inside sklearn with the opaque
+        # "With n_samples=0, test_size=0.25 ... the resulting train set will be empty".
+        hint = (
+            "Every patient in the clinical table lacks a matching feature file.\n"
+            f"  clini table : {clini_table} (patient column: {patient_label!r})\n"
+            f"  feature dir : {feature_dir}\n"
+        )
+        if slide_table is not None:
+            hint += (
+                f"  slide table : {slide_table} "
+                f"(patient column: {patient_label!r}, filename column: {filename_label!r})\n"
+                "  Check that STAMP_PATIENT_LABEL / STAMP_FILENAME_LABEL name real columns in the\n"
+                "  slide table, and that its filenames match the files in the feature directory.\n"
+            )
+        else:
+            hint += (
+                "  No STAMP_SLIDE_TABLE is set, so each patient's features must be a single file\n"
+                f"  named <patient_id>.h5 in the feature directory. If your H5 files are named per\n"
+                "  slide, or a patient has several slides, provide a slide table via\n"
+                "  STAMP_SLIDE_TABLE (+ STAMP_FILENAME_LABEL).\n"
+            )
+        raise ValueError("No patients could be loaded — nothing to train on.\n" + hint)
 
     return patient_to_data, feature_type
 
@@ -292,6 +378,40 @@ def compute_weighted_epochs(num_train_samples: int, site_name: str = "") -> int:
     return epochs
 
 
+def _select_precision(task: str, use_gpu: bool) -> str:
+    """Pick a Lightning precision that the task's loss can actually backprop.
+
+    ``STAMP_PRECISION`` overrides this if set.
+
+    Mixed fp16 is a big speed win and is fine for classification/regression. It is
+    **not** usable for ``survival``: STAMP's Cox loss calls ``torch.logcumsumexp``
+    (``stamp/modeling/models/cox.py``), whose backward has no half kernel, so
+    training dies with::
+
+        RuntimeError: "logcumsumexp_backward" not implemented for 'Half'
+
+    Measured on a client GPU: fp16 backward FAILS, bf16 OK, fp32 OK. So for
+    survival prefer bf16 where the GPU supports it and fall back to full precision.
+    On CPU always use full precision (fp16/bf16 backward is unsupported on some
+    CPU platforms, e.g. DNNL with avx2_vnni_2).
+    """
+    override = os.environ.get("STAMP_PRECISION", "").strip()
+    if override:
+        return override
+
+    if not use_gpu:
+        return "32-true"
+
+    if task == "survival":
+        try:
+            bf16_ok = torch.cuda.is_bf16_supported()
+        except Exception:  # noqa: BLE001 — older torch / odd driver
+            bf16_ok = False
+        return "bf16-mixed" if bf16_ok else "32-true"
+
+    return "16-mixed"
+
+
 def prepare_training(
     env: dict,
     max_epochs: int,
@@ -390,9 +510,11 @@ def prepare_training(
     # CPU because bf16/fp16 backward is not supported on all CPU platforms
     # (e.g. DNNL with avx2_vnni_2 raises RuntimeError).
     use_gpu = torch.cuda.is_available()
+    precision = _select_precision(env["task"], use_gpu)
+    logger.info(f"Trainer precision: {precision} (task={env['task']}, gpu={use_gpu})")
     trainer = Trainer(
         accelerator="gpu" if use_gpu else "cpu",
-        precision="16-mixed" if use_gpu else "32-true",
+        precision=precision,
         default_root_dir=str(output_dir),
         callbacks=callbacks,
         enable_checkpointing=True,
@@ -460,6 +582,13 @@ def validate_and_train(
         output_aggregated_predictions(
             model, train_dl, valid_dl, current_round, output_dir,
         )
+
+    # trainer.validate() (and the prediction export above) leave the module in
+    # eval mode, and Lightning does not restore it before fit(). It warns
+    # "Found N module(s) in eval mode at the start of training" — which alarmed
+    # sites — and, more importantly, any module left in eval would train with
+    # dropout disabled. Put it back explicitly.
+    model.train()
 
     logger.info("--- Train new model ---")
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=valid_dl)

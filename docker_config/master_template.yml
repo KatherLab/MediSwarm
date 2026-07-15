@@ -732,6 +732,7 @@ docker_cln_sh: |
           --log_dataset_details) LOG_DATASET_DETAILS="1";;
           --model_name)          CLI_MODEL_NAME="$2"; shift ;;
           --num_epochs)          CLI_NUM_EPOCHS="$2"; shift ;;
+          --image)               CLI_IMAGE="$2"; shift ;;
           --config)              CLI_CONFIG="$2"; shift ;;
           --container_name)      CONTAINER_NAME="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
@@ -792,7 +793,21 @@ docker_cln_sh: |
   rm -rf ../pid.fl ../daemon_pid.fl
 
   # Docker image and container name
+  #
+  # The provisioned tag below is only the DEFAULT. The backbone, the training code
+  # and the job configs all ship in the IMAGE (not in this kit), and docker.sh pulls
+  # by tag on every run -- so a site can move to a new image WITHOUT a new kit:
+  #
+  #   startup/image.conf   ->  MEDISWARM_IMAGE=jefftud/odelia:1.6.0    (persistent)
+  #   ./docker.sh --image jefftud/odelia:1.6.0 ...                     (one-off)
+  #
+  # Point image.conf at a release channel (e.g. :current) to pick up releases with no
+  # action at all. Precedence: --image > MEDISWARM_IMAGE env > image.conf > default.
   DOCKER_IMAGE={~~docker_image~~}
+  if [ -f "$DIR/image.conf" ]; then
+      . "$DIR/image.conf"
+  fi
+  DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull "$DOCKER_IMAGE"
@@ -1010,7 +1025,7 @@ docker_cln_sh: |
 
   elif [ -n "$START_CLIENT" ]; then
       _start_live_sync swarm
-      docker run -d -t --restart=on-failure:5 \
+      docker run -d -t --restart=unless-stopped \
       --health-cmd="nvidia-smi > /dev/null 2>&1 || exit 1" \
       --health-interval=120s --health-start-period=180s --health-retries=3 \
       $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
@@ -1046,6 +1061,9 @@ docker_cln_sh: |
       echo "--model_name <name>      set model name (default: auto-derived from --job). Use this instead of 'export MODEL_NAME=...'"
       echo "                         when running with sudo, as sudo resets environment variables"
       echo "--num_epochs <n>         set number of training epochs (default: 100)"
+      echo "--image <ref>            run a specific image instead of the one this kit was"
+      echo "                         built with. Persist it in startup/image.conf instead"
+      echo "                         of waiting for a new kit."
       echo "--config <name>          set config name (default: unilateral)"
       echo "--container_name <name>  set name for the Docker container to override default using version number"
       exit 1
@@ -1090,7 +1108,7 @@ docker_svr_sh: |
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
   if [ -n "$START_SERVER" ]; then
-      docker run -d -t --restart=on-failure:5 --name=$CONTAINER_NAME \
+      docker run -d -t --restart=unless-stopped --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"

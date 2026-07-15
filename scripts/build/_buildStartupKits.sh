@@ -11,7 +11,12 @@ PROJECT_YML=$1
 VERSION=$2
 CONTAINER_NAME=$3
 
-sed -i 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__#'"$VERSION"'#' "$PROJECT_YML"
+# Provision from a temporary copy so the tracked project yml is never mutated.
+# The previous flow sed-ed the version IN and then sed-ed it back OUT, which
+# corrupts the file if the version string appears anywhere else in it.
+BUILD_YML="${PROJECT_YML%.yml}.build.yml"
+trap 'rm -f "$BUILD_YML"' EXIT
+sed 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__#'"$VERSION"'#g' "$PROJECT_YML" > "$BUILD_YML"
 
 echo "Building startup kits for project $PROJECT_YML with version $VERSION"
 docker run --rm \
@@ -20,9 +25,8 @@ docker run --rm \
   -v /etc/group:/etc/group \
   -v ./:/workspace/ \
   -w /workspace/ \
-  -e PROJECT_YML="$PROJECT_YML" \
+  -e PROJECT_YML="$BUILD_YML" \
   -e VERSION="$VERSION" \
   "$CONTAINER_NAME" \
   /bin/bash -c "nvflare provision -p \$PROJECT_YML && ./scripts/build/_injectLiveSyncIntoStartupKits.sh \$PROJECT_YML && ./scripts/build/_generateStartupKitArchives.sh \$PROJECT_YML \$VERSION" || { echo \"Docker run failed\"; exit 1; }
 
-sed -i 's#'"$VERSION"'#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__#' "$PROJECT_YML"

@@ -19,8 +19,15 @@ DL2_PASS_ENV=DL_SWARM_PASS
 # can use local Docker and the clients can reach dl3.tud.de over Tailscale.
 COSMOS_HOST=localhost
 COSMOS_USER=swarm
-COSMOS_DEPLOY_DIR=/home/swarm/deploy_test_duke_iid_2client
-SERVER_HOST_IP=100.64.4.103
+# Where the server/admin kits deploy locally on dl3. Leave unset to default to
+# $HOME/deploy_test_duke_iid_2client (works for whatever user runs the wrapper).
+# Only set this to override — and make sure the running user can write to it.
+#COSMOS_DEPLOY_DIR=/home/swarm/deploy_test_duke_iid_2client
+# The dl3 IP the CLIENTS use to reach the server on :8002. Leave unset to
+# auto-detect via `tailscale ip -4` (the Tailscale IP the dl nodes route to).
+# Only set it if auto-detection is wrong — and it MUST be an address the clients
+# can actually reach (the Tailscale IP, NOT a GoodAccess/other-subnet address).
+#SERVER_HOST_IP=100.100.101.100
 
 # dl0: node_A
 DL0_HOST=100.64.4.100

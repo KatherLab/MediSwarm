@@ -173,3 +173,38 @@ def test_log_data_hash_logs_duplicate_image_data_with_uids(_importable_threedcnn
     assert "Image data with hash" in caplog.text
     assert "ID_005_left, ID_005_right" in caplog.text
     assert "client_A, client_A" not in caplog.text
+
+
+def test_resolve_key_metric_defaults_to_the_selector_metric(_importable_threedcnn_ptl, monkeypatch):
+    monkeypatch.delenv("KEY_METRIC", raising=False)
+    monkeypatch.delenv("KEY_METRIC_MODE", raising=False)
+    threedcnn_ptl = _import_threedcnn_ptl()
+    assert threedcnn_ptl.resolve_key_metric() == ("val/AUC_ROC", "max")
+
+
+def test_resolve_key_metric_reads_the_environment(_importable_threedcnn_ptl, monkeypatch):
+    monkeypatch.setenv("KEY_METRIC", "val/ACC")
+    monkeypatch.delenv("KEY_METRIC_MODE", raising=False)
+    threedcnn_ptl = _import_threedcnn_ptl()
+    assert threedcnn_ptl.resolve_key_metric() == ("val/ACC", "max")
+
+
+def test_resolve_key_metric_infers_min_mode_for_a_loss(_importable_threedcnn_ptl, monkeypatch):
+    monkeypatch.setenv("KEY_METRIC", "val/loss")
+    monkeypatch.delenv("KEY_METRIC_MODE", raising=False)
+    threedcnn_ptl = _import_threedcnn_ptl()
+    assert threedcnn_ptl.resolve_key_metric() == ("val/loss", "min")
+
+
+def test_resolve_key_metric_mode_can_be_overridden(_importable_threedcnn_ptl, monkeypatch):
+    monkeypatch.setenv("KEY_METRIC", "val/AUC_ROC")
+    monkeypatch.setenv("KEY_METRIC_MODE", "min")
+    threedcnn_ptl = _import_threedcnn_ptl()
+    assert threedcnn_ptl.resolve_key_metric() == ("val/AUC_ROC", "min")
+
+
+def test_resolve_key_metric_ignores_blank_env(_importable_threedcnn_ptl, monkeypatch):
+    monkeypatch.setenv("KEY_METRIC", "   ")
+    monkeypatch.delenv("KEY_METRIC_MODE", raising=False)
+    threedcnn_ptl = _import_threedcnn_ptl()
+    assert threedcnn_ptl.resolve_key_metric() == ("val/AUC_ROC", "max")

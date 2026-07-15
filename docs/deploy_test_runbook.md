@@ -18,15 +18,15 @@ Operational notes for running the 2-node ODELIA challenge model deploy tests
 ssh swarm@dd-dl0   # key-based (cosmos ~/.ssh/id_ed25519 authorized on dl0/dl2)
 ssh swarm@dd-dl2
 ```
-Password fallback: `Ekfz_ekfz` (sshpass used by deploy scripts)
+Password fallback: `$DL_SWARM_PASS` — sourced from the gitignored `deploy_sites_2node_test.conf` (never commit the literal). The deploy scripts read it via `site_var <site> PASS`.
 
 **DNS fix required before every swarm run** — dl0/dl2 must resolve `dl3.tud.de` to Cosmos:
 ```bash
 source deploy_sites_2node_test.conf
 COSMOS_IP=$(tailscale ip -4)
 for HOST in dd-dl0 dd-dl2; do
-    sshpass -p 'Ekfz_ekfz' ssh -o StrictHostKeyChecking=no swarm@$HOST \
-        "echo 'Ekfz_ekfz' | sudo -S bash -c \"grep -q 'dl3.tud.de' /etc/hosts && \
+    sshpass -p "$DL_SWARM_PASS" ssh -o StrictHostKeyChecking=no swarm@$HOST \
+        "echo "$DL_SWARM_PASS" | sudo -S bash -c \"grep -q 'dl3.tud.de' /etc/hosts && \
          sed -i 's|^.*dl3.tud.de.*|${COSMOS_IP} dl3.tud.de|' /etc/hosts || \
          echo '${COSMOS_IP} dl3.tud.de' >> /etc/hosts\""
 done
@@ -121,8 +121,8 @@ VERSION=$(bash scripts/build/getVersionNumber.sh)
 WORKSPACE="workspace/odelia_deploy_test_${VERSION}_model_test/prod_00"
 for SITE_NAME in RUMC_1 MHA_1; do
     HOST=$(grep "${SITE_NAME%_*}" deploy_sites_2node_test.conf ...)
-    sshpass -p 'Ekfz_ekfz' scp $WORKSPACE/${SITE_NAME}_${VERSION}.zip swarm@<HOST>:~/deploy_test/
-    sshpass -p 'Ekfz_ekfz' ssh swarm@<HOST> "cd ~/deploy_test && unzip -qo ..."
+    sshpass -p "$DL_SWARM_PASS" scp $WORKSPACE/${SITE_NAME}_${VERSION}.zip swarm@<HOST>:~/deploy_test/
+    sshpass -p "$DL_SWARM_PASS" ssh swarm@<HOST> "cd ~/deploy_test && unzip -qo ..."
 done
 
 # 5. Pre-pull image on remotes

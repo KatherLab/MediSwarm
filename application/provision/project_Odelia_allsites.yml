@@ -1,5 +1,5 @@
 api_version: 3
-name: odelia___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___allsites_test
+name: odelia_allsites
 description: Odelia TUD server all collaborators clients on Odelia challenge dataset provision http based yaml file
 
 participants:
