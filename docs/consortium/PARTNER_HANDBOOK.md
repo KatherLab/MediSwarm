@@ -52,6 +52,9 @@ sudo ./scripts/client_node_setup/setup_vpntunnel.sh -d <YourSite> -n -s
 sudo ./scripts/client_node_setup/vpn_health_monitor.sh --install-timer
 systemctl status mediswarm-vpn mediswarm-vpn-health.timer
 ```
+> **`<YourSite>` is the GoodAccess profile name, not your site ID:**
+> `UKA_1`→`UKA` · `CAM_1`→`Cambridge` · `VHIO_1`→`VHIO` · `MHA_1`→`Mitera` · `RSH_1`→`Ribera` · `USZ_1`→`Zurich` · `UMCU_1`→`Utrecht` · `RUMC_1`→`Radboud`.
+
 
 Then confirm **exactly one** tunnel is up — two tunnels fight over the same routes and
 make the node flaky (**F10**):
