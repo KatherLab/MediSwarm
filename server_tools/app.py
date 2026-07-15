@@ -325,12 +325,12 @@ def compute_version_skew(rows):
     for row in live:
         key = identity(row)
         if key and key != majority:
-            skew[row["name"]] = f"running {row.get('image_ref') or key}, swarm majority is on a different image"
+            skew[row["site"]] = f"running {row.get('image_ref') or key}, swarm majority is on a different image"
             continue
         expected = row.get("expected_version") or ""
         seen = row.get("kit_version") or ""
         if expected and seen and expected != seen:
-            skew[row["name"]] = f"kit {seen}, expected {expected}"
+            skew[row["site"]] = f"kit {seen}, expected {expected}"
     return skew
 
 
@@ -835,7 +835,7 @@ def rows(*, force: bool = False) -> list[dict[str, Any]]:
     # Stamp version skew here -- the single choke point every view goes through.
     skew = compute_version_skew(value)
     for row in value:
-        row["version_skew"] = skew.get(row["name"], "")
+        row["version_skew"] = skew.get(row["site"], "")
     _ROWS_CACHE["value"] = value
     _ROWS_CACHE["expires_at"] = now + ROWS_CACHE_TTL_SECONDS
     return list(value)

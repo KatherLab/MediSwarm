@@ -84,7 +84,7 @@ def skew():
 
 def _site(name, image_id, kit_version="1.5.0", expected=""):
     return {
-        "name": name,
+        "site": name,
         "image_id": image_id,
         "image_ref": f"jefftud/odelia:{kit_version}",
         "kit_version": kit_version,
@@ -123,4 +123,4 @@ def test_a_single_site_cannot_be_skewed(skew):
 
 
 def test_sites_without_version_data_are_ignored(skew):
-    assert skew([{"name": "X", "image_id": "", "kit_version": ""}]) == {}
+    assert skew([{"site": "X", "image_id": "", "kit_version": ""}]) == {}
