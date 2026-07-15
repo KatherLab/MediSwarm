@@ -18,7 +18,7 @@ kit am I on, what do I run, and when is the run?"* This folder is that single pl
 1. **Doc** ← paste `PARTNER_HANDBOOK.md` into a new Google Doc, share view-only.
 2. **Sheet** ← import the four CSVs, one per tab:
    - `sheet_1_run_schedule.csv` — set the date, the **shared target**, and the image tag
-   - `sheet_2_kit_registry.csv` — fill each kit's `sha256`; mark superseded kits **DEPRECATED**
+   - `sheet_2_kit_registry.csv` — one row per site per kit, each with its own `sha256` (per-site certs → per-site hash); mark superseded kits **DEPRECATED**
    - `sheet_3_site_checklist.csv` — 4 sites × 9 steps; **sites tick their own rows** (pre-filled with what we know)
    - `sheet_4_known_issues.csv` — cumulative. **Append, never rewrite** — this is the debugging memory
 3. Share the Doc + Sheet once. Then stop emailing instructions: change them here.
@@ -29,7 +29,8 @@ kit am I on, what do I run, and when is the run?"* This folder is that single pl
   (`STAMP_NUM_CLASSES` + `STAMP_GROUND_TRUTH_LABEL`). See `docs/DECADE_SITE_REGISTRY.md`
   for who can supply what — MSI-High is the front-runner; Bonn is the only site that
   cannot yet, and Düsseldorf replies by 2026-07-22.
-- **Kit registry:** each kit's **`sha256`** (`sha256sum <SITE>_<version>.zip`).
+
+(The kit registry's per-site `sha256` values are now filled in from the built kits.)
 
 ## DECADE vs ODELIA — two real differences
 
