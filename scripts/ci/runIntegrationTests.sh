@@ -6,6 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# shellcheck source=scripts/ci/_error_filter.sh
+source "$SCRIPT_DIR/_error_filter.sh"
+
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
 CONTAINER_VERSION_SUFFIX=$(git rev-parse --short HEAD)
 DOCKER_IMAGE=localhost:5000/odelia:$VERSION
@@ -211,7 +214,7 @@ run_dummy_training_simulation_mode(){
 
     echo "$OUTPUT"
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example simulation mode succeeded."
     else
         echo "❌ Minimal example simulation mode failed."
@@ -226,7 +229,7 @@ run_dummy_training_poc_mode(){
 
     echo "$OUTPUT"
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example proof-of-concept mode succeeded."
     else
         echo "❌ Minimal example proof-of-concept mode failed."
@@ -296,16 +299,44 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
 
-    ZIP_CONTENT=$(unzip -tv "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip")
+    # Kits are AES-256 encrypted (#449) -- they carry a private key. Verify the
+    # encrypted archive decrypts to the expected contents, and that no plaintext
+    # zip was left behind.
+    ENC_KIT="$PROJECT_DIR/prod_01/client_B_${VERSION}.zip.enc"
+    PW_FILE="$PROJECT_DIR/prod_01/kit_passwords.txt"
+
+    if compgen -G "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip" > /dev/null; then
+        echo "❌ plaintext kit archive left behind (kits must ship encrypted)"
+        exit 1
+    fi
+    [ -f "$ENC_KIT" ] || { echo "❌ encrypted kit $ENC_KIT not found"; exit 1; }
+
+    KIT_PASSWORD=$(awk -F'\t' '$1=="client_B"{print $2}' "$PW_FILE")
+    [ -n "$KIT_PASSWORD" ] || { echo "❌ no password for client_B in $PW_FILE"; exit 1; }
+
+    DECRYPTED_KIT=$(mktemp)
+    openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+        -in "$ENC_KIT" -out "$DECRYPTED_KIT" -pass pass:"$KIT_PASSWORD"
+    ZIP_CONTENT=$(unzip -tv "$DECRYPTED_KIT")
+    rm -f "$DECRYPTED_KIT"
+
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
         if grep -q "$FILE" <<< "$ZIP_CONTENT"; then
-            echo "✅ $FILE found in zip"
+            echo "✅ $FILE found in decrypted kit"
         else
-            echo "❌ $FILE missing in zip"
+            echo "❌ $FILE missing in decrypted kit"
             exit 1
         fi
     done
+
+    # a wrong password must NOT decrypt -- proves the kit is actually protected
+    if openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+        -in "$ENC_KIT" -out /dev/null -pass pass:"definitely-wrong" 2>/dev/null; then
+        echo "❌ kit decrypted with a wrong password"
+        exit 1
+    fi
+    echo "✅ kit is encrypted (wrong password rejected)"
 }
 
 
@@ -720,10 +751,16 @@ run_dummy_training_in_swarm () {
     cd "$CWD"
 
     # Poll for completion instead of a fixed sleep.  The server log will
-    # contain "Server runner finished." once all rounds are done.  We check
-    # every 10 seconds for up to 5 minutes (30 iterations).
+    # contain "Server runner finished." once all rounds are done.
+    #
+    # #388: 30 attempts (300s) was too tight. The self-hosted runner shares a host
+    # with image builds and deploy tests, and the observed failures show the swarm
+    # still making progress ("Round 2 started", "Contribution ... ACCEPTED") when we
+    # gave up — i.e. we were timing out on a *slow* run, not a hung one, and then
+    # failing the assertions below. Poll for up to 15 min; a genuinely hung run still
+    # fails, just later. Override with CI_SWARM_WAIT_ATTEMPTS if needed.
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local max_attempts=30
+    local max_attempts=${CI_SWARM_WAIT_ATTEMPTS:-90}
     local attempt=0
     echo "  Waiting for swarm training to finish (checking every 10s, max ${max_attempts}0s) ..."
     while [ $attempt -lt $max_attempts ]; do

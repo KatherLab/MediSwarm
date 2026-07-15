@@ -27,10 +27,20 @@ run_3dcnn_simulation_mode () {
     sed -i 's/min_responses_required = .*/min_responses_required = 1/' ${TMPDIR}/${APP_DIR}/app/config/config_fed_client.conf
     # Production ODELIA jobs use long timeouts to ride out VPN stalls. This
     # synthetic CI simulation should fail promptly and print the simulator log.
+    #
+    # EXCEPT max_status_report_interval (#388): that is a *liveness* check, not a
+    # duration budget. The self-hosted runner shares a host with image builds and
+    # deploy tests, so a healthy-but-slow simulated client can miss a 300s status
+    # report and be declared dead:
+    #   FATAL_SYSTEM_ERROR: client simulated_node_1 didn't report status for 300 seconds
+    # That aborts the whole simulation and fails PRs that cannot affect swarm
+    # training at all (it has failed docs-only PRs). Keep the *task* timeouts short
+    # so genuine hangs still fail fast; give the liveness check slack for CI load.
     sed -i \
         -e 's/start_task_timeout = .*/start_task_timeout = 300/' \
         -e 's/progress_timeout = .*/progress_timeout = 600/' \
         -e 's/configure_task_timeout = .*/configure_task_timeout = 300/' \
+        -e 's/max_status_report_interval = .*/max_status_report_interval = 1800/' \
         ${TMPDIR}/${APP_DIR}/app/config/config_fed_server.conf
     sed -i \
         -e 's/last_result_transfer_timeout = .*/last_result_transfer_timeout = 300/' \

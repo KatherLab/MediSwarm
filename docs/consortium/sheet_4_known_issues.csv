@@ -1,0 +1,11 @@
+ID,Symptom you see,Cause,Fix,Status
+F1,Run aborts: "client X didn't report status for N seconds",Slow site silent longer than the status interval,24h timeouts — already set in the job configs,Fixed centrally
+F2,"NVML: Unknown Error; GPU ""vanishes"" mid-run (nvidia-smi on the host is fine)",A routine daemon-reload strips the GPU from running containers (systemd cgroup driver),Run fix_docker_cgroupfs.sh once — persists across reboots,Site action
+F3,Client looks healthy but never registers after a restart,Stale daemon_pid.fl lock,Delete daemon_pid.fl in the kit root and relaunch (now cleared automatically),Fixed centrally
+F4,"Instant crash: OSError: Read-only file system",ODELIA_PREPROCESS_CACHE_DIR set to a HOST path that lands under the read-only /data mount,"It is a path INSIDE the container. Leave it unset — the default (/scratch/...) is already correct",Site action
+F5,Run aborts: MODEL_UNRECOGNIZED from a slow site,Swarm advanced a round without the slow site,Wait-for-all quorum — already set,Fixed centrally
+F6,Run aborts: node "deemed disconnected",VPN tunnel dropped,Run the VPN as the mediswarm-vpn systemd service + health-monitor timer,Site action
+F7,DataLoader worker killed: Bus error / shared memory,/dev/shm too small for the 3D loaders,--ipc=host — already set,Fixed centrally
+F8,"Guard aborts with ""too many unusable inputs"" and lists load_error:PermissionError",The container cannot READ your image files,"Fix file permissions/ownership. Do NOT delete or exclude the data — it is fine",Site action
+F9,VPN service hangs asking for a password and never reconnects,"GoodAccess .ovpn ships a bare auth-user-pass, so OpenVPN prompts instead of reading the credentials file",Re-run setup_vpntunnel.sh (fixed) — or point auth-user-pass at /etc/openvpn/client/mediswarm.auth,Fixed centrally
+F10,Two OpenVPN tunnels running at once; connectivity is flaky,A manual tunnel left running alongside the systemd service,Keep only the mediswarm-vpn systemd service; stop and disable the other,Site action

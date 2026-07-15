@@ -1,10 +1,42 @@
 from pathlib import Path
 import json
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from torchmetrics import AUROC, Accuracy
+from torchmetrics import (
+    AUROC,
+    Accuracy,
+    AveragePrecision,
+    CalibrationError,
+    F1Score,
+    Recall,
+    Specificity,
+)
+
+# Extended evaluation metrics (#410) are attached to these states only, so the
+# per-training-step cost of a run is unchanged.
+EXTENDED_METRIC_STATES = ("val_", "test_")
+# Bootstrap CIs re-compute each metric N times over the buffered predictions, so
+# they stay on the test split even when enabled.
+BOOTSTRAP_METRIC_STATES = ("test_",)
+
+
+def _eval_tier():
+    """'default' = macro scalars; 'full' also adds per-class values + calibration."""
+    return os.environ.get("ODELIA_EVAL_METRICS", "default").strip().lower()
+
+
+def _bootstrap_enabled():
+    return os.environ.get("ODELIA_EVAL_BOOTSTRAP", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _bootstrap_samples():
+    try:
+        return max(2, int(os.environ.get("ODELIA_EVAL_BOOTSTRAP_N", "200")))
+    except ValueError:
+        return 200
 
 
 class VeryBasicModel(pl.LightningModule):
@@ -129,8 +161,13 @@ class BasicClassifier(BasicModel):
         self.out_ch = out_ch
         self.spatial_dims = spatial_dims
 
-        if loss_kwargs is None:
-            loss_kwargs = {}
+        # Defensive copies. These are mutable default arguments and the code below
+        # pops/updates them: without copying, `loss_kwargs.pop('weight')` empties the
+        # caller's dict (a second model built from the same config would silently train
+        # unweighted) and the shared defaults stay polluted for the process (#430).
+        loss_kwargs = dict(loss_kwargs) if loss_kwargs else {}
+        aucroc_kwargs = dict(aucroc_kwargs) if aucroc_kwargs else {}
+        acc_kwargs = dict(acc_kwargs) if acc_kwargs else {}
 
         # Store class weights as a buffer so they move to the correct device
         # with the model (e.g. GPU).  nn.CrossEntropyLoss.weight is NOT an
@@ -153,6 +190,68 @@ class BasicClassifier(BasicModel):
         self.auc_roc = nn.ModuleDict({state: AUROC(**aucroc_kwargs) for state in ["train_", "val_", "test_"]})
         self.acc = nn.ModuleDict({state: Accuracy(**acc_kwargs) for state in ["train_", "val_", "test_"]})
 
+        self.eval_tier = _eval_tier()
+        self.eval_bootstrap = _bootstrap_enabled()
+        self.eval_bootstrap_samples = _bootstrap_samples()
+        self.extra_metrics = nn.ModuleDict({
+            state: nn.ModuleDict(self._build_extended_metrics(out_ch, state))
+            for state in EXTENDED_METRIC_STATES
+        })
+
+    def _build_extended_metrics(self, num_classes, state):
+        """Metrics beyond ACC/AUROC. All accept raw logits (torchmetrics softmaxes)."""
+        kwargs = {"task": "multiclass", "num_classes": num_classes}
+        metrics = {
+            "F1": F1Score(average="macro", **kwargs),
+            "Recall": Recall(average="macro", **kwargs),  # sensitivity
+            "Specificity": Specificity(average="macro", **kwargs),
+            "PR_AUC": AveragePrecision(average="macro", **kwargs),
+        }
+        if self.eval_tier == "full":
+            metrics.update({
+                "ECE": CalibrationError(**kwargs),
+                "AUC_ROC_per_class": AUROC(average=None, **kwargs),
+                "F1_per_class": F1Score(average=None, **kwargs),
+                "Recall_per_class": Recall(average=None, **kwargs),
+                "Specificity_per_class": Specificity(average=None, **kwargs),
+                "PR_AUC_per_class": AveragePrecision(average=None, **kwargs),
+            })
+        if self.eval_bootstrap and state in BOOTSTRAP_METRIC_STATES:
+            from torchmetrics.wrappers import BootStrapper
+            quantile = torch.tensor([0.025, 0.975])
+            for name, base in (("ACC_boot", Accuracy(**kwargs)), ("AUC_ROC_boot", AUROC(**kwargs))):
+                metrics[name] = BootStrapper(base, num_bootstraps=self.eval_bootstrap_samples, quantile=quantile)
+        return metrics
+
+    def compute_epoch_metrics(self, state):
+        """Compute every metric for `state` as {log_key: scalar tensor}.
+
+        Pure -- performs no logging, so it is unit-testable without a Trainer.
+        The `{state}/ACC` and `{state}/AUC_ROC` keys are preserved verbatim
+        because IntimeModelSelector selects the global model on `val/AUC_ROC`.
+        """
+        key = state + "_"
+        values = {
+            f"{state}/ACC": self.acc[key].compute(),
+            f"{state}/AUC_ROC": self.auc_roc[key].compute(),
+        }
+        if key not in self.extra_metrics:
+            return values
+        for name, metric in self.extra_metrics[key].items():
+            computed = metric.compute()
+            if name.endswith("_boot"):
+                base = name[: -len("_boot")]
+                low, high = computed["quantile"]
+                values[f"{state}/{base}_ci_low"] = low
+                values[f"{state}/{base}_ci_high"] = high
+            elif name.endswith("_per_class"):
+                base = name[: -len("_per_class")]
+                for index, value in enumerate(computed):
+                    values[f"{state}/{base}_class{index}"] = value
+            else:
+                values[f"{state}/{name}"] = computed
+        return values
+
     def _step(self, batch: dict, batch_idx: int, state: str, step: int):
         source = batch['source']
         target = batch['target']
@@ -164,15 +263,19 @@ class BasicClassifier(BasicModel):
         target_squeezed = torch.squeeze(target, 1)  # TODO Why is this necessary and is it the right thing to do?
         self.acc[state + "_"].update(pred, target_squeezed)
         self.auc_roc[state + "_"].update(pred, target_squeezed)
+        if state + "_" in self.extra_metrics:
+            for metric in self.extra_metrics[state + "_"].values():
+                metric.update(pred, target_squeezed)
 
         self.log(f"{state}/loss", loss_val, batch_size=batch_size, on_step=True, on_epoch=True)
         return loss_val
 
     def _epoch_end(self, state):
-        acc_value = self.acc[state + "_"].compute()
-        auc_roc_value = self.auc_roc[state + "_"].compute()
-        self.log(f"{state}/ACC", acc_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
-        self.log(f"{state}/AUC_ROC", auc_roc_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
+        metric_values = self.compute_epoch_metrics(state)
+        acc_value = metric_values[f"{state}/ACC"]
+        auc_roc_value = metric_values[f"{state}/AUC_ROC"]
+        for name, value in metric_values.items():
+            self.log(name, value, batch_size=self.batch_size, on_step=False, on_epoch=True)
         # For ModelCheckpoint, also log as "val/AUC_ROC" if state == "val"
         if state == "val":
             self.log("val/AUC_ROC", auc_roc_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
@@ -180,6 +283,9 @@ class BasicClassifier(BasicModel):
         print(f"Epoch {self.current_epoch} - {state} ACC: {acc_value:.4f}, AUC_ROC: {auc_roc_value:.4f}")
         self.acc[state + "_"].reset()
         self.auc_roc[state + "_"].reset()
+        if state + "_" in self.extra_metrics:
+            for metric in self.extra_metrics[state + "_"].values():
+                metric.reset()
 
     def compute_loss(self, pred, target):
         target_squeezed = torch.squeeze(target, 1)  # TODO Why is this necessary and is it the right thing to do?

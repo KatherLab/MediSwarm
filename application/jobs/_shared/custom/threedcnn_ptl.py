@@ -36,6 +36,26 @@ FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_valida
 
 OMP_THREAD_ENV_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
 
+# Default matches the `key_metric` of every job that uses this training script
+# (application/jobs/*/app/config/config_fed_client.conf). Those jobs forward their
+# selector metric as a KEY_METRIC=... prefix on the launcher command, which the
+# SubprocessLauncher strips into the environment.
+DEFAULT_KEY_METRIC = "val/AUC_ROC"
+
+
+def resolve_key_metric():
+    """Return (metric, mode) for the local best-model checkpoint.
+
+    Keeps Lightning's ModelCheckpoint in step with NVFlare's IntimeModelSelector.
+    The training script runs in a separate subprocess and cannot read the NVFlare
+    component config, so the job forwards `key_metric` through the environment (#409).
+    """
+    metric = os.environ.get("KEY_METRIC", "").strip() or DEFAULT_KEY_METRIC
+    mode = os.environ.get("KEY_METRIC_MODE", "").strip().lower()
+    if mode not in ("min", "max"):
+        mode = "min" if "loss" in metric.lower() else "max"
+    return metric, mode
+
 
 @dataclass
 class UIDwithHash:
@@ -531,8 +551,8 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
 
         logger.info(f"Using model: {env_vars['model_name']}")
 
-        to_monitor = "val/ACC"
-        min_max = "max"
+        to_monitor, min_max = resolve_key_metric()
+        logger.info(f"Local best checkpoint monitors {to_monitor} (mode={min_max})")
         log_every_n_steps = 50
 
         checkpointing = ModelCheckpoint(

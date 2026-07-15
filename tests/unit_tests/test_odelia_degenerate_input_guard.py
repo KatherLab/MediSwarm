@@ -38,6 +38,7 @@ def _make_dataset(transform, n=5):
     ds.config = "unilateral"
     ds._bad_input_count = 0
     ds._bad_input_logged = set()
+    ds._bad_input_reasons = {}
     ds.transform = transform
     ds.get_image_path = lambda uid, inst: f"/{uid}"
     ds._load_source_image = lambda path, inst, uid: uid
@@ -73,8 +74,35 @@ def test_getitem_aborts_when_too_many_bad():
     def transform(uid):
         raise DegenerateImageError(uid, "/p", "zero_std", 0)
     ds = _make_dataset(transform, n=40)
-    with pytest.raises(RuntimeError, match="too many degenerate/corrupt inputs"):
+    with pytest.raises(RuntimeError) as exc:
         _ = ds[0]
+
+    message = str(exc.value)
+    assert "too many unusable inputs" in message
+    assert "9x zero_std" in message, "must break the failures down by reason (#416)"
+    assert "re-export or exclude" in message, "degenerate content -> excluding is the right remedy"
+
+
+def test_abort_on_unreadable_files_says_fix_permissions_not_delete_data():
+    """The #416 regression: a site deleted valid data because the guard said 'exclude'.
+
+    When every failure is a file-access error the data is fine and the PERMISSIONS
+    are wrong, so the message must say so and must NOT advise excluding anything.
+    """
+    def loader(path):
+        raise PermissionError(13, "Permission denied", str(path))
+
+    ds = _make_dataset(transform=lambda uid: uid, n=40)
+    ds.load_img = loader
+    ds._load_source_image = lambda path_img, institution, uid: loader(path_img)
+
+    with pytest.raises(RuntimeError) as exc:
+        _ = ds[0]
+
+    message = str(exc.value)
+    assert "PERMISSION/OWNERSHIP" in message
+    assert "do NOT exclude the data" in message
+    assert "load_error:PermissionError" in message
 
 
 def test_getitem_propagates_real_transform_bugs():
