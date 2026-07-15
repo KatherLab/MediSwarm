@@ -210,3 +210,10 @@ duke_results/
 
 # DECADE local deploy creds (never commit)
 deploy_sites_decade_2node.conf
+
+# temp project yml written during kit provisioning
+*.build.yml
+
+# Startup-kit passwords — NEVER commit (workspace/ is ignored too, this is belt-and-braces)
+kit_passwords.txt
+**/kit_passwords.txt
