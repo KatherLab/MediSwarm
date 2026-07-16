@@ -12,7 +12,7 @@ ARG PYTORCH_IMAGE=pytorch/pytorch:2.7.1-cuda12.6-cudnn9-runtime
 FROM ${PYTORCH_IMAGE}
 
 # Specify the NVFlare version
-ARG NVF_VERSION=2.7.2
+ARG NVF_VERSION=2.8.0
 ENV NVF_BRANCH=${NVF_VERSION}
 
 # ===========================================================================
