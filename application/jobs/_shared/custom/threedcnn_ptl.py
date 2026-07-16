@@ -370,6 +370,7 @@ def set_up_data_module(logger, env_vars: dict, log_dataset_details: bool = False
             logger,
             path_root=env_vars['data_dir'],
             institutions=[institution],
+            fold=env_vars['fold'],
             log_dataset_details=log_dataset_details,
             manifests=manifests,
         )
