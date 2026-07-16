@@ -32,9 +32,17 @@ TU Dresden hosts **server + admin only** (no training client).
 - **MSI-High / dMMR columns exist but every slide is labelled `not provided`.**
 - Only other molecular annotation: *Affected Gene in the Germline*
   (MLH1, MSH2, MSH6, PMS2, EPCAM, APC), plus adenoma dysplasia (low/high grade).
-- Checking with Dr. Robert and Dr. Jacob whether any MSI/MMR data exists.
 - Note: Lynch patients are *biologically* dMMR/MSI-High, but this is **not** a
   direct MSI label — deriving one would mislabel sporadic MSI-High cases.
+- **Update 2026-07-15 (Dr. Robert, via Islem):** confirmed the cohort is
+  predominantly colorectal adenomas and that **germline syndrome status cannot be
+  used as a surrogate for MSI/dMMR** (different biological target). MSI/MMR is **not
+  available for the whole UKB cohort**, but a subset of the adenomas was previously
+  analysed in **Heidelberg**. Dr. Robert is contacting the Heidelberg team to see
+  whether MSI/MMR annotations can be retrieved for those cases. Islem has sent
+  Heidelberg the slide-level list of the **1,174 slides** so they can check which
+  samples have matching MSI/MMR data. **This is only an attempt** — the number of
+  matchable cases is unknown. Awaiting Heidelberg's assessment.
 
 ### Mainz (`Mainz_1`) — MSI available
 
@@ -96,9 +104,11 @@ is a *tumour* phenotype. Most Lynch tumours are MSI-High, but sporadic MSI-High
 (usually MLH1-hypermethylated) exists and would be mislabelled. That is a different
 study, not a relabelling.
 
-**Blocked on:** (a) **Bonn** confirming with Dr. Robert / Dr. Jacob whether any real
-MSI/MMR data exists — this is now the only site that cannot do MSI; (b) **Düsseldorf**
-reporting (by Wed 2026-07-22). Heidelberg has reported (MSI available).
+**Blocked on:** (a) **Bonn** — Dr. Robert has confirmed (2026-07-15) there is **no
+MSI/MMR for the whole cohort**; the only remaining path is a **Heidelberg cross-match**
+of Bonn's 1,174 slides against previously-analysed adenomas (attempt underway, yield
+unknown), so Bonn stays the site that cannot do MSI unless that match lands; (b)
+**Düsseldorf** reporting (by Wed 2026-07-22). Heidelberg has reported (MSI available).
 
 **If Bonn has no MSI:** the honest choices are (i) run MSI with Mainz + Heidelberg
 (+ Düsseldorf if available) and leave Bonn out of the first run, or (ii) pick a
