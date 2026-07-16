@@ -299,44 +299,23 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
 
-    # Kits are AES-256 encrypted (#449) -- they carry a private key. Verify the
-    # encrypted archive decrypts to the expected contents, and that no plaintext
-    # zip was left behind.
-    ENC_KIT="$PROJECT_DIR/prod_01/client_B_${VERSION}.zip.enc"
-    PW_FILE="$PROJECT_DIR/prod_01/kit_passwords.txt"
+    # Kits ship as plain zips (consortium decision, reversing #449 encryption):
+    # every site picks its own from a members-only shared folder. Verify the
+    # archive exists and carries the expected startup files.
+    KIT="$PROJECT_DIR/prod_01/client_B_${VERSION}.zip"
+    [ -f "$KIT" ] || { echo "❌ kit archive $KIT not found"; exit 1; }
 
-    if compgen -G "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip" > /dev/null; then
-        echo "❌ plaintext kit archive left behind (kits must ship encrypted)"
-        exit 1
-    fi
-    [ -f "$ENC_KIT" ] || { echo "❌ encrypted kit $ENC_KIT not found"; exit 1; }
-
-    KIT_PASSWORD=$(awk -F'\t' '$1=="client_B"{print $2}' "$PW_FILE")
-    [ -n "$KIT_PASSWORD" ] || { echo "❌ no password for client_B in $PW_FILE"; exit 1; }
-
-    DECRYPTED_KIT=$(mktemp)
-    openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
-        -in "$ENC_KIT" -out "$DECRYPTED_KIT" -pass pass:"$KIT_PASSWORD"
-    ZIP_CONTENT=$(unzip -tv "$DECRYPTED_KIT")
-    rm -f "$DECRYPTED_KIT"
-
+    ZIP_CONTENT=$(unzip -tv "$KIT")
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
         if grep -q "$FILE" <<< "$ZIP_CONTENT"; then
-            echo "✅ $FILE found in decrypted kit"
+            echo "✅ $FILE found in kit archive"
         else
-            echo "❌ $FILE missing in decrypted kit"
+            echo "❌ $FILE missing in kit archive"
             exit 1
         fi
     done
-
-    # a wrong password must NOT decrypt -- proves the kit is actually protected
-    if openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
-        -in "$ENC_KIT" -out /dev/null -pass pass:"definitely-wrong" 2>/dev/null; then
-        echo "❌ kit decrypted with a wrong password"
-        exit 1
-    fi
-    echo "✅ kit is encrypted (wrong password rejected)"
+    echo "✅ kit archive contains the expected startup files"
 }
 
 

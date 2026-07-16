@@ -23,16 +23,16 @@ Three places, and only three:
 ## 1. One-time setup
 
 ### 1.1 Install your kit
-You will receive an **encrypted** kit (`<SITE>_<version>.zip.enc`) and, **separately**,
-its password. Kits are encrypted because they contain your site's private key.
+Your kit lives in the consortium's **members-only shared folder** as
+`<SITE>_<version>.zip`. Pick the one for **your** site. It contains your site's
+private key, so treat the folder as sensitive — don't repost it or your kit anywhere
+outside it.
 
 ```bash
 # check you have the kit the board says is ACTIVE
-sha256sum <SITE>_<version>.zip.enc          # must match the 'Kit registry' tab
+sha256sum <SITE>_<version>.zip              # must match the 'Kit registry' tab
 
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
-        -in <SITE>_<version>.zip.enc -out <SITE>.zip -pass pass:'<password>'
-unzip <SITE>.zip
+unzip <SITE>_<version>.zip
 ```
 
 ### 1.2 Fix the Docker cgroup driver — *do this first*
