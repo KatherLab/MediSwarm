@@ -736,6 +736,7 @@ docker_cln_sh: |
           --image)               CLI_IMAGE="$2"; shift ;;
           --config)              CLI_CONFIG="$2"; shift ;;
           --container_name)      CONTAINER_NAME="$2"; shift ;;
+          --docker_options)      CLI_DOCKER_OPTIONS="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -810,11 +811,20 @@ docker_cln_sh: |
   # > image.conf > default). Without this, image.conf's assignment would clobber the
   # env var (#449 follow-up).
   ENV_IMAGE="${MEDISWARM_IMAGE:-}"
+  # Same capture-before-source trick for extra docker options (#218): a pre-exported
+  # MEDISWARM_DOCKER_OPTIONS must beat an image.conf assignment.
+  ENV_DOCKER_OPTIONS="${MEDISWARM_DOCKER_OPTIONS:-}"
   if [ -f "$DIR/image.conf" ]; then
       . "$DIR/image.conf"
   fi
   MEDISWARM_IMAGE="${ENV_IMAGE:-${MEDISWARM_IMAGE:-}}"
   DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"
+  # Extra options to pass through to `docker run` (#218): partners needed to add
+  # host-specific options (e.g. --cpus / --cpuset-cpus) without hand-editing this
+  # script. Precedence mirrors the image: --docker_options CLI > MEDISWARM_DOCKER_OPTIONS
+  # env > image.conf. Appended last below so a site option can override a built-in.
+  MEDISWARM_DOCKER_OPTIONS="${ENV_DOCKER_OPTIONS:-${MEDISWARM_DOCKER_OPTIONS:-}}"
+  EXTRA_DOCKER_OPTIONS="${CLI_DOCKER_OPTIONS:-${MEDISWARM_DOCKER_OPTIONS:-}}"
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull "$DOCKER_IMAGE"
@@ -830,7 +840,7 @@ docker_cln_sh: |
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
   fi
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
-  DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
+  DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B} ${EXTRA_DOCKER_OPTIONS}"
 
   # Common ENV vars
   # CLI flags (--model_name, --num_epochs, --config, --fold) take priority over env
@@ -1079,6 +1089,9 @@ docker_cln_sh: |
       echo "                         is ignored by --start_client."
       echo "--config <name>          set config name (default: unilateral)"
       echo "--container_name <name>  set name for the Docker container to override default using version number"
+      echo "--docker_options \"<opts>\" extra options passed straight to 'docker run' (e.g."
+      echo "                         \"--cpus 8 --cpuset-cpus 0-7\"). Persist with"
+      echo "                         MEDISWARM_DOCKER_OPTIONS in startup/image.conf."
       exit 1
   fi
 
