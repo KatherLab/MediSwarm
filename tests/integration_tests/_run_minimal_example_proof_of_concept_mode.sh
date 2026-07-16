@@ -8,7 +8,8 @@ run_minimal_example_proof_of_concept_mode () {
     cd /MediSwarm
     export TRAINING_MODE="swarm"
     nvflare poc prepare -c poc_client_0 poc_client_1
-    nvflare poc prepare-jobs-dir -j application/jobs/
+    # NVFlare 2.8.0 removed `nvflare poc prepare-jobs-dir`; `nvflare job submit -j <folder>`
+    # now uploads the job directly from its path, so no pre-linking step is needed.
     nvflare poc start -ex admin@nvidia.com
     sleep 15
     echo "Will submit job now after sleeping 15 seconds to allow the background process to complete"
