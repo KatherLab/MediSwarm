@@ -884,6 +884,12 @@ docker_cln_sh: |
   if [ -n "${ODELIA_PREPROCESS_CACHE_VERSION:-}" ]; then
       ENV_VARS+=" --env ODELIA_PREPROCESS_CACHE_VERSION=$ODELIA_PREPROCESS_CACHE_VERSION"
   fi
+  # The k-fold data validation (#427) aborts when a declared split has no usable rows,
+  # and its documented escape hatch is this env var (e.g. =test for a site that
+  # genuinely has no test data). It must reach the container or the hatch is unusable.
+  if [ -n "${ODELIA_ALLOW_EMPTY_SPLITS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_ALLOW_EMPTY_SPLITS=$ODELIA_ALLOW_EMPTY_SPLITS"
+  fi
 
   # ── Live Sync Integration ──────────────────────────────────────────
   # live_sync.sh is co-located in the startup directory (injected by
