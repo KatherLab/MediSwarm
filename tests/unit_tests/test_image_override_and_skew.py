@@ -47,6 +47,20 @@ def test_image_precedence_is_cli_then_env_then_default(docker_sh):
     assert 'DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"' in docker_sh
 
 
+def test_env_is_captured_before_image_conf_is_sourced(docker_sh):
+    """--image > env > image.conf: a pre-exported MEDISWARM_IMAGE must beat image.conf.
+
+    image.conf is `source`d, so if the env is not captured first, a MEDISWARM_IMAGE=
+    line in image.conf silently clobbers the operator's env override (#449 follow-up).
+    """
+    src = docker_sh
+    cap = src.index('ENV_IMAGE="${MEDISWARM_IMAGE:-}"')
+    srcconf = src.index('. "$DIR/image.conf"')
+    restore = src.index('MEDISWARM_IMAGE="${ENV_IMAGE:-')
+    assert cap < srcconf, "env must be captured BEFORE image.conf is sourced"
+    assert srcconf < restore, "the captured env must be re-applied AFTER sourcing"
+
+
 def test_provisioned_tag_is_still_the_default(docker_sh):
     """With no override, a kit must behave exactly as before."""
     assert "DOCKER_IMAGE=jefftud/odelia:1.5.0-provisioned" in docker_sh
@@ -70,7 +84,7 @@ def skew():
 
 def _site(name, image_id, kit_version="1.5.0", expected=""):
     return {
-        "name": name,
+        "site": name,
         "image_id": image_id,
         "image_ref": f"jefftud/odelia:{kit_version}",
         "kit_version": kit_version,
@@ -109,4 +123,4 @@ def test_a_single_site_cannot_be_skewed(skew):
 
 
 def test_sites_without_version_data_are_ignored(skew):
-    assert skew([{"name": "X", "image_id": "", "kit_version": ""}]) == {}
+    assert skew([{"site": "X", "image_id": "", "kit_version": ""}]) == {}

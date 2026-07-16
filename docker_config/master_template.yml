@@ -804,9 +804,15 @@ docker_cln_sh: |
   # Point image.conf at a release channel (e.g. :current) to pick up releases with no
   # action at all. Precedence: --image > MEDISWARM_IMAGE env > image.conf > default.
   DOCKER_IMAGE={~~docker_image~~}
+  # Capture a pre-exported MEDISWARM_IMAGE BEFORE sourcing image.conf, so a one-off
+  # env override wins over the persistent file (documented precedence: --image > env
+  # > image.conf > default). Without this, image.conf's assignment would clobber the
+  # env var (#449 follow-up).
+  ENV_IMAGE="${MEDISWARM_IMAGE:-}"
   if [ -f "$DIR/image.conf" ]; then
       . "$DIR/image.conf"
   fi
+  MEDISWARM_IMAGE="${ENV_IMAGE:-${MEDISWARM_IMAGE:-}}"
   DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
