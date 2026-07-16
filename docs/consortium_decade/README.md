@@ -32,11 +32,12 @@ kit am I on, what do I run, and when is the run?"* This folder is that single pl
 
 (The kit registry's per-site `sha256` values are now filled in from the built kits.)
 
-## DECADE vs ODELIA — two real differences
+## DECADE vs ODELIA — the real difference
 
-- **Kits are plain `.zip`, not `.zip.enc`.** The DECADE build does not (yet) emit an
-  encrypted kit or a `kit_passwords.txt` / `kit_manifest.csv`. Compute the `sha256`
-  yourself with `sha256sum`.
+Both consortia ship plain `.zip` kits now (ODELIA dropped its per-site encryption on
+2026-07-16). The DECADE build does not emit a `kit_manifest.csv`, so compute the
+`sha256` yourself with `sha256sum` for the registry.
+
 - **DECADE kits still churn certificates on rebuild.** ODELIA has a cert-stability fix
   (#449) so its kits survive image updates; that fix is **not yet applied to STAMP**.
   Until it is, a new fix means a new ACTIVE kit that everyone must switch to (the old

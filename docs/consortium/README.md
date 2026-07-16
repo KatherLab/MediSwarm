@@ -16,7 +16,7 @@ and the job configs all live in the **image**, which `docker.sh` re-pulls on eve
 |---|---|---|
 | **Handbook** (Google Doc) | `PARTNER_HANDBOOK.md` here | Rarely. How to prepare and run a node. |
 | **Board** (Google Sheet) | the 4 `sheet_*.csv` here | Every run. Date, ACTIVE kit, per-site checklist. |
-| **Kits** | delivered per site | Rarely now. Encrypted; contain a private key. |
+| **Kits** | members-only shared folder | Rarely now. Plain `.zip`; contain a private key. |
 
 ## Publishing
 
@@ -41,9 +41,16 @@ skew is visible instead of silent.
 ## Kit delivery
 
 The build emits, per site:
-- `<SITE>_<version>.zip.enc` — AES-256, safe to put on a shared link
-- `kit_passwords.txt` — **mode 600, gitignored. Deliver each password to its own site only, out of band.** Never share the file.
-- `kit_manifest.csv` — sha256 per kit → paste into the kit registry so sites can verify.
+- `<SITE>_<version>.zip` — a plain kit. Put all of them in **one members-only shared
+  folder**; each site picks its own. The zip contains a private key, so keep the folder
+  restricted to the consortium and don't repost individual kits elsewhere.
+- `kit_manifest.csv` — sha256 per kit → paste into the kit registry so sites can verify
+  they have the ACTIVE kit.
+
+> Kits used to be AES-encrypted with per-site passwords (#449). The consortium dropped
+> that (2026-07-16): for a closed, mutually-trusting group sharing one folder the
+> passwords were friction without much benefit. A shared-folder leak now means rotating
+> certs (re-issuing kits), so keep the folder members-only.
 
 ## ⚠️ Before pointing partners at any of this
 
