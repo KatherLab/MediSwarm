@@ -737,6 +737,9 @@ docker_cln_sh: |
           --config)              CLI_CONFIG="$2"; shift ;;
           --container_name)      CONTAINER_NAME="$2"; shift ;;
           --docker_options)      CLI_DOCKER_OPTIONS="$2"; shift ;;
+          --external_validation) EXTERNAL_VALIDATION="1" ;;
+          --checkpoint)          CLI_CHECKPOINT="$2"; shift ;;
+          --split)               CLI_SPLIT="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -1014,7 +1017,7 @@ docker_cln_sh: |
   }
 
   # Run pre-run host checks for the GPU-using modes
-  if [ -n "$DUMMY_TRAINING" ] || [ -n "$PREFLIGHT_CHECK" ] || [ -n "$START_CLIENT" ]; then
+  if [ -n "$DUMMY_TRAINING" ] || [ -n "$PREFLIGHT_CHECK" ] || [ -n "$START_CLIENT" ] || [ -n "$EXTERNAL_VALIDATION" ]; then
       _preflight_host_checks
   fi
 
@@ -1049,6 +1052,18 @@ docker_cln_sh: |
       --health-interval=120s --health-start-period=180s --health-retries=3 \
       $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
+
+  elif [ -n "$EXTERNAL_VALIDATION" ]; then
+      # Predict-only external validation (#412): run a delivered global model on this
+      # site's local test/ext split. No swarm, no aggregation, no network -- metrics and
+      # per-sample predictions are written under /scratch and stay on the node. Only the
+      # aggregate metrics in prediction_results.json need to be shared back.
+      EV_CHECKPOINT="${CLI_CHECKPOINT:-/scratch/FL_global_model.pt}"
+      EV_SPLIT="${CLI_SPLIT:-test}"
+      echo "[INFO] External validation: model=${CLI_MODEL_NAME:-${MODEL_NAME:-MST}} checkpoint=$EV_CHECKPOINT split=$EV_SPLIT"
+      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training \
+      --env EV_CHECKPOINT="$EV_CHECKPOINT" --env EV_SPLIT="$EV_SPLIT" $DOCKER_IMAGE \
+      /bin/bash -c 'python3 /MediSwarm/scripts/evaluation/predict.py --checkpoint "$EV_CHECKPOINT" --model-name "$MODEL_NAME" --output-dir /scratch --split "$EV_SPLIT"'
 
   elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
@@ -1092,6 +1107,12 @@ docker_cln_sh: |
       echo "--docker_options \"<opts>\" extra options passed straight to 'docker run' (e.g."
       echo "                         \"--cpus 8 --cpuset-cpus 0-7\"). Persist with"
       echo "                         MEDISWARM_DOCKER_OPTIONS in startup/image.conf."
+      echo "--external_validation    predict-only external validation on your local"
+      echo "                         test/ext split with a delivered global model (no"
+      echo "                         swarm). Writes metrics + predictions to your scratch."
+      echo "--checkpoint <path>      model for --external_validation, a container path under"
+      echo "                         /scratch (default: /scratch/FL_global_model.pt)"
+      echo "--split <name>           dataset split for --external_validation (default: test)"
       exit 1
   fi
 
