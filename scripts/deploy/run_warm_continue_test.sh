@@ -610,7 +610,7 @@ mirror_hash() {
     # hash of a client's mirrored global, or empty if absent
     local site="$1" scratch
     scratch="$(site_scratch "$site")"
-    remote_exec "$site" "sha224sum '$scratch/mediswarm_latest_global.pt' 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true
+    remote_exec "$site" "sha256sum '$scratch/mediswarm_latest_global.pt' 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true
 }
 
 clear_mirrors() {

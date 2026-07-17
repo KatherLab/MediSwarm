@@ -223,7 +223,7 @@ for model in "${MODELS[@]}"; do
             checkpoint_status="fail"
             model_status="fail"
         else
-            sha224sum "${ckpts[@]}" | tee "$model_out/checkpoint_hash.txt" >/dev/null
+            sha256sum "${ckpts[@]}" | tee "$model_out/checkpoint_hash.txt" >/dev/null
             unique_hashes="$(awk '{print $1}' "$model_out/checkpoint_hash.txt" | sort -u | wc -l | tr -d ' ')"
             if [[ "$unique_hashes" != "1" ]]; then
                 err "Final global checkpoints are not byte-identical for $model"

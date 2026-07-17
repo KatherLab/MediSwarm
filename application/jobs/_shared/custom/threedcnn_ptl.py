@@ -6,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
-from hashlib import sha224 as hash_function
+from hashlib import sha256 as hash_function
 from pathlib import Path
 from typing import Dict, List, Tuple
 

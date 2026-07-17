@@ -788,7 +788,7 @@ assert_latest_globals() {
 mirror_hash() {
     local site="$1" scratch
     scratch="$(site_scratch "$site")"
-    remote_exec "$site" "sha224sum '$scratch/mediswarm_latest_global.pt' 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true
+    remote_exec "$site" "sha256sum '$scratch/mediswarm_latest_global.pt' 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true
 }
 
 record_mirror_hashes() {
@@ -891,7 +891,7 @@ collect_latest_globals_to() {
         remote_download "$site" "$scratch/mediswarm_latest_global.pt" "$app_dir/FL_global_model.pt" || return 1
     done
 
-    sha224sum "$target_dir"/app_*/FL_global_model.pt | tee "$RESULTS_DIR/$phase/checkpoint_hash.txt" >/dev/null
+    sha256sum "$target_dir"/app_*/FL_global_model.pt | tee "$RESULTS_DIR/$phase/checkpoint_hash.txt" >/dev/null
     unique_hashes="$(awk '{print $1}' "$RESULTS_DIR/$phase/checkpoint_hash.txt" | sort -u | wc -l | tr -d ' ')"
     if [[ "$unique_hashes" != "1" ]]; then
         err "$phase final globals are not byte-identical"
