@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 import os
+import shutil
 
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
@@ -112,8 +113,6 @@ def validate_and_train(logger, data_module, model, trainer) -> None:
     trainer.fit(model, datamodule=data_module)
 
 def finalize_training(logger, model, checkpointing, trainer) -> None:
-    import shutil
-
     # Save best checkpoint
     best_path = checkpointing.best_model_path
     if best_path:
