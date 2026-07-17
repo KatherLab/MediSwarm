@@ -64,7 +64,7 @@ _ensure_writable_state_dir() {
     sudo -n chown -R "$(id -u):$(id -g)" "$STATE_DIR" 2>/dev/null || true
   fi
   _state_dir_writable && return 0
-  local fallback="${TMPDIR:-/tmp}/mediswarm_sync_$(id -u)_$(printf '%s' "$STARTUP_DIR" | md5sum | cut -c1-8)"
+  local fallback="${TMPDIR:-/tmp}/mediswarm_sync_$(id -u)_$(printf '%s' "$STARTUP_DIR" | sha224sum | cut -c1-8)"
   mkdir -p "$fallback" 2>/dev/null || true
   echo "[WARN] $STATE_DIR not writable (likely root-owned from a sudo-launched client); using $fallback. Fix: sudo chown -R \$(id -un): '$STATE_DIR'" >&2
   STATE_DIR="$fallback"

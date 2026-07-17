@@ -223,8 +223,8 @@ for model in "${MODELS[@]}"; do
             checkpoint_status="fail"
             model_status="fail"
         else
-            md5sum "${ckpts[@]}" | tee "$model_out/checkpoint_md5s.txt" >/dev/null
-            unique_hashes="$(awk '{print $1}' "$model_out/checkpoint_md5s.txt" | sort -u | wc -l | tr -d ' ')"
+            sha224sum "${ckpts[@]}" | tee "$model_out/checkpoint_hash.txt" >/dev/null
+            unique_hashes="$(awk '{print $1}' "$model_out/checkpoint_hash.txt" | sort -u | wc -l | tr -d ' ')"
             if [[ "$unique_hashes" != "1" ]]; then
                 err "Final global checkpoints are not byte-identical for $model"
                 checkpoint_status="fail"
@@ -259,9 +259,9 @@ for model in "${MODELS[@]}"; do
     fi
 
     evals_json="$(jq -s '.' "$eval_results_jsonl")"
-    md5s_json="[]"
-    if [[ -f "$model_out/checkpoint_md5s.txt" ]]; then
-        md5s_json="$(jq -R 'split("  ") | {md5:.[0], path:.[1]}' "$model_out/checkpoint_md5s.txt" | jq -s '.')"
+    hash_json="[]"
+    if [[ -f "$model_out/checkpoint_hash.txt" ]]; then
+        hash_json="$(jq -R 'split("  ") | {hash:.[0], path:.[1]}' "$model_out/checkpoint_hash.txt" | jq -s '.')"
     fi
 
     checkpoint_count="${#ckpts[@]}"
@@ -270,9 +270,9 @@ for model in "${MODELS[@]}"; do
         --arg status "$model_status" \
         --arg checkpoint_status "$checkpoint_status" \
         --argjson checkpoint_count "$checkpoint_count" \
-        --argjson md5s "$md5s_json" \
+        --argjson hash "$hash_json" \
         --argjson evals "$evals_json" \
-        '{model:$model,status:$status,checkpoint_status:$checkpoint_status,checkpoint_count:$checkpoint_count,md5s:$md5s,evals:$evals}' \
+        '{model:$model,status:$status,checkpoint_status:$checkpoint_status,checkpoint_count:$checkpoint_count,hash:$hash,evals:$evals}' \
         >> "$OUTPUT_DIR/model_results.jsonl"
 
     if [[ "$model_status" != "pass" ]]; then

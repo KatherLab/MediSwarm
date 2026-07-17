@@ -132,7 +132,7 @@ fi
 mkdir -p "$RESULTS_DIR"
 
 declare -A PASS_CACHE=()
-declare -A MIRROR_MD5=()   # "phase:site" -> md5 of that client's /scratch/mediswarm_latest_global.pt
+declare -A MIRROR_HASH=()   # "phase:site" -> hash of that client's /scratch/mediswarm_latest_global.pt
 
 site_var() {
     local site="$1"
@@ -606,11 +606,11 @@ assert_log_contains() {
     done
 }
 
-mirror_md5() {
-    # md5 of a client's mirrored global, or empty if absent
+mirror_hash() {
+    # hash of a client's mirrored global, or empty if absent
     local site="$1" scratch
     scratch="$(site_scratch "$site")"
-    remote_exec "$site" "md5sum '$scratch/mediswarm_latest_global.pt' 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true
+    remote_exec "$site" "sha224sum '$scratch/mediswarm_latest_global.pt' 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true
 }
 
 clear_mirrors() {
@@ -626,25 +626,25 @@ clear_mirrors() {
 }
 
 record_mirror_hashes() {
-    # snapshot every client's current mirror md5 under MIRROR_MD5["$phase:$site"]
+    # snapshot every client's current mirror hash under MIRROR_HASH["$phase:$site"]
     local phase="$1" site site_name h
     for site in "${CLIENT_SITES[@]}"; do
         site_name="$(site_var "$site" SITE_NAME)"
-        h="$(mirror_md5 "$site")"
-        MIRROR_MD5["$phase:$site"]="$h"
-        info "$site_name mirror md5 [$phase]: ${h:-<none>}"
+        h="$(mirror_hash "$site")"
+        MIRROR_HASH["$phase:$site"]="$h"
+        info "$site_name mirror hash [$phase]: ${h:-<none>}"
     done
 }
 
 assert_mirror_unchanged_since() {
-    # each client's CURRENT mirror md5 must equal the one snapshotted for <ref_phase>;
+    # each client's CURRENT mirror hash must equal the one snapshotted for <ref_phase>;
     # proves the mirror survived a client restart / crash and is byte-identical to what
     # the reference run produced -- i.e. a continue loads exactly the prior run's global.
     local ref_phase="$1" site site_name cur ref
     for site in "${CLIENT_SITES[@]}"; do
         site_name="$(site_var "$site" SITE_NAME)"
-        ref="${MIRROR_MD5["$ref_phase:$site"]:-}"
-        cur="$(mirror_md5 "$site")"
+        ref="${MIRROR_HASH["$ref_phase:$site"]:-}"
+        cur="$(mirror_hash "$site")"
         if [[ -z "$ref" || -z "$cur" ]]; then
             err "$site_name continuity check missing a hash (ref[$ref_phase]=${ref:-<none>}, cur=${cur:-<none>})"
             return 1
@@ -658,11 +658,11 @@ assert_mirror_unchanged_since() {
 }
 
 mirror_hashes_json() {
-    # {"<site_name>": "<md5>", ...} from MIRROR_MD5 for a given phase
+    # {"<site_name>": "<hash>", ...} from MIRROR_HASH for a given phase
     local phase="$1" site site_name h obj='{}'
     for site in "${CLIENT_SITES[@]}"; do
         site_name="$(site_var "$site" SITE_NAME)"
-        h="${MIRROR_MD5["$phase:$site"]:-}"
+        h="${MIRROR_HASH["$phase:$site"]:-}"
         obj="$(echo "$obj" | jq --arg k "$site_name" --arg v "$h" '. + {($k):$v}')"
     done
     echo "$obj"
@@ -822,7 +822,7 @@ run_phase() {
     local extra='{}'
     if [[ "$phase" == "continue" ]]; then
         extra="$(jq -n --argjson m "$(mirror_hashes_json "fresh")" \
-            '{continuity_verified:true, reference_phase:"fresh", fresh_mirror_md5:$m}')"
+            '{continuity_verified:true, reference_phase:"fresh", fresh_mirror_hash:$m}')"
     fi
     record_phase "$phase" "pass" "$checkpoint_dir" "$eval_dir" "$extra"
 }
@@ -871,7 +871,7 @@ run_abort_recovery_phase() {
 
     record_phase "$phase" "pass" "" "" \
         "$(jq -n --argjson m "$(mirror_hashes_json "$phase")" \
-            '{resumed_from_crash:true, pre_abort_mirror_md5:$m}')"
+            '{resumed_from_crash:true, pre_abort_mirror_hash:$m}')"
     ok "Abort-recovery: a crashed run resumed from the last mirrored global"
 }
 
