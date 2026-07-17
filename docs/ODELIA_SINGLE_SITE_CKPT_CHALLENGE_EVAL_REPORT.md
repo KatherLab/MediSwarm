@@ -1,7 +1,7 @@
 # ODELIA Single-Site Checkpoint Challenge Evaluation Report
 > Status: generated combined report. The challenge swarm/local and OLE swarm artifact reports are appended verbatim at the end as source context.
 ## Executive Summary
-- Evaluated **27 unique checkpoints** from **10 local-training runs** across CAM, MHA, RSH, RUMC, UKA, UMCU, USZ on the six-institution ODELIA challenge set.
+- Evaluated **29 unique checkpoints** from **11 local-training runs** across CAM, MHA, RSH, RUMC, UKA, UMCU, USZ on the six-institution ODELIA challenge set.
 - Best weighted mean Class-2 (Malignant) AUROC so far: **0.858** from `UKA_1DC_epoch25_step57980`.
 - For presentation-level comparison, this report also selects **one checkpoint per training-source/model family** by external weighted Class-2 AUROC; the condensed report uses that collapsed view.
 - Results are weighted by ODELIA challenge site sample count when aggregating across CAM/MHA/RSH/RUMC/UKA/UMCU.
@@ -51,6 +51,9 @@ External challenge total: **n=300; 0=193, 1=48, 2=59**.
 | RSH | 1DC | 1DivideAndConquer_unilateral_2026_05_28_090751 | validation | n=87; 0=3, 1=32, 2=52 |
 | RSH | 5Pimed | challenge_5pimed_unilateral_2026_04_03_182744 | train | n=351; 0=4, 1=126, 2=221 |
 | RSH | 5Pimed | challenge_5pimed_unilateral_2026_04_03_182744 | validation | n=87; 0=3, 1=32, 2=52 |
+| RUMC | 1DC | 1DivideAndConquer_unilateral_2026_06_04_101650 | train | n=3608; 0=3571, 1=2, 2=35 |
+| RUMC | 1DC | 1DivideAndConquer_unilateral_2026_06_04_101650 | validation | n=904; 0=896, 1=0, 2=8 |
+| RUMC | 1DC | 1DivideAndConquer_unilateral_2026_06_04_101650 | test | n=1122; 0=1110, 1=1, 2=11 |
 | RUMC | MST | MST_unilateral_2026_04_13_162111 | train | n=940; 0=933, 1=3, 2=4 |
 | RUMC | MST | MST_unilateral_2026_04_13_162111 | validation | n=200; 0=199, 1=0, 2=1 |
 | RUMC | MST | MST_unilateral_2026_02_18_120355 | train | n=940; 0=933, 1=3, 2=4 |
@@ -59,7 +62,7 @@ External challenge total: **n=300; 0=193, 1=48, 2=59**.
 These internal distributions make the validation AUROC numbers interpretable: several sites have strongly imbalanced class-2 prevalence, so argmax sensitivity can be low even when Class-2 AUROC is useful.
 
 ## Local Training Completion Review
-Available local-training artifacts cover **7 source sites** (CAM, MHA, RSH, RUMC, UKA, UMCU, USZ), **10 run artifacts**, and **1DC=5, 5Pimed=1, MST=4**. They contribute **27 unique checkpoints** to external ODELIA challenge evaluation plus 5 exact duplicate aliases. All rows below have local train/validation prediction CSVs and at least one retained checkpoint; `short run` means the artifact is usable but is not a full 100-epoch local-training run.
+Available local-training artifacts cover **7 source sites** (CAM, MHA, RSH, RUMC, UKA, UMCU, USZ), **11 run artifacts**, and **1DC=6, 5Pimed=1, MST=4**. They contribute **29 unique checkpoints** to external ODELIA challenge evaluation plus 5 exact duplicate aliases. If the target list is the full 8-site swarm participant set, **VHIO local-training results are still missing from this report**. All rows below have local train/validation prediction CSVs and at least one retained checkpoint; `short run` means the artifact is usable but is not a full 100-epoch local-training run.
 | Source | Model | Run ID | Training status | Retained ckpts | Internal validation result | Best external ODELIA result | Readout |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | USZ | MST | MST_unilateral_2026_04_28_083041 | complete (100 epochs) | 2 unique | best ACC e33=0.617; best C2 e35=0.786 | USZ_MST_epoch33_best / C2 0.723 / macro 0.612 / recall 0.486 | useful external transfer |
@@ -70,6 +73,7 @@ Available local-training artifacts cover **7 source sites** (CAM, MHA, RSH, RUMC
 | MHA | 1DC | 1DivideAndConquer_unilateral_2026_04_22_154631 | complete (100 epochs) | 5 unique (+1 duplicate alias) | best ACC e77=0.833; best C2 e30=0.830 | MHA_1DC_epoch37_step3876 / C2 0.795 / macro 0.658 / recall 0.404 | useful external transfer |
 | RSH | 1DC | 1DivideAndConquer_unilateral_2026_05_28_090751 | complete (100 epochs) | 2 unique (+1 duplicate alias) | best ACC e58=0.655; best C2 e25=0.618 | RSH_1DC_epoch58_step2596 / C2 0.634 / macro 0.585 / recall 0.890 | modest external transfer |
 | RSH | 5Pimed | challenge_5pimed_unilateral_2026_04_03_182744 | short run (25 epochs) | 2 unique | best ACC e13=0.609; best C2 e12=0.683 | RSH_5Pimed_last / C2 0.456 / macro 0.498 / recall 0.879 | weak external transfer |
+| RUMC | 1DC | 1DivideAndConquer_unilateral_2026_06_04_101650 | single-epoch artifact | 2 unique | best ACC e0=0.991; best C2 e0=0.537 | RUMC_1DC_epoch0_step451 / C2 0.408 / macro 0.483 / recall 0.000 | weak external transfer; ranks better than argmax behavior (Class-2 recall 0) |
 | RUMC | MST | MST_unilateral_2026_04_13_162111 | single-epoch artifact | 2 unique | best ACC e0=0.995; best C2 e0=0.558 | RUMC_MST_20260413_epoch0_step118 / C2 0.417 / macro 0.501 / recall 0.000 | weak external transfer; ranks better than argmax behavior (Class-2 recall 0) |
 | RUMC | MST | MST_unilateral_2026_02_18_120355 | complete (100 epochs) | 2 unique | best ACC e0=0.995; best C2 e5=0.910 | RUMC_MST_20260218_last / C2 0.523 / macro 0.495 / recall 0.000 | weak external transfer; ranks better than argmax behavior (Class-2 recall 0) |
 
@@ -87,6 +91,7 @@ Main pattern: 1DC transfers best externally (UKA, USZ, MHA are the strongest row
 | UMCU | MST | UMCU_MST_last | 0.823 | 0.871 | 0.624 | 0.589 | 0.643 | 0.000 |
 | RUMC | MST | RUMC_MST_20260218_last | 0.568 | 0.995 | 0.523 | 0.495 | 0.643 | 0.000 |
 | RSH | 5Pimed | RSH_5Pimed_last | 0.620 | 0.598 | 0.456 | 0.498 | 0.190 | 0.879 |
+| RUMC | 1DC | RUMC_1DC_epoch0_step451 | 0.537 | 0.991 | 0.408 | 0.483 | 0.643 | 0.000 |
 
 Selection is by external ODELIA challenge weighted Class-2 AUROC within each `(training source, model family)` group. The internal validation columns show the same persisted checkpoint's validation metrics when the checkpoint epoch can be mapped back to the local training CSV.
 
@@ -121,6 +126,8 @@ Selection is by external ODELIA challenge weighted Class-2 AUROC within each `(t
 | RSH_1DC_last_global | RSH | 1DC | RSH_1DC | last_global | 1.0 GB | RSH_1DC_last |
 | RSH_5Pimed_epoch23_step8424 | RSH | 5Pimed | RSH_5Pimed | epoch23_step8424 | 377.7 MB |  |
 | RSH_5Pimed_last | RSH | 5Pimed | RSH_5Pimed | last | 377.7 MB |  |
+| RUMC_1DC_epoch0_step451 | RUMC | 1DC | RUMC_1DC | epoch0_step451 | 1.0 GB |  |
+| RUMC_1DC_last | RUMC | 1DC | RUMC_1DC | last | 1.0 GB |  |
 | RUMC_MST_20260413_epoch0_step118 | RUMC | MST | RUMC_MST_20260413 | epoch0_step118 | 269.5 MB |  |
 | RUMC_MST_20260413_last | RUMC | MST | RUMC_MST_20260413 | last | 269.5 MB |  |
 | RUMC_MST_20260218_epoch0_step940 | RUMC | MST | RUMC_MST_20260218 | epoch0_step940 | 269.5 MB |  |
@@ -137,6 +144,7 @@ Selection is by external ODELIA challenge weighted Class-2 AUROC within each `(t
 | MHA | 1DC | 1DivideAndConquer_unilateral_2026_04_22_154631 | 100 | e77 / 0.833 | e30 / 0.830 | e99 / 0.819 / 0.667 |
 | RSH | 1DC | 1DivideAndConquer_unilateral_2026_05_28_090751 | 100 | e58 / 0.655 | e25 / 0.618 | e99 / 0.621 / 0.595 |
 | RSH | 5Pimed | challenge_5pimed_unilateral_2026_04_03_182744 | 25 | e13 / 0.609 | e12 / 0.683 | e24 / 0.598 / 0.620 |
+| RUMC | 1DC | 1DivideAndConquer_unilateral_2026_06_04_101650 | 1 | e0 / 0.991 | e0 / 0.537 | e0 / 0.991 / 0.537 |
 | RUMC | MST | MST_unilateral_2026_04_13_162111 | 1 | e0 / 0.995 | e0 / 0.558 | e0 / 0.995 / 0.558 |
 | RUMC | MST | MST_unilateral_2026_02_18_120355 | 100 | e0 / 0.995 | e5 / 0.910 | e99 / 0.995 / 0.568 |
 
@@ -150,6 +158,7 @@ Training curve SVGs are generated under `docs/figures/odelia_single_site_eval/`:
 - [MHA_1DC training curves](figures/odelia_single_site_eval/MHA_1DC_training_curves.svg)
 - [RSH_1DC training curves](figures/odelia_single_site_eval/RSH_1DC_training_curves.svg)
 - [RSH_5Pimed training curves](figures/odelia_single_site_eval/RSH_5Pimed_training_curves.svg)
+- [RUMC_1DC training curves](figures/odelia_single_site_eval/RUMC_1DC_training_curves.svg)
 - [RUMC_MST_20260413 training curves](figures/odelia_single_site_eval/RUMC_MST_20260413_training_curves.svg)
 - [RUMC_MST_20260218 training curves](figures/odelia_single_site_eval/RUMC_MST_20260218_training_curves.svg)
 
@@ -330,6 +339,27 @@ Retained checkpoints on external ODELIA challenge:
 | RSH_5Pimed_last | last | 0.620 | 0.598 | 0.456 | 0.498 | 0.190 | 0.879 |
 | RSH_5Pimed_epoch23_step8424 | epoch23_step8424 | 0.657 | 0.598 | 0.439 | 0.494 | 0.157 | 0.489 |
 
+### RUMC 1DC — `1DivideAndConquer_unilateral_2026_06_04_101650`
+RUMC local 1DivideAndConquer artifacts supplied as two zip chunks on 2026-06-19. The validation cohort is almost entirely class 0, so `val/ACC` selects epoch 0 and should not be read as a useful malignant-detection endpoint.
+
+| Field | Value |
+| --- | --- |
+| Internal train cohort | n=3608; 0=3571, 1=2, 2=35 |
+| Internal validation cohort | n=904; 0=896, 1=0, 2=8 |
+| Internal best val ACC | epoch 0 / ACC 0.991 / C2 AUROC 0.537 |
+| Internal best val Class-2 AUROC | epoch 0 / C2 AUROC 0.537 / ACC 0.991 |
+| Internal last validation | epoch 0 / ACC 0.991 / C2 AUROC 0.537 |
+| Internal last train | epoch 0 / ACC 0.990 / C2 AUROC 0.562 |
+| Externally strongest retained checkpoint | `RUMC_1DC_epoch0_step451` / external C2 AUROC 0.408 / external macro AUROC 0.483 / internal C2 AUROC 0.537 |
+
+![RUMC_1DC local training curves](figures/odelia_single_site_eval/RUMC_1DC_training_curves.svg)
+
+Retained checkpoints on external ODELIA challenge:
+| Snapshot | Label | Internal val C2 AUROC | Internal val ACC | External C2 AUROC | External macro AUROC | External ACC | External C2 recall |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| RUMC_1DC_epoch0_step451 | epoch0_step451 | 0.537 | 0.991 | 0.408 | 0.483 | 0.643 | 0.000 |
+| RUMC_1DC_last | last | 0.537 | 0.991 | 0.408 | 0.483 | 0.643 | 0.000 |
+
 ### RUMC MST — `MST_unilateral_2026_04_13_162111`
 Short April RUMC MST run.
 
@@ -373,7 +403,7 @@ Retained checkpoints on external ODELIA challenge:
 | RUMC_MST_20260218_epoch0_step940 | epoch0_step940 | 0.764 | 0.995 | 0.475 | 0.523 | 0.643 | 0.000 |
 
 ## ODELIA Challenge Evaluation
-Completed per-site checkpoint evaluations: **162** rows in `workspace/odelia_single_site_eval/tables/challenge_summary_metrics.csv`.
+Completed per-site checkpoint evaluations: **174** rows in `workspace/odelia_single_site_eval/tables/challenge_summary_metrics.csv`.
 
 ### Top Checkpoints by Weighted Mean Class-2 AUROC
 | Snapshot | Source | Model | Class-2 AUROC | Macro AUROC | Accuracy | Class-2 Recall |

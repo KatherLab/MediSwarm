@@ -549,12 +549,19 @@ expect eof
 EXPECT_EOF
     chmod +x "$expect_script"
 
+    # Capture the admin session: `expect` exits 0 even when the admin never
+    # reached the server, so its exit status must not be trusted.
+    local submit_log="$RESULTS_DIR/submit_${job_name}.log"
     cd "$admin_startup"
-    expect -f "$expect_script" || true
+    expect -f "$expect_script" > "$submit_log" 2>&1 || true
     cd "$REPO_ROOT"
 
     rm -f "$expect_script"
-    ok "Job submitted: $job_name"
+
+    # Only a real job id proves the submission landed (deploy_common.sh).
+    local job_id
+    job_id=$(assert_job_submitted "$submit_log" "$job_name") || exit 1
+    ok "Job submitted: $job_name (id: $job_id)"
 }
 
 # ── Wait for training completion ──────────────────────────────────────────
@@ -1129,6 +1136,9 @@ stop_all
 # Deploy startup kits to all sites (once — shared across all models)
 step "Deploying startup kits to all sites"
 deploy_kits
+
+# Fix DNS on this (admin/server) host first — the admin container uses --net=host
+ensure_local_dns
 
 # Fix DNS on remote machines so they can reach the NVFlare server on Cosmos
 fix_remote_dns

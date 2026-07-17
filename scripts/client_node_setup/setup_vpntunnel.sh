@@ -124,8 +124,30 @@ if [[ -n "$SYSTEMD_MODE" ]]; then
         fi
     }
 
+    # auth-user-pass needs special handling: GoodAccess .ovpn files ship a *bare*
+    # `auth-user-pass` (no path), which makes OpenVPN prompt interactively so the
+    # systemd mediswarm-vpn service hangs at "Enter Auth Username" and can never
+    # auto-recover (#418). A plain grep "^auth-user-pass" matches the bare directive
+    # and skips injecting the path. So: keep it if it already has a path argument,
+    # rewrite a bare/comment one, otherwise append.
+    ensure_auth_user_pass() {
+        local file="/etc/openvpn/client/mediswarm.conf"
+        local authfile="/etc/openvpn/client/mediswarm.auth"
+        if sudo grep -qE "^auth-user-pass[[:space:]]+[^[:space:]#]" "$file"; then
+            echo "  Already present: auth-user-pass <path>"
+        elif sudo grep -qE "^auth-user-pass([[:space:]]*|[[:space:]]+#.*)$" "$file"; then
+            # delete-then-append avoids an s/// whose regex contains | (sed delimiter clash)
+            sudo sed -i -E "/^auth-user-pass([[:space:]]*|[[:space:]]+#.*)$/d" "$file"
+            echo "auth-user-pass $authfile" | sudo tee -a "$file" > /dev/null
+            echo "  Rewrote bare auth-user-pass -> auth-user-pass $authfile"
+        else
+            echo "auth-user-pass $authfile" | sudo tee -a "$file" > /dev/null
+            echo "  Injected: auth-user-pass $authfile"
+        fi
+    }
+
     echo "Injecting keepalive and credential settings ..."
-    inject_if_missing "auth-user-pass"  "auth-user-pass /etc/openvpn/client/mediswarm.auth"
+    ensure_auth_user_pass
     inject_if_missing "auth-nocache"    "auth-nocache"
     inject_if_missing "persist-key"     "persist-key"
     inject_if_missing "persist-tun"     "persist-tun"

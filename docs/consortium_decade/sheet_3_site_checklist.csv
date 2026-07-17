@@ -1,0 +1,37 @@
+Site,Step,Command / how,Confirmed (Y/N),Date,Notes / status
+UKB_1,1. Tailscale connected + /etc/hosts maps dl3.tud.de,ping dl3.tud.de replies from 100.100.101.100,Y,2026-07-13,~8ms
+UKB_1,2. SSH public key shared + authorized,ssh-keygen ... ; send id_ed25519.pub,Y,2026-07-13,authorized
+UKB_1,3. Target values sent (NUM_CLASSES + column),reply to operator,PARTIAL,2026-07-13,"Has germline (3-class) only; NO MSI (all 'not provided') — target undecided"
+UKB_1,4. On ACTIVE kit 6bc06c4,sha256sum <SITE>_<ver>.zip vs Kit registry,N,,Was on a295c6b; must switch (new certs)
+UKB_1,5. Dummy training passes,./docker.sh --dummy_training,Y,2026-07-13,RTX A6000
+UKB_1,6. Preflight passes,./docker.sh --preflight_check,Y,2026-07-13,1174 patients / 3 classes
+UKB_1,7. Plausibility OK,./docker.sh --preflight_check --log_dataset_details,Y,2026-07-13,no missing H5
+UKB_1,8. Local baseline (re-run on 6bc06c4),./docker.sh --local_training,N,,"Done on old kit (32ep val 0.031); re-run on ACTIVE kit"
+UKB_1,9. Client started for the run,./docker.sh --start_client,N,,On run day only
+Mainz_1,1. Tailscale connected + /etc/hosts maps dl3.tud.de,ping dl3.tud.de,Y,2026-07-13,
+Mainz_1,2. SSH public key shared + authorized,ssh-keygen ... ; send id_ed25519.pub,Y,2026-07-13,authorized (swarmy@mediswarm)
+Mainz_1,3. Target values sent (NUM_CLASSES + column),reply to operator,Y,2026-07-13,"MSI-High yes/no; 2-class; 61 pos / 508 neg patients"
+Mainz_1,4. On ACTIVE kit 6bc06c4,sha256sum ... vs Kit registry,Y,2026-07-13,
+Mainz_1,5. Dummy training passes,./docker.sh --dummy_training,Y,2026-07-13,
+Mainz_1,6. Preflight passes,./docker.sh --preflight_check,Y,2026-07-13,multi-slide; needs slide table
+Mainz_1,7. Plausibility OK,./docker.sh --preflight_check --log_dataset_details,Y,2026-07-13,
+Mainz_1,8. Local baseline (32 epochs),./docker.sh --local_training,Y,2026-07-13,32 epochs on 6bc06c4
+Mainz_1,9. Client started for the run,./docker.sh --start_client,N,,On run day only
+UKD_1,1. Tailscale connected + /etc/hosts maps dl3.tud.de,ping dl3.tud.de,N,,Pending
+UKD_1,2. SSH public key shared + authorized,ssh-keygen ... ; send id_ed25519.pub,N,,Pending
+UKD_1,3. Target values sent (NUM_CLASSES + column),reply to operator,N,,Reply by Wed 2026-07-22
+UKD_1,4. On ACTIVE kit 6bc06c4,sha256sum ... vs Kit registry,N,,
+UKD_1,5. Dummy training passes,./docker.sh --dummy_training,N,,
+UKD_1,6. Preflight passes,./docker.sh --preflight_check,N,,
+UKD_1,7. Plausibility OK,./docker.sh --preflight_check --log_dataset_details,N,,
+UKD_1,8. Local baseline (32 epochs),./docker.sh --local_training,N,,
+UKD_1,9. Client started for the run,./docker.sh --start_client,N,,On run day only
+UKHD_1,1. Tailscale connected + /etc/hosts maps dl3.tud.de,ping dl3.tud.de,Y,2026-07-14,ping ok
+UKHD_1,2. SSH public key shared + authorized,ssh-keygen ... ; send id_ed25519.pub,Y,2026-07-14,authorized (UKHD_1@mediswarm)
+UKHD_1,3. Target values sent (NUM_CLASSES + column),reply to operator,Y,2026-07-15,"MSI-High; 2-class; Stage I-III 342 pos / 262 neg; exact column name to confirm"
+UKHD_1,4. On ACTIVE kit 6bc06c4,sha256sum ... vs Kit registry,N,,
+UKHD_1,5. Dummy training passes,./docker.sh --dummy_training,Y,2026-07-14,
+UKHD_1,6. Preflight passes,./docker.sh --preflight_check,N,,
+UKHD_1,7. Plausibility OK,./docker.sh --preflight_check --log_dataset_details,N,,
+UKHD_1,8. Local baseline (32 epochs),./docker.sh --local_training,N,,
+UKHD_1,9. Client started for the run,./docker.sh --start_client,N,,On run day only

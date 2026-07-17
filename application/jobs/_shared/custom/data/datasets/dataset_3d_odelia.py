@@ -289,12 +289,49 @@ class ODELIA_Dataset3D(data.Dataset):
         dfs = []
         for institution in self.institutions:
             manifest = self.manifests[institution]
-            dfs.append(manifest.dataframe(fold=fold, split=split, fraction=fraction))
+            institution_df = manifest.dataframe(fold=fold, split=split, fraction=fraction)
+            self._require_non_empty(institution_df, manifest, institution, fold, split)
+            dfs.append(institution_df)
         self.df = pd.concat(dfs).reset_index(drop=True)
         self._apply_uid_exclusions()
         self.item_pointers = self.df.index.tolist()
         self._bad_input_count = 0
         self._bad_input_logged: set = set()
+        self._bad_input_reasons: dict = {}
+
+    # Splits that must not be empty. An empty `train` eventually raises deep in
+    # PyTorch ("num_samples should be a positive integer value") after minutes of
+    # hashing; an empty `val`/`test` is worse -- it raises nothing at all, just
+    # yields zero batches, so checkpoint selection silently monitors nothing (#411).
+    REQUIRED_SPLITS = ("train", "val", "test")
+    # Escape hatch for a site that deliberately holds no test data.
+    ALLOW_EMPTY_SPLITS_ENV = "ODELIA_ALLOW_EMPTY_SPLITS"
+
+    @classmethod
+    def _splits_allowed_empty(cls):
+        raw = os.environ.get(cls.ALLOW_EMPTY_SPLITS_ENV, "")
+        return {s.strip() for s in raw.split(",") if s.strip()}
+
+    @classmethod
+    def _require_non_empty(cls, df, manifest, institution, fold, split):
+        """Fail fast, and say what is actually wrong, when a fold/split is empty."""
+        if len(df) > 0 or split is None:
+            return
+        if split not in cls.REQUIRED_SPLITS or split in cls._splits_allowed_empty():
+            return
+
+        folds_present = sorted(int(f) for f in manifest.split_df['Fold'].unique())
+        split_csv = manifest.path_metadata / 'split.csv'
+        if fold not in folds_present:
+            reason = (f"split.csv contains folds {folds_present} -- fold {fold} is not among them")
+        else:
+            reason = (f"fold {fold} exists in split.csv, but no '{split}' rows survive the join with "
+                      f"annotation.csv and the images actually present on disk")
+        raise RuntimeError(
+            f"ODELIA: {institution} has no samples for FOLD={fold} / split='{split}'. "
+            f"{reason}. Check {split_csv}. "
+            f"(Set {cls.ALLOW_EMPTY_SPLITS_ENV}={split} only if this site genuinely has no {split} data.)"
+        )
 
     def __len__(self):
         return len(self.item_pointers)
@@ -321,6 +358,7 @@ class ODELIA_Dataset3D(data.Dataset):
         return Path(scratch) / "odelia_bad_inputs.jsonl"
 
     def _record_bad_input(self, uid, institution, reason):
+        self._bad_input_reasons[reason] = self._bad_input_reasons.get(reason, 0) + 1
         # Loud, non-identifying warning to the console; the UID goes only to a local jsonl.
         key = (uid, reason)
         if key not in self._bad_input_logged:
@@ -335,6 +373,30 @@ class ODELIA_Dataset3D(data.Dataset):
                 f.write("\n")
         except Exception:
             pass
+
+    @staticmethod
+    def _format_bad_input_error(count, budget, frac, n, reasons, log_path):
+        """Build the abort message with a per-reason breakdown + the right remedy.
+
+        Unreadable inputs (PermissionError/OSError/...) are a file-permission problem
+        and must NOT be excluded; genuinely degenerate images should be re-exported or
+        excluded. Conflating them once led a site to delete valid data (#416)."""
+        breakdown = ", ".join(f"{c}x {r}" for r, c in
+                              sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0])))
+        access_errs = ("PermissionError", "OSError", "FileNotFoundError", "IsADirectoryError")
+        unreadable = sum(c for r, c in reasons.items()
+                         if r.startswith("load_error:") and any(t in r for t in access_errs))
+        if unreadable and unreadable == count:
+            hint = ("ALL failures are file-access errors -- this is a PERMISSION/OWNERSHIP problem "
+                    "(the container cannot READ the files), NOT corrupt images. Fix the file "
+                    "permissions/ownership; do NOT exclude the data.")
+        elif unreadable:
+            hint = (f"{unreadable} unreadable (fix file permissions) + {count - unreadable} degenerate "
+                    "(re-export or exclude those UIDs).")
+        else:
+            hint = "Degenerate/corrupt image content -- re-export or exclude the listed UIDs."
+        return (f"ODELIA: too many unusable inputs ({count} > {budget} = {frac:.0%} of {n}). "
+                f"Reasons: {breakdown or 'unknown'}. {hint} Per-UID details: {log_path}")
 
     @classmethod
     def _normalize_institutions(cls, institutions) -> List[str]:
@@ -413,11 +475,9 @@ class ODELIA_Dataset3D(data.Dataset):
                     self._record_bad_input(uid, institution, e.reason)
             self._bad_input_count += 1
             if self._bad_input_count > budget:
-                raise RuntimeError(
-                    f"ODELIA: too many degenerate/corrupt inputs "
-                    f"({self._bad_input_count} > {budget} = {self.MAX_BAD_INPUT_FRACTION:.0%} of {n}); "
-                    f"run the preflight scan (find_degenerate_inputs) and fix/exclude the data."
-                )
+                raise RuntimeError(self._format_bad_input_error(
+                    self._bad_input_count, budget, self.MAX_BAD_INPUT_FRACTION, n,
+                    self._bad_input_reasons, self._bad_input_log_path()))
         raise RuntimeError(f"ODELIA: no usable input found while resampling around index {index} ({n} items)")
 
     def find_degenerate_inputs(self, limit: int | None = None):
@@ -547,6 +607,12 @@ class ODELIA_Dataset3D(data.Dataset):
 
         for institution in normalized_institutions:
             manifest = manifests[institution]
+            folds_present = sorted(int(f) for f in manifest.split_df['Fold'].unique())
+            if fold not in folds_present:
+                raise RuntimeError(
+                    f"ODELIA: {institution} cannot train FOLD={fold} -- its split.csv contains "
+                    f"folds {folds_present}. Check {manifest.path_metadata / 'split.csv'}."
+                )
             uids_in_annotation = manifest.uids_in_annotation()
             uids_in_split = {
                 split_name: manifest.uids_in_split(fold=fold, split=split_name)

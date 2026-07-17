@@ -32,6 +32,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          # Cache the pip download dir; key derived from this workflow file, whose
+          # inline `pip install` lines are the effective dependency manifest.
+          cache: 'pip'
+          cache-dependency-path: .github/workflows/unit-tests.yaml
 
       - name: Install dependencies
         run: |
@@ -41,6 +45,12 @@ jobs:
           # Install unified 'lightning' package — provides both lightning.*
           # (needed by STAMP tests) and pytorch_lightning.* (needed by ODELIA tests)
           pip install lightning scikit-learn pytest
+          # fastapi: server_tools/app.py imports it; needed by test_swarm_progress.py (#398)
+          pip install fastapi
+          # torchio + pandas gate the ODELIA dataset tests (degenerate-input guard,
+          # fold validation). Without them pytest silently SKIPS those files, which is
+          # how a broken guard test reached main (#416/#423).
+          pip install torchio pandas
 
       - name: Run unit tests
         run: |

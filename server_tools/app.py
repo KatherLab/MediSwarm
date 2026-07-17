@@ -46,6 +46,15 @@ ROWS_CACHE_TTL_SECONDS = float(os.environ.get("MEDISWARM_MONITOR_CACHE_TTL", "5"
 ERROR_TAIL_BYTES = int(os.environ.get("MEDISWARM_ERROR_TAIL_BYTES", "120000"))
 MAX_ERROR_SCAN_FILES = int(os.environ.get("MEDISWARM_MAX_ERROR_SCAN_FILES", "40"))
 
+# Path to the FL server's nohup.out — the authoritative source of swarm round
+# progress (start/finished_learn per round, prunes, aborts). The CCWF workflow
+# runs the rounds peer-to-peer on the clients, so the server log is the one place
+# that sees the whole run; without this the monitor can't tell "training" from
+# "stalled". Empty -> the swarm-progress panel is simply omitted. (#398)
+SERVER_LOG = os.environ.get("MEDISWARM_SERVER_LOG", "")
+# A run with no new server-log line for this long (and not terminal) is "stalled".
+SWARM_STALL_SECONDS = int(os.environ.get("MEDISWARM_SWARM_STALL_SECONDS", "600"))
+
 app = FastAPI(title="MediSwarm Live Monitor")
 
 _ROWS_CACHE: dict[str, Any] = {"expires_at": 0.0, "value": None}
@@ -175,6 +184,26 @@ a:hover { text-decoration: underline; }
   box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; align-items: center; gap: 0.5rem; }
 .stat-card .stat-num { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
 .stat-card .stat-label { font-size: 0.78rem; color: var(--text-light); }
+/* Swarm round-progress panel (#398) */
+.swarm-panel { background: var(--card); border-radius: 8px; padding: 0.7rem 1rem;
+  margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  border-left: 4px solid var(--text-light); }
+.swarm-panel.swarm-training { border-left-color: var(--green); }
+.swarm-panel.swarm-stalled  { border-left-color: var(--orange, #e67e22); }
+.swarm-panel.swarm-aborted, .swarm-panel.swarm-fatal { border-left-color: var(--red, #e74c3c); }
+.swarm-panel.swarm-finished { border-left-color: var(--accent); }
+.swarm-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.swarm-title { font-weight: 700; }
+.swarm-detail { color: var(--text-light); font-size: 0.85rem; }
+.swarm-chips { margin-top: 0.5rem; display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.swarm-chip { font-size: 0.72rem; padding: 2px 8px; border-radius: 10px;
+  background: #dfe4ea; color: #2f3542; font-family: monospace; }
+.swarm-chip.chip-done { background: var(--green); color: #fff; }
+.swarm-chip.chip-run  { background: #f1c40f; color: #2f3542; }
+.swarm-chip.chip-idle { background: #dfe4ea; color: #2f3542; }
+.swarm-prunes { margin-top: 0.4rem; font-size: 0.8rem; color: var(--red, #e74c3c); }
+.swarm-stall { margin-top: 0.4rem; font-size: 0.85rem; font-weight: 600;
+  color: var(--orange, #e67e22); }
 
 /* Detail page */
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.2rem; }
@@ -264,6 +293,45 @@ def _html_page(title: str, body: str, *, refresh: int = 0, extra_head: str = "")
 {body}
 </body>
 </html>"""
+
+
+def compute_version_skew(rows):
+    """Sites whose running image disagrees with the rest of the swarm (or the roster).
+
+    All clients in a federated run must execute the same code. Nothing checked this
+    before: `expected_version` was only ever used as a display fallback, never
+    compared, so a site running a stale image was invisible.
+
+    Returns {site_name: reason} for every site that is out of line.
+    """
+    live = [r for r in rows if r.get("image_id") or r.get("kit_version")]
+    if len(live) < 2:
+        return {}
+
+    def identity(row):
+        # image_id is the definitive answer (a tag can move); fall back to what we have.
+        return row.get("image_id") or row.get("image_ref") or row.get("kit_version") or ""
+
+    counts = {}
+    for row in live:
+        key = identity(row)
+        if key:
+            counts[key] = counts.get(key, 0) + 1
+    if not counts:
+        return {}
+    majority = max(counts, key=lambda k: counts[k])
+
+    skew = {}
+    for row in live:
+        key = identity(row)
+        if key and key != majority:
+            skew[row["site"]] = f"running {row.get('image_ref') or key}, swarm majority is on a different image"
+            continue
+        expected = row.get("expected_version") or ""
+        seen = row.get("kit_version") or ""
+        if expected and seen and expected != seen:
+            skew[row["site"]] = f"kit {seen}, expected {expected}"
+    return skew
 
 
 def _format_size(size_bytes: int) -> str:
@@ -678,6 +746,13 @@ def _collect_rows() -> list[dict[str, Any]]:
                         "age_seconds": _age_seconds(ts),
                         "kit_version": hb.get("kit_version", "")
                         or roster_item.get("expected_version", ""),
+                        # What the site is ACTUALLY running. kit_version is only what
+                        # the kit claims (scraped from docker.sh); once the image can be
+                        # overridden per site, the two can differ -- and a silent version
+                        # skew across sites corrupts a federated run.
+                        "image_ref": hb.get("image_ref", ""),
+                        "image_id": hb.get("image_id", ""),
+                        "expected_version": roster_item.get("expected_version", ""),
                         "hostname": hb.get("hostname", ""),
                         "ip_address": hb.get("ip_address", "")
                         or roster_item.get("ip_address", ""),
@@ -757,6 +832,10 @@ def rows(*, force: bool = False) -> list[dict[str, Any]]:
     ):
         return list(_ROWS_CACHE["value"])
     value = _collect_rows()
+    # Stamp version skew here -- the single choke point every view goes through.
+    skew = compute_version_skew(value)
+    for row in value:
+        row["version_skew"] = skew.get(row["site"], "")
     _ROWS_CACHE["value"] = value
     _ROWS_CACHE["expires_at"] = now + ROWS_CACHE_TTL_SECONDS
     return list(value)
@@ -990,6 +1069,139 @@ def _parse_p2p_transfers(text: str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Swarm round-progress panel (#398) — parses the FL server's nohup.out, the one
+# log that sees the whole CCWF run (rounds happen peer-to-peer on the clients).
+# ---------------------------------------------------------------------------
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+_JOBID_RE = re.compile(r"run=([0-9a-fA-F-]{36})")
+_ROUND_RE = re.compile(r"on round (\d+)")
+_PRUNE_RE = re.compile(r"client ([A-Za-z0-9_]+) reported error '([^']+)'.*?continuing with (\d+)")
+
+
+def _read_tail(path: Path, max_bytes: int = 500_000) -> str:
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as fh:
+            if size > max_bytes:
+                fh.seek(size - max_bytes)
+            data = fh.read()
+    except OSError:
+        return ""
+    return _ANSI_RE.sub("", data.decode("utf-8", "replace"))
+
+
+def parse_swarm_progress(log_path: str, now: "float | None" = None):
+    """Extract the latest job's round progress from the server nohup.out.
+
+    Returns a dict (job_id, status, round, num_rounds, clients, prunes, log_age,
+    finished) or None if there is no readable server log. Pure/​testable: pass a
+    synthetic file path. status ∈ {training, stalled, finished, aborted, fatal, idle}.
+    """
+    if not log_path:
+        return None
+    p = Path(log_path)
+    try:
+        mtime = p.stat().st_mtime
+    except OSError:
+        return None
+    now = now if now is not None else time.time()
+    text = _read_tail(p)
+    if not text:
+        return None
+    lines = text.splitlines()
+    jobs = _JOBID_RE.findall(text)
+    log_age = now - mtime
+    if not jobs:
+        return {"job_id": None, "status": "idle", "round": None, "num_rounds": None,
+                "clients": {}, "prunes": [], "log_age": log_age, "finished": 0}
+    jid = jobs[-1]
+    jlines = [ln for ln in lines if jid in ln]
+    # num_rounds from THIS job's Workflow Config line (scan jlines, not the whole
+    # tail, so an older job's config in the tail can't leak the wrong count).
+    num_rounds = None
+    for ln in jlines:
+        mm = re.search(r"'num_rounds':\s*(\d+)", ln)
+        if mm:
+            num_rounds = int(mm.group(1))
+    rounds = [int(x) for ln in jlines for x in _ROUND_RE.findall(ln)]
+    highest = max(rounds) if rounds else None
+    clients: "dict[str, str]" = {}
+    if highest is not None:
+        rtag = f"on round {highest}"
+        for ln in jlines:
+            if rtag not in ln:
+                continue
+            mp = re.search(r"peer=([A-Za-z0-9_]+)", ln)
+            ma = re.search(r"action=(\w+)", ln)
+            if mp and ma:
+                clients[mp.group(1)] = ma.group(1)
+    prunes = []
+    for ln in jlines:
+        mp = _PRUNE_RE.search(ln)
+        if mp:
+            prunes.append({"client": mp.group(1), "error": mp.group(2), "active": int(mp.group(3))})
+    terminal = None
+    for ln in jlines:
+        if "Server runner finished" in ln:
+            terminal = "finished"
+        elif "ABORTED" in ln or "Try to abort" in ln:
+            terminal = "aborted"
+        elif "FATAL" in ln:
+            terminal = "fatal"
+    if terminal:
+        status = terminal
+    elif log_age > SWARM_STALL_SECONDS:
+        status = "stalled"
+    else:
+        status = "training"
+    return {"job_id": jid, "status": status, "round": highest, "num_rounds": num_rounds,
+            "clients": clients, "prunes": prunes, "log_age": log_age,
+            "finished": sum(1 for a in clients.values() if a == "finished_learn_task")}
+
+
+def render_swarm_progress_panel() -> str:
+    prog = parse_swarm_progress(SERVER_LOG)
+    if prog is None:
+        return ""
+    badge_map = {"training": "running", "stalled": "stale", "aborted": "error",
+                 "fatal": "error", "finished": "finished", "idle": "waiting"}
+    badge = _status_badge(badge_map.get(prog["status"], "unknown"))
+    age = int(prog["log_age"])
+    age_txt = f"{age}s ago" if age < 120 else f"{age // 60}m ago"
+    if prog["job_id"] is None:
+        return (f'<div class="swarm-panel swarm-idle"><div class="swarm-head">'
+                f'<span class="swarm-title">Swarm run</span> {badge} '
+                f'<span class="swarm-detail">no active job · log {age_txt}</span></div></div>')
+    rnd, nr = prog["round"], prog["num_rounds"]
+    if rnd is None:
+        round_txt = "configuring"
+    else:
+        round_txt = f"round {rnd}" + (f" / {nr}" if nr else "")
+    action_cls = {"finished_learn_task": "chip-done", "start_learn_task": "chip-run"}
+    chips = "".join(
+        f'<span class="swarm-chip {action_cls.get(prog["clients"][c], "chip-idle")}" '
+        f'title="{html_escape(prog["clients"][c])}">{html_escape(c)}</span>'
+        for c in sorted(prog["clients"])
+    )
+    pruned = ""
+    if prog["prunes"]:
+        items = ", ".join(f'{html_escape(x["client"])} ({html_escape(x["error"])})' for x in prog["prunes"])
+        pruned = (f'<div class="swarm-prunes">pruned: {items} → '
+                  f'{prog["prunes"][-1]["active"]} active</div>')
+    stall = ""
+    if prog["status"] == "stalled":
+        stall = f'<div class="swarm-stall">⚠ no server-log activity for {age_txt.replace(" ago","")} — possible stall</div>'
+    return f"""
+<div class="swarm-panel swarm-{prog['status']}">
+  <div class="swarm-head"><span class="swarm-title">Swarm run</span> {badge}
+    <span class="swarm-detail">job {html_escape(prog['job_id'][:8])} · {round_txt}
+    · {prog['finished']} finished this round · log {age_txt}</span></div>
+  <div class="swarm-chips">{chips or '<span class="swarm-detail">no per-client status yet</span>'}</div>
+  {pruned}{stall}
+</div>"""
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(
     site_filter: str = Query("", alias="site"),
@@ -1168,6 +1380,7 @@ def index(
     &middot; <a href="/api/runs">API</a></div>
 </header>
 <main>
+{render_swarm_progress_panel()}
 {stats_html}
 {filter_html}
 <table>
@@ -1284,11 +1497,18 @@ def _build_table_row(x: dict[str, Any]) -> str:
         else '<span class="no">-</span>'
     )
 
-    version = (
-        f'<span class="version">{html_escape(x["kit_version"])}</span>'
-        if x["kit_version"]
-        else '<span class="no">-</span>'
-    )
+    skew_reason = x.get("version_skew", "")
+    if skew_reason:
+        version = (
+            f'<span class="version" style="background:#b91c1c;color:#fff" '
+            f'title="{html_escape(skew_reason)}">&#9888; {html_escape(x["kit_version"] or "?")}</span>'
+        )
+    else:
+        version = (
+            f'<span class="version">{html_escape(x["kit_version"])}</span>'
+            if x["kit_version"]
+            else '<span class="no">-</span>'
+        )
 
     size_str = _format_size(x["total_size"]) if x["total_size"] else "-"
     server_path = (

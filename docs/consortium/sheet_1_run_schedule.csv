@@ -1,0 +1,10 @@
+Field,Value,Notes
+Programme,ODELIA,Breast MRI swarm (8 sites)
+Next run date,TBC,Set this and tell sites here — not by email
+Image for this run,jefftud/odelia:<tag>,"Pin the exact tag so the run is reproducible even if the release channel moves"
+Quorum (configure/min/responses),8 / 7 / 7,All sites must be registered; wait-for-all during rounds
+Rounds,20,Set at job-prep time — no kit or image rebuild needed
+Status,Not scheduled,Not scheduled | Sites preparing | Ready | Running | Complete | Aborted
+Deadline for site confirmation,TBC,Sites tick their row in the 'Site checklist' tab
+Server,dl3.tud.de:8002,Reachable only over the consortium VPN
+Live monitor,Internal only,"NOT partner-accessible: it has no auth and no per-site scoping, so it would expose every site's logs"

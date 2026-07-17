@@ -714,12 +714,33 @@ docker_cln_sh: |
       TTY_OPT=""
   fi
 
+  # Require a real value for options that take one. An unset shell variable —
+  # e.g. `--scratch_dir $SCRATCHDIR` when SCRATCHDIR was never exported — expands
+  # to nothing, so the option silently swallows the *next* flag and the argument
+  # after that is reported as unknown. A site hit exactly this:
+  #     ./docker.sh --scratch_dir $SCRATCHDIR --GPU device=0 --dummy_training
+  #     Unknown parameter passed: device=0
+  # ...which blames --GPU, when the real problem is an empty $SCRATCHDIR.
+  _need_value() {
+      # $1 = option name, $2 = the value we are about to consume
+      if [ -z "${2:-}" ] || case "${2:-}" in --*) true ;; *) false ;; esac; then
+          echo "❗ Option $1 requires a value, but got '${2:-<nothing>}'."
+          echo ""
+          echo "   This usually means a shell variable is empty or was never exported."
+          echo "   Check them first:"
+          echo "       echo \"DATADIR=[\$DATADIR] SCRATCHDIR=[\$SCRATCHDIR]\""
+          echo "   Then set the missing one, e.g.:"
+          echo "       export SCRATCHDIR=/path/to/scratch && mkdir -p \$SCRATCHDIR"
+          exit 1
+      fi
+  }
+
   # Parse command-line arguments
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-          --data_dir)            MY_DATA_DIR="$2"; shift ;;
-          --scratch_dir)         MY_SCRATCH_DIR="$2"; shift ;;
-          --GPU)                 GPU2USE="$2"; shift ;;
+          --data_dir)            _need_value "$1" "${2:-}"; MY_DATA_DIR="$2"; shift ;;
+          --scratch_dir)         _need_value "$1" "${2:-}"; MY_SCRATCH_DIR="$2"; shift ;;
+          --GPU)                 _need_value "$1" "${2:-}"; GPU2USE="$2"; shift ;;
           --no_pull)             NOPULL="1" ;;
           --dummy_training)      DUMMY_TRAINING="1" ;;
           --preflight_check)     PREFLIGHT_CHECK="1" ;;
@@ -795,9 +816,49 @@ docker_cln_sh: |
      ENV_VARS+=" --env LOG_DATASET_DETAILS=1"
   fi
 
-  # Forward all STAMP_* environment variables into the container
+  # Fail early (with an actionable message) when the STAMP_* configuration this
+  # mode needs is not visible to *this script*. The classic cause is running
+  # `sudo ./docker.sh ...`: sudo resets the environment, so the STAMP_* variables
+  # the user exported in their own shell never reach us, and training would die
+  # deep inside Python with `KeyError: 'STAMP_CLINI_TABLE'`.
+  if [ -n "${PREFLIGHT_CHECK:-}${LOCAL_TRAINING:-}${START_CLIENT:-}" ]; then
+      _missing=""
+      for _req in STAMP_CLINI_TABLE STAMP_FEATURE_DIR; do
+          eval "_val=\${${_req}:-}"
+          [ -z "$_val" ] && _missing="$_missing $_req"
+      done
+      if [ -n "$_missing" ]; then
+          echo "❗ Missing required STAMP environment variable(s):$_missing"
+          echo ""
+          if [ -n "${SUDO_USER:-}" ]; then
+              echo "   You ran this through 'sudo', which resets the environment, so the"
+              echo "   STAMP_* variables you exported are not visible to docker.sh."
+              echo ""
+              echo "   Preferred — run Docker without sudo (one-time setup, then re-login):"
+              echo "       sudo usermod -aG docker \$USER && newgrp docker"
+              echo "       ./docker.sh ..."
+              echo ""
+              echo "   Or preserve your environment through sudo:"
+              echo "       sudo -E ./docker.sh ..."
+          else
+              echo "   Export them before calling docker.sh, for example:"
+              echo "       export STAMP_CLINI_TABLE=\"/data/<SITE_NAME>/clini_table.csv\""
+              echo "       export STAMP_FEATURE_DIR=\"/data/<SITE_NAME>/features\""
+              echo "   (these are paths *inside* the container: --data_dir is mounted at /data)"
+          fi
+          echo ""
+          echo "   Check what this script can see with:  env | grep '^STAMP_'"
+          exit 1
+      fi
+  fi
+
+  # Forward all STAMP_* environment variables into the container. Pass by NAME
+  # only (no =value): docker then inherits each value from this script's
+  # environment, which preserves values containing spaces (e.g. a clinical
+  # column named "Slide ID"). The "=value" form word-split on the unquoted
+  # $ENV_VARS expansion and broke the docker command for such values.
   for _var in $(env | grep '^STAMP_' | cut -d= -f1); do
-      ENV_VARS+=" --env ${_var}=${!_var}"
+      ENV_VARS+=" --env ${_var}"
   done
 
   # ── Live Sync Integration ──────────────────────────────────────────

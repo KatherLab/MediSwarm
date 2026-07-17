@@ -7,6 +7,16 @@ on:
     branches:
       - main
       - dev
+    # Skip the 60-min single-GPU validation for pure-docs PRs — nothing under
+    # these paths affects training/build. A PR that also touches code/config
+    # still runs it. (validate-swarm is not a required check, so skipping here
+    # cannot block a merge.) True step parallelization is intentionally NOT done:
+    # the self-hosted runner has one shared GPU + a global serialization guard,
+    # so splitting GPU steps into parallel jobs only adds checkout/build overhead
+    # without speedup. The real wins are Docker/pip caching + skipping irrelevant PRs.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
 
 permissions:
   contents: read
@@ -97,11 +107,14 @@ jobs:
           VERSION=$(./scripts/build/getVersionNumber.sh)
           echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Pin the version for every later step. Without this a run that crosses
+          # local midnight builds one tag and then looks up another (#428).
+          echo "MEDISWARM_IMAGE_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build Docker image for real project (MEVIS)
         run: |
           chmod +x scripts/build/buildDockerImageAndStartupKits.sh
-          ./scripts/build/buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
+          ./scripts/build/buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml --use-docker-cache
 
       - name: Show workspace path for MEVIS project
         run: |

@@ -6,6 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# shellcheck source=scripts/ci/_error_filter.sh
+source "$SCRIPT_DIR/_error_filter.sh"
+
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
 CONTAINER_VERSION_SUFFIX=$(git rev-parse --short HEAD)
 DOCKER_IMAGE=localhost:5000/odelia:$VERSION
@@ -211,7 +214,7 @@ run_dummy_training_simulation_mode(){
 
     echo "$OUTPUT"
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example simulation mode succeeded."
     else
         echo "❌ Minimal example simulation mode failed."
@@ -222,11 +225,14 @@ run_dummy_training_simulation_mode(){
 run_dummy_training_poc_mode(){
     echo "[Run] Minimal example, proof-of-concept mode (capturing output)"
 
-    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1)
+    # `|| true`: without it, set -e kills the script on the command substitution when the
+    # container exits non-zero, BEFORE we echo the captured output -- so a real failure
+    # showed up as a bare exit code with no log. Capture, always echo, then judge.
+    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
 
     echo "$OUTPUT"
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! grep -qi "error" <<< "$OUTPUT"; then
+    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example proof-of-concept mode succeeded."
     else
         echo "❌ Minimal example proof-of-concept mode failed."
@@ -296,16 +302,23 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
 
-    ZIP_CONTENT=$(unzip -tv "$PROJECT_DIR/prod_01/client_B_${VERSION}.zip")
+    # Kits ship as plain zips (consortium decision, reversing #449 encryption):
+    # every site picks its own from a members-only shared folder. Verify the
+    # archive exists and carries the expected startup files.
+    KIT="$PROJECT_DIR/prod_01/client_B_${VERSION}.zip"
+    [ -f "$KIT" ] || { echo "❌ kit archive $KIT not found"; exit 1; }
+
+    ZIP_CONTENT=$(unzip -tv "$KIT")
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
         if grep -q "$FILE" <<< "$ZIP_CONTENT"; then
-            echo "✅ $FILE found in zip"
+            echo "✅ $FILE found in kit archive"
         else
-            echo "❌ $FILE missing in zip"
+            echo "❌ $FILE missing in kit archive"
             exit 1
         fi
     done
+    echo "✅ kit archive contains the expected startup files"
 }
 
 
@@ -720,10 +733,16 @@ run_dummy_training_in_swarm () {
     cd "$CWD"
 
     # Poll for completion instead of a fixed sleep.  The server log will
-    # contain "Server runner finished." once all rounds are done.  We check
-    # every 10 seconds for up to 5 minutes (30 iterations).
+    # contain "Server runner finished." once all rounds are done.
+    #
+    # #388: 30 attempts (300s) was too tight. The self-hosted runner shares a host
+    # with image builds and deploy tests, and the observed failures show the swarm
+    # still making progress ("Round 2 started", "Contribution ... ACCEPTED") when we
+    # gave up — i.e. we were timing out on a *slow* run, not a hung one, and then
+    # failing the assertions below. Poll for up to 15 min; a genuinely hung run still
+    # fails, just later. Override with CI_SWARM_WAIT_ATTEMPTS if needed.
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local max_attempts=30
+    local max_attempts=${CI_SWARM_WAIT_ATTEMPTS:-90}
     local attempt=0
     echo "  Waiting for swarm training to finish (checking every 10s, max ${max_attempts}0s) ..."
     while [ $attempt -lt $max_attempts ]; do
@@ -772,7 +791,6 @@ run_dummy_training_in_swarm () {
                            'aggregating [0-9]* update(s) at round [0-9]*' \
                            'Successfully registered client:client_A for project' \
                            'Got engine after .* seconds' \
-                           'Got the new primary SP:' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
                            'broadcasting learn task of round . to .*; aggregation happens on client_.';

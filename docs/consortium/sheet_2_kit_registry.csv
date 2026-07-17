@@ -1,0 +1,3 @@
+Kit version,Released,Status,Applies to,sha256 (of the .zip.enc),What changed,Action required
+1.5.0-dev.260702.be9ef04,2026-07-02,DEPRECATED,All ODELIA sites,(see kit_manifest.csv),Kit shipped before certificates were stabilised,Superseded — do not use
+<next>,<date>,ACTIVE,All ODELIA sites,(from kit_manifest.csv),"Stable certificates: this kit survives image updates, so it should be the last routine re-issue",One-time install; keep it

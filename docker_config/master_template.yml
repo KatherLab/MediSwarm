@@ -90,9 +90,11 @@ local_client_resources: |
         "args": {}
       },
       {
-          "id": "error_log_sender",
-          "path": "nvflare.app_common.logging.log_sender.ErrorLogSender",
-          "args": {}
+          "id": "site_log_streamer",
+          "path": "nvflare.app_common.logging.site_log_streamer.SiteLogStreamer",
+          "args": {
+              "log_file_name": "error_log.txt"
+          }
       }
     ]
   }
@@ -104,6 +106,7 @@ fed_client: |
       {
         "name": "{~~name~~}",
         "service": {
+          "target": "{~~target~~}",
           "scheme": "{~~scheme~~}"
         },
         "identity": "{~~server_identity~~}"
@@ -116,12 +119,6 @@ fed_client: |
       "fqsn": "{~~fqsn~~}",
       "is_leaf": {~~is_leaf~~},
       "connection_security": "{~~conn_sec~~}"
-    },
-    "overseer_agent": {
-      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
-      "args": {
-        "sp_end_point": "{~~sp_end_point~~}"
-      }
     }
   }
 
@@ -235,7 +232,7 @@ local_server_resources: |
           },
           {
               "id": "log_receiver",
-              "path": "nvflare.app_common.logging.log_receiver.LogReceiver",
+              "path": "nvflare.app_common.logging.job_log_receiver.JobLogReceiver",
               "args": {}
           }
       ]
@@ -272,13 +269,7 @@ fed_server: |
             "ssl_root_cert": "rootCA.pem",
             "connection_security": "{~~conn_sec~~}"
         }
-    ],
-    "overseer_agent": {
-      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
-      "args": {
-        "sp_end_point": "{~~sp_end_point~~}"
-      }
-    }
+    ]
   }
 
 fed_admin: |
@@ -732,8 +723,14 @@ docker_cln_sh: |
           --log_dataset_details) LOG_DATASET_DETAILS="1";;
           --model_name)          CLI_MODEL_NAME="$2"; shift ;;
           --num_epochs)          CLI_NUM_EPOCHS="$2"; shift ;;
+          --fold)                CLI_FOLD="$2"; shift ;;
+          --image)               CLI_IMAGE="$2"; shift ;;
           --config)              CLI_CONFIG="$2"; shift ;;
           --container_name)      CONTAINER_NAME="$2"; shift ;;
+          --docker_options)      CLI_DOCKER_OPTIONS="$2"; shift ;;
+          --external_validation) EXTERNAL_VALIDATION="1" ;;
+          --checkpoint)          CLI_CHECKPOINT="$2"; shift ;;
+          --split)               CLI_SPLIT="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -792,7 +789,36 @@ docker_cln_sh: |
   rm -rf ../pid.fl ../daemon_pid.fl
 
   # Docker image and container name
+  #
+  # The provisioned tag below is only the DEFAULT. The backbone, the training code
+  # and the job configs all ship in the IMAGE (not in this kit), and docker.sh pulls
+  # by tag on every run -- so a site can move to a new image WITHOUT a new kit:
+  #
+  #   startup/image.conf   ->  MEDISWARM_IMAGE=jefftud/odelia:1.6.0    (persistent)
+  #   ./docker.sh --image jefftud/odelia:1.6.0 ...                     (one-off)
+  #
+  # Point image.conf at a release channel (e.g. :current) to pick up releases with no
+  # action at all. Precedence: --image > MEDISWARM_IMAGE env > image.conf > default.
   DOCKER_IMAGE={~~docker_image~~}
+  # Capture a pre-exported MEDISWARM_IMAGE BEFORE sourcing image.conf, so a one-off
+  # env override wins over the persistent file (documented precedence: --image > env
+  # > image.conf > default). Without this, image.conf's assignment would clobber the
+  # env var (#449 follow-up).
+  ENV_IMAGE="${MEDISWARM_IMAGE:-}"
+  # Same capture-before-source trick for extra docker options (#218): a pre-exported
+  # MEDISWARM_DOCKER_OPTIONS must beat an image.conf assignment.
+  ENV_DOCKER_OPTIONS="${MEDISWARM_DOCKER_OPTIONS:-}"
+  if [ -f "$DIR/image.conf" ]; then
+      . "$DIR/image.conf"
+  fi
+  MEDISWARM_IMAGE="${ENV_IMAGE:-${MEDISWARM_IMAGE:-}}"
+  DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"
+  # Extra options to pass through to `docker run` (#218): partners needed to add
+  # host-specific options (e.g. --cpus / --cpuset-cpus) without hand-editing this
+  # script. Precedence mirrors the image: --docker_options CLI > MEDISWARM_DOCKER_OPTIONS
+  # env > image.conf. Appended last below so a site option can override a built-in.
+  MEDISWARM_DOCKER_OPTIONS="${ENV_DOCKER_OPTIONS:-${MEDISWARM_DOCKER_OPTIONS:-}}"
+  EXTRA_DOCKER_OPTIONS="${CLI_DOCKER_OPTIONS:-${MEDISWARM_DOCKER_OPTIONS:-}}"
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull "$DOCKER_IMAGE"
@@ -808,10 +834,11 @@ docker_cln_sh: |
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
   fi
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
-  DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
+  DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B} ${EXTRA_DOCKER_OPTIONS}"
 
   # Common ENV vars
-  # CLI flags (--model_name, --num_epochs, --config) take priority over env vars,
+  # CLI flags (--model_name, --num_epochs, --config, --fold) take priority over env
+  # vars,
   # which in turn take priority over defaults. This ensures values survive "sudo"
   # (which resets the environment) when passed as CLI arguments.
   ENV_VARS="--env SITE_NAME={~~client_name~~} \
@@ -822,6 +849,7 @@ docker_cln_sh: |
             --env GPU_DEVICE=$GPU2USE \
             --env MODEL_NAME=${CLI_MODEL_NAME:-${MODEL_NAME:-MST}} \
             --env NUM_EPOCHS=${CLI_NUM_EPOCHS:-${NUM_EPOCHS:-100}} \
+            --env FOLD=${CLI_FOLD:-${FOLD:-0}} \
             --env CONFIG=${CLI_CONFIG:-${CONFIG:-unilateral}} \
             --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__ \
             --env TORCH_MULTIPROCESSING_SHARING_STRATEGY=${TORCH_MULTIPROCESSING_SHARING_STRATEGY:-file_system} \
@@ -858,6 +886,12 @@ docker_cln_sh: |
   fi
   if [ -n "${ODELIA_PREPROCESS_CACHE_VERSION:-}" ]; then
       ENV_VARS+=" --env ODELIA_PREPROCESS_CACHE_VERSION=$ODELIA_PREPROCESS_CACHE_VERSION"
+  fi
+  # The k-fold data validation (#427) aborts when a declared split has no usable rows,
+  # and its documented escape hatch is this env var (e.g. =test for a site that
+  # genuinely has no test data). It must reach the container or the hatch is unusable.
+  if [ -n "${ODELIA_ALLOW_EMPTY_SPLITS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_ALLOW_EMPTY_SPLITS=$ODELIA_ALLOW_EMPTY_SPLITS"
   fi
 
   # ── Live Sync Integration ──────────────────────────────────────────
@@ -980,7 +1014,7 @@ docker_cln_sh: |
   }
 
   # Run pre-run host checks for the GPU-using modes
-  if [ -n "$DUMMY_TRAINING" ] || [ -n "$PREFLIGHT_CHECK" ] || [ -n "$START_CLIENT" ]; then
+  if [ -n "$DUMMY_TRAINING" ] || [ -n "$PREFLIGHT_CHECK" ] || [ -n "$START_CLIENT" ] || [ -n "$EXTERNAL_VALIDATION" ]; then
       _preflight_host_checks
   fi
 
@@ -1010,11 +1044,23 @@ docker_cln_sh: |
 
   elif [ -n "$START_CLIENT" ]; then
       _start_live_sync swarm
-      docker run -d -t --restart=on-failure:5 \
+      docker run -d -t --restart=unless-stopped \
       --health-cmd="nvidia-smi > /dev/null 2>&1 || exit 1" \
       --health-interval=120s --health-start-period=180s --health-retries=3 \
       $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
+
+  elif [ -n "$EXTERNAL_VALIDATION" ]; then
+      # Predict-only external validation (#412): run a delivered global model on this
+      # site's local test/ext split. No swarm, no aggregation, no network -- metrics and
+      # per-sample predictions are written under /scratch and stay on the node. Only the
+      # aggregate metrics in prediction_results.json need to be shared back.
+      EV_CHECKPOINT="${CLI_CHECKPOINT:-/scratch/FL_global_model.pt}"
+      EV_SPLIT="${CLI_SPLIT:-test}"
+      echo "[INFO] External validation: model=${CLI_MODEL_NAME:-${MODEL_NAME:-MST}} checkpoint=$EV_CHECKPOINT split=$EV_SPLIT"
+      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training \
+      --env EV_CHECKPOINT="$EV_CHECKPOINT" --env EV_SPLIT="$EV_SPLIT" $DOCKER_IMAGE \
+      /bin/bash -c 'python3 /MediSwarm/scripts/evaluation/predict.py --checkpoint "$EV_CHECKPOINT" --model-name "$MODEL_NAME" --output-dir /scratch --split "$EV_SPLIT"'
 
   elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
@@ -1046,8 +1092,24 @@ docker_cln_sh: |
       echo "--model_name <name>      set model name (default: auto-derived from --job). Use this instead of 'export MODEL_NAME=...'"
       echo "                         when running with sudo, as sudo resets environment variables"
       echo "--num_epochs <n>         set number of training epochs (default: 100)"
+      echo "--image <ref>            run a specific image instead of the one this kit was"
+      echo "                         built with. Persist it in startup/image.conf instead"
+      echo "                         of waiting for a new kit."
+      echo "--fold <n>               cross-validation fold for --local_training /"
+      echo "                         --preflight_check (default: 0). For a swarm run the"
+      echo "                         fold is fixed by the admin in the job, so this flag"
+      echo "                         is ignored by --start_client."
       echo "--config <name>          set config name (default: unilateral)"
       echo "--container_name <name>  set name for the Docker container to override default using version number"
+      echo "--docker_options \"<opts>\" extra options passed straight to 'docker run' (e.g."
+      echo "                         \"--cpus 8 --cpuset-cpus 0-7\"). Persist with"
+      echo "                         MEDISWARM_DOCKER_OPTIONS in startup/image.conf."
+      echo "--external_validation    predict-only external validation on your local"
+      echo "                         test/ext split with a delivered global model (no"
+      echo "                         swarm). Writes metrics + predictions to your scratch."
+      echo "--checkpoint <path>      model for --external_validation, a container path under"
+      echo "                         /scratch (default: /scratch/FL_global_model.pt)"
+      echo "--split <name>           dataset split for --external_validation (default: test)"
       exit 1
   fi
 
@@ -1090,7 +1152,7 @@ docker_svr_sh: |
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
   if [ -n "$START_SERVER" ]; then
-      docker run -d -t --restart=on-failure:5 --name=$CONTAINER_NAME \
+      docker run -d -t --restart=unless-stopped --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"

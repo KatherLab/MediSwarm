@@ -12,7 +12,7 @@
 
 Dear DECADE partners,
 
-Next **Monday 13 July** we will do our first federated (swarm) training run for
+Next **Monday 13 July** we will do our first swarm training run for
 DECADE. Unlike the ODELIA breast-MRI runs, DECADE uses **STAMP**, which trains on
 **pre-extracted pathology features (H5 files)** rather than raw images. This week,
 please (a) send us the two values in the box below, and (b) work through Steps 1–5
@@ -36,6 +36,11 @@ site:
 All sites must also agree on the **same feature extractor + feature dimension**.
 We propose **UNI (dim 1024)** — tell us if you extracted with something else
 (e.g. CTransPath = 768).
+
+**Extract with standalone STAMP 2.5.0** (it needs Python 3.13). Our training
+image runs STAMP 2.4.0 and is patched to read 2.5.0-extracted features — the
+feature H5 layout and the UNI extractor are identical between the two versions.
+Please do **not** use a STAMP newer than 2.5.0 without telling us first.
 
 ## Your site identifier
 
@@ -143,7 +148,7 @@ authorize it on the monitoring host and confirm.
 ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training 2>&1 | tee local_training_console_output.txt
 ```
 
-Trains a model on only your data, so on Monday we can compare the federated model
+Trains a model on only your data, so on Monday we can compare the swarm model
 against your local baseline. Checkpoints/metrics land in `$SCRATCHDIR` under a
 timestamped folder.
 

@@ -57,7 +57,6 @@ Next, further preprations are needed
 
 ```bash
 nvflare poc prepare -c poc_client_0 poc_client_1
-nvflare poc prepare-jobs-dir -j application/jobs/
 ```
 
 Now proceed interactively by

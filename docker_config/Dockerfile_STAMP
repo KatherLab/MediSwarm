@@ -12,7 +12,7 @@ ARG PYTORCH_IMAGE=pytorch/pytorch:2.7.1-cuda12.6-cudnn9-runtime
 FROM ${PYTORCH_IMAGE}
 
 # Specify the NVFlare version
-ARG NVF_VERSION=2.7.2
+ARG NVF_VERSION=2.8.0
 ENV NVF_BRANCH=${NVF_VERSION}
 
 # ===========================================================================
@@ -48,8 +48,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # This pulls in all STAMP dependencies: h5py, lightning, timm, transformers,
 # opencv-python, openslide-bin, openslide-python, lifelines, beartype, etc.
 # Using --no-cache-dir to keep the layer small.
+#
+# NOTE: we deliberately stay on 2.4.0. STAMP 2.5.0 hard-requires Python 3.13
+# (requires-python = ">=3.13,<3.14"), while this image runs Python 3.11 and our
+# NVFlare fork declares support only through 3.12. Sites extract features with
+# STAMP 2.5.0; the patch below lets this loader read them (the H5 layout and the
+# UNI extractor are identical between 2.4.0 and 2.5.0).
 RUN python3 -m pip install --no-cache-dir \
     "stamp @ git+https://github.com/KatherLab/STAMP.git@2.4.0"
+
+# Raise STAMP's *readable* feature-extraction version ceiling to 2.5.0 so that
+# features extracted by STAMP 2.5.0 load here. Fails the build loudly if the
+# upstream guard is not found (e.g. after a STAMP pin bump).
+COPY ./MediSwarm/scripts/build/patch_stamp_feature_version_gate.py /tmp/patch_stamp_feature_version_gate.py
+RUN python3 /tmp/patch_stamp_feature_version_gate.py \
+    && rm /tmp/patch_stamp_feature_version_gate.py
 
 # ---------------------------------------------------------------------------
 # Stage 3: NVFlare from local fork (same as ODELIA)
