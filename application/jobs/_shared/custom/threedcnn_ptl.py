@@ -35,6 +35,9 @@ FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
 FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION = 'aggregated_model_gt_and_classprob_validation.csv'
 FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_validation.csv'
 
+FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST = 'aggregated_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_SITE_MODEL_TEST = 'site_model_gt_and_classprob_test.csv'
+
 OMP_THREAD_ENV_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
 
 # Default matches the `key_metric` of every job that uses this training script
@@ -487,6 +490,16 @@ def output_GT_and_classprobs_csv_train_val(model, data_module: DataModule, epoch
     _output_GT_and_classprobs_csv(results_validation, epoch, csv_filename_validation)
 
 
+def output_GT_and_classprobs_csv_test(model, data_module: DataModule, epoch: int, csv_filename_test) -> None:
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+
+    test_loader = data_module.test_dataloader()
+
+    results_test = _determine_GT_and_classprobs(model, test_loader, device)
+    _output_GT_and_classprobs_csv(results_test, epoch, csv_filename_test)
+
+
 class GT_PredProb_Output_Callback(Callback):
     def __init__(self, data_module, csv_filename_train, csv_filename_validation):
         self.data_module = data_module
@@ -653,8 +666,16 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
     log_stage_timing_summary(logger, stage_timings, "ODELIA execution stage timings:")
 
 
-def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
+def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
     """Save best and latest checkpoints after training completes."""
+
+    logger.info(f'Exporting prediction for test data')
+    output_GT_and_classprobs_csv_test(
+        model,
+        data_module,
+        trainer.current_epoch,
+        path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST,
+    )
 
     # Save best checkpoint (highest val/ACC)
     best_path = checkpointing.best_model_path
