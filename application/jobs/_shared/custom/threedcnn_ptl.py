@@ -642,14 +642,14 @@ def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
     return is_final or (current_round % every_n == 0)
 
 
-def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=True) -> None:
+def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
     stage_timings: Dict[str, float] = {}
 
     with timed_stage(logger, "Validation", stage_timings):
         logger.info("--- Validate global model ---")
         trainer.validate(model, datamodule=data_module)
 
-    if output_GT_and_classprob:
+    if output_GT_and_classprob_aggregated_model:
         with timed_stage(logger, "Aggregated prediction export", stage_timings):
             output_GT_and_classprobs_csv_train_val(
                 model,
