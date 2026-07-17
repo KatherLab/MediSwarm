@@ -90,9 +90,11 @@ local_client_resources: |
         "args": {}
       },
       {
-          "id": "error_log_sender",
-          "path": "nvflare.app_common.logging.log_sender.ErrorLogSender",
-          "args": {}
+          "id": "site_log_streamer",
+          "path": "nvflare.app_common.logging.site_log_streamer.SiteLogStreamer",
+          "args": {
+              "log_file_name": "error_log.txt"
+          }
       }
     ]
   }
@@ -104,6 +106,7 @@ fed_client: |
       {
         "name": "{~~name~~}",
         "service": {
+          "target": "{~~target~~}",
           "scheme": "{~~scheme~~}"
         },
         "identity": "{~~server_identity~~}"
@@ -116,12 +119,6 @@ fed_client: |
       "fqsn": "{~~fqsn~~}",
       "is_leaf": {~~is_leaf~~},
       "connection_security": "{~~conn_sec~~}"
-    },
-    "overseer_agent": {
-      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
-      "args": {
-        "sp_end_point": "{~~sp_end_point~~}"
-      }
     }
   }
 
@@ -235,7 +232,7 @@ local_server_resources: |
           },
           {
               "id": "log_receiver",
-              "path": "nvflare.app_common.logging.log_receiver.LogReceiver",
+              "path": "nvflare.app_common.logging.job_log_receiver.JobLogReceiver",
               "args": {}
           }
       ]
@@ -272,13 +269,7 @@ fed_server: |
             "ssl_root_cert": "rootCA.pem",
             "connection_security": "{~~conn_sec~~}"
         }
-    ],
-    "overseer_agent": {
-      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
-      "args": {
-        "sp_end_point": "{~~sp_end_point~~}"
-      }
-    }
+    ]
   }
 
 fed_admin: |
@@ -895,6 +886,12 @@ docker_cln_sh: |
   fi
   if [ -n "${ODELIA_PREPROCESS_CACHE_VERSION:-}" ]; then
       ENV_VARS+=" --env ODELIA_PREPROCESS_CACHE_VERSION=$ODELIA_PREPROCESS_CACHE_VERSION"
+  fi
+  # The k-fold data validation (#427) aborts when a declared split has no usable rows,
+  # and its documented escape hatch is this env var (e.g. =test for a site that
+  # genuinely has no test data). It must reach the container or the hatch is unusable.
+  if [ -n "${ODELIA_ALLOW_EMPTY_SPLITS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_ALLOW_EMPTY_SPLITS=$ODELIA_ALLOW_EMPTY_SPLITS"
   fi
 
   # ── Live Sync Integration ──────────────────────────────────────────

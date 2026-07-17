@@ -575,8 +575,11 @@ start_clients() {
         scratch="$(site_scratch "$site")"
         gpu="$(site_var "$site" GPU)"
         for ((attempt = 1; attempt <= START_CLIENT_ATTEMPTS; attempt++)); do
+            # DUKE-IID layout: per-node data is train/val only; the held-out test set is a
+            # SEPARATE shared dir evaluated post-training by this harness. Declare that to
+            # the #427 data validation or every phase aborts at dataset build.
             if remote_exec "$site" \
-                "cd '$deploy_dir/$site_name/startup' && ./docker.sh --no_pull --data_dir '$datadir' --scratch_dir '$scratch' --GPU '$gpu' --model_name '$model_name' --start_client"; then
+                "cd '$deploy_dir/$site_name/startup' && ODELIA_ALLOW_EMPTY_SPLITS=test ./docker.sh --no_pull --data_dir '$datadir' --scratch_dir '$scratch' --GPU '$gpu' --model_name '$model_name' --start_client"; then
                 ok "Started $site_name with MODEL_NAME=$model_name"
                 break
             fi

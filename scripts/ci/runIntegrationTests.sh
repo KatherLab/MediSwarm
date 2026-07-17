@@ -225,7 +225,10 @@ run_dummy_training_simulation_mode(){
 run_dummy_training_poc_mode(){
     echo "[Run] Minimal example, proof-of-concept mode (capturing output)"
 
-    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1)
+    # `|| true`: without it, set -e kills the script on the command substitution when the
+    # container exits non-zero, BEFORE we echo the captured output -- so a real failure
+    # showed up as a bare exit code with no log. Capture, always echo, then judge.
+    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
 
     echo "$OUTPUT"
 
@@ -788,7 +791,6 @@ run_dummy_training_in_swarm () {
                            'aggregating [0-9]* update(s) at round [0-9]*' \
                            'Successfully registered client:client_A for project' \
                            'Got engine after .* seconds' \
-                           'Got the new primary SP:' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
                            'broadcasting learn task of round . to .*; aggregation happens on client_.';

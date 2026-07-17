@@ -138,7 +138,6 @@ Proof of Concept (POC) mode enables quick local setups on a single machine. The 
 
 ```bash
 nvflare poc prepare -c poc_client_0 poc_client_1
-nvflare poc prepare-jobs-dir -j application/jobs/
 
 # Start POC
 nvflare poc start
