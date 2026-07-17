@@ -28,5 +28,5 @@ docker run --rm \
   -e PROJECT_YML="$BUILD_YML" \
   -e VERSION="$VERSION" \
   "$CONTAINER_NAME" \
-  /bin/bash -c "nvflare provision -p \$PROJECT_YML && ./scripts/build/_injectLiveSyncIntoStartupKits.sh \$PROJECT_YML && ./scripts/build/_generateStartupKitArchives.sh \$PROJECT_YML \$VERSION" || { echo \"Docker run failed\"; exit 1; }
+  /bin/bash -c "nvflare provision --force -p \$PROJECT_YML && ./scripts/build/_injectLiveSyncIntoStartupKits.sh \$PROJECT_YML && ./scripts/build/_generateStartupKitArchives.sh \$PROJECT_YML \$VERSION" || { echo \"Docker run failed\"; exit 1; }
 
