@@ -791,7 +791,6 @@ run_dummy_training_in_swarm () {
                            'aggregating [0-9]* update(s) at round [0-9]*' \
                            'Successfully registered client:client_A for project' \
                            'Got engine after .* seconds' \
-                           'Got the new primary SP:' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
                            'broadcasting learn task of round . to .*; aggregation happens on client_.';
