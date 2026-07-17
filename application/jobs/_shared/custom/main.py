@@ -69,7 +69,7 @@ def main():
                 )
                 threedcnn_ptl.validate_and_train(
                     logger, data_module, model, trainer, path_run_dir,
-                    output_GT_and_classprob=export_predictions,
+                    output_GT_and_classprob_aggregated_model=export_predictions,
                 )
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
