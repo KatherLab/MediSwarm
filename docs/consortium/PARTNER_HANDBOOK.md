@@ -23,16 +23,16 @@ Three places, and only three:
 ## 1. One-time setup
 
 ### 1.1 Install your kit
-You will receive an **encrypted** kit (`<SITE>_<version>.zip.enc`) and, **separately**,
-its password. Kits are encrypted because they contain your site's private key.
+Your kit lives in the consortium's **members-only shared folder** as
+`<SITE>_<version>.zip`. Pick the one for **your** site. It contains your site's
+private key, so treat the folder as sensitive — don't repost it or your kit anywhere
+outside it.
 
 ```bash
 # check you have the kit the board says is ACTIVE
-sha256sum <SITE>_<version>.zip.enc          # must match the 'Kit registry' tab
+sha256sum <SITE>_<version>.zip              # must match the 'Kit registry' tab
 
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
-        -in <SITE>_<version>.zip.enc -out <SITE>.zip -pass pass:'<password>'
-unzip <SITE>.zip
+unzip <SITE>_<version>.zip
 ```
 
 ### 1.2 Fix the Docker cgroup driver — *do this first*
@@ -53,7 +53,7 @@ sudo ./scripts/client_node_setup/vpn_health_monitor.sh --install-timer
 systemctl status mediswarm-vpn mediswarm-vpn-health.timer
 ```
 > **`<YourSite>` is the GoodAccess profile name, not your site ID:**
-> `UKA_1`→`UKA` · `CAM_1`→`Cambridge` · `VHIO_1`→`VHIO` · `MHA_1`→`Mitera` · `RSH_1`→`Ribera` · `USZ_1`→`Zurich` · `UMCU_1`→`Utrecht` · `RUMC_1`→`Radboud`.
+> `UKA_1`→`UKA` · `CAM_1`→`Cambridge` · `VHIO_1`→`VHIO` · `MHA_1`→`Mitera` · `RSH_1`→`Ribera` · `USZ_1`→`Zurich` · `UMCU_1`→`Utrecht` · `RUMC_1`→`Radboud` · `MPU_1`→`MPU_xinyu` · `MPU_2`→`MPU_jieru`.
 
 
 Then confirm **exactly one** tunnel is up — two tunnels fight over the same routes and

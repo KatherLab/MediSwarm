@@ -61,7 +61,7 @@ class TestLoadEnvironmentVariables:
             "site_name", "task_data_name", "scratch_dir", "data_dir",
             "max_epochs", "min_peers", "max_peers", "local_compare_flag",
             "use_adaptive_sync", "sync_frequency", "model_name",
-            "prediction_flag", "mediswarm_version",
+            "fold", "prediction_flag", "mediswarm_version",
             "odelia_num_workers", "odelia_hash_num_workers",
             "odelia_threads_per_worker", "odelia_interop_threads",
             "odelia_hash_cache_dir", "odelia_enable_preprocess_cache",

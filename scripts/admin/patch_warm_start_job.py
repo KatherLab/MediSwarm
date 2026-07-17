@@ -9,6 +9,17 @@ CONFIG_RELATIVE_PATH = Path("app/config/config_fed_client.conf")
 SERVER_CONFIG_RELATIVE_PATH = Path("app/config/config_fed_server.conf")
 PERSISTOR_PATH = 'path = "warm_continue.WarmStartablePTFileModelPersistor"'
 
+# The SubprocessLauncher strips leading KEY=VALUE tokens off `script` into the
+# child environment, so this is how run-level values reach the training script.
+LAUNCHER_SCRIPT_RE = re.compile(r'^(\s*script\s*=\s*")([^"]*)(")', re.MULTILINE)
+# Each fold needs its own warm-start mirror, or `continue` resumes from another
+# fold's global model (cross-fold leakage).
+GLOBAL_PATH_KEYS = ("source_ckpt_file_full_name", "latest_global_path")
+# Admin-side typo guard only (catches `--fold 50` before a job reaches six sites).
+# It is NOT the authority on how many folds exist: that is a property of each
+# site's split.csv, and is validated there against the data (#411).
+MAX_ADMIN_FOLD = 4
+
 MODE_AUTO = "auto"
 MODE_FRESH = "fresh"
 MODE_REQUIRE = "require"
@@ -43,6 +54,43 @@ def _positive_int_or_none(value, name: str):
     if value <= 0:
         raise ValueError(f"{name} must be a positive integer")
     return value
+
+
+def patch_launcher_env(config_text: str, key: str, value) -> str:
+    """Insert (or replace) a leading KEY=VALUE token on the launcher `script` command."""
+    existing = re.compile(rf"(?<![A-Za-z0-9_]){re.escape(key)}=\S*\s*")
+
+    def replace(match):
+        prefix, command, suffix = match.group(1), match.group(2), match.group(3)
+        return f"{prefix}{key}={value} {existing.sub('', command)}{suffix}"
+
+    patched, count = LAUNCHER_SCRIPT_RE.subn(replace, config_text, count=1)
+    if count != 1:
+        raise ValueError("Config does not contain a launcher `script` assignment")
+    return patched
+
+
+def patch_fold_global_paths(config_text: str, fold: int) -> str:
+    """Give fold N (N>0) its own warm-start mirror. Fold 0 keeps the legacy filename."""
+    if fold == 0:
+        return config_text
+    for key in GLOBAL_PATH_KEYS:
+        pattern = re.compile(rf'^(\s*{re.escape(key)}\s*=\s*")([^"]+)(")', re.MULTILINE)
+
+        def replace(match):
+            path = match.group(2)
+            base, sep, ext = path.rpartition(".")
+            if not sep:
+                base, ext = path, ""
+            else:
+                ext = f".{ext}"
+            base = re.sub(r"_fold\d+$", "", base)
+            return f"{match.group(1)}{base}_fold{fold}{ext}{match.group(3)}"
+
+        config_text, count = pattern.subn(replace, config_text, count=1)
+        if count != 1:
+            raise ValueError(f"Config does not contain string assignment for {key}")
+    return config_text
 
 
 def patch_numeric_assignment(config_text: str, key: str, value: int) -> str:
@@ -122,7 +170,13 @@ def upsert_bool_assignment(config_text: str, key: str, value: bool, after_key: s
     return config_text[: match.end()] + insert + config_text[match.end() :]
 
 
-def patch_config_text(config_text: str, mode: str, min_responses_required=None, broadcast_last_result=None) -> str:
+def patch_config_text(
+    config_text: str,
+    mode: str,
+    min_responses_required=None,
+    broadcast_last_result=None,
+    fold=None,
+) -> str:
     internal_mode = normalize_warm_start_mode(mode)
     lines = config_text.splitlines(keepends=True)
 
@@ -170,6 +224,10 @@ def patch_config_text(config_text: str, mode: str, min_responses_required=None, 
             after_key="final_result_ack_timeout",
         )
 
+    if fold is not None:
+        patched = patch_launcher_env(patched, "FOLD", fold)
+        patched = patch_fold_global_paths(patched, fold)
+
     return patched
 
 
@@ -200,6 +258,7 @@ def patch_job_dir(
     configure_min_clients=None,
     min_responses_required=None,
     broadcast_last_result=None,
+    fold=None,
 ) -> Path:
     config_path = job_dir / CONFIG_RELATIVE_PATH
     if not config_path.is_file():
@@ -212,6 +271,7 @@ def patch_job_dir(
             mode,
             min_responses_required=min_responses_required,
             broadcast_last_result=broadcast_last_result,
+            fold=fold,
         )
     )
 
@@ -257,6 +317,12 @@ def main() -> int:
         choices=("true", "false"),
         help="Patch app/config/config_fed_client.conf broadcast_last_result",
     )
+    parser.add_argument(
+        "--fold",
+        type=int,
+        choices=range(MAX_ADMIN_FOLD + 1),
+        help="Cross-validation fold every site trains this run (run-level; default 0)",
+    )
     args = parser.parse_args()
 
     internal_mode = normalize_warm_start_mode(args.mode)
@@ -268,6 +334,7 @@ def main() -> int:
         configure_min_clients=args.configure_min_clients,
         min_responses_required=args.min_responses,
         broadcast_last_result=args.broadcast_last_result,
+        fold=args.fold,
     )
     print(f'Patched {config_path}: warm_start_mode = "{internal_mode}"')
     if args.num_rounds is not None:
@@ -283,6 +350,8 @@ def main() -> int:
         print(f"Patched {config_path}: min_responses_required = {args.min_responses}")
     if args.broadcast_last_result is not None:
         print(f"Patched {config_path}: broadcast_last_result = {args.broadcast_last_result}")
+    if args.fold is not None:
+        print(f"Patched {config_path}: FOLD = {args.fold} (launcher env + warm-start mirror)")
     return 0
 
 
