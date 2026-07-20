@@ -61,6 +61,25 @@ find "$TARGET_FOLDER" -mindepth 1 -maxdepth 1 -type d | while read -r KIT_DIR; d
 
   chmod +x "$STARTUP_DIR/build_heartbeat.sh" "$STARTUP_DIR/live_sync.sh"
 
+  # Ship image.conf so a site follows the release channel out of the box. docker.sh
+  # sources this on every run, so re-tagging :current centrally updates every node on
+  # its next start -- no action at the site. (A site still chooses WHEN to run; we
+  # never pull or restart under them.) Don't clobber a site's own edit on re-issue.
+  if [ ! -f "$STARTUP_DIR/image.conf" ]; then
+    cat > "$STARTUP_DIR/image.conf" <<'IMAGECONF'
+# Which ODELIA image this node runs. Read by docker.sh on every run.
+#
+# Default: the release channel. When a new ODELIA release ships, we re-tag
+# :current and this node picks it up the next time you start it -- nothing to do
+# here. The Run Board's "Run schedule" tab always names the exact tag of a run.
+#
+# To pin a specific version instead, replace the line below, e.g.
+#   MEDISWARM_IMAGE=jefftud/odelia:1.6.0
+# For a one-off without editing this file:  ./docker.sh --image <ref> ...
+MEDISWARM_IMAGE=jefftud/odelia:current
+IMAGECONF
+  fi
+
   if [ -f "$STARTUP_DIR/fl_admin.sh" ]; then
     cp "$ADMIN_HELPER_SOURCE" "$STARTUP_DIR/prepare_odelia_job.sh"
     chmod +x "$STARTUP_DIR/prepare_odelia_job.sh"
