@@ -90,9 +90,11 @@ local_client_resources: |
         "args": {}
       },
       {
-          "id": "error_log_sender",
-          "path": "nvflare.app_common.logging.log_sender.ErrorLogSender",
-          "args": {}
+          "id": "site_log_streamer",
+          "path": "nvflare.app_common.logging.site_log_streamer.SiteLogStreamer",
+          "args": {
+              "log_file_name": "error_log.txt"
+          }
       }
     ]
   }
@@ -116,12 +118,6 @@ fed_client: |
       "fqsn": "{~~fqsn~~}",
       "is_leaf": {~~is_leaf~~},
       "connection_security": "{~~conn_sec~~}"
-    },
-    "overseer_agent": {
-      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
-      "args": {
-        "sp_end_point": "{~~sp_end_point~~}"
-      }
     }
   }
 
@@ -235,7 +231,7 @@ local_server_resources: |
           },
           {
               "id": "log_receiver",
-              "path": "nvflare.app_common.logging.log_receiver.LogReceiver",
+              "path": "nvflare.app_common.logging.job_log_receiver.JobLogReceiver",
               "args": {}
           }
       ]
@@ -272,13 +268,7 @@ fed_server: |
             "ssl_root_cert": "rootCA.pem",
             "connection_security": "{~~conn_sec~~}"
         }
-    ],
-    "overseer_agent": {
-      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
-      "args": {
-        "sp_end_point": "{~~sp_end_point~~}"
-      }
-    }
+    ]
   }
 
 fed_admin: |
