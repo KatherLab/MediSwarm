@@ -106,6 +106,7 @@ fed_client: |
       {
         "name": "{~~name~~}",
         "service": {
+          "target": "{~~target~~}",
           "scheme": "{~~scheme~~}"
         },
         "identity": "{~~server_identity~~}"
