@@ -13,23 +13,23 @@ TARGET_DIR=$1
 
 MODEL_WEIGHTS_FILE_DINO=$CACHE_DIR'/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth'
 MODEL_WEIGHTS_FILE_DINO_URL=https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth
-MODEL_WEIGHTS_FILE_DINO_SHA=cf1f2360da4adbffe57342f0fa067fe759d9223a
+MODEL_WEIGHTS_FILE_DINO_HASH=b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9
 
 MODEL_LICENSE_FILE_DINO=$CACHE_DIR'/torch_home_cache/hub/facebookresearch_dinov2_main/LICENSE'
 MODEL_LICENSE_FILE_DINO_URL=https://github.com/facebookresearch/dinov2/archive/refs/heads/main.zip
-MODEL_LICENSE_FILE_DINO_SHA=83fe23afe70f538ae3ea0969cf8b9d0701a976b1
+MODEL_LICENSE_FILE_DINO_HASH=600cc67cc4cb2f5ea317dcfc687ad1c74dc4bec8782bbe9db0afd83513b935b7
 
 MODEL_WEIGHTS_FILE_MVIT=$CACHE_DIR'/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth'
 MODEL_WEIGHTS_FILE_MVIT_URL=https://download.pytorch.org/models/mvit_v2_s-ae3be167.pth
-MODEL_WEIGHTS_FILE_MVIT_SHA=94826d379879465b184689212bd62e62d50f40df
+MODEL_WEIGHTS_FILE_MVIT_HASH=ae3be16733081f6d1cd40e4ab980ca23d6df6dc6486d15ada05a5e8ab8c9b975
 
 MODEL_WEIGHTS_FILE_ODAC=$CACHE_DIR'/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth'
-MODEL_WEIGHTS_FILE_ODAC_SHA=b6d0badeb218ec2eb0b07300a53b8b855810019b
+MODEL_WEIGHTS_FILE_ODAC_HASH=ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758
 
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/blobs/61224f9317fcce873366deb3703183e92cc47325b726b69691b33536244e10f4'
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/snapshots/758fe285bc8ab565eb4f9f965810f1d1a3f79491/resnet_18_23dataset.pth'
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_URL=https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet10/resolve/9d7c4c66c77bff89b79631369426612f09d0fe9b/resnet_18_23dataset.pth
-MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SHA=be6aeac9b376d4ee03d9a16ca0f82ac196f68eec
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH=61224f9317fcce873366deb3703183e92cc47325b726b69691b33536244e10f4
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_CONTENTS=758fe285bc8ab565eb4f9f965810f1d1a3f79491
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_FILE=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/refs/main'
 
@@ -109,7 +109,7 @@ _verify_hash() {
 
     echo $hash_value $filename
 
-    if echo $hash_value"  "$filename | shasum --check -; then
+    if echo $hash_value"  "$filename | sha256sum --check -; then
         echo "Hash" $1 "for" $2 "verified successfully."
     else
         echo "Unexpected file hash."
@@ -118,11 +118,11 @@ _verify_hash() {
 }
 
 verify_files () {
-    _verify_hash $MODEL_WEIGHTS_FILE_DINO_SHA $MODEL_WEIGHTS_FILE_DINO
-    _verify_hash $MODEL_LICENSE_FILE_DINO_SHA $MODEL_LICENSE_FILE_DINO
-    _verify_hash $MODEL_WEIGHTS_FILE_MVIT_SHA $MODEL_WEIGHTS_FILE_MVIT
-    _verify_hash $MODEL_WEIGHTS_FILE_ODAC_SHA $MODEL_WEIGHTS_FILE_ODAC
-    _verify_hash $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SHA $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN
+    _verify_hash $MODEL_WEIGHTS_FILE_DINO_HASH $MODEL_WEIGHTS_FILE_DINO
+    _verify_hash $MODEL_LICENSE_FILE_DINO_HASH $MODEL_LICENSE_FILE_DINO
+    _verify_hash $MODEL_WEIGHTS_FILE_MVIT_HASH $MODEL_WEIGHTS_FILE_MVIT
+    _verify_hash $MODEL_WEIGHTS_FILE_ODAC_HASH $MODEL_WEIGHTS_FILE_ODAC
+    _verify_hash $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN
 }
 
 
