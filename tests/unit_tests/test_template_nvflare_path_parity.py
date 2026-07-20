@@ -68,3 +68,38 @@ def test_overseer_agent_block_is_gone_from_both():
             f"{template.name} still declares an overseer_agent block; "
             "NVFlare 2.8.0 removed the overseer."
         )
+
+
+# The NVFlare wiring blocks are backbone configuration, identical for both pipelines --
+# only the training application differs between ODELIA and DECADE. Comparing whole
+# blocks (not just class paths) is what catches a migration that adds or removes a
+# *field*: dropping the overseer left the STAMP clients with no way to find the server,
+# and 2.8.0 wants a "target" instead. That is not a class path, so path-parity alone
+# missed it and every client died with:
+#   RuntimeError: missing 'target' in server config ... provisioned with an older
+#   HA-based template
+SHARED_CONFIG_BLOCKS = [
+    "fed_client",
+    "fed_server",
+    "local_client_resources",
+    "local_server_resources",
+    "comm_config",
+]
+
+
+def test_shared_nvflare_config_blocks_are_identical():
+    yaml = __import__("pytest").importorskip("yaml")
+    odelia = yaml.safe_load(ODELIA.read_text())
+    stamp = yaml.safe_load(STAMP.read_text())
+
+    mismatched = [
+        key
+        for key in SHARED_CONFIG_BLOCKS
+        if key in odelia and key in stamp and odelia[key] != stamp[key]
+    ]
+    assert not mismatched, (
+        "These NVFlare config blocks differ between master_template.yml and "
+        f"master_template_STAMP.yml: {mismatched}.\n"
+        "They configure the shared backbone and must stay in lockstep -- a backbone "
+        "migration that updates only one of them ships broken kits to that consortium."
+    )
