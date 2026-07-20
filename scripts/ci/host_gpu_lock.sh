@@ -63,10 +63,15 @@ acquire_host_lock() {
 
     _host_lock_available || return 0
 
-    exec {MEDISWARM_LOCK_FD}>"$MEDISWARM_HOST_LOCK" 2>/dev/null || {
+    # NB: never attach a redirection to this `exec`. `exec` with redirections and no
+    # command applies them to the CURRENT SHELL, permanently -- an `exec ... 2>/dev/null`
+    # here silently sent the sourcing script's stderr to /dev/null for the rest of its
+    # run, swallowing every info()/ok()/warn()/err() in the deploy orchestrators and the
+    # build script. Failures then looked like silence. Let a genuine failure print.
+    if ! exec {MEDISWARM_LOCK_FD}>"$MEDISWARM_HOST_LOCK"; then
         echo "[host-lock] cannot open $MEDISWARM_HOST_LOCK; continuing unguarded" >&2
         return 0
-    }
+    fi
 
     if flock -n "$MEDISWARM_LOCK_FD"; then
         echo "[host-lock] acquired for: $what"
