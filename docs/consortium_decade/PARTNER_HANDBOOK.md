@@ -167,20 +167,38 @@ output.
 
 ---
 
-## 5. About kits and certificates (read this once)
+## 5. About kits, updates and certificates (read this once)
 
-**A DECADE kit currently contains site-specific TLS certificates, and a rebuild of
-the image regenerates them.** So when we ship a new ACTIVE kit, your old kit can no
-longer connect — you must switch. The Run Board's **Kit registry** is the source of
-truth for which kit is ACTIVE and its `sha256`; verify yours matches:
+**Software updates now reach you automatically.** Your kit contains
+`startup/image.conf`, which names a release channel:
+
+```
+MEDISWARM_IMAGE=jefftud/decade:current
+```
+
+`docker.sh` reads it on every run. When we publish a new version we re-tag
+`:current`, and your node picks it up **the next time you start it** — nothing to
+install. We never pull or restart anything on your machine: we choose *which*
+version, you still choose *when* to run. The Run Board's **Run schedule** tab always
+names the exact image a given run uses.
+
+To pin a specific version instead, edit that line (e.g.
+`MEDISWARM_IMAGE=jefftud/decade:1.6.0`). For a one-off, pass `--image <ref>` to
+`docker.sh`. Re-issuing a kit never overwrites an `image.conf` you have edited.
+
+**Certificates — one last swap.** Kits contain site-specific TLS certificates. Until
+now every rebuild regenerated them, which is why you received a new kit almost weekly.
+That is fixed: from **1.6.0** onward, rebuilds reuse the same certificates. Because the
+fix changes how they are stored, moving to 1.6.0 is the **final forced kit swap** —
+after it, a software fix reaches you through the channel above, with no new kit.
+
+The Run Board's **Kit registry** is the source of truth for which kit is ACTIVE and
+its `sha256`. Each site's `.zip` has its **own** hash (it contains your certificates),
+so check the row for *your* site:
 
 ```bash
 sha256sum <SITE_NAME>_<version>.zip
 ```
-
-(ODELIA has a certificate-stability fix so its kits survive image updates; that fix
-is **not yet applied to STAMP/DECADE**. Until it is, expect an occasional kit
-re-issue when we ship a fix — the operator will say so on the Board.)
 
 ---
 
