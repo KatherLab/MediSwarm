@@ -43,6 +43,23 @@ jobs:
 
 
     steps:
+      - name: Wait for any manual build / deploy test on this host (#448)
+        run: |
+          # This runner shares its GPU, Docker daemon and ports 8002/8003 with
+          # DECADE image builds and deploy tests that are started by hand and
+          # belong to no concurrency group. Critically, the cleanup step below
+          # kills every container matching odelia|stamp|nvflare -- which would
+          # destroy a manual deploy test mid-run -- so wait for the host lock
+          # BEFORE touching any container. Manual runs hold this same lock via
+          # scripts/ci/host_gpu_lock.sh. Inlined rather than sourced because the
+          # repository has not been checked out at this point.
+          command -v flock >/dev/null 2>&1 || { echo "flock unavailable; skipping"; exit 0; }
+          if flock -w 3600 /tmp/mediswarm-host-gpu.lock true; then
+            echo "host is free; proceeding"
+          else
+            echo "host still busy after 3600s; proceeding anyway (CI must not hang forever)"
+          fi
+
       - name: Clean up root-owned files from previous Docker runs
         run: |
           # Canceled self-hosted runs can leave GPU/NVFlare containers alive
