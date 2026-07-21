@@ -40,10 +40,10 @@ Accept the Tailscale invitation we emailed and connect. Then add the server to
 `/etc/hosts`:
 
 ```
-100.100.101.100  dl3.tud.de  dl3
+100.64.4.103  dl3.tud.de  dl3
 ```
 
-Check it: `ping dl3.tud.de` should reply from `100.100.101.100`. If your node is on
+Check it: `ping dl3.tud.de` should reply from `100.64.4.103`. If your node is on
 your *personal* tailnet instead of the DECADE one, `ping` fails even with the hosts
 line correct — re-accept the invitation.
 
