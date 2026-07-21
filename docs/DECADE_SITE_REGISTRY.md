@@ -1,7 +1,7 @@
 # DECADE — site registry (data, targets, contacts, status)
 
 **Single source of truth for what each centre can actually provide.**
-Update this whenever a site reports new numbers. Last updated: **2026-07-15**.
+Update this whenever a site reports new numbers. Last updated: **2026-07-21**.
 
 Swarm learning requires **one shared target**: identical label, identical
 `STAMP_NUM_CLASSES`, identical class order at every site. Everything below exists to
@@ -132,9 +132,10 @@ supply a germline label they have not mentioned. Operator/PI decision.
 
 - **Feature extractor:** UNI, `STAMP_DIM_INPUT=1024`, extracted with **STAMP 2.5.0**.
 - **Model:** `vit`. (`barspoon` unavailable — see #432.)
-- **Current kit/image:** `jefftud/decade:1.5.0-dev.260713.6bc06c4`
-  (kits carry fresh certificates — older kits cannot connect).
-- **Server:** `dl3.tud.de` → `100.100.101.100` (Tailscale), ports 8002/8003.
+- **Current kit/image:** `jefftud/decade:1.6.0` (ACTIVE; validated on a 2-node dl0/dl2
+  run 2026-07-20). Kits follow the `jefftud/decade:current` channel via
+  `startup/image.conf`; 1.6.0 was the last forced certificate swap.
+- **Server:** `dl3.tud.de` → `100.64.4.103` (Tailscale; the dl3 node, separate from ODELIA on Cosmos), ports 8002/8003.
 - Sites must **never** send us `--log_dataset_details` output (contains patient IDs).
 
 ---

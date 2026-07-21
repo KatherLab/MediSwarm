@@ -1,5 +1,5 @@
 Site,Step,Command / how,Confirmed (Y/N),Date,Notes / status
-UKB_1,1. Tailscale connected + /etc/hosts maps dl3.tud.de,ping dl3.tud.de replies from 100.100.101.100,Y,2026-07-13,~8ms
+UKB_1,1. Tailscale connected + /etc/hosts maps dl3.tud.de,ping dl3.tud.de replies from 100.64.4.103,Y,2026-07-13,~8ms
 UKB_1,2. SSH public key shared + authorized,ssh-keygen ... ; send id_ed25519.pub,Y,2026-07-13,authorized
 UKB_1,3. Target values sent (NUM_CLASSES + column),reply to operator,PARTIAL,2026-07-13,"Has germline (3-class) only; NO MSI (all 'not provided') — target undecided"
 UKB_1,4. On ACTIVE kit 6bc06c4,sha256sum <SITE>_<ver>.zip vs Kit registry,N,,Was on a295c6b; must switch (new certs)

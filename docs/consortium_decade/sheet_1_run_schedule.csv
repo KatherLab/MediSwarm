@@ -11,6 +11,6 @@ Image for this run,jefftud/decade:1.6.0,"Pin the exact tag. docker.sh re-pulls i
 Release channel,jefftud/decade:current,"What kits follow by default (startup/image.conf). Re-tag :current to move every site on its next start — no kit re-issue. Sites can pin a version by editing that file"
 Rounds,20,Set at job-prep time — no kit or image rebuild needed
 Quorum (configure/min/responses),4 / 4 / 4,"No fault tolerance for the benchmark: every site must register and finish"
-Server,dl3.tud.de:8002,Tailscale only. Map dl3.tud.de -> 100.100.101.100 in /etc/hosts
+Server,dl3.tud.de:8002,Tailscale only. Map dl3.tud.de -> 100.64.4.103 in /etc/hosts (the dl3 node, NOT Cosmos which runs ODELIA)
 Deadline for site confirmation,TBC,Sites tick their row in the 'Site checklist' tab
 Live monitor,Internal only,"NOT partner-accessible: no auth, no per-site scoping — do not link it"
