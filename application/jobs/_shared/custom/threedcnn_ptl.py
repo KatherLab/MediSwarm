@@ -666,22 +666,32 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
     log_stage_timing_summary(logger, stage_timings, "ODELIA execution stage timings:")
 
 
-def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
+def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars, output_GT_and_classprob_aggregated_model=True) -> None:
     """Save best and latest checkpoints after training completes."""
 
-    logger.info(f'Exporting prediction for test data')
-    output_GT_and_classprobs_csv_test(
-        model,
-        data_module,
-        trainer.current_epoch,
-        path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST,
-    )
+    if output_GT_and_classprob_aggregated_model:
+        logger.info(f'Exporting prediction for test data (aggregated model)')
+        output_GT_and_classprobs_csv_test(
+            model,
+            data_module,
+            trainer.current_epoch,
+            path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST,
+        )
 
     # Save best checkpoint (highest val/ACC)
     best_path = checkpointing.best_model_path
     if best_path:
         model.save_best_checkpoint(trainer.logger.log_dir, best_path)
         logger.info(f'Best model checkpoint: {best_path}')
+
+        logger.info(f'Exporting prediction for test data (local model)')
+        best_local_model = model.load_best_checkpoint(trainer.logger.log_dir)
+        output_GT_and_classprobs_csv_test(
+            best_local_model,
+            data_module,
+            trainer.current_epoch,
+            path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST,
+        )
     else:
         logger.warning('No best checkpoint found.')
 
