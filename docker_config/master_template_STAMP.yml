@@ -90,9 +90,11 @@ local_client_resources: |
         "args": {}
       },
       {
-          "id": "error_log_sender",
-          "path": "nvflare.app_common.logging.log_sender.ErrorLogSender",
-          "args": {}
+          "id": "site_log_streamer",
+          "path": "nvflare.app_common.logging.site_log_streamer.SiteLogStreamer",
+          "args": {
+              "log_file_name": "error_log.txt"
+          }
       }
     ]
   }
@@ -104,6 +106,7 @@ fed_client: |
       {
         "name": "{~~name~~}",
         "service": {
+          "target": "{~~target~~}",
           "scheme": "{~~scheme~~}"
         },
         "identity": "{~~server_identity~~}"
@@ -116,12 +119,6 @@ fed_client: |
       "fqsn": "{~~fqsn~~}",
       "is_leaf": {~~is_leaf~~},
       "connection_security": "{~~conn_sec~~}"
-    },
-    "overseer_agent": {
-      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
-      "args": {
-        "sp_end_point": "{~~sp_end_point~~}"
-      }
     }
   }
 
@@ -235,7 +232,7 @@ local_server_resources: |
           },
           {
               "id": "log_receiver",
-              "path": "nvflare.app_common.logging.log_receiver.LogReceiver",
+              "path": "nvflare.app_common.logging.job_log_receiver.JobLogReceiver",
               "args": {}
           }
       ]
@@ -272,13 +269,7 @@ fed_server: |
             "ssl_root_cert": "rootCA.pem",
             "connection_security": "{~~conn_sec~~}"
         }
-    ],
-    "overseer_agent": {
-      "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
-      "args": {
-        "sp_end_point": "{~~sp_end_point~~}"
-      }
-    }
+    ]
   }
 
 fed_admin: |
@@ -741,6 +732,7 @@ docker_cln_sh: |
           --data_dir)            _need_value "$1" "${2:-}"; MY_DATA_DIR="$2"; shift ;;
           --scratch_dir)         _need_value "$1" "${2:-}"; MY_SCRATCH_DIR="$2"; shift ;;
           --GPU)                 _need_value "$1" "${2:-}"; GPU2USE="$2"; shift ;;
+          --image)               _need_value "$1" "${2:-}"; CLI_IMAGE="$2"; shift ;;
           --no_pull)             NOPULL="1" ;;
           --dummy_training)      DUMMY_TRAINING="1" ;;
           --preflight_check)     PREFLIGHT_CHECK="1" ;;
@@ -788,7 +780,31 @@ docker_cln_sh: |
   rm -rf ../pid.fl ../daemon_pid.fl
 
   # Docker image and container name
+  #
+  # The provisioned tag below is only the DEFAULT. The backbone, the training code
+  # and the job configs all ship in the IMAGE (not in this kit), and docker.sh pulls
+  # by tag on every run -- so a site can move to a new image WITHOUT a new kit:
+  #
+  #   startup/image.conf   ->  MEDISWARM_IMAGE=jefftud/decade:1.6.0    (persistent)
+  #   ./docker.sh --image jefftud/decade:1.6.0 ...                     (one-off)
+  #
+  # Point image.conf at a release channel (e.g. :current) to pick up releases with no
+  # action at all. Precedence: --image > MEDISWARM_IMAGE env > image.conf > default.
+  #
+  # image.conf is written per project by _injectLiveSyncIntoStartupKits.sh and follows
+  # THIS project's image repository (jefftud/decade for DECADE), never the other
+  # consortium's -- see tests/unit_tests/test_image_conf_channel_per_project.py.
   DOCKER_IMAGE={~~docker_image~~}
+  # Capture a pre-exported MEDISWARM_IMAGE BEFORE sourcing image.conf, so a one-off
+  # env override wins over the persistent file (documented precedence: --image > env
+  # > image.conf > default). Without this, image.conf's assignment would clobber the
+  # env var (#449 follow-up).
+  ENV_IMAGE="${MEDISWARM_IMAGE:-}"
+  if [ -f "$DIR/image.conf" ]; then
+      . "$DIR/image.conf"
+  fi
+  MEDISWARM_IMAGE="${ENV_IMAGE:-${MEDISWARM_IMAGE:-}}"
+  DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull "$DOCKER_IMAGE"
@@ -911,6 +927,69 @@ docker_cln_sh: |
       wait "$LIVE_SYNC_PID" || true
     fi
   }
+
+  # Pre-run host checks (#451): the STAMP/DECADE kit shipped none while three docs
+  # promised them, so DECADE sites got a --preflight_check that checked nothing. Ported
+  # from the ODELIA kit, minus the ODELIA-only preprocess-cache check (STAMP reads
+  # pre-extracted H5 features, no /data-writable cache); the swarm-scoped checks use the
+  # STAMP container name.
+  _preflight_host_checks() {
+      local fail=0
+      echo "──────────────── Pre-run checks ────────────────"
+
+      # F2: GPU usable inside a container (catches 'NVML: Unknown Error')
+      if timeout 90 docker run --rm --gpus=$GPU2USE $DOCKER_IMAGE nvidia-smi -L >/dev/null 2>&1; then
+          echo "[PASS] GPU usable inside the container."
+      else
+          echo "[FAIL] GPU NOT usable inside the container (likely 'NVML: Unknown Error')."
+          echo "       Fix: run  scripts/client_node_setup/fix_docker_cgroupfs.sh  then recreate the client (docs: F2)."
+          fail=1
+      fi
+
+      # F2 (preventive): systemd cgroup driver -> daemon-reload can strip the GPU mid-run
+      local cgdrv; cgdrv=$(docker info 2>/dev/null | sed -n 's/.*Cgroup Driver: //p' | head -1)
+      if [ "$cgdrv" = "systemd" ]; then
+          echo "[WARN] Docker cgroup driver is 'systemd'. A daily 'systemctl daemon-reload' (e.g. apt"
+          echo "       auto-upgrade) can strip the GPU from RUNNING containers mid-run. Recommended:"
+          echo "       scripts/client_node_setup/fix_docker_cgroupfs.sh  (switches to cgroupfs; docs: F2)."
+      fi
+
+      # Checks that only matter when actually joining the swarm
+      if [ -n "$START_CLIENT" ]; then
+          # F6: swarm server reachable over the VPN (best-effort parse of host:port from kit config)
+          local ep host port
+          ep=$(grep -hoE '[A-Za-z0-9][A-Za-z0-9.-]+\.[A-Za-z]{2,}:80[0-9][0-9]' "$DIR"/*.json 2>/dev/null | head -1)
+          if [ -n "$ep" ]; then
+              host=${ep%%:*}; port=${ep##*:}
+              if timeout 6 bash -c "</dev/tcp/$host/$port" 2>/dev/null; then
+                  echo "[PASS] Swarm server $ep reachable."
+              else
+                  echo "[WARN] Swarm server $ep NOT reachable — check the VPN and /etc/hosts (docs: F6)."
+              fi
+          fi
+          # F3: a stale daemon_pid.fl blocks start.sh ("one instance running") after an unclean stop
+          local lock="$DIR/../daemon_pid.fl"
+          if [ -f "$lock" ]; then
+              if docker ps --filter "name=stamp_swarm_client" --format '{{.Names}}' | grep -q .; then
+                  echo "[WARN] $lock present and a client container is running; leaving it in place."
+              else
+                  echo "[INFO] Removing stale daemon_pid.fl (no client container running) so start.sh can launch (docs: F3)."
+                  rm -f "$lock"
+              fi
+          fi
+      fi
+
+      echo "─────────────────────────────────────────────────"
+      if [ "$fail" = "1" ]; then
+          echo "[ABORT] Pre-run checks failed — fix the [FAIL] item(s) above and retry."
+          exit 2
+      fi
+  }
+
+  # Run pre-run host checks for the GPU-using modes
+  if [ -n "$DUMMY_TRAINING" ] || [ -n "$PREFLIGHT_CHECK" ] || [ -n "$START_CLIENT" ]; then
+      _preflight_host_checks
+  fi
 
   # Execution modes
   if [ -n "$DUMMY_TRAINING" ]; then

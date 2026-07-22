@@ -111,10 +111,19 @@ Then tick your row in the **Site checklist** tab of the board.
 That's it. Leave it running; it will pull the image the run uses, join the swarm, and
 train. The board's **Run schedule** tab names the exact image tag for the run.
 
-### Moving to a new software version *without* a new kit
-If we ask you to run a specific image:
+### Software updates reach you automatically — nothing to install
+Your kit ships `startup/image.conf` already pointing at the **release channel**:
+```
+MEDISWARM_IMAGE=jefftud/odelia:current
+```
+When we publish a new ODELIA release we re-tag `:current`, and your node picks it up
+**the next time you start it**. There is nothing to run and nothing to update — and we
+never pull or restart anything on your machine; *you* still choose when your node runs.
+The board's **Run schedule** tab always names the exact tag a given run uses.
+
+To pin a specific version instead, edit that one line:
 ```bash
-echo 'MEDISWARM_IMAGE=jefftud/odelia:<tag>' > startup/image.conf
+echo 'MEDISWARM_IMAGE=jefftud/odelia:1.6.0' > startup/image.conf
 ```
 (or `./docker.sh --image jefftud/odelia:<tag> ...` for a one-off). This is why kit
 re-issues are now rare.

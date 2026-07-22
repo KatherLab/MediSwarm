@@ -191,7 +191,7 @@ NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-'
 mkdir -p "$RESULTS_DIR"
 
 declare -A PASS_CACHE=()
-declare -A MIRROR_MD5=()
+declare -A MIRROR_HASH=()
 
 site_var() {
     local site="$1" var="$2" name
@@ -788,19 +788,19 @@ assert_latest_globals() {
     done
 }
 
-mirror_md5() {
+mirror_hash() {
     local site="$1" scratch
     scratch="$(site_scratch "$site")"
-    remote_exec "$site" "md5sum '$scratch/mediswarm_latest_global.pt' 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true
+    remote_exec "$site" "sha256sum '$scratch/mediswarm_latest_global.pt' 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true
 }
 
 record_mirror_hashes() {
     local phase="$1" site site_name h
     for site in "${CLIENT_SITES[@]}"; do
         site_name="$(site_var "$site" SITE_NAME)"
-        h="$(mirror_md5 "$site")"
-        MIRROR_MD5["$phase:$site"]="$h"
-        info "$site_name mirror md5 [$phase]: ${h:-<none>}"
+        h="$(mirror_hash "$site")"
+        MIRROR_HASH["$phase:$site"]="$h"
+        info "$site_name mirror hash [$phase]: ${h:-<none>}"
     done
 }
 
@@ -808,8 +808,8 @@ assert_mirror_unchanged_since() {
     local ref_phase="$1" site site_name cur ref
     for site in "${CLIENT_SITES[@]}"; do
         site_name="$(site_var "$site" SITE_NAME)"
-        ref="${MIRROR_MD5["$ref_phase:$site"]:-}"
-        cur="$(mirror_md5 "$site")"
+        ref="${MIRROR_HASH["$ref_phase:$site"]:-}"
+        cur="$(mirror_hash "$site")"
         if [[ -z "$ref" || -z "$cur" || "$cur" != "$ref" ]]; then
             err "$site_name mirror continuity failed for $ref_phase (ref=${ref:-<none>}, cur=${cur:-<none>})"
             return 1
@@ -821,7 +821,7 @@ mirror_hashes_json() {
     local phase="$1" site site_name h obj='{}'
     for site in "${CLIENT_SITES[@]}"; do
         site_name="$(site_var "$site" SITE_NAME)"
-        h="${MIRROR_MD5["$phase:$site"]:-}"
+        h="${MIRROR_HASH["$phase:$site"]:-}"
         obj="$(echo "$obj" | jq --arg k "$site_name" --arg v "$h" '. + {($k):$v}')"
     done
     echo "$obj"
@@ -894,8 +894,8 @@ collect_latest_globals_to() {
         remote_download "$site" "$scratch/mediswarm_latest_global.pt" "$app_dir/FL_global_model.pt" || return 1
     done
 
-    md5sum "$target_dir"/app_*/FL_global_model.pt | tee "$RESULTS_DIR/$phase/checkpoint_md5s.txt" >/dev/null
-    unique_hashes="$(awk '{print $1}' "$RESULTS_DIR/$phase/checkpoint_md5s.txt" | sort -u | wc -l | tr -d ' ')"
+    sha256sum "$target_dir"/app_*/FL_global_model.pt | tee "$RESULTS_DIR/$phase/checkpoint_hash.txt" >/dev/null
+    unique_hashes="$(awk '{print $1}' "$RESULTS_DIR/$phase/checkpoint_hash.txt" | sort -u | wc -l | tr -d ' ')"
     if [[ "$unique_hashes" != "1" ]]; then
         err "$phase final globals are not byte-identical"
         return 1
@@ -1043,7 +1043,7 @@ run_one_dc_full() {
     collect_latest_globals_to "$phase" "$checkpoint_dir" || { record_phase "$phase" "fail"; return 1; }
     eval_dir="$(evaluate_checkpoint_set "$phase" "$checkpoint_dir" "$MODEL_NAME")" || { record_phase "$phase" "fail" "$checkpoint_dir"; return 1; }
     record_phase "$phase" "pass" "$checkpoint_dir" "$eval_dir" \
-        "$(jq -n --argjson m "$(mirror_hashes_json "$phase")" '{mirror_md5:$m}')"
+        "$(jq -n --argjson m "$(mirror_hashes_json "$phase")" '{mirror_hash:$m}')"
 }
 
 run_negative_continue() {
@@ -1077,7 +1077,7 @@ run_fresh_then_continue() {
     assert_log_contains "$continue_phase" "WarmStart: will warm-start from checkpoint /scratch/mediswarm_latest_global.pt (mode=require)" \
         || { record_phase "$phase" "fail"; return 1; }
     record_phase "$phase" "pass" "" "" \
-        "$(jq -n --argjson m "$(mirror_hashes_json "$fresh_phase")" '{continuity_verified:true,fresh_mirror_md5:$m}')"
+        "$(jq -n --argjson m "$(mirror_hashes_json "$fresh_phase")" '{continuity_verified:true,fresh_mirror_hash:$m}')"
 }
 
 run_single_client_drop() {
@@ -1101,7 +1101,7 @@ run_single_client_drop() {
     stop_all
     assert_drop_tolerance_logged "$phase" || { record_phase "$phase" "fail"; return 1; }
     record_phase "$phase" "pass" "" "" \
-        "$(jq -n --argjson m "$(mirror_hashes_json "$phase")" '{pre_drop_mirror_md5:$m,dropped_site:"node_B"}')"
+        "$(jq -n --argjson m "$(mirror_hashes_json "$phase")" '{pre_drop_mirror_hash:$m,dropped_site:"node_B"}')"
 }
 
 run_abort_recovery() {
@@ -1139,7 +1139,7 @@ run_abort_recovery() {
     assert_log_contains "$phase" "WarmStart: will warm-start from checkpoint /scratch/mediswarm_latest_global.pt (mode=require)" \
         || { record_phase "$phase" "fail"; return 1; }
     record_phase "$phase" "pass" "" "" \
-        "$(jq -n --argjson m "$(mirror_hashes_json "$phase")" '{resumed_from_crash:true,pre_abort_mirror_md5:$m}')"
+        "$(jq -n --argjson m "$(mirror_hashes_json "$phase")" '{resumed_from_crash:true,pre_abort_mirror_hash:$m}')"
 }
 
 write_summary() {

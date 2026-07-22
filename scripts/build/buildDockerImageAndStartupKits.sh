@@ -40,6 +40,12 @@ if [ ! -f "$DOCKERFILE" ]; then
     exit 1
 fi
 
+# This box also hosts the self-hosted CI runner. A multi-GB build landing on top of
+# a running validate-swarm job starves it and fails unrelated PRs (#448, #388), so
+# queue behind any other GPU/Docker job instead of interleaving.
+. "$SCRIPT_DIR/../ci/host_gpu_lock.sh"
+acquire_host_lock "image build ($(basename "$PROJECT_FILE"))" || exit 1
+
 VERSION=`"$SCRIPT_DIR/getVersionNumber.sh"`
 CONTAINER_VERSION_ID=`git rev-parse --short HEAD`
 

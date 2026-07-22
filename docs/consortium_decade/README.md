@@ -38,16 +38,30 @@ Both consortia ship plain `.zip` kits now (ODELIA dropped its per-site encryptio
 2026-07-16). The DECADE build does not emit a `kit_manifest.csv`, so compute the
 `sha256` yourself with `sha256sum` for the registry.
 
-- **DECADE kits still churn certificates on rebuild.** ODELIA has a cert-stability fix
-  (#449) so its kits survive image updates; that fix is **not yet applied to STAMP**.
-  Until it is, a new fix means a new ACTIVE kit that everyone must switch to (the old
-  one can no longer authenticate). Track that on the Run Board.
+- **Certificates: one last churn, then stable.** #449 keys the PKI off a *stable* project
+  name, and `decade_allsites` is one of the two production projects it covers — so the
+  fix does apply to DECADE. But the deployed `6bc06c4` kits were provisioned under the
+  old *versioned* name, so the first build under `decade_allsites` starts a fresh state
+  directory and mints a new CA. That is **one final forced kit swap**; every build after
+  it reuses the same CA and keys.
+
+  Measured, not assumed: the 7 legacy versioned DECADE builds produced 7 different root
+  CAs, while ODELIA's 4 provisioning runs under its stable name all share one
+  (`c1a208118806…`).
 
 ## Shipping a software update without a new kit
 
-If a fix lives in the **image** and does not touch the certificates, publish the image
-and put its tag in the run-schedule row — sites pick it up on their next
-`start_client` (`docker.sh` re-pulls). If a fix requires a rebuilt kit (new certs),
+Kits ship `startup/image.conf` pinning a **release channel** (`jefftud/decade:current`).
+`docker.sh` sources it on every run, so re-tagging `:current` centrally moves every site
+on its next start — no kit re-issue, and we never pull or restart under a site.
+Precedence is `--image` > `MEDISWARM_IMAGE` env > `image.conf` > the provisioned tag.
+
+The channel follows **this** consortium's repository. DECADE kits get
+`jefftud/decade:current` and ODELIA kits `jefftud/odelia:current`; the injector derives
+it from the project YAML rather than hardcoding one, so a DECADE rebuild can never hand
+sites the ODELIA image.
+
+Only a change to the certificates or to `docker.sh` itself needs a rebuilt kit — then
 mark the new kit ACTIVE and the old one DEPRECATED.
 
 ## ⚠️ Before pointing partners at any of this

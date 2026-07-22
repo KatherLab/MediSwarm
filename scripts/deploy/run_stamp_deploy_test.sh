@@ -52,6 +52,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/deploy/deploy_common.sh
 source "$SCRIPT_DIR/deploy_common.sh"
 
+# Shares a host with the self-hosted CI runner: same GPU, same Docker daemon,
+# same 8002/8003. Queue behind any other GPU/Docker job rather than interleaving
+# and failing an unrelated PR (#448, root cause behind #388).
+. "$SCRIPT_DIR/../ci/host_gpu_lock.sh"
+acquire_host_lock "STAMP/DECADE 2-node deploy test" || exit 1
+
 # ── Parse arguments ────────────────────────────────────────────────────────
 CONF_FILE=""
 TIMEOUT_MINUTES=120   # 2 hours for a quick 2-round test
