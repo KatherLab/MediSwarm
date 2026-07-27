@@ -179,12 +179,18 @@ run_dummy_training_standalone(){
                     --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
                     "$DOCKER_IMAGE" 2>&1 || echo "")
 
-    if grep -q "✓ MediSwarm test running dummy training in standalone mode completed." <<< "$OUTPUT" ; then
-        echo "✅ Running" $1 "in Docker completed."
-    else
-        echo "❌ Running" $1 "in Docker failed."
-        exit 1
-    fi
+    for EXPECTED_OUTPUT in "✓ MediSwarm test running dummy training in standalone mode completed." \
+                           "Best model checkpoint:"                                                ;
+    do
+        if grep -q "$EXPECTED_OUTPUT" <<< "$OUTPUT" ; then
+            echo "✅ Expected output $EXPECTED_OUTPUT of standalone dummy training found"
+        else
+            echo "$OUTPUT"
+            echo "❌ Missing expected output $EXPECTED_OUTPUT of standalone dummy training"
+            exit 1
+        fi
+    done
+
 
     OUTPUT_WITHOUT_GPU=$(docker run --rm \
                                 --shm-size=16g \
