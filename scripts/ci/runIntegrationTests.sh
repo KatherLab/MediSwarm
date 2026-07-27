@@ -26,9 +26,8 @@ fi
 
 check_files_in_repo () {
     echo "[Run] Test whether expected content is available in the repo"
-    echo "TODO: change this back to checking files curled from github when repository is public again"
 
-    LICENSE_LOCAL=$(cat "$CWD/LICENSE")
+    LICENSE_LOCAL=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/LICENSE)
     if grep -q "MIT License" <<< "$LICENSE_LOCAL" ; then
         echo "✅ Verified license in repo"
     else
@@ -36,7 +35,7 @@ check_files_in_repo () {
         exit 1
     fi
 
-    MAIN_README=$(cat "$CWD/README.md")
+    MAIN_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/README.md)
     for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
     do
         if grep -qi "$ROLE" <<< "$MAIN_README" ; then
@@ -47,7 +46,7 @@ check_files_in_repo () {
         fi
     done
 
-    PARTICIPANT_README=$(cat "$CWD/assets/readme/README.participant.md")
+    PARTICIPANT_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.participant.md)
     for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node' 'Output files';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$PARTICIPANT_README" ; then
@@ -58,7 +57,7 @@ check_files_in_repo () {
         fi
     done
 
-    SWARM_OPERATOR_README=$(cat "$CWD/assets/readme/README.operator.md")
+    SWARM_OPERATOR_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.operator.md)
     for EXPECTED_KEYWORDS in 'Create Startup Kits' 'Starting a Swarm Training';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$SWARM_OPERATOR_README" ; then
@@ -69,7 +68,7 @@ check_files_in_repo () {
         fi
     done
 
-    APC_DEVELOPER_README=$(cat "$CWD/assets/readme/README.developer.md")
+    APC_DEVELOPER_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.developer.md)
     for EXPECTED_KEYWORDS in 'Contributing Application Code';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$APC_DEVELOPER_README" ; then
@@ -80,7 +79,7 @@ check_files_in_repo () {
         fi
     done
 
-    DUMMY_TRAINING_APC=$(cat "$CWD/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py")
+    DUMMY_TRAINING_APC=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py)
     for EXPECTED_KEYWORDS in 'python3';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$DUMMY_TRAINING_APC"; then
@@ -995,8 +994,7 @@ trap cleanup_temporary_data EXIT
 
 case "$1" in
     check_files_in_repo)
-        # check_files_in_repo
-        echo "❗ checking files in repository currently disabled"
+        check_files_in_repo
         ;;
 
     run_nvflare_unit_tests)
