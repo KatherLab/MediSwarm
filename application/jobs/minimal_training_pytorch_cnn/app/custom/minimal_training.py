@@ -1,12 +1,13 @@
 from datetime import datetime
 import logging
 import os
+import shutil
 
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
 import torch
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data.datamodules import DataModule
@@ -60,6 +61,20 @@ def set_up_data_module(env_vars):
 
     return dm
 
+class GT_PredProb_Output_Callback(Callback):
+    def __init__(self,
+                 logger,
+                 model,
+                 checkpointing):
+        self.logger=logger
+        self.model=model
+        self.checkpointing=checkpointing
+        super().__init__()
+
+    def on_fit_end(self, trainer, pl_module):
+        finalize_training(self.logger, self.model, self.checkpointing, trainer)
+
+
 def prepare_training(logger):
     try:
         env_vars = load_environment_variables()
@@ -86,11 +101,14 @@ def prepare_training(logger):
             mode=min_max,
         )
 
+        gt_predprob_output = GT_PredProb_Output_Callback(logger, model, checkpointing)
+        callbacks = [checkpointing, gt_predprob_output]
+
         trainer = Trainer(
             accelerator=accelerator,
             precision=16,
             default_root_dir=str(path_run_dir),
-            callbacks=[checkpointing],
+            callbacks=callbacks,
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
@@ -112,8 +130,6 @@ def validate_and_train(logger, data_module, model, trainer) -> None:
     trainer.fit(model, datamodule=data_module)
 
 def finalize_training(logger, model, checkpointing, trainer) -> None:
-    import shutil
-
     # Save best checkpoint
     best_path = checkpointing.best_model_path
     if best_path:

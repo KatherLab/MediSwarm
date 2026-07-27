@@ -798,7 +798,8 @@ run_dummy_training_in_swarm () {
                            'Got engine after .* seconds' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
-                           'broadcasting learn task of round . to .*; aggregation happens on client_.';
+                           'broadcasting learn task of round . to .*; aggregation happens on client_.' \
+                           'Best model checkpoint:';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
