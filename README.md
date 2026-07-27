@@ -8,7 +8,7 @@ the ODELIA consortium.
 [![Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml)
 [![STAMP Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml)
 
-> **Current release: [v1.5.0](https://github.com/KatherLab/MediSwarm/releases/tag/v1.5.0)** (swarm-robustness) — operators prepping a run see the [v1.5.0 rollout runbook](docs/ROLLOUT_v1.5.0.md).
+> **Current release: [v1.5.0](https://github.com/KatherLab/MediSwarm/releases/tag/v1.5.0)** (swarm-robustness).
 
 ## What is MediSwarm?
 
@@ -32,7 +32,6 @@ Choose your role and follow the instructions:
 - [Swarm Participant — STAMP / Computational Pathology](assets/readme/README.participant.STAMP.md)
 - [Developer (Docker, Code, Pipeline)](assets/readme/README.developer.md)
 - [Swarm Operator (Provisioning, VPN, Server)](assets/readme/README.operator.md)
-- [Automated Deploy & Test Workflow](DEPLOY_README.md)
 - [Making Your Training Code MediSwarm-Compatible](docs/MEDISWARM_COMPATIBILITY_GUIDE.md)
 
 ## System Architecture

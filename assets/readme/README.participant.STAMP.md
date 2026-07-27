@@ -30,7 +30,7 @@ inference (deployment) remain standalone steps that each site runs locally.
 
 0. Add a line mapping the swarm server to your `/etc/hosts`. Your swarm operator
    will confirm the exact IP for your project:
-    * OpenVPN projects (e.g. ODELIA): `172.24.4.65 dl3.tud.de dl3`
+    * OpenVPN projects (e.g. ODELIA): `<SERVER_IP> dl3.tud.de dl3`
     * Tailscale projects (e.g. DECADE): `<SERVER_TAILSCALE_IP> dl3.tud.de dl3`
       (the server's `100.x.y.z` Tailscale address).
 1. Make sure your compute node satisfies the specification and has the necessary

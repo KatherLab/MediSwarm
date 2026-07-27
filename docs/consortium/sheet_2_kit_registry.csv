@@ -1,3 +1,0 @@
-Kit version,Released,Status,Applies to,sha256 (of the .zip),What changed,Action required
-1.5.0-dev.260702.be9ef04,2026-07-02,DEPRECATED,All ODELIA sites,(see kit_manifest.csv),Kit shipped before certificates were stabilised,Superseded — do not use
-1.6.0,2026-07-17,ACTIVE,All ODELIA sites,(from kit_manifest.csv — per-kit sha256),NVFlare 2.8.0 backbone; kits ship startup/image.conf on the :current release channel (software updates now reach you with nothing to install); plaintext .zip (no password); MPU_1/MPU_2 added,"One-time install; keep it. Certificates are unchanged, so an existing kit still authenticates."
