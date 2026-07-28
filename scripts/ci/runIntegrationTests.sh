@@ -859,6 +859,8 @@ run_3dcnn_training_in_swarm () {
 
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
+    # only require 2 clients in test
+    sed -i 's#python3#sed -i "s/min_clients = [[:digit:]]*/min_clients = 2/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \nsed -i "s/min_responses_required = [[:digit:]]*/min_responses_required = 2/" `find /MediSwarm/application/ -name "config_fed_client.conf"` \ncat /MediSwarm/application/jobs/ODELIA_ternary_classification/app/config/config_fed_server.conf\npython3#' fl_admin.sh
     expect -f "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
     cd "$CWD"
