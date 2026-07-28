@@ -861,7 +861,19 @@ run_3dcnn_local_training () {
             exit 1
         fi
     done
+    cd "$CWD"
 
+    cd "$SCRATCH_DIR"
+    FILES_PRESENT=$(find . -type f -name "*.*")
+    for EXPECTED_FILE in 'site_model_gt_and_classprob_train.csv' 'site_model_gt_and_classprob_validation.csv';
+    do
+        if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
+            echo "✅ Expected file $EXPECTED_FILE found"
+        else
+            echo "❌ Expected file $EXPECTED_FILE missing"
+            exit 1
+        fi
+    done
     cd "$CWD"
 }
 
