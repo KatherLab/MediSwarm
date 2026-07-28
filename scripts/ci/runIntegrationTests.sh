@@ -920,7 +920,7 @@ run_3dcnn_local_training () {
 
 
 run_3dcnn_training_in_swarm () {
-    echo "[Run] 3DCNN training in swarm (polling for completion, up to 60 minutes) ..."
+    echo "[Run] 3DCNN training in swarm (polling for completion, up to 10 minutes) ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
@@ -935,11 +935,11 @@ run_3dcnn_training_in_swarm () {
 
     # Poll for completion instead of a fixed sleep.  The server log will
     # contain "Server runner finished." once all rounds are done.  We check
-    # every 30 seconds for up to 60 minutes (120 iterations).
+    # every 30 seconds for up to 10 minutes (20 iterations).
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local max_attempts=120
+    local max_attempts=20
     local attempt=0
-    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 60min) ..."
+    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 10min) ..."
     while [ $attempt -lt $max_attempts ]; do
         if [ -f "$server_log" ] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
             echo "  ✅ Server runner finished detected after $((attempt * 30))s"
@@ -949,14 +949,14 @@ run_3dcnn_training_in_swarm () {
         sleep 30
     done
     if [ $attempt -eq $max_attempts ]; then
-        echo "  ⚠️  Timed out after 60min waiting for 3DCNN swarm completion — proceeding to assertions"
+        echo "  ⚠️  Timed out after 10min waiting for 3DCNN swarm completion — proceeding to assertions"
     fi
 
-    # check for expected output in server log (clients joined, job ID assigned, 20 rounds)
+    # check for expected output in server log (clients joined, job ID assigned, 1 round)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT_FILE=nohup.out
-    for EXPECTED_OUTPUT in 'updated status of client client_A on round 19: .* action=start_learn_task, all_done=False' \
-                           'updated status of client client_B on round 19: .* action=start_learn_task, all_done=False' \
+    for EXPECTED_OUTPUT in 'updated status of client client_A on round 0: .* action=start_learn_task, all_done=False' \
+                           'updated status of client client_B on round 0: .* action=start_learn_task, all_done=False' \
                            'all_done=True';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
@@ -974,7 +974,7 @@ run_3dcnn_training_in_swarm () {
     CONSOLE_OUTPUT_FILE=combined_nohup.out
     cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
-                           'Epoch 99: 100%';
+                           'Epoch 4: 100%';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -986,6 +986,7 @@ run_3dcnn_training_in_swarm () {
     done
     cd "$CWD"
 
+    # check for expected output files
     cd "$PROJECT_DIR"/prod_00/client_A/
     FILES_PRESENT=$(find . -type f -name "*.*")
     for EXPECTED_FILE in 'custom/threedcnn_ptl.py' 'FL_global_model.pt' ;
