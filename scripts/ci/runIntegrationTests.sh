@@ -617,6 +617,12 @@ start_clients () {
     cd client_A/startup
     ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
+    # Stagger the second client: launching both clients' heavy torch/lightning init against
+    # the SAME GPU at once has starved client_B on the shared CI host, leaving it stuck at the
+    # swarm-config step (it registers but never returns the config task, so the controller
+    # wedges in "Configuring clients" until the ~900s timeout). A short stagger avoids the
+    # simultaneous-init collision. Override with CI_SWARM_CLIENT_STAGGER.
+    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"
     cd client_B/startup
     ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --start_client
     sleep 8
@@ -742,6 +748,39 @@ run_dummy_training_in_swarm () {
     # failing the assertions below. Poll for up to 15 min; a genuinely hung run still
     # fails, just later. Override with CI_SWARM_WAIT_ATTEMPTS if needed.
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
+    local client_a_log="$PROJECT_DIR/prod_00/client_A/startup/nohup.out"
+    local client_b_log="$PROJECT_DIR/prod_00/client_B/startup/nohup.out"
+
+    # Dump all three container logs. Called on any stall / timeout / assertion failure so the
+    # actual cause is visible: previously the server-log assertion loop exit 1'd BEFORE the
+    # client logs were ever printed, which hid e.g. a "client_B never configured" wedge.
+    dump_swarm_logs () {
+        echo "================= SERVER LOG ================="; cat "$server_log"   2>/dev/null || echo "(missing)"
+        echo "================= CLIENT_A LOG ==============="; cat "$client_a_log" 2>/dev/null || echo "(missing)"
+        echo "================= CLIENT_B LOG ==============="; cat "$client_b_log" 2>/dev/null || echo "(missing)"
+    }
+
+    # Fail fast on a CONFIGURATION-phase stall. A client that registers but never returns the
+    # swarm_config task wedges the SwarmServerController in "Configuring clients" with no further
+    # output for the full configure_task_timeout (~900s), which then fails the round-4 assertion
+    # 15 min later with no clue why. Detect it in ~3 min and dump the logs instead. Any of: both
+    # clients configured, a round started, or completion clears it.
+    local cfg_max=${CI_SWARM_CONFIG_ATTEMPTS:-30}
+    local cfg_attempt=0
+    while [ $cfg_attempt -lt $cfg_max ]; do
+        if [ -f "$server_log" ] && grep -qE 'successfully configured client client_B|start_learn_task|Server runner finished\.' "$server_log" 2>/dev/null; then
+            break
+        fi
+        cfg_attempt=$((cfg_attempt + 1))
+        sleep 10
+    done
+    if [ $cfg_attempt -eq $cfg_max ]; then
+        echo "  ❌ Swarm config-phase stall: a client registered but never returned swarm_config within ${cfg_max}0s"
+        echo "     (controller stuck in 'Configuring clients'). Dumping container logs:"
+        dump_swarm_logs
+        exit 1
+    fi
+
     local max_attempts=${CI_SWARM_WAIT_ATTEMPTS:-90}
     local attempt=0
     echo "  Waiting for swarm training to finish (checking every 10s, max ${max_attempts}0s) ..."
@@ -754,7 +793,8 @@ run_dummy_training_in_swarm () {
         sleep 10
     done
     if [ $attempt -eq $max_attempts ]; then
-        echo "  ⚠️  Timed out after ${max_attempts}0s waiting for swarm completion — proceeding to assertions"
+        echo "  ⚠️  Timed out after ${max_attempts}0s waiting for swarm completion — dumping logs before assertions"
+        dump_swarm_logs
     fi
 
     # check for expected output in server log (clients joined, job ID assigned, 5 rounds, start of round logged, finished training logged)
