@@ -102,6 +102,17 @@ echo $CONTAINER_NAME
 
 docker build $DOCKER_BUILD_ARGS -t $CONTAINER_NAME $CLEAN_SOURCE_DIR -f $DOCKERFILE
 
+# #479: the startup kits generated below get an image.conf on the ':current'
+# channel (see _injectLiveSyncIntoStartupKits.sh), so docker.sh in the kits
+# resolves e.g. localhost:5000/odelia:current -- but only the versioned tag was
+# built. For LOCAL-registry test images, add a local ':current' alias so the
+# kits' docker.sh finds the image without a running registry. Productive images
+# (jefftud/*) get ':current' re-tagged on Docker Hub at release, so skip those.
+if [[ "$CONTAINER_NAME" == localhost:5000/* ]]; then
+    docker tag "$CONTAINER_NAME" "${CONTAINER_NAME%:*}:current"
+    echo "Tagged local channel alias ${CONTAINER_NAME%:*}:current -> $CONTAINER_NAME"
+fi
+
 echo "Docker image $CONTAINER_NAME built successfully"
 echo "scripts/build/_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME"
 "$SCRIPT_DIR/_buildStartupKits.sh" $PROJECT_FILE $VERSION $CONTAINER_NAME
