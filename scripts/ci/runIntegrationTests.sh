@@ -851,7 +851,8 @@ run_3dcnn_local_training () {
     timeout --signal=kill 3m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --num_epochs 2 --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "Epoch 1: 100%" \
-                           "Training completed successfully";
+                           "Training completed successfully" \
+                           "Best model checkpoint:";
     do
         if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT of 3DCNN local training found"
