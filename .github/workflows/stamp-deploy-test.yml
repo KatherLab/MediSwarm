@@ -23,9 +23,11 @@ on:
         default: "2"
         type: string
       conf_source:
-        description: "Deploy-site credential/config file on the Cosmos runner"
+        description: "Deploy-site credential/config file on the runner (default: ~/mediswarm_deploy_conf/...)"
         required: false
-        default: "/home/jeff/Projects/MediSwarm/deploy_sites_2node_stamp_test.conf"
+        # Empty -> the job falls back to $HOME/mediswarm_deploy_conf/deploy_sites_2node_stamp_test.conf
+        # on the runner. A literal $HOME here would NOT be expanded by YAML.
+        default: ""
         type: string
       models:
         description: "Comma-separated STAMP models to test (e.g. vit,mlp)"
@@ -55,9 +57,10 @@ concurrency:
 
 jobs:
   stamp-deploy-test:
-    # Must run on Cosmos — it orchestrates dl0/dl2 via SSH. dl0/dl2 are the
-    # remote clients managed by Cosmos and must NOT pick up this job.
-    runs-on: [self-hosted, cosmos]
+    # Runs on a "ci" runner (dl0/dl2), which orchestrates the deploy targets via SSH.
+    # The cosmos runner was removed on 2026-07-28 (that host runs the live ODELIA
+    # production server and CI collided with it), as was dl3 (DECADE server).
+    runs-on: [self-hosted, ci]
     timeout-minutes: 720  # 12 h (2-round synthetic run is fast; generous for VPN)
 
     steps:
@@ -86,7 +89,7 @@ jobs:
 
           project_file="${INPUT_PROJECT_FILE:-application/provision/project_deploy_test_2site.yml}"
           num_rounds="${INPUT_NUM_ROUNDS:-2}"
-          conf_source="${INPUT_CONF_SOURCE:-/home/jeff/Projects/MediSwarm/deploy_sites_2node_stamp_test.conf}"
+          conf_source="${INPUT_CONF_SOURCE:-$HOME/mediswarm_deploy_conf/deploy_sites_2node_stamp_test.conf}"
           models="${INPUT_MODELS:-vit}"
           evaluate="${INPUT_EVALUATE:-true}"
           timeout_minutes="${INPUT_TIMEOUT_MINUTES:-120}"
