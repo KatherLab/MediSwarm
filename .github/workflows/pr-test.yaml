@@ -223,6 +223,11 @@ jobs:
         run: |
           ./scripts/ci/runIntegrationTests.sh run_dummy_training_in_swarm
 
+      - name: Run local 3DCNN training with synthetic dataset
+        continue-on-error: false
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_3dcnn_local_training
+
       - name: Kill orphaned containers from this run (if any)
         if: always()
         run: |

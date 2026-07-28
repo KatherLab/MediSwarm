@@ -841,14 +841,19 @@ run_3dcnn_local_training () {
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
     CONSOLE_OUTPUT_FILE=local_training_console_output.txt
-    timeout --signal=kill 60m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 3m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --num_epochs 2 --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
-    if grep -q "Epoch 99: 100%" "$CONSOLE_OUTPUT_FILE" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE"; then
-        echo "✅ Expected output of 3DCNN local training found"
-    else
-        echo "❌ Missing expected output of 3DCNN local training"
-        exit 1
-    fi
+    for EXPECTED_OUTPUT in "Epoch 1: 100%" \
+                           "Training completed successfully";
+    do
+        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT of 3DCNN local training found"
+        else
+            cat "$CONSOLE_OUTPUT_FILE"
+            echo "❌ Expected output $EXPECTED_OUTPUT of 3DCNN local training missing"
+            exit 1
+        fi
+    done
 
     cd "$CWD"
 }
