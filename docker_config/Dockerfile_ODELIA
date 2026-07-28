@@ -15,8 +15,10 @@ ENV PYTHON_VERSION=3.10.14
 # 1. pip installs FIRST (most expensive to rebuild, change least often)
 # 2. apt installs AFTER (change more often due to CVE version bumps, but
 #    are fast to rebuild)
-# 3. NVFlare from source (changes with NVFlare updates)
-# 4. COPY pretrained weights (rarely changes)
+# 3. COPY pretrained weights (rarely change, but multi-GB layers)
+# 4. NVFlare from source + master_template.yml (the template is stamped with
+#    this build's version/commit hash, so it is a cache miss on EVERY commit --
+#    nothing cacheable may sit below it; see the CACHE NOTE at that stage)
 # 5. COPY source code (changes every build — must be last)
 #
 # The base pytorch image already includes python3 + pip, so pip installs
