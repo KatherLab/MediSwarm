@@ -909,9 +909,10 @@ run_3dcnn_training_in_swarm () {
     done
     cd "$CWD"
 
-    # check for expected output in client log
+    # check for expected output in client logs
     cd "$PROJECT_DIR"/prod_00/client_A/startup
-    CONSOLE_OUTPUT_FILE=nohup.out
+    CONSOLE_OUTPUT_FILE=combined_nohup.out
+    cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 4: 100%';
     do
