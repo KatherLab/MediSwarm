@@ -10,8 +10,15 @@ participants:
   - name: dl3.tud.de
     type: server
     org: TUD
-    fed_learn_port: 8002
-    admin_port: 8003
+    # Deliberately NOT 8002/8003. The orchestrator host also runs the long-lived
+    # ODELIA swarm server on 8002/8003, so this test server could not bind
+    # ("address already in use", retried forever). Clients and admin then reached
+    # the ODELIA server instead — same host, same ports — and failed with
+    # ClientConnectorCertificateError, because that server's certificate is signed
+    # by the ODELIA CA rather than this project's. Symptoms look like a DECADE cert
+    # problem but are a port collision; a dedicated port pair removes it for good.
+    fed_learn_port: 8102
+    admin_port: 8103
   - name: UKB_1
     type: client
     org: UKB
@@ -37,6 +44,6 @@ builders:
         path: nvflare.ha.dummy_overseer_agent.DummyOverseerAgent
         overseer_exists: false
         args:
-          sp_end_point: dl3.tud.de:8002:8003
+          sp_end_point: dl3.tud.de:8102:8103
   - path: nvflare.lighter.impl.cert.CertBuilder
   - path: nvflare.lighter.impl.signature.SignatureBuilder
