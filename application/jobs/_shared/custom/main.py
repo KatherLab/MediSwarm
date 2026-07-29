@@ -72,10 +72,22 @@ def main():
                     output_GT_and_classprob=export_predictions,
                 )
 
+                # Consolidate checkpoints every round. When the swarm loop ends, the
+                # launcher (launch_once=true) SIGTERMs this subprocess before the
+                # post-loop finalize can run, so finalize must happen in-loop (#480).
+                # It is idempotent -- it copies the already-written best/last
+                # checkpoints -- so repeating it each round is cheap, and the final
+                # round leaves the correct best/last artifacts behind.
+                threedcnn_ptl.finalize_training(
+                    logger, model, checkpointing, trainer, path_run_dir, env_vars
+                )
+
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=False)
 
-        if TRAINING_MODE in [TM_LOCAL_TRAINING, TM_SWARM]:
+        # Swarm mode finalizes per-round inside the loop above (see #480); only local
+        # training reaches this post-loop path reliably.
+        if TRAINING_MODE == TM_LOCAL_TRAINING:
             threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)
 
     except Exception as e:
