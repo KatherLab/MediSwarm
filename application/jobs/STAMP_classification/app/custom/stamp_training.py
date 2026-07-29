@@ -440,6 +440,10 @@ def prepare_training(
 
     logger.info(f"MediSwarm version: {env['mediswarm_version']}")
     logger.info(f"Output directory: {output_dir}")
+    # Emit the run directory in the phrasing live-sync's nohup parser recognises,
+    # so swarm-mode syncing can locate this run's CSVs even before the directory
+    # listing fallback kicks in (#492).
+    logger.info(f"Run directory: {output_dir}")
 
     # Load patient data
     patient_to_data, feature_type = load_stamp_data(env)
@@ -480,12 +484,18 @@ def prepare_training(
 
     metric_callback = ValidationMetricCallback()
 
-    callbacks = [checkpointing, metric_callback]
-
     # Per-epoch metrics summary CSV + per-patient prediction CSVs.
+    # The prediction callback computes the site model's validation AUROC and
+    # publishes it to ``metric_callback`` (shared holder); it must run BEFORE the
+    # summary callback so each summary row carries this epoch's AUROC (#492), and
+    # it logs ``val_auroc`` so NVFlare's IntimeModelSelector can pick the best
+    # round rather than the last (#493).
     from stamp_metrics_callback import STAMPMetricsSummaryCallback, STAMPPredictionCallback
-    callbacks.append(STAMPMetricsSummaryCallback(output_dir))
-    callbacks.append(STAMPPredictionCallback(train_dl, valid_dl, output_dir))
+    prediction_callback = STAMPPredictionCallback(
+        train_dl, valid_dl, output_dir, metric_holder=metric_callback,
+    )
+    summary_callback = STAMPMetricsSummaryCallback(output_dir, metric_holder=metric_callback)
+    callbacks = [prediction_callback, summary_callback, metric_callback, checkpointing]
     logger.info(f"Metrics CSV output enabled in {output_dir}")
 
     # FedProx proximal term: penalise local model deviation from global model.
