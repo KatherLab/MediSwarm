@@ -197,6 +197,23 @@ find_latest_local_run_name() {
   printf '%s' "$result"
 }
 
+find_latest_swarm_run_name() {
+  # Swarm mode writes its STAMP run under the same runs/$SITE_NAME/ tree as local
+  # mode (stamp_training.load_stamp_environment). Locate it by directory listing —
+  # the robust approach local mode already uses — instead of relying only on
+  # nohup parsing, which failed because training logged "Output directory:" rather
+  # than the phrase extract_run_name_from_nohup matched, so the run dir (and its
+  # metrics/predprob CSVs) never synced (#492). Names are timestamped, so a
+  # lexicographic sort is chronological.
+  local base result=""
+  for base in "${SCRATCHDIR:+$SCRATCHDIR/runs/$SITE_NAME}" "$STARTUP_DIR/runs/$SITE_NAME"; do
+    [ -n "$base" ] && [ -d "$base" ] || continue
+    result="$(find "$base" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort | tail -n 1 || true)"
+    [ -n "$result" ] && break
+  done
+  printf '%s' "$result"
+}
+
 build_remote_dir() {
   local run_id="$1"
   printf '%s/%s/%s/%s' "$REMOTE_BASE" "$SITE_NAME" "$MODE" "$run_id"
@@ -277,6 +294,8 @@ sync_local() {
       --include='last.ckpt' \
       --include='epoch=*.ckpt' \
       --include='*_model_gt_and_classprob_*.csv' \
+      --include='stamp_metrics_summary.csv' \
+      --include='stamp_gt_predprob_*.csv' \
       --exclude='*' \
       "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
     echo "$now" > "$LAST_CKPT_SYNC_FILE" 2>/dev/null || true
@@ -305,6 +324,7 @@ sync_swarm() {
   ssh_cmd "${REMOTE_USER}@${REMOTE_HOST}" "rm -rf '$(build_remote_dir "_active")'" || true
 
   run_name="$(extract_run_name_from_nohup || true)"
+  [ -n "$run_name" ] || run_name="$(find_latest_swarm_run_name || true)"
   remote_dir="$(build_remote_dir "$job_id")"
   ensure_remote_dir "$remote_dir"
 
@@ -352,6 +372,8 @@ sync_swarm() {
         --include='last.ckpt' \
         --include='epoch=*.ckpt' \
         --include='*_model_gt_and_classprob_*.csv' \
+        --include='stamp_metrics_summary.csv' \
+        --include='stamp_gt_predprob_*.csv' \
         --exclude='*' \
         "$run_dir_for_sync/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
       echo "$now" > "$LAST_CKPT_SYNC_FILE" 2>/dev/null || true
@@ -388,6 +410,7 @@ final_sync() {
     local job_id run_name remote_dir hb_file
     job_id="$(find_latest_job_id || true)"
     run_name="$(extract_run_name_from_nohup || true)"
+    [ -n "$run_name" ] || run_name="$(find_latest_swarm_run_name || true)"
     if [ -n "$job_id" ]; then
       remote_dir="$(build_remote_dir "$job_id")"
       hb_file="$STATE_DIR/swarm_heartbeat_final.json"

@@ -6,6 +6,13 @@ on:
    - cron: '0 4 * * *'
   workflow_dispatch:
 
+# Least-privilege token: this workflow pushes the ci/apt-update branch and opens
+# a PR, so it explicitly needs contents + pull-requests write. Declaring it here
+# lets the repository default GITHUB_TOKEN permission stay read-only.
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   update-apt:
     runs-on: [self-hosted, ci]

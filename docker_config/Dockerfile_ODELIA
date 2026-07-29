@@ -15,8 +15,10 @@ ENV PYTHON_VERSION=3.10.14
 # 1. pip installs FIRST (most expensive to rebuild, change least often)
 # 2. apt installs AFTER (change more often due to CVE version bumps, but
 #    are fast to rebuild)
-# 3. NVFlare from source (changes with NVFlare updates)
-# 4. COPY pretrained weights (rarely changes)
+# 3. COPY pretrained weights (rarely change, but multi-GB layers)
+# 4. NVFlare from source + master_template.yml (the template is stamped with
+#    this build's version/commit hash, so it is a cache miss on EVERY commit --
+#    nothing cacheable may sit below it; see the CACHE NOTE at that stage)
 # 5. COPY source code (changes every build — must be last)
 #
 # The base pytorch image already includes python3 + pip, so pip installs
@@ -257,8 +259,29 @@ RUN apt update && apt install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# Stage 3: NVFlare from source (changes with NVFlare updates)
+# Stage 3: Pretrained weights (rarely change — must stay ABOVE anything that
+# carries this build's version/commit identifier, see the note in Stage 4)
 # ---------------------------------------------------------------------------
+
+# These are the multi-GB layers. Keep them above master_template.yml so a plain
+# code commit does not re-create them.
+COPY ./torch_home_cache /torch_home
+COPY ./hf_home_cache /huggingface_home
+RUN chmod a+rwX /huggingface_home -R
+# permissions only needed for huggingface directory
+
+# ---------------------------------------------------------------------------
+# Stage 4: NVFlare from source (changes with NVFlare updates)
+# ---------------------------------------------------------------------------
+#
+# CACHE NOTE: master_template.yml is NOT content-stable across commits.
+# buildDockerImageAndStartupKits.sh rewrites its placeholders before the build:
+#   __REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__ -> <version>-dev.<date>.<git short hash>
+#   __REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__ -> <git short hash>
+# Both embed the commit hash, so the file's CONTENT differs on every commit and
+# this COPY is a genuine cache miss -- not an mtime artefact (Docker excludes
+# mtime from COPY checksums). Everything below this line therefore rebuilds on
+# every commit, which is precisely why the weight layers now sit above it.
 
 # install ODELIA fork of NVFlare from local source
 WORKDIR /workspace/
@@ -268,15 +291,8 @@ COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/li
 RUN python3 -m pip install --no-cache-dir /workspace/nvflare && rm -rf /workspace/nvflare
 
 # ---------------------------------------------------------------------------
-# Stage 4: Pretrained weights + application code (ordered by change frequency)
+# Stage 5: application code (changes every commit)
 # ---------------------------------------------------------------------------
-
-# Copy pre-trained model weights BEFORE source code — weights rarely change,
-# so this layer stays cached even when source code changes every build.
-COPY ./torch_home_cache /torch_home
-COPY ./hf_home_cache /huggingface_home
-RUN chmod a+rwX /huggingface_home -R
-# permissions only needed for huggingface directory
 
 # Copy the source code for local training and deploying to the swarm
 COPY ./MediSwarm /MediSwarm
