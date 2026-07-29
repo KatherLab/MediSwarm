@@ -242,6 +242,30 @@ EVAL_SCRATCH_DIR="${EVAL_SCRATCH_DIR:-$RESULTS_DIR/eval_scratch}"
 # The STAMP master template's env var forwarding loop (for _var in STAMP_*)
 # picks them up and passes them into the Docker container.
 
+# ── Rounds the submitted job will actually run (#503) ────────────────────
+# STAMP sizes its OneCycleLR scheduler from STAMP_NUM_ROUNDS, but the number of
+# rounds actually executed comes from num_rounds in the job's config_fed_server.conf
+# (baked into the image). Hardcoding STAMP_NUM_ROUNDS here meant the scheduler could
+# be sized for fewer rounds than the server runs, and training died mid-run with
+# "Tried to step N times. The specified number of total steps is M" -- which aborts
+# the whole run and names neither variable. Read the job's value from the image so
+# there is one source of truth: a CI build using --num-rounds stays fast, and a
+# release image (num_rounds = 20) is sized correctly.
+_JOB_NUM_ROUNDS=""
+job_num_rounds() {
+    if [[ -z "$_JOB_NUM_ROUNDS" ]]; then
+        _JOB_NUM_ROUNDS=$(docker run --rm "$DOCKER_IMAGE" bash -lc \
+            "grep -oE 'num_rounds[[:space:]]*=[[:space:]]*[0-9]+' \
+             /MediSwarm/application/jobs/${JOB_NAME}/app/config/config_fed_server.conf \
+             | grep -oE '[0-9]+' | head -1" 2>/dev/null | tr -d '[:space:]')
+        if [[ ! "$_JOB_NUM_ROUNDS" =~ ^[0-9]+$ ]]; then
+            _JOB_NUM_ROUNDS=20
+            warn "Could not read num_rounds from $DOCKER_IMAGE; using $_JOB_NUM_ROUNDS for scheduler sizing (#503)" >&2
+        fi
+    fi
+    printf '%s' "$_JOB_NUM_ROUNDS"
+}
+
 setup_stamp_env() {
     local site_name="$1"
     local model_name="$2"
@@ -260,7 +284,7 @@ export STAMP_MAX_EPOCHS="2"
 export STAMP_PATIENCE="2"
 export STAMP_NUM_WORKERS="0"
 export STAMP_SEED="42"
-export STAMP_NUM_ROUNDS="2"
+export STAMP_NUM_ROUNDS="$(job_num_rounds)"
 export STAMP_EPOCHS_PER_ROUND="2"
 export STAMP_EPOCHS_REFERENCE_DATASET_SIZE="15"
 export STAMP_EPOCHS_MAX_CAP="4"
