@@ -2,6 +2,51 @@
 
 All notable changes to MediSwarm are documented in this file.
 
+## [1.7.0] - 2026-07-29
+
+Swarm evaluation release: a completed swarm run is now scientifically usable.
+Training already worked; what was broken was everything needed to *judge* the
+result — AUROC never reached us, the kept model was the last round rather than
+the best, and the deploy test could report a green PASS while verifying nothing.
+Every fix below was confirmed on a real 2-node run, not by unit tests alone.
+
+### Fixed
+
+- **Swarm AUROC is now retrievable (#492)** — AUROC is computed from the
+  validation predictions and written to the `val_auroc` column of
+  `stamp_metrics_summary.csv` (previously always blank, because the callback
+  looked for metric keys STAMP does not log). `live_sync.sh` now locates a swarm
+  run directory by listing `runs/<site>/` — the approach local mode already used —
+  and syncs `stamp_metrics_summary.csv` / `stamp_gt_predprob_*.csv`, so the metrics
+  actually reach the monitoring server instead of staying on the client node.
+- **Best-model selection fires (#493)** — `IntimeModelSelector` is keyed on
+  `validation_auroc`, the metric the client genuinely reports. It was previously
+  `accuracy` (never logged), so selection never triggered and the **last** round's
+  model was broadcast as the final model. Runs now produce `best_FL_global_model.pt`
+  alongside the last-round global.
+- **`finalize_training` runs in swarm mode (#480)** — it is called inside the swarm
+  loop; the launcher SIGTERMs the training subprocess at job end, so the post-loop
+  call never executed and best/last checkpoint consolidation was silently skipped.
+- **Deploy test tests the image it built (no issue — found during 1.7.0 validation)** —
+  client kits ship an `image.conf` pinning the release channel, which outranks the
+  kit's built-in tag, so every client ran `:current` while the test pre-pulled the new
+  image. Clients are now pinned with `--image`.
+- **Deploy-test cleanup is scoped (#472)** — `stop_all` matched every
+  `stamp_swarm|nvflare` container on every host, so a retry or a concurrent test
+  killed a still-training run's clients (SIGKILL ~1 s after round 0, no error in any
+  log). Cleanup is now scoped to the container-name suffix of the kit under test.
+- **A skipped evaluation is no longer reported as PASS (#476, partial)** — a
+  requested-but-unverified evaluation reports `PASSED (training only)`, and `--strict`
+  makes it a failure. Running evaluation on the eval site over SSH remains open.
+
+### Changed
+
+- The DECADE 2-site test project uses ports **8102/8103**. The orchestrator also runs
+  the long-lived ODELIA server on 8002/8003, so the test server could not bind and
+  clients reached the ODELIA server instead, failing with
+  `ClientConnectorCertificateError` — a port collision that looks exactly like a
+  certificate problem.
+
 ## [1.5.0] - 2026-07-02
 
 Swarm-robustness release: the fixes from the June 8-site runs that repeatedly
