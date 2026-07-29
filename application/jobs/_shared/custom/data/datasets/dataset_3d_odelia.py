@@ -326,7 +326,9 @@ class ODELIA_Dataset3D(data.Dataset):
             reason = (f"split.csv contains folds {folds_present} -- fold {fold} is not among them")
         else:
             reason = (f"fold {fold} exists in split.csv, but no '{split}' rows survive the join with "
-                      f"annotation.csv and the images actually present on disk")
+                      f"annotation.csv and the images actually present on disk. If the exam folders "
+                      f"are symlinks, check the log above for a DANGLING symlink warning -- their "
+                      f"targets must be mounted into the container too")
         raise RuntimeError(
             f"ODELIA: {institution} has no samples for FOLD={fold} / split='{split}'. "
             f"{reason}. Check {split_csv}. "
@@ -519,8 +521,33 @@ class ODELIA_Dataset3D(data.Dataset):
 
     @classmethod
     def run_item_crawler(cls, path_root, **kwargs):
+        """List the exam directories under ``path_root``.
+
+        ``DirEntry.is_dir()`` follows symlinks, so a link pointing at a real directory
+        is included -- but a *dangling* link (target missing) is silently skipped. That
+        is exactly what happens when a site stores its exams as symlinks to an absolute
+        host path that is not mounted into the container: every entry disappears here,
+        and the failure only surfaces much later as an opaque "has no samples for
+        FOLD=.../split=..." error (#481). Count them and say so, loudly, right here.
+        """
+        found, dangling = [], []
         with os.scandir(path_root) as entries:
-            return sorted(entry.name for entry in entries if entry.is_dir())
+            for entry in entries:
+                if entry.is_dir():
+                    found.append(entry.name)
+                elif entry.is_symlink() and not os.path.exists(entry.path):
+                    dangling.append(entry.name)
+        if dangling:
+            shown = sorted(dangling)[:5]
+            logger.warning(
+                "ODELIA: %d of %d entries under %s are DANGLING symlinks and were skipped "
+                "(e.g. %s%s). Their targets do not exist inside the container. If the exams are "
+                "symlinks to an absolute host path, that path must ALSO be mounted, e.g. "
+                "-v /abs/target:/abs/target:ro -- otherwise every split will come out empty.",
+                len(dangling), len(dangling) + len(found), path_root,
+                ", ".join(shown), ", ..." if len(dangling) > len(shown) else "",
+            )
+        return sorted(found)
 
     @classmethod
     def log_UID_discrepancies(
