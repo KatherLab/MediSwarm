@@ -853,7 +853,7 @@ run_dummy_training_in_swarm () {
 
     cd "$PROJECT_DIR"/prod_00/client_A/
     FILES_PRESENT=$(find . -type f -name "*.*")
-    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
+    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt';
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -890,6 +890,7 @@ run_3dcnn_local_training () {
     CONSOLE_OUTPUT_FILE=local_training_console_output.txt
     timeout --signal=kill 3m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --num_epochs 2 --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
+    # verify that expected output is present in the log
     for EXPECTED_OUTPUT in "Epoch 1: 100%" \
                            "Training completed successfully" \
                            "Best model checkpoint:";
@@ -904,9 +905,13 @@ run_3dcnn_local_training () {
     done
     cd "$CWD"
 
-    cd "$SCRATCH_DIR"
-    FILES_PRESENT=$(find . -type f -name "*.*")
-    for EXPECTED_FILE in 'site_model_gt_and_classprob_train.csv' 'site_model_gt_and_classprob_validation.csv';
+    # verify that expected files have been created
+    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR" -type f -name "*.*")
+    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
+                         "site_model_gt_and_classprob_validation.csv" \
+                         "last_global_model.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -915,7 +920,6 @@ run_3dcnn_local_training () {
             exit 1
         fi
     done
-    cd "$CWD"
 }
 
 
@@ -955,9 +959,10 @@ run_3dcnn_training_in_swarm () {
     # check for expected output in server log (clients joined, job ID assigned, 1 round)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT_FILE=nohup.out
-    for EXPECTED_OUTPUT in 'updated status of client client_A on round 0: .* action=start_learn_task, all_done=False' \
-                           'updated status of client client_B on round 0: .* action=start_learn_task, all_done=False' \
-                           'all_done=True';
+
+    for EXPECTED_OUTPUT in "updated status of client client_A on round 0: .* action=start_learn_task, all_done=False" \
+                           "updated status of client client_B on round 0: .* action=start_learn_task, all_done=False" \
+                           "all_done=True";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -973,8 +978,10 @@ run_3dcnn_training_in_swarm () {
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT_FILE=combined_nohup.out
     cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
-    for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
-                           'Epoch 4: 100%';
+    for EXPECTED_OUTPUT in "sending training result to aggregation client" \
+                           "Epoch 4: 100%" \
+                           "Training completed successfully" \
+                           "Best model checkpoint:";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -987,9 +994,16 @@ run_3dcnn_training_in_swarm () {
     cd "$CWD"
 
     # check for expected output files
-    cd "$PROJECT_DIR"/prod_00/client_A/
-    FILES_PRESENT=$(find . -type f -name "*.*")
-    for EXPECTED_FILE in 'custom/threedcnn_ptl.py' 'FL_global_model.pt' ;
+    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR"/client_A -type f -name "*.*")
+    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
+                         "site_model_gt_and_classprob_validation.csv" \
+                         "aggregated_model_gt_and_classprob_train.csv" \
+                         "aggregated_model_gt_and_classprob_validation.csv" \
+                         "custom/threedcnn_ptl.py" \
+                         "FL_global_model.pt" \
+                         "last_global_model.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
