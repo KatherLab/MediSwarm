@@ -151,9 +151,27 @@ jobs:
             --num-rounds "$DEPLOY_NUM_ROUNDS"
 
       - name: Push Docker image to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          # Remote clients pull the image from Docker Hub during startup.
-          # Cosmos is already authenticated to Docker Hub (jefftud).
+          set -euo pipefail
+          # Remote clients pull the image from Docker Hub during startup, so the
+          # build under test has to be published before the clients start.
+          #
+          # This used to rely on the runner having an ambient ~/.docker/config.json
+          # (true only on the old cosmos runner). Since the deploy tests moved to the
+          # ci runners the push failed with "denied: requested access to the resource
+          # is denied" on every run. Authenticate explicitly from repository secrets
+          # instead: these workflows are workflow_dispatch/schedule only, so a fork
+          # cannot trigger them and the credential is never written to the runner's
+          # ambient config.
+          if [[ -n "${DOCKERHUB_TOKEN:-}" ]]; then
+            echo "$DOCKERHUB_TOKEN" | docker login -u "${DOCKERHUB_USERNAME:-jefftud}" --password-stdin
+          else
+            echo "::warning::DOCKERHUB_TOKEN secret is not set — falling back to any ambient docker credential."
+          fi
+
           VERSION=$(./scripts/build/getVersionNumber.sh)
           docker push "jefftud/odelia:$VERSION"
 

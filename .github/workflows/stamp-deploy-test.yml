@@ -134,8 +134,23 @@ jobs:
             --num-rounds "$DEPLOY_NUM_ROUNDS"
 
       - name: Push Docker image to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          # Remote clients pull the image from Docker Hub during startup.
+          set -euo pipefail
+          # Remote clients pull the image from Docker Hub during startup. The push
+          # previously relied on an ambient ~/.docker/config.json that only the old
+          # cosmos runner had, so every run on the ci runners failed with
+          # "denied: requested access to the resource is denied". Authenticate from
+          # repository secrets instead — this workflow is workflow_dispatch/schedule
+          # only, so a fork cannot trigger it.
+          if [[ -n "${DOCKERHUB_TOKEN:-}" ]]; then
+            echo "$DOCKERHUB_TOKEN" | docker login -u "${DOCKERHUB_USERNAME:-jefftud}" --password-stdin
+          else
+            echo "::warning::DOCKERHUB_TOKEN secret is not set — falling back to any ambient docker credential."
+          fi
+
           VERSION=$(./scripts/build/getVersionNumber.sh)
           docker push "jefftud/odelia:$VERSION"
 
