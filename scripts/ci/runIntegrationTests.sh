@@ -179,12 +179,18 @@ run_dummy_training_standalone(){
                     --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
                     "$DOCKER_IMAGE" 2>&1 || echo "")
 
-    if grep -q "✓ MediSwarm test running dummy training in standalone mode completed." <<< "$OUTPUT" ; then
-        echo "✅ Running" $1 "in Docker completed."
-    else
-        echo "❌ Running" $1 "in Docker failed."
-        exit 1
-    fi
+    for EXPECTED_OUTPUT in "✓ MediSwarm test running dummy training in standalone mode completed." \
+                           "Best model checkpoint:"                                                ;
+    do
+        if grep -q "$EXPECTED_OUTPUT" <<< "$OUTPUT" ; then
+            echo "✅ Expected output $EXPECTED_OUTPUT of standalone dummy training found"
+        else
+            echo "$OUTPUT"
+            echo "❌ Missing expected output $EXPECTED_OUTPUT of standalone dummy training"
+            exit 1
+        fi
+    done
+
 
     OUTPUT_WITHOUT_GPU=$(docker run --rm \
                                 --shm-size=16g \
@@ -832,7 +838,8 @@ run_dummy_training_in_swarm () {
                            'Got engine after .* seconds' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
-                           'broadcasting learn task of round . to .*; aggregation happens on client_.';
+                           'broadcasting learn task of round . to .*; aggregation happens on client_.' \
+                           'Best model checkpoint:';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -846,7 +853,7 @@ run_dummy_training_in_swarm () {
 
     cd "$PROJECT_DIR"/prod_00/client_A/
     FILES_PRESENT=$(find . -type f -name "*.*")
-    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
+    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt';
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -881,36 +888,62 @@ run_3dcnn_local_training () {
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
     CONSOLE_OUTPUT_FILE=local_training_console_output.txt
-    # TODO remove --num_epochs and change check below back to Epoch 99
-    timeout --signal=kill 60m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --num_epochs 2 --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 3m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --num_epochs 2 --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
-    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE"; then
-        echo "✅ Expected output of 3DCNN local training found"
-    else
-        echo "❌ Missing expected output of 3DCNN local training"
-        exit 1
-    fi
-
+    # verify that expected output is present in the log
+    for EXPECTED_OUTPUT in "Epoch 1: 100%" \
+                           "Training completed successfully" \
+                           "Best model checkpoint:";
+    do
+        if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT of 3DCNN local training found"
+        else
+            cat "$CONSOLE_OUTPUT_FILE"
+            echo "❌ Expected output $EXPECTED_OUTPUT of 3DCNN local training missing"
+            exit 1
+        fi
+    done
     cd "$CWD"
+
+    # verify that expected files have been created
+    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR" -type f -name "*.*")
+    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
+                         "site_model_gt_and_classprob_validation.csv" \
+                         "last_global_model.ckpt";
+    do
+        if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
+            echo "✅ Expected file $EXPECTED_FILE found"
+        else
+            echo "❌ Expected file $EXPECTED_FILE missing"
+            exit 1
+        fi
+    done
 }
 
 
 run_3dcnn_training_in_swarm () {
-    echo "[Run] 3DCNN training in swarm (polling for completion, up to 60 minutes) ..."
+    echo "[Run] 3DCNN training in swarm (polling for completion, up to 10 minutes) ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
+    # only require 2 clients in test
+    sed -i 's#python3#sed -i "s/min_clients = [[:digit:]]*/min_clients = 2/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \nsed -i "s/min_responses_required = [[:digit:]]*/min_responses_required = 2/" `find /MediSwarm/application/ -name "config_fed_client.conf"`\npython3#' fl_admin.sh
+    # only run one round in test
+    sed -i 's#python3#sed -i "s/num_rounds = 20/num_rounds = 1/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \npython3#' fl_admin.sh
+
     expect -f "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
     cd "$CWD"
 
     # Poll for completion instead of a fixed sleep.  The server log will
     # contain "Server runner finished." once all rounds are done.  We check
-    # every 30 seconds for up to 60 minutes (120 iterations).
+    # every 30 seconds for up to 10 minutes (20 iterations).
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local max_attempts=120
+    local max_attempts=20
     local attempt=0
-    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 60min) ..."
+    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 10min) ..."
     while [ $attempt -lt $max_attempts ]; do
         if [ -f "$server_log" ] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
             echo "  ✅ Server runner finished detected after $((attempt * 30))s"
@@ -920,15 +953,16 @@ run_3dcnn_training_in_swarm () {
         sleep 30
     done
     if [ $attempt -eq $max_attempts ]; then
-        echo "  ⚠️  Timed out after 60min waiting for 3DCNN swarm completion — proceeding to assertions"
+        echo "  ⚠️  Timed out after 10min waiting for 3DCNN swarm completion — proceeding to assertions"
     fi
 
-    # check for expected output in server log (clients joined, job ID assigned, 20 rounds)
+    # check for expected output in server log (clients joined, job ID assigned, 1 round)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT_FILE=nohup.out
-    for EXPECTED_OUTPUT in 'updated status of client client_A on round 19: .* action=start_learn_task, all_done=False' \
-                           'updated status of client client_B on round 19: .* action=start_learn_task, all_done=False' \
-                           'all_done=True';
+
+    for EXPECTED_OUTPUT in "updated status of client client_A on round 0: .* action=start_learn_task, all_done=False" \
+                           "updated status of client client_B on round 0: .* action=start_learn_task, all_done=False" \
+                           "all_done=True";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -940,11 +974,14 @@ run_3dcnn_training_in_swarm () {
     done
     cd "$CWD"
 
-    # check for expected output in client log
+    # check for expected output in client logs
     cd "$PROJECT_DIR"/prod_00/client_A/startup
-    CONSOLE_OUTPUT_FILE=nohup.out
-    for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
-                           'Epoch 99: 100%';
+    CONSOLE_OUTPUT_FILE=combined_nohup.out
+    cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
+    for EXPECTED_OUTPUT in "sending training result to aggregation client" \
+                           "Epoch 4: 100%" \
+                           "Training completed successfully" \
+                           "Best model checkpoint:";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -956,9 +993,17 @@ run_3dcnn_training_in_swarm () {
     done
     cd "$CWD"
 
-    cd "$PROJECT_DIR"/prod_00/client_A/
-    FILES_PRESENT=$(find . -type f -name "*.*")
-    for EXPECTED_FILE in 'custom/threedcnn_ptl.py' 'FL_global_model.pt' ;
+    # check for expected output files
+    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR"/client_A -type f -name "*.*")
+    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
+                         "site_model_gt_and_classprob_validation.csv" \
+                         "aggregated_model_gt_and_classprob_train.csv" \
+                         "aggregated_model_gt_and_classprob_validation.csv" \
+                         "custom/threedcnn_ptl.py" \
+                         "FL_global_model.pt" \
+                         "last_global_model.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"

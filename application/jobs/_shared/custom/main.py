@@ -75,13 +75,6 @@ def main():
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=False)
 
-        if TRAINING_MODE == TM_SWARM:
-            threedcnn_ptl.finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars)
-        elif TRAINING_MODE == TM_LOCAL_TRAINING:
-            threedcnn_ptl.finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars, output_GT_and_classprob_aggregated_model=False)
-        else:
-            pass
-
     except Exception as e:
         logger.error(f"Error in main function: {e}")
         raise

@@ -42,7 +42,6 @@ def main():
         elif TRAINING_MODE == "preflight_check" or TRAINING_MODE == "local_training":
             minimal_training.validate_and_train(logger, data_module, model, trainer)
 
-        minimal_training.finalize_training(logger, model, checkpointing, trainer)
     except Exception as e:
         logger.error(f"Error in main function: {e}")
         raise
