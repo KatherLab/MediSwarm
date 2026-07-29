@@ -347,13 +347,61 @@ fix_remote_dns() {
     ok "DNS resolution verified on all remote machines"
 }
 
+# ── Container name filter, scoped to THIS test's kit (#472) ───────────────
+# stop_all() used to kill every container matching "stamp_swarm|nvflare" on every
+# site, so a retry (or a concurrently running deploy test) tore down containers
+# belonging to a run that was still training — clients died ~1s after round 0 was
+# dispatched, with no error in any log.
+#
+# Every built startup kit hardcodes its own container names as
+#   stamp_swarm_{client,server}_<name>_<git-short-hash>
+# so the trailing hash identifies the kit this test drives. Scope the filter to it.
+# If it cannot be derived we fall back to the old broad pattern (and say so) —
+# a silently no-op cleanup would leave containers behind and break later runs.
+KIT_CONTAINER_SUFFIX=""
+KIT_SUFFIX_RESOLVED=false
+
+resolve_kit_container_suffix() {
+    [[ "$KIT_SUFFIX_RESOLVED" == true ]] && return 0
+    KIT_SUFFIX_RESOLVED=true
+
+    local prod_dir docker_sh
+    prod_dir=$(find_latest_prod 2>/dev/null || true)
+    [[ -n "$prod_dir" && -d "$prod_dir" ]] || return 0
+
+    docker_sh=$(find "$prod_dir" -mindepth 3 -maxdepth 3 -path '*/startup/docker.sh' 2>/dev/null | head -1)
+    [[ -n "$docker_sh" ]] || return 0
+
+    KIT_CONTAINER_SUFFIX=$(grep -hoE '^CONTAINER_NAME=stamp_swarm_.*_[0-9a-f]{7,40}$' "$docker_sh" 2>/dev/null \
+        | head -1 | sed -E 's/.*_([0-9a-f]{7,40})$/\1/')
+
+    if [[ -n "$KIT_CONTAINER_SUFFIX" ]]; then
+        info "Container cleanup scoped to this kit: *_${KIT_CONTAINER_SUFFIX} (#472)"
+    else
+        warn "Could not derive this kit's container suffix — cleanup falls back to the"
+        warn "  broad 'stamp_swarm|nvflare' filter, which can disturb a concurrent run (#472)."
+    fi
+}
+
+# Extended-regex matching only this test's containers (or the broad legacy filter).
+container_filter() {
+    resolve_kit_container_suffix
+    if [[ -n "$KIT_CONTAINER_SUFFIX" ]]; then
+        printf 'stamp_swarm_.*_%s$' "$KIT_CONTAINER_SUFFIX"
+    else
+        printf 'stamp_swarm|nvflare'
+    fi
+}
+
 # ── Stop all containers ───────────────────────────────────────────────────
 stop_all() {
-    info "Stopping all STAMP/NVFlare containers..."
+    local filter
+    filter=$(container_filter)
+    info "Stopping STAMP/NVFlare containers (filter: $filter)..."
 
     # Stop local containers on Cosmos (server + admin)
     local local_containers
-    local_containers=$(docker ps --format '{{.Names}}' | grep -E "stamp_swarm|nvflare" || true)
+    local_containers=$(docker ps --format '{{.Names}}' | grep -E "$filter" || true)
     if [[ -n "$local_containers" ]]; then
         echo "$local_containers" | xargs docker kill 2>/dev/null || true
         echo "$local_containers" | xargs docker rm -f 2>/dev/null || true
@@ -369,8 +417,8 @@ stop_all() {
         fi
         visited_hosts[$host]=1
         remote_exec "$site" \
-            "docker ps --format '{{.Names}}' | grep -E 'stamp_swarm|nvflare' | xargs -r docker kill 2>/dev/null; \
-             docker ps -a --format '{{.Names}}' | grep -E 'stamp_swarm|nvflare' | xargs -r docker rm -f 2>/dev/null" \
+            "docker ps --format '{{.Names}}' | grep -E '$filter' | xargs -r docker kill 2>/dev/null; \
+             docker ps -a --format '{{.Names}}' | grep -E '$filter' | xargs -r docker rm -f 2>/dev/null" \
             2>/dev/null || warn "  Could not stop containers on $host"
     done
 
@@ -494,7 +542,7 @@ start_server() {
     info "Waiting 15s for server to initialize..."
     sleep 15
 
-    if docker ps --format '{{.Names}}' | grep -qE "stamp_swarm|nvflare"; then
+    if docker ps --format '{{.Names}}' | grep -qE "$(container_filter)"; then
         ok "Server container is running"
     else
         warn "Server container not detected — it may still be starting"
@@ -693,7 +741,7 @@ wait_for_completion() {
         fi
 
         # Check if the server container died
-        if ! docker ps --format '{{.Names}}' | grep -qE "stamp_swarm|nvflare"; then
+        if ! docker ps --format '{{.Names}}' | grep -qE "$(container_filter)"; then
             if [[ -f "$server_log" ]]; then
                 local new_lines
                 new_lines=$(tail -n +"$((start_line + 1))" "$server_log" 2>/dev/null || true)
