@@ -3,10 +3,10 @@
 An open-source platform advancing medical AI via privacy-preserving swarm learning, based on NVFlare and developed with
 the ODELIA consortium.
 
-[![PR Tests](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml)
-[![Build](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml)
-[![Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml)
-[![STAMP Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml/badge.svg)](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml)
+[![PR Tests](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml/badge.svg?branch=main)](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml?query=branch%3Amain)
+[![Build](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml/badge.svg?branch=main)](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml?query=branch%3Amain)
+[![Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml/badge.svg?branch=main)](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml?query=branch%3Amain)
+[![STAMP Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml/badge.svg?branch=main)](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml?query=branch%3Amain)
 
 > **Current release: [v1.5.0](https://github.com/KatherLab/MediSwarm/releases/tag/v1.5.0)** (swarm-robustness).
 
