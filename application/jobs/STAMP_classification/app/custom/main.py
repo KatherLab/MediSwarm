@@ -115,13 +115,23 @@ def main():
                            if metric_callback.last_val_auroc is not None else "")
                     )
 
+                # Consolidate checkpoints every round. When the swarm loop ends,
+                # the launcher (launch_once=true) SIGTERMs this subprocess before
+                # the post-loop finalize can run, so finalize must happen in-loop
+                # (#480). It is idempotent — copies the latest best/last checkpoints
+                # — so repeating it each round is cheap, and the final round leaves
+                # the correct best/last artifacts behind.
+                stamp_training.finalize_training(model, checkpointing, trainer, output_dir)
+
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             stamp_training.validate_and_train(
                 train_dl, valid_dl, model, trainer,
                 output_dir=output_dir,
             )
 
-        if TRAINING_MODE in [TM_LOCAL_TRAINING, TM_SWARM]:
+        # Swarm mode finalizes per-round inside the loop above (see #480); only
+        # local training reaches this post-loop path reliably.
+        if TRAINING_MODE == TM_LOCAL_TRAINING:
             stamp_training.finalize_training(model, checkpointing, trainer, output_dir)
 
     except Exception as e:

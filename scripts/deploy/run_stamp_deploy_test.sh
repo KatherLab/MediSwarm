@@ -73,11 +73,13 @@ TEST_MODELS=()
 # Populated by run_single_model(); drive the script's exit status.
 PASSED_MODELS=()
 FAILED_MODELS=()
+TRAINING_ONLY_MODELS=()  # passed training, but a requested evaluation did not verify (#476)
 EVALUATE=false          # run the post-training evaluation step (#270)
 EVAL_SITE_ARG=""        # site whose data to evaluate on (default: first client site)
 EVAL_DATA_DIR_ARG=""    # host path to eval data on this (server) machine
 TASK="classification"   # STAMP task: classification | survival | regression (#271)
 COMPARE_LOCAL=false     # also train a local-only baseline and compare (#275)
+STRICT=false            # treat a requested-but-skipped/failed evaluation as a failure (#476)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -87,6 +89,7 @@ while [[ $# -gt 0 ]]; do
         --task)          TASK="$2"; shift ;;
         --evaluate)      EVALUATE=true ;;
         --compare-local) COMPARE_LOCAL=true ;;
+        --strict)        STRICT=true ;;
         --eval-site)     EVAL_SITE_ARG="$2"; shift ;;
         --eval-data-dir) EVAL_DATA_DIR_ARG="$2"; shift ;;
         -h|--help)
@@ -105,6 +108,9 @@ while [[ $# -gt 0 ]]; do
             echo "                   stamp_predict.py to record task metrics (#270)."
             echo "  --compare-local  With --evaluate: also train a local-only baseline on the"
             echo "                   eval site and compare federated vs local (#275)."
+            echo "  --strict         With --evaluate: fail (non-zero exit) if evaluation was"
+            echo "                   requested but skipped or errored, instead of reporting a"
+            echo "                   plain PASS. Otherwise such a model is 'PASSED (training only)' (#476)."
             echo "  --eval-site      Site whose data (on this machine) to evaluate on"
             echo "                   (default: first client site; needs its data locally)"
             echo "  --eval-data-dir  Host dir mounted as /data for evaluation"
@@ -1002,12 +1008,25 @@ run_single_model() {
     record_result "$model_name" "$job_name" "$train_status" "$duration" "$eval_status"
 
     echo ""
-    if [[ "$train_status" == "pass" ]]; then
-        ok "PASSED: $model_name in ${duration}s (evaluation: $eval_status)"
-        PASSED_MODELS+=("$model_name")
-    else
+    if [[ "$train_status" != "pass" ]]; then
         err "FAILED: $model_name in ${duration}s"
         FAILED_MODELS+=("$model_name")
+    elif [[ "$EVALUATE" == true && "$eval_status" != "pass" ]]; then
+        # Evaluation was explicitly requested but did not produce a result. Never
+        # report this as a plain PASS — a skipped evaluation previously looked
+        # identical to a verified one (#476).
+        if [[ "$STRICT" == true ]]; then
+            err "FAILED: $model_name in ${duration}s — evaluation requested but ${eval_status} (--strict)"
+            FAILED_MODELS+=("$model_name")
+        else
+            warn "PASSED (training only): $model_name in ${duration}s — evaluation ${eval_status}, NOT verified"
+            warn "  Re-run with --strict to treat this as a failure."
+            TRAINING_ONLY_MODELS+=("$model_name")
+            PASSED_MODELS+=("$model_name")
+        fi
+    else
+        ok "PASSED: $model_name in ${duration}s (evaluation: $eval_status)"
+        PASSED_MODELS+=("$model_name")
     fi
 
     # Always return 0 so the caller keeps testing the remaining models; the
@@ -1059,9 +1078,23 @@ done
 # Previously the script always exited 0, so a failing model (e.g. barspoon,
 # which the shipped STAMP cannot instantiate) still reported success to CI.
 step "STAMP deploy test summary"
-for m in "${PASSED_MODELS[@]:-}"; do [[ -n "$m" ]] && ok "  PASS  $m"; done
+for m in "${PASSED_MODELS[@]:-}"; do
+    [[ -n "$m" ]] || continue
+    # Mark models whose requested evaluation never verified, so a training-only
+    # result is never mistaken for a fully verified pass (#476).
+    if [[ " ${TRAINING_ONLY_MODELS[*]:-} " == *" $m "* ]]; then
+        warn "  PASS  $m  (training only — evaluation NOT verified)"
+    else
+        ok "  PASS  $m"
+    fi
+done
 for m in "${FAILED_MODELS[@]:-}"; do [[ -n "$m" ]] && err "  FAIL  $m"; done
 info "  ${#PASSED_MODELS[@]} passed, ${#FAILED_MODELS[@]} failed (results: $RESULTS_DIR)"
+
+if [[ ${#TRAINING_ONLY_MODELS[@]} -gt 0 ]]; then
+    warn "  Evaluation was requested but not verified for: ${TRAINING_ONLY_MODELS[*]}"
+    warn "  These passed TRAINING only. Re-run with --strict to fail on this."
+fi
 
 if [[ ${#FAILED_MODELS[@]} -gt 0 ]]; then
     err "Deploy test FAILED for: ${FAILED_MODELS[*]}"
