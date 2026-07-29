@@ -157,7 +157,9 @@ class STAMPMetricsSummaryCallback(Callback):
         # AUROC — prefer a value STAMP logged into callback_metrics; otherwise
         # fall back to the AUROC computed by the prediction callback (#492).
         val_auroc = None
-        for key in ("val_auroc", "val_MulticlassAUROC"):
+        # "validation_auroc" is the key STAMP actually logs (confirmed from a real
+        # 2-node run); the others are kept as fallbacks for other STAMP versions.
+        for key in ("validation_auroc", "val_auroc", "val_MulticlassAUROC"):
             v = metrics.get(key)
             if v is not None:
                 val_auroc = v

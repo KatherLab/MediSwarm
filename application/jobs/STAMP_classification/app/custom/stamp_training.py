@@ -334,7 +334,8 @@ class ValidationMetricCallback(Callback):
             self.last_val_loss = self.last_val_loss.item()
 
         # Try to get AUROC if available (classification only)
-        for key in ["val_auroc", "val_MulticlassAUROC"]:
+        # "validation_auroc" is what STAMP actually logs (confirmed from a real run).
+        for key in ["validation_auroc", "val_auroc", "val_MulticlassAUROC"]:
             val = metrics.get(key)
             if val is not None:
                 self.last_val_auroc = val.item()

@@ -570,10 +570,17 @@ start_clients() {
         local stamp_exports
         stamp_exports=$(setup_stamp_env "$site_name" "$model_name")
 
+        # Pin the client to the image this test actually built and pre-pulled.
+        # Client kits ship an image.conf pinning the release channel (:current), and
+        # docker.sh's precedence is --image > MEDISWARM_IMAGE > image.conf > built-in
+        # default. Without --image, image.conf won and every client ran :current --
+        # i.e. the deploy test pre-pulled the new image and then trained with the old
+        # one, so a "passing" deploy test said nothing about the build under test.
+        # (Server/admin kits do not source image.conf, so they were already correct.)
         remote_exec "$site" \
             "$stamp_exports && \
              cd '$deploy_dir/$site_name/startup' && \
-             ./docker.sh --no_pull --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' --start_client"
+             ./docker.sh --no_pull --image '$DOCKER_IMAGE' --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' --start_client"
 
         ok "  Client started: $site_name"
     done
