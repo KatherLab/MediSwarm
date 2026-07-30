@@ -66,9 +66,16 @@ jobs:
     steps:
       - name: Clean root-owned files from previous runs
         run: |
-          # NVFlare server container creates root-owned workspace files that
-          # block actions/checkout@v4's git clean. Remove them before checkout.
-          sudo rm -rf "$GITHUB_WORKSPACE/workspace" 2>/dev/null || true
+          # Containers in this workflow run as root and leave root-owned files in
+          # the workspace, which block actions/checkout@v4's git clean on the NEXT
+          # run ("failed to remove ...: Permission denied" -> checkout fails).
+          #   workspace/       — NVFlare server container
+          #   stamp_eval_data/ — the synthetic-dataset container in "Prepare local
+          #                      evaluation data"; this one was missing, so a run
+          #                      that reached the eval step wedged every later run.
+          sudo rm -rf "$GITHUB_WORKSPACE/workspace" \
+                      "$GITHUB_WORKSPACE/stamp_eval_data" \
+                      "$GITHUB_WORKSPACE/deploy_test_stamp" 2>/dev/null || true
 
       - uses: actions/checkout@v4
         with:
