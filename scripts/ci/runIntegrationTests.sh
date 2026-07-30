@@ -959,10 +959,9 @@ run_3dcnn_training_in_swarm () {
     # check for expected output in server log (clients joined, job ID assigned, 1 round)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT_FILE=nohup.out
-
-    for EXPECTED_OUTPUT in "updated status of client client_A on round 0: .* action=start_learn_task, all_done=False" \
-                           "updated status of client client_B on round 0: .* action=start_learn_task, all_done=False" \
-                           "all_done=True";
+    for EXPECTED_OUTPUT in 'updated status of client client_A on round 0: .* action=start_learn_task, all_done=False' \
+                           'updated status of client client_B on round 0: .* action=start_learn_task, all_done=False' \
+                           'all_done=True';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"

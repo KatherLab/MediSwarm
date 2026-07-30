@@ -3,6 +3,9 @@ name: MediSwarm PR Validation
 on:
   schedule:
     - cron: '0 5 * * 0'
+  # Lets a maintainer re-run validation on demand — e.g. to refresh a stale README
+  # badge after an infrastructure fix, without pushing an empty commit (#390).
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -217,6 +220,18 @@ jobs:
         continue-on-error: false
         run: |
           ./scripts/ci/runIntegrationTests.sh run_data_access_preflight_check
+
+      # #352: PRs only exercise the default model, so a break in one of the other
+      # five productive models is invisible until a deploy test or a real run hits
+      # it. run_all_models_preflight_check() already existed and was dispatchable,
+      # but was wired into no workflow at all. Run it on the weekly schedule and on
+      # manual dispatch — not on every PR, since it preflights all six models on the
+      # one shared GPU.
+      - name: Run preflight check for all productive models (weekly / manual)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: false
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_all_models_preflight_check
 
       - name: Run dummy training in swarm
         continue-on-error: false
