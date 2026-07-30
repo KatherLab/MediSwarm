@@ -73,9 +73,16 @@ jobs:
           #   stamp_eval_data/ — the synthetic-dataset container in "Prepare local
           #                      evaluation data"; this one was missing, so a run
           #                      that reached the eval step wedged every later run.
-          sudo rm -rf "$GITHUB_WORKSPACE/workspace" \
-                      "$GITHUB_WORKSPACE/stamp_eval_data" \
-                      "$GITHUB_WORKSPACE/deploy_test_stamp" 2>/dev/null || true
+          # NOTE: `sudo` is NOT usable here. The runner user has no passwordless
+          # sudo, so `sudo rm -rf ... 2>/dev/null || true` prompts, fails silently
+          # and the step reports success while deleting nothing -- which is why the
+          # previous fix appeared to work and the checkout kept failing anyway.
+          # Use a disposable root container instead, as pr-test.yaml already does.
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
+            'rm -rf /ws/workspace /ws/stamp_eval_data /ws/deploy_test_stamp' || true
+          # Belt and braces: hand anything else root-owned back to the runner user.
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
+            'find /ws -mindepth 1 -maxdepth 1 -not -name ".git" -exec chown -R '"$(id -u):$(id -g)"' {} + 2>/dev/null || true' || true
 
       - uses: actions/checkout@v4
         with:
@@ -184,7 +191,11 @@ jobs:
           # The image's WORKDIR is /workspace, but the source lives at /MediSwarm,
           # so the script must be addressed by absolute path (a relative path fails
           # with "can't open file '/workspace/application/...'").
-          docker run --rm -v "$eval_root":/data "$image" \
+          # Run as the invoking user, not root: otherwise every generated file under
+          # stamp_eval_data/ is root-owned and blocks the NEXT run's checkout (git
+          # clean cannot remove them, and the runner has no passwordless sudo).
+          # Same pattern as scripts/ci/runIntegrationTests.sh.
+          docker run --rm -u "$(id -u):$(id -g)" -v "$eval_root":/data "$image" \
             python3 /MediSwarm/application/jobs/STAMP_classification/app/scripts/create_synthetic_dataset/create_synthetic_stamp_dataset.py /data
 
           # Resolve the eval site name from the conf (first client site).

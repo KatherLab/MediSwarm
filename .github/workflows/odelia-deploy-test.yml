@@ -71,7 +71,11 @@ jobs:
         run: |
           # NVFlare server container creates root-owned workspace files that
           # block actions/checkout@v4's git clean.  Remove them before checkout.
-          sudo rm -rf "$GITHUB_WORKSPACE/workspace" "$GITHUB_WORKSPACE/deploy_test" 2>/dev/null || true
+          # `sudo` is NOT usable on these runners (no passwordless sudo): it prompts,
+          # fails silently under `2>/dev/null || true`, and the step reports success
+          # while deleting nothing. Use a disposable root container, as pr-test.yaml does.
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
+            'rm -rf /ws/workspace /ws/deploy_test' || true
 
       - uses: actions/checkout@v4
         with:
