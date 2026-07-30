@@ -66,9 +66,23 @@ jobs:
     steps:
       - name: Clean root-owned files from previous runs
         run: |
-          # NVFlare server container creates root-owned workspace files that
-          # block actions/checkout@v4's git clean. Remove them before checkout.
-          sudo rm -rf "$GITHUB_WORKSPACE/workspace" 2>/dev/null || true
+          # Containers in this workflow run as root and leave root-owned files in
+          # the workspace, which block actions/checkout@v4's git clean on the NEXT
+          # run ("failed to remove ...: Permission denied" -> checkout fails).
+          #   workspace/       — NVFlare server container
+          #   stamp_eval_data/ — the synthetic-dataset container in "Prepare local
+          #                      evaluation data"; this one was missing, so a run
+          #                      that reached the eval step wedged every later run.
+          # NOTE: `sudo` is NOT usable here. The runner user has no passwordless
+          # sudo, so `sudo rm -rf ... 2>/dev/null || true` prompts, fails silently
+          # and the step reports success while deleting nothing -- which is why the
+          # previous fix appeared to work and the checkout kept failing anyway.
+          # Use a disposable root container instead, as pr-test.yaml already does.
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
+            'rm -rf /ws/workspace /ws/stamp_eval_data /ws/deploy_test_stamp' || true
+          # Belt and braces: hand anything else root-owned back to the runner user.
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
+            'find /ws -mindepth 1 -maxdepth 1 -not -name ".git" -exec chown -R '"$(id -u):$(id -g)"' {} + 2>/dev/null || true' || true
 
       - uses: actions/checkout@v4
         with:
@@ -134,8 +148,23 @@ jobs:
             --num-rounds "$DEPLOY_NUM_ROUNDS"
 
       - name: Push Docker image to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          # Remote clients pull the image from Docker Hub during startup.
+          set -euo pipefail
+          # Remote clients pull the image from Docker Hub during startup. The push
+          # previously relied on an ambient ~/.docker/config.json that only the old
+          # cosmos runner had, so every run on the ci runners failed with
+          # "denied: requested access to the resource is denied". Authenticate from
+          # repository secrets instead — this workflow is workflow_dispatch/schedule
+          # only, so a fork cannot trigger it.
+          if [[ -n "${DOCKERHUB_TOKEN:-}" ]]; then
+            echo "$DOCKERHUB_TOKEN" | docker login -u "${DOCKERHUB_USERNAME:-jefftud}" --password-stdin
+          else
+            echo "::warning::DOCKERHUB_TOKEN secret is not set — falling back to any ambient docker credential."
+          fi
+
           VERSION=$(./scripts/build/getVersionNumber.sh)
           docker push "jefftud/odelia:$VERSION"
 
@@ -162,7 +191,11 @@ jobs:
           # The image's WORKDIR is /workspace, but the source lives at /MediSwarm,
           # so the script must be addressed by absolute path (a relative path fails
           # with "can't open file '/workspace/application/...'").
-          docker run --rm -v "$eval_root":/data "$image" \
+          # Run as the invoking user, not root: otherwise every generated file under
+          # stamp_eval_data/ is root-owned and blocks the NEXT run's checkout (git
+          # clean cannot remove them, and the runner has no passwordless sudo).
+          # Same pattern as scripts/ci/runIntegrationTests.sh.
+          docker run --rm -u "$(id -u):$(id -g)" -v "$eval_root":/data "$image" \
             python3 /MediSwarm/application/jobs/STAMP_classification/app/scripts/create_synthetic_dataset/create_synthetic_stamp_dataset.py /data
 
           # Resolve the eval site name from the conf (first client site).

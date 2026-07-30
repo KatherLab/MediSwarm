@@ -71,7 +71,11 @@ jobs:
         run: |
           # NVFlare server container creates root-owned workspace files that
           # block actions/checkout@v4's git clean.  Remove them before checkout.
-          sudo rm -rf "$GITHUB_WORKSPACE/workspace" "$GITHUB_WORKSPACE/deploy_test" 2>/dev/null || true
+          # `sudo` is NOT usable on these runners (no passwordless sudo): it prompts,
+          # fails silently under `2>/dev/null || true`, and the step reports success
+          # while deleting nothing. Use a disposable root container, as pr-test.yaml does.
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
+            'rm -rf /ws/workspace /ws/deploy_test' || true
 
       - uses: actions/checkout@v4
         with:
@@ -151,9 +155,27 @@ jobs:
             --num-rounds "$DEPLOY_NUM_ROUNDS"
 
       - name: Push Docker image to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          # Remote clients pull the image from Docker Hub during startup.
-          # Cosmos is already authenticated to Docker Hub (jefftud).
+          set -euo pipefail
+          # Remote clients pull the image from Docker Hub during startup, so the
+          # build under test has to be published before the clients start.
+          #
+          # This used to rely on the runner having an ambient ~/.docker/config.json
+          # (true only on the old cosmos runner). Since the deploy tests moved to the
+          # ci runners the push failed with "denied: requested access to the resource
+          # is denied" on every run. Authenticate explicitly from repository secrets
+          # instead: these workflows are workflow_dispatch/schedule only, so a fork
+          # cannot trigger them and the credential is never written to the runner's
+          # ambient config.
+          if [[ -n "${DOCKERHUB_TOKEN:-}" ]]; then
+            echo "$DOCKERHUB_TOKEN" | docker login -u "${DOCKERHUB_USERNAME:-jefftud}" --password-stdin
+          else
+            echo "::warning::DOCKERHUB_TOKEN secret is not set — falling back to any ambient docker credential."
+          fi
+
           VERSION=$(./scripts/build/getVersionNumber.sh)
           docker push "jefftud/odelia:$VERSION"
 

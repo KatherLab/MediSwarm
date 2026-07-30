@@ -127,8 +127,30 @@ verify_files () {
 
 
 copy_files() {
-    # Copy MST pre-trained weights
+    # Copy MST pre-trained weights.
+    #
+    # #408: the torch.hub cache holds the checkpoint (~85 MB, required) *and* a full
+    # clone of the dinov2 repo. The clone cannot simply be dropped -- models/mst.py
+    # calls torch.hub.load('facebookresearch/dinov2', ...), which imports hubconf.py
+    # and the dinov2 package from it. But its docs/ (1.8 MB of PNGs), notebooks/
+    # (1.3 MB of .ipynb) and .github/ are documentation and media that are never
+    # imported, and they end up in a Docker image layer. Prune only those.
     cp -r "$CACHE_DIR/torch_home_cache" "$TARGET_DIR/torch_home_cache"
+    _dinov2_dir="$TARGET_DIR/torch_home_cache/hub/facebookresearch_dinov2_main"
+    if [[ -d "$_dinov2_dir" ]]; then
+        rm -rf "$_dinov2_dir/docs" "$_dinov2_dir/notebooks" "$_dinov2_dir/.github"
+        # Fail loudly rather than shipping an image whose backbone cannot load: a
+        # missing hub artifact only surfaces at training time, not in CI.
+        for _required in \
+            "$TARGET_DIR/torch_home_cache/hub/checkpoints/dinov2_vits14_pretrain.pth" \
+            "$_dinov2_dir/hubconf.py" \
+            "$_dinov2_dir/dinov2" ; do
+            if [[ ! -e "$_required" ]]; then
+                echo "ERROR: required torch.hub artifact missing after prune: $_required" >&2
+                exit 1
+            fi
+        done
+    fi
     chmod a+rX "$TARGET_DIR/torch_home_cache" -R
 
     # Copy ResNet18 pre-trained weights
