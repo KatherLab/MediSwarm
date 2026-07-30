@@ -218,13 +218,61 @@ fix_remote_dns() {
     ok "DNS resolution verified on all remote machines"
 }
 
+# ── Container name filter, scoped to THIS test's kit (#472) ───────────────
+# stop_all() used to kill every container matching 'odelia_swarm|nvflare' on this
+# host AND on every client site. That pattern also matches PRODUCTION containers:
+# the live ODELIA server here is odelia_swarm_server_flserver_<hash> and partner
+# clients are odelia_swarm_client_<SITE>_<hash>. A deploy test (or a retry, or a
+# concurrent run) would therefore tear down the running consortium swarm.
+#
+# Every built startup kit hardcodes its container names as
+#   odelia_swarm_{client,server}_<name>_<git-short-hash>
+# so the trailing hash identifies the kit this test drives. Scope the filter to it.
+# If it cannot be derived we warn loudly and fall back to the broad pattern -- a
+# silently no-op cleanup would leave containers behind and break later runs.
+KIT_CONTAINER_SUFFIX=""
+KIT_SUFFIX_RESOLVED=false
+
+resolve_kit_container_suffix() {
+    [[ "$KIT_SUFFIX_RESOLVED" == true ]] && return 0
+    KIT_SUFFIX_RESOLVED=true
+
+    local prod_dir docker_sh
+    prod_dir=$(find_latest_prod 2>/dev/null || true)
+    [[ -n "$prod_dir" && -d "$prod_dir" ]] || return 0
+
+    docker_sh=$(find "$prod_dir" -mindepth 3 -maxdepth 3 -path '*/startup/docker.sh' 2>/dev/null | head -1)
+    [[ -n "$docker_sh" ]] || return 0
+
+    KIT_CONTAINER_SUFFIX=$(grep -hoE '^ *CONTAINER_NAME=odelia_swarm_.*_[0-9a-f]{7,40}$' "$docker_sh" 2>/dev/null \
+        | head -1 | sed -E 's/.*_([0-9a-f]{7,40})$/\1/')
+
+    if [[ -n "$KIT_CONTAINER_SUFFIX" ]]; then
+        info "Container cleanup scoped to this kit: *_${KIT_CONTAINER_SUFFIX} (#472)"
+    else
+        warn "Could not derive this kit's container suffix — cleanup falls back to the"
+        warn "  broad 'odelia_swarm|nvflare' filter, which can tear down a PRODUCTION"
+        warn "  swarm running on these hosts (#472)."
+    fi
+}
+
+# Extended-regex matching only this test's containers (or the broad legacy filter).
+container_filter() {
+    resolve_kit_container_suffix
+    if [[ -n "$KIT_CONTAINER_SUFFIX" ]]; then
+        printf 'odelia_swarm_.*_%s$' "$KIT_CONTAINER_SUFFIX"
+    else
+        printf '%s' "$NVFLARE_CONTAINER_RE"
+    fi
+}
+
 # ── Stop all containers ───────────────────────────────────────────────────
 stop_all() {
     info "Stopping all NVFlare containers..."
 
     # Stop local containers on Cosmos (server + admin)
     local local_containers
-    local_containers=$(docker ps -a --format '{{.Names}}' | grep -E "$NVFLARE_CONTAINER_RE" || true)
+    local_containers=$(docker ps -a --format '{{.Names}}' | grep -E "$(container_filter)" || true)
     if [[ -n "$local_containers" ]]; then
         echo "$local_containers" | xargs docker rm -f 2>/dev/null || true
     fi
@@ -240,7 +288,7 @@ stop_all() {
         fi
         visited_hosts[$host]=1
         remote_exec "$site" \
-            "docker ps -a --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare|^swarm-' | xargs -r docker rm -f 2>/dev/null" \
+            "docker ps -a --format '{{.Names}}' | grep -E '$(container_filter)' | xargs -r docker rm -f 2>/dev/null" \
             2>/dev/null || warn "  Could not stop containers on $host"
     done
 
@@ -389,7 +437,7 @@ start_server() {
     info "Waiting 15s for server to initialize..."
     sleep 15
 
-    if docker ps --format '{{.Names}}' | grep -qE "$NVFLARE_CONTAINER_RE"; then
+    if docker ps --format '{{.Names}}' | grep -qE "$(container_filter)"; then
         ok "Server container is running"
     else
         warn "Server container not detected — it may still be starting"
@@ -416,12 +464,19 @@ start_clients() {
 
         info "Starting client: $site_name @ $host"
 
+        # Pin the image this test actually built. Client kits ship startup/image.conf
+        # pinning the ':current' release channel, and docker.sh's precedence is
+        # --image > MEDISWARM_IMAGE > image.conf > built-in default. Without --image,
+        # image.conf won and every client ran ':current' -- i.e. the last released
+        # image, NOT the build under test, so the deploy test silently validated
+        # something else. pre_pull_images() has already pulled $DOCKER_IMAGE on the
+        # remote, so --no_pull stays correct.
         remote_exec "$site" \
             "cd '$deploy_dir/$site_name/startup' && \
              export SITE_NAME='$site_name' && \
              export DATADIR='$datadir' && \
              export SCRATCHDIR='$scratchdir' && \
-             ./docker.sh --no_pull --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
+             ./docker.sh --no_pull --image '$DOCKER_IMAGE' --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
 
         ok "  Client started: $site_name"
     done
@@ -686,7 +741,7 @@ wait_for_completion() {
         fi
 
         # Also check if the server container died
-        if ! docker ps --format '{{.Names}}' | grep -qE "$NVFLARE_CONTAINER_RE"; then
+        if ! docker ps --format '{{.Names}}' | grep -qE "$(container_filter)"; then
             # Container is gone — do a final check on the log
             if [[ -f "$server_log" ]]; then
                 local new_lines
