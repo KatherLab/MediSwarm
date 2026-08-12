@@ -61,7 +61,7 @@ def set_up_data_module(env_vars):
 
     return dm
 
-class GT_PredProb_Output_Callback(Callback):
+class Finalize_Training_Callback(Callback):
     def __init__(self,
                  logger,
                  model,
@@ -101,8 +101,8 @@ def prepare_training(logger):
             mode=min_max,
         )
 
-        gt_predprob_output = GT_PredProb_Output_Callback(logger, model, checkpointing)
-        callbacks = [checkpointing, gt_predprob_output]
+        finalize_training_callback = Finalize_Training_Callback(logger, model, checkpointing)
+        callbacks = [checkpointing, finalize_training_callback]
 
         trainer = Trainer(
             accelerator=accelerator,
