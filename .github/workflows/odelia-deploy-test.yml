@@ -16,7 +16,7 @@ on:
       conf_source:
         description: "Deploy-site credential/config file on the runner (default: ~/mediswarm_deploy_conf/...)"
         required: false
-        # Empty -> the job falls back to $HOME/mediswarm_deploy_conf/deploy_sites_4node_test.conf
+        # Empty -> the job falls back to $HOME/mediswarm_deploy_conf/deploy_sites_odelia_ci_2node.conf
         # on the runner. A literal $HOME here would NOT be expanded by YAML.
         default: ""
         type: string
@@ -98,7 +98,7 @@ jobs:
 
           project_file="${INPUT_PROJECT_FILE:-application/provision/project_deploy_test_4site.yml}"
           num_rounds="${INPUT_NUM_ROUNDS:-1}"
-          conf_source="${INPUT_CONF_SOURCE:-$HOME/mediswarm_deploy_conf/deploy_sites_4node_test.conf}"
+          conf_source="${INPUT_CONF_SOURCE:-$HOME/mediswarm_deploy_conf/deploy_sites_odelia_ci_2node.conf}"
           run_all="${INPUT_RUN_ALL:-false}"
           model="${INPUT_MODEL:-1DivideAndConquer}"
           job="${INPUT_JOB:-challenge_1DivideAndConquer}"
