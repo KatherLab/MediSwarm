@@ -840,7 +840,7 @@ docker_cln_sh: |
       # its own host path makes any link that stays WITHIN the tree resolve. Targets
       # outside $MY_DATA_DIR still need an explicit extra mount, e.g. via
       # MEDISWARM_DOCKER_OPTIONS="-v /abs/target:/abs/target:ro" in startup/image.conf.
-      if [ "$MY_DATA_DIR" != "/data" ]; then
+      if ! [[ "$MY_DATA_DIR" =~ "/data" ]]; then
           DOCKER_MOUNTS+=" -v $MY_DATA_DIR:$MY_DATA_DIR:ro"
       fi
   fi
