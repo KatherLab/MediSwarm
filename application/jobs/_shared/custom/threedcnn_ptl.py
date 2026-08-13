@@ -603,6 +603,10 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
     return data_module, model, checkpointing, trainer, path_run_dir, env_vars
 
 
+def is_final_round(current_round, total_rounds) -> bool:
+    return total_rounds is not None and total_rounds > 0 and current_round >= total_rounds - 1
+
+
 def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
     """Whether to export per-sample aggregated predictions this swarm round (#314).
 
@@ -619,7 +623,7 @@ def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
         every_n = int(os.environ.get("ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS", "0") or "0")
     except (TypeError, ValueError):
         every_n = 0
-    is_final = total_rounds is not None and total_rounds > 0 and current_round >= total_rounds - 1
+    is_final = is_final_round(current_round, total_rounds)
     if every_n <= 0:
         return is_final
     if every_n == 1:
