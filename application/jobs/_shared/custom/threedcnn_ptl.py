@@ -500,19 +500,6 @@ class GT_PredProb_Output_Callback(Callback):
                                      self.csv_filename_validation)
 
 
-class Finalize_Training_Callback(Callback):
-    def __init__(self, logger, model, checkpointing, path_run_dir, env_vars):
-        self.logger = logger
-        self.model = model
-        self.checkpointing = checkpointing
-        self.path_run_dir = path_run_dir
-        self.env_vars = env_vars
-        super().__init__()
-
-    def on_fit_end(self, trainer, pl_module):
-        finalize_training(self.logger, self.model, self.checkpointing, trainer, self.path_run_dir, self.env_vars)
-
-
 def prepare_training(logger, max_epochs: int, site_name: str = None,
                      log_dataset_details: bool = False, model_variant: str = None,
                      weighted_epochs: bool = False):
@@ -579,13 +566,7 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
                                                                   path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
                                                                   path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
 
-        finalize_training_callback = Finalize_Training_Callback(logger,
-                                                                model,
-                                                                checkpointing,
-                                                                path_run_dir,
-                                                                env_vars)
-
-        callbacks = [checkpointing, gt_predprob_output_callback, finalize_training_callback]
+        callbacks = [checkpointing, gt_predprob_output_callback]
 
         # FedProx proximal term: penalise local model deviation from global model.
         # Enabled via FEDPROX_MU env var (default 0 = disabled).
