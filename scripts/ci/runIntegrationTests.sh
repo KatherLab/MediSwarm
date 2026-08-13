@@ -849,6 +849,16 @@ run_dummy_training_in_swarm () {
             exit 1
         fi
     done
+
+    count_completed=$(grep -o 'Training completed successfully.' nohup.out | wc -l)
+    if [ "$count_completed" -eq 1 ]; then
+        echo "✅ Expected output Training completed successfully found exactly once"
+    else
+        cat "$CONSOLE_OUTPUT_FILE"
+        echo "❌ Expected output Training completed successfully not found exactly once"
+        exit 1
+    fi
+
     cd "$CWD"
 
     cd "$PROJECT_DIR"/prod_00/client_A/
