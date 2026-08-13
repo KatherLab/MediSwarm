@@ -486,15 +486,10 @@ def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv
 
 
 class GT_PredProb_Output_Callback(Callback):
-    def __init__(self, data_module, csv_filename_train, csv_filename_validation, logger, model, checkpointing, path_run_dir, env_vars):
+    def __init__(self, data_module, csv_filename_train, csv_filename_validation):
         self.data_module = data_module
         self.csv_filename_train = csv_filename_train
         self.csv_filename_validation = csv_filename_validation
-        self.logger = logger
-        self.model = model
-        self.checkpointing = checkpointing
-        self.path_run_dir = path_run_dir
-        self.env_vars = env_vars
         super().__init__()
 
     def on_train_epoch_end(self, trainer, pl_module):
@@ -503,6 +498,16 @@ class GT_PredProb_Output_Callback(Callback):
                                      trainer.current_epoch,
                                      self.csv_filename_train,
                                      self.csv_filename_validation)
+
+
+class Finalize_Training_Callback(Callback):
+    def __init__(self, logger, model, checkpointing, path_run_dir, env_vars):
+        self.logger = logger
+        self.model = model
+        self.checkpointing = checkpointing
+        self.path_run_dir = path_run_dir
+        self.env_vars = env_vars
+        super().__init__()
 
     def on_fit_end(self, trainer, pl_module):
         finalize_training(self.logger, self.model, self.checkpointing, trainer, self.path_run_dir, self.env_vars)
@@ -570,16 +575,17 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
             mode=min_max,
         )
 
-        gt_predprob_output = GT_PredProb_Output_Callback(data_module,
-                                                         path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
-                                                         path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION,
-                                                         logger,
-                                                         model,
-                                                         checkpointing,
-                                                         path_run_dir,
-                                                         env_vars)
+        gt_predprob_output_callback = GT_PredProb_Output_Callback(data_module,
+                                                                  path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
+                                                                  path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
 
-        callbacks = [checkpointing, gt_predprob_output]
+        finalize_training_callback = Finalize_Training_Callback(logger,
+                                                                model,
+                                                                checkpointing,
+                                                                path_run_dir,
+                                                                env_vars)
+
+        callbacks = [checkpointing, gt_predprob_output_callback, finalize_training_callback]
 
         # FedProx proximal term: penalise local model deviation from global model.
         # Enabled via FEDPROX_MU env var (default 0 = disabled).
