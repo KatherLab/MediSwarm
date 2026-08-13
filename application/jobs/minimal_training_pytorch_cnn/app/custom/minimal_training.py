@@ -61,20 +61,6 @@ def set_up_data_module(env_vars):
 
     return dm
 
-class Finalize_Training_Callback(Callback):
-    def __init__(self,
-                 logger,
-                 model,
-                 checkpointing):
-        self.logger=logger
-        self.model=model
-        self.checkpointing=checkpointing
-        super().__init__()
-
-    def on_fit_end(self, trainer, pl_module):
-        finalize_training(self.logger, self.model, self.checkpointing, trainer)
-
-
 def prepare_training(logger):
     try:
         env_vars = load_environment_variables()
@@ -101,8 +87,7 @@ def prepare_training(logger):
             mode=min_max,
         )
 
-        finalize_training_callback = Finalize_Training_Callback(logger, model, checkpointing)
-        callbacks = [checkpointing, finalize_training_callback]
+        callbacks = [checkpointing]
 
         trainer = Trainer(
             accelerator=accelerator,
@@ -147,4 +132,4 @@ def finalize_training(logger, model, checkpointing, trainer) -> None:
     else:
         logger.warning('No last checkpoint found.')
 
-    logger.info('Training completed successfully')
+    logger.info('Training completed successfully.')
