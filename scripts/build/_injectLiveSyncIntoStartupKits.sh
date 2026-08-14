@@ -37,6 +37,7 @@ HELPER_SOURCE_DIR="kit_live_sync"
 SYNC_CONF_SOURCE="$HELPER_SOURCE_DIR/sync.conf"
 SYNC_CONF_EXAMPLE_SOURCE="$HELPER_SOURCE_DIR/sync.conf.example"
 ADMIN_HELPER_SOURCE="kit_admin_tools/prepare_odelia_job.sh"
+ADMIN_PATCHER_SOURCE="scripts/admin/patch_warm_start_job.py"
 
 if [ ! -d "$HELPER_SOURCE_DIR" ]; then
   echo "Missing helper directory: $HELPER_SOURCE_DIR"
@@ -50,6 +51,11 @@ fi
 
 if [ ! -f "$ADMIN_HELPER_SOURCE" ]; then
   echo "Missing admin helper: $ADMIN_HELPER_SOURCE"
+  exit 1
+fi
+
+if [ ! -f "$ADMIN_PATCHER_SOURCE" ]; then
+  echo "Missing admin job patcher: $ADMIN_PATCHER_SOURCE"
   exit 1
 fi
 
@@ -111,8 +117,9 @@ IMAGECONF
 
   if [ -f "$STARTUP_DIR/fl_admin.sh" ]; then
     cp "$ADMIN_HELPER_SOURCE" "$STARTUP_DIR/prepare_odelia_job.sh"
+    cp "$ADMIN_PATCHER_SOURCE" "$STARTUP_DIR/patch_warm_start_job.py"
     chmod +x "$STARTUP_DIR/prepare_odelia_job.sh"
-    echo "Injected admin warm-start job helper into $STARTUP_DIR"
+    echo "Injected admin warm-start job helper and matching patcher into $STARTUP_DIR"
   fi
 
   # Clean up legacy docker_original.sh wrapper if present from a previous build
