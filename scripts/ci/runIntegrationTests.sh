@@ -949,7 +949,7 @@ run_3dcnn_training_in_swarm () {
     cd admin@test.odelia/startup
     # only require 2 clients in test
     sed -i 's#python3#sed -i "s/min_clients = [[:digit:]]*/min_clients = 2/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \nsed -i "s/min_responses_required = [[:digit:]]*/min_responses_required = 2/" `find /MediSwarm/application/ -name "config_fed_client.conf"`\npython3#' fl_admin.sh
-    # only run one round in test
+    # only run 2 rounds in test
     sed -i 's#python3#sed -i "s/num_rounds = 20/num_rounds = 2/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \npython3#' fl_admin.sh
 
     expect -f "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
