@@ -2,6 +2,7 @@ import csv
 import json
 import logging
 import os
+import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
@@ -657,7 +658,6 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
 
 def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
     """Save best and latest checkpoints after training completes."""
-    import shutil
 
     # Save best checkpoint (highest val/ACC)
     best_path = checkpointing.best_model_path
