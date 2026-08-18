@@ -670,19 +670,19 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
     log_stage_timing_summary(logger, stage_timings, "ODELIA execution stage timings:")
 
 
-def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars, output_GT_and_classprob_aggregated_model=True) -> None:
-    """Save best and latest checkpoints after training completes."""
+def _output_GT_and_classprobs_csv_test(logger, model, data_module, trainer, path_run_dir):
+    """Output table of ground truth and class probabilities for test data"""
 
-    if output_GT_and_classprob_aggregated_model:
-        logger.info(f'Exporting prediction for test data (aggregated model)')
-        output_GT_and_classprobs_csv_test(
-            model,
-            data_module,
-            trainer.current_epoch,
-            path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST,
-        )
+    logger.info(f'Exporting prediction for test data (aggregated model)')
+    output_GT_and_classprobs_csv_test(
+        model,
+        data_module,
+        trainer.current_epoch,
+        path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST,
+    )
 
-    # Save best checkpoint (highest val/ACC)
+def _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir):#
+    """Save best checkpoint to file"""
     best_path = checkpointing.best_model_path
     if best_path:
         model.save_best_checkpoint(trainer.logger.log_dir, best_path)
@@ -699,15 +699,19 @@ def finalize_training(logger, data_module, model, checkpointing, trainer, path_r
     else:
         logger.warning('No best checkpoint found.')
 
-    # Save latest (last) checkpoint — useful for resuming training or when
-    # the best checkpoint was from an early round and the final aggregated
-    # model is preferred for deployment.
-    last_path = checkpointing.last_model_path
-    if last_path:
-        final_last = path_run_dir / "last_global_model.ckpt"
-        shutil.copy(last_path, final_last)
-        logger.info(f'Last model saved to: {final_last}')
-    else:
-        logger.warning('No last checkpoint found.')
+def _save_last_checkpoint(logger, checkpointing, path_run_dir):
+  """Save latest (last) checkpoint — useful for resuming training or when the best checkpoint was from an early round and the final aggregated model is preferred for deployment."""
+  last_path = checkpointing.last_model_path
+  if last_path:
+      final_last = path_run_dir / "last_global_model.ckpt"
+      shutil.copy(last_path, final_last)
+      logger.info(f'Last model saved to: {final_last}')
+  else:
+      logger.warning('No last checkpoint found.')
 
+def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
+    if output_GT_and_classprob_aggregated_model:
+        _output_GT_and_classprobs_csv_test(logger, model, data_module, trainer, path_run_dir)
+    _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir)
+    _save_last_checkpoint(logger, checkpointing, path_run_dir)
     logger.info('Training completed successfully.')
