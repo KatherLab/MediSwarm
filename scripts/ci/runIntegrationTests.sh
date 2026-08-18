@@ -734,6 +734,20 @@ verify_wrong_certificates_are_rejected () {
 }
 
 
+_verify_that_string_is_contained_once_in_file() {
+    expected_string=$1
+    filename=$2
+    num_occurences=$(grep -o "$expected_string" "$filename" | wc -l)
+    if [ "$num_occurences" -eq 1 ]; then
+        echo "✅ Expected output" "$expected_string" "found exactly once"
+    else
+        cat "$filename"
+        echo "❌ Expected output" "$expected_string" "not found exactly once"
+        exit 1
+    fi
+}
+
+
 run_dummy_training_in_swarm () {
     echo "[Run] Dummy training in swarm (polling for completion, up to 5 minutes) ..."
 
@@ -849,6 +863,8 @@ run_dummy_training_in_swarm () {
             exit 1
         fi
     done
+
+    _verify_that_string_is_contained_once_in_file 'Training completed successfully.' nohup.out
     cd "$CWD"
 
     cd "$PROJECT_DIR"/prod_00/client_A/
@@ -892,8 +908,8 @@ run_3dcnn_local_training () {
 
     # verify that expected output is present in the log
     for EXPECTED_OUTPUT in "Epoch 1: 100%" \
-                           "Training completed successfully" \
-                           "Best model checkpoint:";
+                           "Best model checkpoint:" \
+                           "Training completed successfully.";
     do
         if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT of 3DCNN local training found"
@@ -903,6 +919,9 @@ run_3dcnn_local_training () {
             exit 1
         fi
     done
+
+    # The following fails; output is contained twice in log (for unknown reasons) even though it is printed only once during training.
+    # _verify_that_string_is_contained_once_in_file 'Training completed successfully.' "$CONSOLE_OUTPUT_FILE"
     cd "$CWD"
 
     # verify that expected files have been created
@@ -930,8 +949,8 @@ run_3dcnn_training_in_swarm () {
     cd admin@test.odelia/startup
     # only require 2 clients in test
     sed -i 's#python3#sed -i "s/min_clients = [[:digit:]]*/min_clients = 2/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \nsed -i "s/min_responses_required = [[:digit:]]*/min_responses_required = 2/" `find /MediSwarm/application/ -name "config_fed_client.conf"`\npython3#' fl_admin.sh
-    # only run one round in test
-    sed -i 's#python3#sed -i "s/num_rounds = 20/num_rounds = 1/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \npython3#' fl_admin.sh
+    # only run 2 rounds in test
+    sed -i 's#python3#sed -i "s/num_rounds = 20/num_rounds = 2/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \npython3#' fl_admin.sh
 
     expect -f "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
@@ -959,10 +978,9 @@ run_3dcnn_training_in_swarm () {
     # check for expected output in server log (clients joined, job ID assigned, 1 round)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT_FILE=nohup.out
-
-    for EXPECTED_OUTPUT in "updated status of client client_A on round 0: .* action=start_learn_task, all_done=False" \
-                           "updated status of client client_B on round 0: .* action=start_learn_task, all_done=False" \
-                           "all_done=True";
+    for EXPECTED_OUTPUT in 'updated status of client client_A on round 0: .* action=start_learn_task, all_done=False' \
+                           'updated status of client client_B on round 0: .* action=start_learn_task, all_done=False' \
+                           'all_done=True';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -991,6 +1009,9 @@ run_3dcnn_training_in_swarm () {
             exit 1
         fi
     done
+
+    CONSOLE_OUTPUT_FILE_ONE_SITE=nohup.out
+    _verify_that_string_is_contained_once_in_file 'Training completed successfully.' "$CONSOLE_OUTPUT_FILE_ONE_SITE"
     cd "$CWD"
 
     # check for expected output files
