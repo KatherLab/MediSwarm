@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
 import torch
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from data.datamodules import DataModule
