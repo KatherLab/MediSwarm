@@ -712,13 +712,12 @@ def _save_last_checkpoint(logger, checkpointing, path_run_dir):
       final_last = path_run_dir / "last_global_model.ckpt"
       shutil.copy(last_path, final_last)
       logger.info(f'Last model saved to: {final_last}')
-
-
   else:
       logger.warning('No last checkpoint found.')
 
 def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
-    _output_GT_and_classprobs_csv_test(logger, model, data_module, trainer, path_run_dir, output_GT_and_classprob_aggregated_model)
+    # the following does not work yet:
+    # _output_GT_and_classprobs_csv_test(logger, model, data_module, trainer, path_run_dir, output_GT_and_classprob_aggregated_model)
     _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir)
     _save_last_checkpoint(logger, checkpointing, path_run_dir)
     logger.info('Training completed successfully.')
