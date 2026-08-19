@@ -930,6 +930,7 @@ run_3dcnn_local_training () {
     FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
+                         "site_model_gt_and_classprob_test.csv" \
                          "last_global_model.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
@@ -1020,6 +1021,7 @@ run_3dcnn_training_in_swarm () {
     FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
+                         "site_model_gt_and_classprob_test.csv" \
                          "aggregated_model_gt_and_classprob_train.csv" \
                          "aggregated_model_gt_and_classprob_validation.csv" \
                          "custom/threedcnn_ptl.py" \
