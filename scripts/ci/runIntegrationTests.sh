@@ -931,8 +931,7 @@ run_3dcnn_local_training () {
 
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
-                         "site_model_gt_and_classprob_test.csv" \
-                         "last_global_model.ckpt";
+                         "last.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -1024,12 +1023,13 @@ run_3dcnn_training_in_swarm () {
 
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
-                         "site_model_gt_and_classprob_test.csv" \
                          "aggregated_model_gt_and_classprob_train.csv" \
                          "aggregated_model_gt_and_classprob_validation.csv" \
                          "custom/threedcnn_ptl.py" \
+                         "last.ckpt" \
                          "FL_global_model.pt" \
-                         "last_global_model.ckpt";
+                         "best_FL_global_model.pt" \
+                         ;
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
