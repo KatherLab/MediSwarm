@@ -672,7 +672,7 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
     log_stage_timing_summary(logger, stage_timings, "ODELIA execution stage timings:")
 
 
-def _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model: bool):
+def _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars, output_GT_and_classprob_aggregated_model: bool):
     def _output_for_last_local_model(logger, data_module, model, checkpointing, path_run_dir):
         logger.info(f'Exporting prediction for test data, last local model')
         last_local_model = model.load_checkpoint_from_file(path_run_dir/checkpointing.last_model_path, strict=False)
@@ -698,16 +698,93 @@ def _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing
     _output_for_best_local_model(logger, data_module, model, checkpointing, path_run_dir)
 
     if output_GT_and_classprob_aggregated_model:
-        logger.info(f'Exporting prediction for test data (global model)—NOT IMPLEMENTED YET')
-        # global_model = … load model from FL_global_model.pt (path?)
-        # epoch_at_start_of_last_round = … figure out epoch at beginning of the last round (how?)
-        # output_GT_and_classprobs_csv_test(
-        #     global_model,
-        #     data_module,
-        #     epoch_at_start_of_last_round,
-        #     path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST,
-        # )
-        # TODO check whether file exists in test
+        """
+        for model_filename, csv_filename in (('FL_global_model.pt', FILENAME_GT_PREDPROB_LAST_AGGREGATED_MODEL_TEST),
+                                             ('best_FL_global_model.pt', FILENAME_GT_PREDPROB_BEST_AGGREGATED_MODEL_TEST)):
+            logger.info(f'Exporting prediction for test data (global model {model_filename})')
+            nvflare_run_dir = os.path.dirname(os.path.abspath(__file__)) + '/..'   # TODO is there a better way to obtain the run directory here?
+            nvflare_run_dir = Path(os.path.abspath(nvflare_run_dir))
+            global_model_path = nvflare_run_dir/model_filename                  #      Or the location of the (best) global model?
+
+            ckpt = torch.load(global_model_path, weights_only=False)
+            # use correct way of loading model
+            global_model = None
+            output_GT_and_classprobs_csv_test(
+                global_model,
+                data_module,
+                trainer.current_epoch,
+                path_run_dir/csv_filename,
+            )
+
+        """
+        logger.info(f'Exporting prediction for test data (global model)')
+        nvflare_run_dir = os.path.dirname(os.path.abspath(__file__)) + '/..'   # TODO is there a better way to obtain the run directory here?
+        nvflare_run_dir = Path(os.path.abspath(nvflare_run_dir))
+        fl_global_model_path = nvflare_run_dir/'FL_global_model.pt'            #      Or the location of the global model?
+
+        import time
+        import glob
+        for i in range(10):
+            time.sleep(5)
+            files_present = '\n'.join(glob.iglob(str(nvflare_run_dir)+'**/**', recursive=True))
+            if 'FL_global_model.pt' in files_present and 'best_FL_global_model.pt':
+                print (i, 'FL_global_model.pt in', nvflare_run_dir, 'FL_global_model.pt' in files_present)
+                print (i, 'best_FL_global_model.pt in', nvflare_run_dir, 'best_FL_global_model.pt' in files_present)
+                break
+            else:
+                print (i, 'FL_global_model.pt in', nvflare_run_dir, 'FL_global_model.pt' in files_present)
+                print (i, 'best_FL_global_model.pt in', nvflare_run_dir, 'best_FL_global_model.pt' in files_present)
+            # logger.info('trainer.logger.log_dir')
+            # logger.info(trainer.logger.log_dir)
+            # logger.info('\n'.join(glob.iglob(trainer.logger.log_dir + '**/**', recursive=True)))
+
+            # logger.info('path_run_dir')
+            # logger.info(path_run_dir)
+            # logger.info('\n'.join(glob.iglob(str(path_run_dir)+'**/**', recursive=True)))
+
+            # logger.info('nvflare_run_dir')
+            # logger.info(nvflare_run_dir)
+            # logger.info('\n'.join(glob.iglob(str(nvflare_run_dir)+'**/**', recursive=True)))
+
+        _, _, _, num_classes, loss_kwargs = set_up_data_module(logger, env_vars, False)
+
+        fl_global_model = create_model(
+            logger=logger,
+            model_name=env_vars['model_name'],
+            num_classes=num_classes
+        )
+
+        loaded = torch.load(fl_global_model_path, weights_only=False)  # , map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"), weights_only=False)
+        logger.info(loaded.keys())
+
+        fl_global_model = fl_global_model.load_state_dict(loaded["model"], strict=False)
+        """
+        if isinstance(loaded, dict) and "model" in loaded:
+            logger.info('loading loaded["model"]')
+            fl_global_model = model.load_state_dict(loaded["model"], strict=False)
+        elif isinstance(loaded, dict) and "state_dict" in loaded:
+            logger.info('loading loaded["state_dict"]')
+            fl_global_model = model.load_state_dict(loaded["state_dict"], strict=False)
+        elif isinstance(loaded, dict):
+            logger.info('loading 1loaded')
+            fl_global_model = model.load_state_dict(loaded, strict=False)
+        else:
+            raise ValueError(
+                f"Unexpected checkpoint format at {checkpoint_path}. "
+                f"Got type: {type(loaded)}"
+            )
+        """
+        output_GT_and_classprobs_csv_test(
+            fl_global_model,
+            data_module,
+            trainer.current_epoch,
+            path_run_dir/FILENAME_GT_PREDPROB_LAST_AGGREGATED_MODEL_TEST,
+        )
+
+        # same for best_FL_global_model.pt / FILENAME_GT_PREDPROB_BEST_AGGREGATED_MODEL_TEST
+
+        # workspace/odelia_1.7.0-dev.260819.a993c37_dummy_project_for_testing/prod_00/client_A/bbdb83f4-a723-4e74-93bb-51ae87317fb8/app_client_A/FL_global_model.pt
+        # workspace/odelia_1.7.0-dev.260819.a993c37_dummy_project_for_testing/prod_00/client_A/bbdb83f4-a723-4e74-93bb-51ae87317fb8/app_client_A/custom/threedcnn_ptl.py
 
 
 def _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir):
@@ -729,9 +806,9 @@ def _save_last_checkpoint(logger, checkpointing, path_run_dir):
   else:
       logger.warning('No last checkpoint found.')
 
-def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
+def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars, output_GT_and_classprob_aggregated_model=True) -> None:
     # the following does not work yet:
     _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir)
     _save_last_checkpoint(logger, checkpointing, path_run_dir)
-    _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model)
+    _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars, output_GT_and_classprob_aggregated_model)
     logger.info('Training completed successfully.')
