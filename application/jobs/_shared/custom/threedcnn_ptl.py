@@ -35,8 +35,10 @@ FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
 FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION = 'aggregated_model_gt_and_classprob_validation.csv'
 FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_validation.csv'
 
-FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST = 'aggregated_model_gt_and_classprob_test.csv'
-FILENAME_GT_PREDPROB_SITE_MODEL_TEST = 'site_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_LAST_AGGREGATED_MODEL_TEST = 'last_aggregated_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_BEST_AGGREGATED_MODEL_TEST = 'best_aggregated_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_LAST_SITE_MODEL_TEST = 'last_site_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_BEST_SITE_MODEL_TEST = 'best_site_model_gt_and_classprob_test.csv'
 
 OMP_THREAD_ENV_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
 
@@ -670,18 +672,30 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
     log_stage_timing_summary(logger, stage_timings, "ODELIA execution stage timings:")
 
 
-def _output_GT_and_classprobs_csv_test(logger, model, data_module, trainer, path_run_dir, output_GT_and_classprob_aggregated_model: bool):
-    """Output table of ground truth and class probabilities for test data"""
+def _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model: bool):
+    def _output_for_last_local_model(logger, data_module, model, checkpointing, path_run_dir):
+        logger.info(f'Exporting prediction for test data, last local model')
+        last_local_model = model.load_checkpoint_from_file(path_run_dir/checkpointing.last_model_path, strict=False)
+        output_GT_and_classprobs_csv_test(
+            last_local_model,
+            data_module,
+            trainer.current_epoch,
+            path_run_dir/FILENAME_GT_PREDPROB_LAST_SITE_MODEL_TEST,
+        )
 
-    logger.info(f'Exporting prediction for test data (best local model)')
 
-    best_local_model = model.load_best_checkpoint(trainer.logger.log_dir)
-    output_GT_and_classprobs_csv_test(
-        best_local_model,
-        data_module,
-        trainer.current_epoch,
-        path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TEST,
-    )
+    def _output_for_best_local_model(logger, data_module, model, checkpointing, path_run_dir):
+        logger.info(f'Exporting prediction for test data, best local model')
+        best_local_model = model.load_best_checkpoint(trainer.logger.log_dir, path_run_dir, strict=False)
+        output_GT_and_classprobs_csv_test(
+            best_local_model,
+            data_module,
+            trainer.current_epoch,  # the best model is not from the current (last) epoch, but the best model (as the file name says) *up to* said epoch
+            path_run_dir/FILENAME_GT_PREDPROB_BEST_SITE_MODEL_TEST,
+        )
+
+    _output_for_last_local_model(logger, data_module, model, checkpointing, path_run_dir)
+    _output_for_best_local_model(logger, data_module, model, checkpointing, path_run_dir)
 
     if output_GT_and_classprob_aggregated_model:
         logger.info(f'Exporting prediction for test data (global model)—NOT IMPLEMENTED YET')
@@ -709,7 +723,7 @@ def _save_last_checkpoint(logger, checkpointing, path_run_dir):
   """Save latest (last) checkpoint — useful for resuming training or when the best checkpoint was from an early round and the final aggregated model is preferred for deployment."""
   last_path = checkpointing.last_model_path
   if last_path:
-      final_last = path_run_dir / "last_global_model.ckpt"
+      final_last = path_run_dir / "last_global_model.ckpt"  # TODO should this be 'global' or 'local'?
       shutil.copy(last_path, final_last)
       logger.info(f'Last model saved to: {final_last}')
   else:
@@ -717,7 +731,7 @@ def _save_last_checkpoint(logger, checkpointing, path_run_dir):
 
 def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
     # the following does not work yet:
-    # _output_GT_and_classprobs_csv_test(logger, model, data_module, trainer, path_run_dir, output_GT_and_classprob_aggregated_model)
     _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir)
     _save_last_checkpoint(logger, checkpointing, path_run_dir)
+    _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model)
     logger.info('Training completed successfully.')
