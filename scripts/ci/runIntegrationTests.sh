@@ -1276,8 +1276,7 @@ case "$1" in
         ;;
 
     all | "")
-        # check_files_in_repo
-        echo "❗ checking files in repository currently disabled"
+        check_files_in_repo
         run_dummy_training_standalone
         run_dummy_training_simulation_mode
         run_dummy_training_poc_mode
