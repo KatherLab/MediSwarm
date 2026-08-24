@@ -207,6 +207,7 @@ run_dummy_training_standalone(){
     if grep -q "RuntimeError: This example does not work without GPU" <<< "$OUTPUT_WITHOUT_GPU"; then
         echo "✅ Verified that minimal example requires GPU"
     else
+        echo "$OUTPUT_WITHOUT_GPU"
         echo "❌ Failed to verify that minimal example requires GPU"
         exit 1
     fi
@@ -222,6 +223,7 @@ run_dummy_training_simulation_mode(){
     if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example simulation mode succeeded."
     else
+        echo "$OUTPUT"
         echo "❌ Minimal example simulation mode failed."
         exit 1
     fi
@@ -240,6 +242,7 @@ run_dummy_training_poc_mode(){
     if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example proof-of-concept mode succeeded."
     else
+        echo "$OUTPUT"
         echo "❌ Minimal example proof-of-concept mode failed."
         exit 1
     fi
@@ -319,6 +322,7 @@ create_startup_kits_and_check_contained_files () {
         if grep -q "$FILE" <<< "$ZIP_CONTENT"; then
             echo "✅ $FILE found in kit archive"
         else
+            echo "$ZIP_CONTENT"
             echo "❌ $FILE missing in kit archive"
             exit 1
         fi
@@ -356,6 +360,7 @@ run_list_licenses () {
             if grep -q "$expected_keyword" <<< "$license_output"; then
                 echo "✅ License check: $expected_keyword found"
             else
+                echo "$license_output"
                 echo "❌ License check: $expected_keyword missing"
                 exit 1
             fi
@@ -375,6 +380,7 @@ run_docker_gpu_preflight_check () {
     if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE"; then
         echo "✅ Expected output of Docker/GPU preflight check found"
     else
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Missing expected output of Docker/GPU preflight check"
         exit 1
     fi
@@ -398,6 +404,7 @@ run_two_containers_in_parallel () {
     if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE_A" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE_A"; then
         echo "✅ Expected output of running two containers in parallel found"
     else
+        cat "$CONSOLE_OUTPUT_FILE_A"
         echo "❌ Missing expected output of running two containers in parallel"
         exit 1
     fi
@@ -436,6 +443,7 @@ run_data_access_preflight_check () {
     done
 
     if grep -q  "ID_0" "$CONSOLE_OUTPUT_FILE" ; then
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Unexpected output (UIDs) of data access preflight check without logging dataset details found"
         exit 1
     else
@@ -506,6 +514,7 @@ run_data_access_preflight_check_with_problems () {
     done
 
     if grep -q  "ID_0" "$CONSOLE_OUTPUT_FILE" ; then
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Unexpected output of data access preflight check with problematic dataset without logging dataset details found"
         exit 1
     else
@@ -573,6 +582,7 @@ run_data_access_preflight_check_without_data () {
     if grep -Eq "No such file or directory: '/data/client_P/metadata_unilateral/(annotation|split)\.csv'" "$CONSOLE_OUTPUT_FILE" ; then
         echo "✅ Expected error output of data access preflight check found if no data is present"
     else
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Missing expected output of data access preflight check found if no data is present"
         exit 1
     fi
@@ -596,6 +606,7 @@ run_3dcnn_simulation_mode () {
     if grep -q "=== 3DCNN Simulation Mode PASSED ===" <<< "$OUTPUT"; then
         echo "✅ 3DCNN simulation mode succeeded."
     else
+        echo "$OUTPUT"
         echo "❌ Missing 3DCNN simulation success marker."
         exit 1
     fi
@@ -657,7 +668,8 @@ run_container_with_pulling () {
     if grep -qi "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" <<< "$OUTPUT"; then
         echo "✅ Image pulled successfully"
     else
-        echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
+        cat "$OUTPUT"
+        echo "❌ Pulling image failed"
         exit 1
     fi
 
@@ -701,6 +713,7 @@ verify_wrong_certificates_are_rejected () {
     CONSOLE_OUTPUT_FILE_CLIENT=client_A/startup/nohup.out
 
     if grep -q "Total clients: 1" $CONSOLE_OUTPUT_FILE_SERVER; then
+        cat $CONSOLE_OUTPUT_FILE_SERVER
         echo "❌ Could not verify that connection to unauthorized client was rejected"
         exit 1
     else
@@ -710,6 +723,7 @@ verify_wrong_certificates_are_rejected () {
     if grep -q "SSLCertVerificationError" $CONSOLE_OUTPUT_FILE_CLIENT; then
         echo "✅ Connection to unauthorized server rejected successfully by client"
     else
+        cat $CONSOLE_OUTPUT_FILE_CLIENT
         echo "❌ Could not verify that connection to unauthorized server was rejected"
         exit 1
     fi
@@ -720,6 +734,7 @@ verify_wrong_certificates_are_rejected () {
     if grep -q "Communication Error - please try later" <<< "$CONSOLE_OUTPUT_FILE_ADMIN"; then
         echo "✅ Connection by unauthorized admin console rejected successfully"
     else
+        echo "$CONSOLE_OUTPUT_FILE_ADMIN"
         echo "❌ Connection with non-authorized admin console"
         exit 1
     fi
@@ -874,6 +889,7 @@ run_dummy_training_in_swarm () {
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
+            echo "$FILES_PRESENT"
             echo "❌ Expected file $EXPECTED_FILE missing"
             exit 1
         fi
@@ -1038,6 +1054,7 @@ run_3dcnn_training_in_swarm () {
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
+            echo "$FILES_PRESENT"
             echo "❌ Expected file $EXPECTED_FILE missing"
             exit 1
         fi
