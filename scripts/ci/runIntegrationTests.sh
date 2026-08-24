@@ -1289,7 +1289,8 @@ case "$1" in
         run_list_licenses
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
-        run_data_access_preflight_check_log_details
+        run_data_access_preflight_check_with_problems
+        run_data_access_preflight_check_with_problems_log_details
         cleanup_synthetic_data
         run_data_access_preflight_check_without_data
         create_synthetic_data
