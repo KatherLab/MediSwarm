@@ -1039,6 +1039,7 @@ run_3dcnn_training_in_swarm () {
     FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
     FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
 
+    echo "  Testing that last_aggregated_model_gt_and_classprob_test.csv and  best_aggregated_model_gt_and_classprob_test.csv have been created NOT IMPLEMENTED YET"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
                          "last_site_model_gt_and_classprob_test.csv" \
