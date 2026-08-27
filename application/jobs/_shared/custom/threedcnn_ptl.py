@@ -699,15 +699,6 @@ def _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing
 
     if output_GT_and_classprob_aggregated_model:
         logger.info(f'Exporting prediction for test data (global model)—NOT IMPLEMENTED YET')
-        # global_model = … load model from FL_global_model.pt (path?)
-        # epoch_at_start_of_last_round = … figure out epoch at beginning of the last round (how?)
-        # output_GT_and_classprobs_csv_test(
-        #     global_model,
-        #     data_module,
-        #     epoch_at_start_of_last_round,
-        #     path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TEST,
-        # )
-        # TODO check whether file exists in test
 
 
 def _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir):
@@ -730,7 +721,6 @@ def _save_last_checkpoint(logger, checkpointing, path_run_dir):
       logger.warning('No last checkpoint found.')
 
 def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
-    # the following does not work yet:
     _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir)
     _save_last_checkpoint(logger, checkpointing, path_run_dir)
     _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model)
