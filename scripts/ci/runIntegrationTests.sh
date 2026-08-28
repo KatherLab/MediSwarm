@@ -218,15 +218,18 @@ run_dummy_training_simulation_mode(){
 
     OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
 
-    echo "$OUTPUT"
-
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
-        echo "✅ Minimal example simulation mode succeeded."
-    else
+    for EXPECTED_OUTPUT in 'Epoch 9: 100%' \
+                           'Predicted batch for FL_global_model.pt' \
+                           'Predicted batch for best_FL_global_model.pt';
+    do
+        if grep -qi "$EXPECTED_OUTPUT" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT found in minimal example simulation mode"
+        else
         echo "$OUTPUT"
-        echo "❌ Minimal example simulation mode failed."
-        exit 1
-    fi
+        echo "❌ Expected output $EXPECTED_OUTPUT missing in minimal example simulation mode"
+            exit 1
+        fi
+    done
 }
 
 run_dummy_training_poc_mode(){
@@ -237,15 +240,16 @@ run_dummy_training_poc_mode(){
     # showed up as a bare exit code with no log. Capture, always echo, then judge.
     OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
 
-    echo "$OUTPUT"
-
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
-        echo "✅ Minimal example proof-of-concept mode succeeded."
-    else
+    for EXPECTED_OUTPUT in 'Epoch 9: 100%';  # output from predictions for (best_)FL_global_model does not appear here
+    do
+        if grep -qi "$EXPECTED_OUTPUT" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT found in minimal example proof-of-concept mode"
+        else
         echo "$OUTPUT"
-        echo "❌ Minimal example proof-of-concept mode failed."
-        exit 1
-    fi
+        echo "❌ Expected output $EXPECTED_OUTPUT missing in minimal example proof-of-concept mode"
+            exit 1
+        fi
+    done
 }
 
 run_nvflare_unit_tests(){
@@ -854,10 +858,13 @@ run_dummy_training_in_swarm () {
     done
     cd "$CWD"
 
+    sleep 15  # wait for evaluation of best and last global models after swarm training TODO use multiple attempts as above?
+
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT_FILE=combined_nohup.out
     cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
+
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 9: 100%' \
                            'val/AUC_ROC' \
@@ -868,7 +875,9 @@ run_dummy_training_in_swarm () {
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
                            'broadcasting learn task of round . to .*; aggregation happens on client_.' \
-                           'Best model checkpoint:';
+                           'Best model checkpoint:' \
+                           'Predicted batch for FL_global_model.pt' \
+                           'Predicted batch for best_FL_global_model.pt';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
