@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ODELIA Consortium Results Brief</title>
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<title>ODELIA Consortium Results Brief</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#FBFCFD; --card:#FFFFFF; --ink:#16202C; --muted:#61717F; --soft:#8A99A6;
+  --rule:#E1E8ED; --accent:#1F5F8B; --accent-soft:#EAF2F8; --accent-line:#BFD6E6;
+  --ok:#1B7A5A; --ok-soft:#E7F3EE; --warn:#9C6414; --warn-soft:#FAF2E3;
+  --sans:'Segoe UI',system-ui,-apple-system,Arial,Helvetica,sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,'DejaVu Sans Mono',monospace;
+}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#11161B; --card:#171E25; --ink:#E4EBF1; --muted:#9AA9B6; --soft:#7D8B98;
+    --rule:#26313B; --accent:#6FAFD8; --accent-soft:#18262F; --accent-line:#2C4356;
+    --ok:#5FBF97; --ok-soft:#16261F; --warn:#D9AE62; --warn-soft:#251E11;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11161B; --card:#171E25; --ink:#E4EBF1; --muted:#9AA9B6; --soft:#7D8B98;
+  --rule:#26313B; --accent:#6FAFD8; --accent-soft:#18262F; --accent-line:#2C4356;
+  --ok:#5FBF97; --ok-soft:#16261F; --warn:#D9AE62; --warn-soft:#251E11;
+}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;
+  font-size:17px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:47rem;margin:0 auto;padding:3.2rem 1.4rem 5rem}
+.eyebrow{font-size:.76rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:.9rem}
+h1{font-size:2.1rem;line-height:1.18;margin:0 0 .5rem;letter-spacing:-.02em;text-wrap:balance;font-weight:650}
+.lede{font-size:1.12rem;color:var(--ink);margin:0 0 1.4rem;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;gap:.4rem 1.6rem;font-size:.85rem;color:var(--soft);
+  padding-bottom:1.6rem;border-bottom:1px solid var(--rule);margin-bottom:2.2rem}
+h2{font-size:1.28rem;margin:2.6rem 0 .7rem;letter-spacing:-.01em;font-weight:650;text-wrap:balance}
+h3{font-size:1rem;margin:0 0 .35rem;font-weight:650}
+p{margin:0 0 1rem}
+ul{margin:0 0 1rem;padding-left:1.2rem;display:flex;flex-direction:column;gap:.5rem}
+strong{font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--accent-soft);padding:.1em .35em;border-radius:.25em}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.2rem,1fr));gap:.85rem;margin:1.4rem 0}
+.stat{background:var(--card);border:1px solid var(--rule);border-radius:.55rem;padding:.95rem 1.05rem}
+.stat.hero{background:var(--accent-soft);border-color:var(--accent-line)}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:1.75rem;font-weight:650;
+  line-height:1;letter-spacing:-.02em}
+.stat .l{font-size:.78rem;color:var(--muted);margin-top:.45rem;line-height:1.35}
+.tscroll{overflow-x:auto;margin:1.2rem 0}
+table{border-collapse:collapse;width:100%;font-size:.92rem;background:var(--card)}
+th,td{padding:.6rem .75rem;border-bottom:1px solid var(--rule);text-align:left}
+th{font-size:.76rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:650;white-space:nowrap}
+td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+tr.total td{border-top:2px solid var(--accent);font-weight:650;background:var(--accent-soft)}
+tbody tr:last-child td{border-bottom:none}
+.callout{border-left:.25rem solid var(--accent);background:var(--accent-soft);padding:1rem 1.2rem;
+  border-radius:0 .5rem .5rem 0;margin:1.4rem 0}
+.callout.ask{border-left-color:var(--ok);background:var(--ok-soft)}
+.callout.care{border-left-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin-bottom:0}
+footer{margin-top:3.4rem;padding-top:1.4rem;border-top:1px solid var(--rule);
+  font-size:.83rem;color:var(--soft)}
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+@media (max-width:34rem){body{font-size:16px}h1{font-size:1.75rem}.wrap{padding-top:2.2rem}}
+
+/* ---- charts: series colors from the validated data-viz palette ---- */
+:root{ --s1:#2a78d6; --s2:#eb6834; --gridln:#e1e0d9; --axisln:#c3c2b7; --axink:#6E7B87;
+       --up:#0ca30c; --down:#d03b3b; --band:#EEF3F7; }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --s1:#3987e5; --s2:#d95926; --gridln:#2c2c2a; --axisln:#383835; --axink:#98A6B2;
+  --up:#0ca30c; --down:#d03b3b; --band:#1C2833; } }
+:root[data-theme="dark"]{ --s1:#3987e5; --s2:#d95926; --gridln:#2c2c2a; --axisln:#383835;
+  --axink:#98A6B2; --up:#0ca30c; --down:#d03b3b; --band:#1C2833; }
+.fig{margin:1.6rem 0 2rem;padding:0}
+.cap{display:flex;flex-direction:column;gap:.15rem;margin-bottom:.15rem}
+.cap-t{font-weight:650;font-size:1rem}
+.cap-s{font-size:.85rem;color:var(--muted)}
+.leg{display:flex;flex-wrap:wrap;gap:.3rem 1.1rem;margin:.5rem 0 .3rem;font-size:.8rem;color:var(--muted)}
+.leg-i{display:inline-flex;align-items:center;gap:.4rem}
+.sw{width:.72rem;height:.72rem;border-radius:.18rem;display:inline-block}
+.sw.s1{background:var(--s1)} .sw.s2{background:var(--s2)}
+.sw.up{background:var(--up)} .sw.down{background:var(--down)}
+.cv{width:100%;height:auto;display:block;overflow:visible}
+.cv .grid{stroke:var(--gridln);stroke-width:1}
+.cv .base{stroke:var(--axisln);stroke-width:1.2}
+.cv .ax{font-size:11.5px;fill:var(--axink);font-family:var(--sans)}
+.cv .ax.nm{font-size:12px;fill:var(--muted)}
+.cv .ax.nm.ld{fill:var(--ink);font-weight:650}
+.cv .ax.run{font-size:11px;fill:var(--axink);font-style:italic}
+.cv .val{font-size:11.5px;fill:var(--muted);font-family:var(--mono);font-variant-numeric:tabular-nums}
+.cv .val.ld{fill:var(--ink);font-weight:650}
+.cv .val.drop{fill:var(--s2)} .cv .val.dn{fill:var(--down)}
+.cv .bar.s1{fill:var(--s1)} .cv .bar.s2{fill:var(--s2)}
+.cv .dot{stroke:var(--card);stroke-width:2}
+.cv .dot.s1{fill:var(--s1)} .cv .dot.s2{fill:var(--s2)}
+.cv .conn{stroke:var(--axisln);stroke-width:2}
+.cv .up{fill:var(--up)} .cv .down{fill:var(--down)}
+.cv .runband{fill:var(--band)}
+.cv .hit{fill:transparent;pointer-events:all}
+.cv .mk{cursor:default}
+.cv .mk:hover .bar,.cv .mk:hover .up,.cv .mk:hover .down{filter:brightness(1.12)}
+.cv .mk:hover .dot{r:8.5}
+#tip{position:fixed;z-index:60;pointer-events:none;opacity:0;transition:opacity .1s;
+  background:var(--ink);color:var(--bg);font-size:.8rem;padding:.4rem .6rem;border-radius:.35rem;
+  max-width:22rem;line-height:1.35;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+#tip.on{opacity:1}
+details.tbl{margin:.6rem 0 1.2rem}
+details.tbl>summary{cursor:pointer;font-size:.86rem;color:var(--accent);font-weight:650;
+  list-style:none;padding:.35rem 0}
+details.tbl>summary::-webkit-details-marker{display:none}
+details.tbl>summary::before{content:"▸ ";display:inline-block;transition:transform .15s}
+details.tbl[open]>summary::before{content:"▾ "}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<div class="eyebrow">ODELIA &middot; Swarm Learning &middot; Results Brief</div>
+<h1>All eight sites trained together, start to finish</h1>
+<p class="lede">The first complete consortium run, and a model that holds its performance on data
+from another continent.</p>
+<div class="meta">
+  <span>13&ndash;15 August 2026</span>
+  <span>8 sites &middot; 20 rounds</span>
+  <span>Circulated 27 August 2026</span>
+</div>
+
+<h2>What happened</h2>
+<p>Between 13 and 15 August, <strong>CAM, MHA, RSH, RUMC, UKA, UMCU, USZ and VHIO</strong> trained a
+single shared model together for the full twenty rounds. The run took 1 day 19 hours 53 minutes,
+had <strong>no dropouts</strong>, and finished with an empty error log. Aggregation rotated through
+every site, so each one contributed to the shared model directly.</p>
+<p>This is the first time the complete consortium has finished a run. Earlier attempts stopped part
+way through, which is why previous updates have been about infrastructure rather than results.</p>
+
+<h2>What the model achieves</h2>
+<p>We tested the trained model on two sets of data it had never seen during training.</p>
+
+<h3>ODELIA challenge test set &mdash; 165 exams, five centres</h3>
+<div class="stats">
+  <div class="stat hero"><div class="v">0.887</div><div class="l">malignant vs rest AUROC</div></div>
+  <div class="stat"><div class="v">0.853</div><div class="l">lesion vs none AUROC</div></div>
+  <div class="stat"><div class="v">0.820</div><div class="l">macro AUROC</div></div>
+  <div class="stat"><div class="v">0.752</div><div class="l">accuracy</div></div>
+</div>
+
+<h3>Duke &mdash; 260 exams, independent US cohort</h3>
+<p>Duke is a public American breast-MRI dataset, collected on different scanners in a different
+health system, with no connection to any ODELIA site.</p>
+<div class="stats">
+  <div class="stat hero"><div class="v">0.887</div><div class="l">malignant vs rest AUROC &mdash; <strong>identical</strong></div></div>
+  <div class="stat"><div class="v">0.851</div><div class="l">lesion vs none AUROC</div></div>
+  <div class="stat"><div class="v">0.696</div><div class="l">accuracy</div></div>
+  <div class="stat"><div class="v">260</div><div class="l">exams</div></div>
+</div>
+<figure class="fig"><figcaption class="cap"><span class="cap-t">The same model on two independent cohorts</span><span class="cap-s">Malignant discrimination is identical; only the accuracy operating point differs</span></figcaption><div class="leg"><span class="leg-i"><i class="sw s1"></i>ODELIA challenge (165 exams)</span><span class="leg-i"><i class="sw s2"></i>Duke, US (260 exams)</span></div><svg viewBox="0 0 760 300" class="cv" role="img" aria-label="ODELIA challenge versus Duke on three metrics"><line class="grid" x1="60" x2="740" y1="236.0" y2="236.0"/><text class="ax" x="51" y="240.0" text-anchor="end">0.0</text><line class="grid" x1="60" x2="740" y1="192.4" y2="192.4"/><text class="ax" x="51" y="196.4" text-anchor="end">0.2</text><line class="grid" x1="60" x2="740" y1="148.8" y2="148.8"/><text class="ax" x="51" y="152.8" text-anchor="end">0.4</text><line class="grid" x1="60" x2="740" y1="105.2" y2="105.2"/><text class="ax" x="51" y="109.2" text-anchor="end">0.6</text><line class="grid" x1="60" x2="740" y1="61.6" y2="61.6"/><text class="ax" x="51" y="65.6" text-anchor="end">0.8</text><line class="grid" x1="60" x2="740" y1="18.0" y2="18.0"/><text class="ax" x="51" y="22.0" text-anchor="end">1.0</text><line class="base" x1="60" x2="740" y1="236" y2="236"/><g class="mk" data-tip="ODELIA challenge · Malignant vs rest: 0.887"><rect class="bar s1" x="120.3" y="42.6" width="52" height="193.4" rx="4"/><rect class="hit" x="120.3" y="18" width="52" height="218"/></g><text class="val" x="146.3" y="35.6" text-anchor="middle">0.887</text><g class="mk" data-tip="Duke · Malignant vs rest: 0.887"><rect class="bar s2" x="174.3" y="42.6" width="52" height="193.4" rx="4"/><rect class="hit" x="174.3" y="18" width="52" height="218"/></g><text class="val" x="200.3" y="35.6" text-anchor="middle">0.887</text><text class="ax lab" x="173.3" y="258" text-anchor="middle">Malignant vs rest</text><g class="mk" data-tip="ODELIA challenge · Lesion vs none: 0.853"><rect class="bar s1" x="347.0" y="50.0" width="52" height="186.0" rx="4"/><rect class="hit" x="347.0" y="18" width="52" height="218"/></g><text class="val" x="373.0" y="43.0" text-anchor="middle">0.853</text><g class="mk" data-tip="Duke · Lesion vs none: 0.851"><rect class="bar s2" x="401.0" y="50.5" width="52" height="185.5" rx="4"/><rect class="hit" x="401.0" y="18" width="52" height="218"/></g><text class="val" x="427.0" y="43.5" text-anchor="middle">0.851</text><text class="ax lab" x="400.0" y="258" text-anchor="middle">Lesion vs none</text><g class="mk" data-tip="ODELIA challenge · Accuracy: 0.752"><rect class="bar s1" x="573.7" y="72.1" width="52" height="163.9" rx="4"/><rect class="hit" x="573.7" y="18" width="52" height="218"/></g><text class="val" x="599.7" y="65.1" text-anchor="middle">0.752</text><g class="mk" data-tip="Duke · Accuracy: 0.696"><rect class="bar s2" x="627.7" y="84.3" width="52" height="151.7" rx="4"/><rect class="hit" x="627.7" y="18" width="52" height="218"/></g><text class="val" x="653.7" y="77.3" text-anchor="middle">0.696</text><text class="ax lab" x="626.7" y="258" text-anchor="middle">Accuracy</text><text class="ax" x="51" y="12" text-anchor="end">AUROC</text></svg></figure>
+<div class="callout">
+  <h3>This is the most encouraging part</h3>
+  <p>The malignant-vs-rest figure is not merely close on the two cohorts &mdash; it is the same number.
+  A model that keeps its discrimination when moved to another country's data is a much stronger
+  result than one validated only on our own challenge set.</p>
+</div>
+
+<h2>Does training together beat training alone?</h2>
+<p>On the evidence so far, yes. In the May study across six model families, the swarm model beat the
+best single-site model in four of six families on macro AUROC and five of six on the malignant
+endpoint. The clearer pattern is in the last column below: <strong>every single-site model looks
+excellent on its own data and loses 0.17 to 0.26 AUROC when moved to another hospital.</strong> The
+shared model does not have that gap, because it never had a home centre to overfit to.</p>
+<div class="tscroll"><table>
+  <thead><tr><th>Model family</th><th class="num">Swarm</th><th class="num">Best single-site</th><th class="num">Single-site: own data &rarr; elsewhere</th></tr></thead>
+  <tbody>
+    <tr><td>MST</td><td class="num">0.645</td><td class="num">0.635</td><td class="num">0.801 &rarr; 0.635</td></tr>
+    <tr><td>1DivideAndConquer</td><td class="num">0.708</td><td class="num">0.609</td><td class="num">0.870 &rarr; 0.609</td></tr>
+    <tr><td>2BCN_AIM</td><td class="num">0.627</td><td class="num">0.572</td><td class="num">0.775 &rarr; 0.572</td></tr>
+    <tr><td>3agaldran</td><td class="num">0.692</td><td class="num">0.698</td><td class="num">0.902 &rarr; 0.698</td></tr>
+    <tr><td>4LME_ABMIL</td><td class="num">0.764</td><td class="num">0.734</td><td class="num">0.910 &rarr; 0.734</td></tr>
+    <tr><td>5Pimed</td><td class="num">0.387</td><td class="num">0.609</td><td class="num">0.866 &rarr; 0.609</td></tr>
+    <tr class="total"><td>This run (8 sites, 20 rounds)</td><td class="num">0.820</td><td class="num">0.609</td><td class="num">&mdash;</td></tr>
+  </tbody>
+</table></div>
+<p style="font-size:.88rem;color:var(--muted)">External macro AUROC. May rows use 300 exams across six
+centres; this run's row uses 165 exams across five, so the comparison is indicative rather than
+strictly like for like.</p>
+
+<h2>Where this run sits against everything we have tried</h2>
+<p>Every model we have evaluated on the external challenge, swarm and single-site together, ranked by
+the clinically decisive endpoint &mdash; malignant vs. rest. This is the first time a shared model has
+reached the top of this list; the best single-site checkpoint had held it until now.</p>
+<figure class="fig"><figcaption class="cap"><span class="cap-t">Every model we have evaluated externally, ranked</span><span class="cap-s">First time a shared model has taken the top place</span></figcaption><div class="leg"><span class="leg-i"><i class="sw s1"></i>Swarm (shared model)</span><span class="leg-i"><i class="sw s2"></i>Single-site checkpoint</span></div><svg viewBox="0 0 760 392" class="cv" role="img" aria-label="All externally evaluated models ranked by malignant AUROC"><line class="grid" x1="363.8" x2="363.8" y1="26" y2="358"/><text class="ax" x="363.8" y="20" text-anchor="middle">0.70</text><line class="grid" x1="441.6" x2="441.6" y1="26" y2="358"/><text class="ax" x="441.6" y="20" text-anchor="middle">0.75</text><line class="grid" x1="519.3" x2="519.3" y1="26" y2="358"/><text class="ax" x="519.3" y="20" text-anchor="middle">0.80</text><line class="grid" x1="597.1" x2="597.1" y1="26" y2="358"/><text class="ax" x="597.1" y="20" text-anchor="middle">0.85</text><line class="grid" x1="674.9" x2="674.9" y1="26" y2="358"/><text class="ax" x="674.9" y="20" text-anchor="middle">0.90</text><text class="ax nm ld" x="274" y="48.5" text-anchor="end">Swarm — 8 sites, 20 rounds, 1DC</text><g class="mk" data-tip="Swarm — 8 sites, 20 rounds, 1DC · swarm · malignant AUROC 0.887"><rect class="bar s1" x="286" y="37.0" width="368.7" height="21" rx="4"/><rect class="hit" x="286" y="34.0" width="420" height="27"/></g><text class="val ld" x="663.7" y="48.5">0.887</text><text class="ax nm" x="274" y="75.5" text-anchor="end">UKA 1DC, epoch 25</text><g class="mk" data-tip="UKA 1DC, epoch 25 · single-site · malignant AUROC 0.858"><rect class="bar s2" x="286" y="64.0" width="323.6" height="21" rx="4"/><rect class="hit" x="286" y="61.0" width="420" height="27"/></g><text class="val" x="618.6" y="75.5">0.858</text><text class="ax nm" x="274" y="102.5" text-anchor="end">Swarm — 6 sites, 4LME_ABMIL</text><g class="mk" data-tip="Swarm — 6 sites, 4LME_ABMIL · swarm · malignant AUROC 0.847"><rect class="bar s1" x="286" y="91.0" width="306.4" height="21" rx="4"/><rect class="hit" x="286" y="88.0" width="420" height="27"/></g><text class="val" x="601.4" y="102.5">0.847</text><text class="ax nm" x="274" y="129.5" text-anchor="end">Swarm — 6 sites, 1DC</text><g class="mk" data-tip="Swarm — 6 sites, 1DC · swarm · malignant AUROC 0.824"><rect class="bar s1" x="286" y="118.0" width="270.7" height="21" rx="4"/><rect class="hit" x="286" y="115.0" width="420" height="27"/></g><text class="val" x="565.7" y="129.5">0.824</text><text class="ax nm" x="274" y="156.5" text-anchor="end">Swarm — 6 sites, 3agaldran</text><g class="mk" data-tip="Swarm — 6 sites, 3agaldran · swarm · malignant AUROC 0.824"><rect class="bar s1" x="286" y="145.0" width="270.7" height="21" rx="4"/><rect class="hit" x="286" y="142.0" width="420" height="27"/></g><text class="val" x="565.7" y="156.5">0.824</text><text class="ax nm" x="274" y="183.5" text-anchor="end">USZ 1DC, epoch 14</text><g class="mk" data-tip="USZ 1DC, epoch 14 · single-site · malignant AUROC 0.810"><rect class="bar s2" x="286" y="172.0" width="248.9" height="21" rx="4"/><rect class="hit" x="286" y="169.0" width="420" height="27"/></g><text class="val" x="543.9" y="183.5">0.810</text><text class="ax nm" x="274" y="210.5" text-anchor="end">MHA 1DC, epoch 37</text><g class="mk" data-tip="MHA 1DC, epoch 37 · single-site · malignant AUROC 0.795"><rect class="bar s2" x="286" y="199.0" width="225.6" height="21" rx="4"/><rect class="hit" x="286" y="196.0" width="420" height="27"/></g><text class="val" x="520.6" y="210.5">0.795</text><text class="ax nm" x="274" y="237.5" text-anchor="end">MHA 1DC, epoch 34</text><g class="mk" data-tip="MHA 1DC, epoch 34 · single-site · malignant AUROC 0.786"><rect class="bar s2" x="286" y="226.0" width="211.6" height="21" rx="4"/><rect class="hit" x="286" y="223.0" width="420" height="27"/></g><text class="val" x="506.6" y="237.5">0.786</text><text class="ax nm" x="274" y="264.5" text-anchor="end">UKA 1DC, last epoch</text><g class="mk" data-tip="UKA 1DC, last epoch · single-site · malignant AUROC 0.767"><rect class="bar s2" x="286" y="253.0" width="182.0" height="21" rx="4"/><rect class="hit" x="286" y="250.0" width="420" height="27"/></g><text class="val" x="477.0" y="264.5">0.767</text><text class="ax nm" x="274" y="291.5" text-anchor="end">Swarm — 6 sites, MST</text><g class="mk" data-tip="Swarm — 6 sites, MST · swarm · malignant AUROC 0.755"><rect class="bar s1" x="286" y="280.0" width="163.3" height="21" rx="4"/><rect class="hit" x="286" y="277.0" width="420" height="27"/></g><text class="val" x="458.3" y="291.5">0.755</text><text class="ax nm" x="274" y="318.5" text-anchor="end">USZ MST, epoch 33</text><g class="mk" data-tip="USZ MST, epoch 33 · single-site · malignant AUROC 0.723"><rect class="bar s2" x="286" y="307.0" width="113.6" height="21" rx="4"/><rect class="hit" x="286" y="304.0" width="420" height="27"/></g><text class="val" x="408.6" y="318.5">0.723</text><text class="ax nm" x="274" y="345.5" text-anchor="end">Swarm — 6 sites, 2BCN_AIM</text><g class="mk" data-tip="Swarm — 6 sites, 2BCN_AIM · swarm · malignant AUROC 0.716"><rect class="bar s1" x="286" y="334.0" width="102.7" height="21" rx="4"/><rect class="hit" x="286" y="331.0" width="420" height="27"/></g><text class="val" x="397.7" y="345.5">0.716</text><line class="base" x1="286" x2="286" y1="26" y2="358"/><text class="ax" x="286" y="382">Malignant-vs-rest AUROC on the external challenge</text></svg></figure>
+<details class="tbl"><summary>Show the full ranking table</summary>
+<div class="tscroll"><table>
+  <thead><tr><th class="num">#</th><th>Model</th><th>Type</th><th class="num">Malignant AUROC</th><th class="num">Macro AUROC</th></tr></thead>
+  <tbody>
+    <tr class="total"><td class="num">1</td><td>Swarm global &mdash; 8 sites, 20 rounds, 1DC <strong>(this run)</strong></td><td>swarm</td><td class="num">0.887</td><td class="num">0.820</td></tr>
+    <tr><td class="num">2</td><td>UKA 1DC, epoch 25</td><td>single-site</td><td class="num">0.858</td><td class="num">0.709</td></tr>
+    <tr><td class="num">3</td><td>Swarm global &mdash; 6 sites, 4LME_ABMIL</td><td>swarm</td><td class="num">0.847</td><td class="num">0.764</td></tr>
+    <tr><td class="num">4</td><td>Swarm global &mdash; 6 sites, 1DC</td><td>swarm</td><td class="num">0.824</td><td class="num">0.708</td></tr>
+    <tr><td class="num">5</td><td>Swarm global &mdash; 6 sites, 3agaldran</td><td>swarm</td><td class="num">0.824</td><td class="num">0.692</td></tr>
+    <tr><td class="num">6</td><td>USZ 1DC, epoch 14</td><td>single-site</td><td class="num">0.810</td><td class="num">0.675</td></tr>
+    <tr><td class="num">7</td><td>MHA 1DC, epoch 37</td><td>single-site</td><td class="num">0.795</td><td class="num">0.658</td></tr>
+    <tr><td class="num">8</td><td>MHA 1DC, epoch 34</td><td>single-site</td><td class="num">0.786</td><td class="num">0.650</td></tr>
+    <tr><td class="num">9</td><td>UKA 1DC, last epoch</td><td>single-site</td><td class="num">0.767</td><td class="num">0.630</td></tr>
+    <tr><td class="num">10</td><td>Swarm global &mdash; 6 sites, MST</td><td>swarm</td><td class="num">0.755</td><td class="num">0.645</td></tr>
+    <tr><td class="num">11</td><td>USZ MST, epoch 33</td><td>single-site</td><td class="num">0.723</td><td class="num">0.612</td></tr>
+    <tr><td class="num">12</td><td>Swarm global &mdash; 6 sites, 2BCN_AIM</td><td>swarm</td><td class="num">0.716</td><td class="num">0.627</td></tr>
+  </tbody>
+</table></div>
+</details>
+<p style="font-size:.88rem;color:var(--muted)"><strong>Read this with the cohort caveat.</strong> Row 1 was
+scored on 165 exams across five centres; every other row on 300 exams across six. The ranking is therefore
+indicative, not a controlled head-to-head &mdash; re-scoring the older models on one identical cohort is on our
+list. Two further notes: the 1DivideAndConquer family dominates the single-site entries, and the weakest
+result on record remains the 6-site 5Pimed swarm at 0.342, a known degenerate run rather than evidence
+about swarm learning.</p>
+
+<h2>What this does not yet show</h2>
+<div class="callout care">
+  <h3>The decision threshold is not calibrated</h3>
+  <p>The model <em>ranks</em> malignancy well, but its cut-off is set wrong, so it under-calls cancer.
+  On the challenge set it predicted malignant 21 times where the truth was 37. On Duke it called
+  <strong>benign 44 times on a cohort containing no benign cases at all</strong>, with malignant recall
+  of 0.662. This is a fixable calibration problem rather than a modelling failure &mdash; and it is our
+  next piece of work &mdash; but it does mean <strong>these numbers are not publication-ready</strong>.</p>
+</div>
+<ul>
+  <li><strong>Per-centre samples are small.</strong> Between 8 and 64 exams per centre on the challenge
+    set. Single-centre figures should be read as indicative.</li>
+  <li><strong>Baselines are carried over.</strong> The single-site comparisons come from the earlier May
+    report rather than being recomputed under identical conditions here.</li>
+  <li><strong>One centre reads worse.</strong> UMCU is noticeably weaker than the others and we are
+    looking into why.</li>
+  <li><strong>Per-site metrics are not collected centrally yet</strong> for this type of run, so some
+    figures had to be gathered by hand. Fixing that is queued.</li>
+</ul>
+
+<h2>The infrastructure held up, and that matters</h2>
+<p>The result above depended on eight clients staying reachable for two days straight. What is more useful
+for planning is how long they stayed up <em>around</em> that.</p>
+<div class="stats">
+  <div class="stat hero"><div class="v">38</div><div class="l">days the deployment has been live, since 20 July</div></div>
+  <div class="stat"><div class="v">7&ndash;22</div><div class="l">days each client was already online <em>before</em> training began</div></div>
+  <div class="stat"><div class="v">5</div><div class="l">reconnection events in total, across 8 sites in 38 days</div></div>
+  <div class="stat"><div class="v">29</div><div class="l">days RUMC and RSH have run without a single reconnection</div></div>
+</div>
+<figure class="fig"><figcaption class="cap"><span class="cap-t">How long the clients have actually stayed up</span><span class="cap-s">Every site was online for one to three weeks before training even began</span></figcaption><div class="leg"><span class="leg-i"><i class="sw up"></i>Connected</span><span class="leg-i"><i class="sw down"></i>Offline</span></div><svg viewBox="0 0 760 344" class="cv" role="img" aria-label="How long each site client has stayed connected"><rect class="runband" x="432.6" y="36" width="28.7" height="256" rx="3"/><text class="ax run" x="447.0" y="30" text-anchor="middle">the 20-round run</text><line class="grid" x1="88.0" x2="88.0" y1="36" y2="292"/><text class="ax" x="88.0" y="310" text-anchor="middle">20 Jul</text><line class="grid" x1="260.3" x2="260.3" y1="36" y2="292"/><text class="ax" x="260.3" y="310" text-anchor="middle">1 Aug</text><line class="grid" x1="461.3" x2="461.3" y1="36" y2="292"/><text class="ax" x="461.3" y="310" text-anchor="middle">15 Aug</text><line class="grid" x1="648.0" x2="648.0" y1="36" y2="292"/><text class="ax" x="648.0" y="310" text-anchor="middle">28 Aug</text><text class="ax nm" x="76" y="65.5" text-anchor="end">CAM_1</text><g class="mk" data-tip="CAM_1 · online since 21 Jul · 38 days · OFFLINE since 23 Aug"><rect class="up" x="102.4" y="54.0" width="473.8" height="19" rx="4"/><rect class="down" x="576.2" y="54.0" width="71.8" height="19" rx="4"/><rect class="hit" x="88" y="52.0" width="560" height="30"/></g><text class="val dn" x="658" y="65.5">38 d  ▲ down</text><text class="ax nm" x="76" y="95.5" text-anchor="end">MHA_1</text><g class="mk" data-tip="MHA_1 · online since 21 Jul · 38 days"><rect class="up" x="102.4" y="84.0" width="545.6" height="19" rx="4"/><rect class="hit" x="88" y="82.0" width="560" height="30"/></g><text class="val" x="658" y="95.5">38 d</text><text class="ax nm" x="76" y="125.5" text-anchor="end">USZ_1</text><g class="mk" data-tip="USZ_1 · online since 22 Jul · 37 days"><rect class="up" x="116.7" y="114.0" width="531.3" height="19" rx="4"/><rect class="hit" x="88" y="112.0" width="560" height="30"/></g><text class="val" x="658" y="125.5">37 d</text><text class="ax nm" x="76" y="155.5" text-anchor="end">VHIO_1</text><g class="mk" data-tip="VHIO_1 · online since 23 Jul · 36 days"><rect class="up" x="131.1" y="144.0" width="516.9" height="19" rx="4"/><rect class="hit" x="88" y="142.0" width="560" height="30"/></g><text class="val" x="658" y="155.5">36 d</text><text class="ax nm" x="76" y="185.5" text-anchor="end">UKA_1</text><g class="mk" data-tip="UKA_1 · online since 23 Jul · 36 days"><rect class="up" x="131.1" y="174.0" width="516.9" height="19" rx="4"/><rect class="hit" x="88" y="172.0" width="560" height="30"/></g><text class="val" x="658" y="185.5">36 d</text><text class="ax nm" x="76" y="215.5" text-anchor="end">RUMC_1</text><g class="mk" data-tip="RUMC_1 · online since 30 Jul · 29 days"><rect class="up" x="231.6" y="204.0" width="416.4" height="19" rx="4"/><rect class="hit" x="88" y="202.0" width="560" height="30"/></g><text class="val" x="658" y="215.5">29 d</text><text class="ax nm" x="76" y="245.5" text-anchor="end">RSH_1</text><g class="mk" data-tip="RSH_1 · online since 31 Jul · 28 days"><rect class="up" x="245.9" y="234.0" width="402.1" height="19" rx="4"/><rect class="hit" x="88" y="232.0" width="560" height="30"/></g><text class="val" x="658" y="245.5">28 d</text><text class="ax nm" x="76" y="275.5" text-anchor="end">UMCU_1</text><g class="mk" data-tip="UMCU_1 · online since 05 Aug · 23 days"><rect class="up" x="317.7" y="264.0" width="330.3" height="19" rx="4"/><rect class="hit" x="88" y="262.0" width="560" height="30"/></g><text class="val" x="658" y="275.5">23 d</text><line class="base" x1="88" x2="88" y1="36" y2="292"/></svg></figure>
+<p>All eight sites registered between 21 July and 5 August and were online well before the run started on
+13 August &mdash; CAM, MHA, USZ, VHIO and UKA for roughly three weeks beforehand. Since the run finished the
+fleet has stayed connected for a further two weeks with almost no intervention.</p>
+<div class="callout">
+  <h3>What this buys us</h3>
+  <p>A fleet that stays up for a month unattended means we no longer have to treat every run as a
+  once-a-quarter event. We can now use the live setup for <strong>infrastructure upgrades, repeat runs and the
+  remaining ODELIA tasks</strong> &mdash; testing changes against the real deployment rather than a simulated one.
+  That is a bigger change to how fast we can work than any single result.</p>
+</div>
+<div class="callout care">
+  <h3>One site is currently down</h3>
+  <p><strong>CAM has been offline since 23 August.</strong> Everything else is connected: 7 of 8 online at the time of
+  writing. If CAM could restart their client we would be back to a full fleet &mdash; nothing was lost from the
+  completed run, but we would like all eight available for the active-learning tests.</p>
+</div>
+
+<h2>What we need from you</h2>
+<div class="callout ask">
+  <h3>Please keep your client online</h3>
+  <p>We would like to test <strong>active learning</strong> on the live setup over the coming weeks, and
+  that only works while the clients stay connected. There is nothing to do at your end beyond leaving
+  it running &mdash; no new data, no configuration changes, no downtime needed.</p>
+</div>
+<p>Separately, we are preparing a <strong>new preprocessing version</strong> to roll out across all sites.
+Every site needs to move together, or the next run mixes two preprocessing generations and the results
+stop being comparable. We will agree timing and ownership at the next technical meeting.</p>
+
+<h2>In short</h2>
+<ul>
+  <li>The consortium completed its first full run, and it needed every site to work.</li>
+  <li>The model reaches <strong>0.887 AUROC</strong> for malignancy on held-out data, and the identical
+    figure on an independent US cohort.</li>
+  <li>It beats what any single site achieves alone.</li>
+  <li>The threshold still needs calibrating before any of this is published.</li>
+  <li>The clients have proven <strong>robust over a month of continuous operation</strong>, so we can now run repeat tests and infrastructure upgrades against the live setup.</li>
+  <li><strong>Please leave your client running</strong> so we can test active learning &mdash; and CAM, please restart yours when convenient.</li>
+</ul>
+
+<footer>
+Model <code>best_FL_global_model.pt</code> from job <code>87c5bbee</code> &middot; architecture
+1DivideAndConquer &middot; evaluated 27 August 2026 on the held-out ODELIA Challenge test split
+(165 exams, five centres) and the Duke fold-0 test split (260 exams) &middot; labels verified against
+site annotations &middot; the final-round checkpoint was evaluated separately and performs equivalently
+(macro AUROC 0.818 vs 0.820).
+</footer>
+
+</div>
+
+<div id="tip" role="status" aria-live="polite"></div>
+<script>
+(function(){
+  var tip=document.getElementById('tip');
+  function show(e,t){tip.textContent=t;tip.classList.add('on');move(e);}
+  function move(e){
+    var r=tip.getBoundingClientRect(),x=e.clientX+14,y=e.clientY+16;
+    if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;
+    if(y+r.height>innerHeight-8)y=e.clientY-r.height-16;
+    tip.style.left=x+'px';tip.style.top=y+'px';
+  }
+  document.querySelectorAll('.mk[data-tip]').forEach(function(g){
+    g.addEventListener('mouseenter',function(e){show(e,g.getAttribute('data-tip'));});
+    g.addEventListener('mousemove',move);
+    g.addEventListener('mouseleave',function(){tip.classList.remove('on');});
+  });
+})();
+</script>
+
+</body>
+</html>

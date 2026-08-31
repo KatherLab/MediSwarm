@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DECADE Lynch vs Sporadic — Swarm Evaluation</title>
+  <style>
+    :root {
+      --navy-950: #071b2d;
+      --navy-900: #0b2944;
+      --navy-800: #123d60;
+      --teal-600: #078d8d;
+      --teal-500: #12aaa5;
+      --teal-100: #dff7f4;
+      --amber-500: #f4a62a;
+      --amber-100: #fff4d8;
+      --red-600: #c64343;
+      --red-100: #fdeaea;
+      --ink: #152536;
+      --muted: #617286;
+      --line: #dce5ec;
+      --paper: #f7fafc;
+      --white: #fff;
+      --shadow: 0 22px 55px rgba(7, 27, 45, .13);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      overflow: hidden;
+      background: #07131f;
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, a { font: inherit; }
+    #deck { position: fixed; inset: 0; }
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      padding: clamp(30px, 4.8vw, 72px) clamp(34px, 6vw, 92px) clamp(42px, 5.4vw, 82px);
+      background:
+        radial-gradient(circle at 94% 6%, rgba(18, 170, 165, .08), transparent 24%),
+        var(--paper);
+    }
+    .slide.active { display: flex; flex-direction: column; }
+
+    .slide::after {
+      content: "";
+      position: absolute;
+      right: -120px;
+      bottom: -185px;
+      width: 370px;
+      height: 370px;
+      border: 1px solid rgba(18, 170, 165, .16);
+      border-radius: 50%;
+      box-shadow: 0 0 0 48px rgba(18, 170, 165, .035), 0 0 0 96px rgba(18, 170, 165, .025);
+      pointer-events: none;
+    }
+
+    .title-slide {
+      color: var(--white);
+      background:
+        radial-gradient(circle at 82% 16%, rgba(18, 170, 165, .30), transparent 27%),
+        radial-gradient(circle at 8% 92%, rgba(244, 166, 42, .17), transparent 24%),
+        linear-gradient(135deg, var(--navy-950), var(--navy-800));
+    }
+    .title-slide::after { border-color: rgba(255, 255, 255, .16); }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: clamp(18px, 3vh, 34px);
+      position: relative;
+      z-index: 1;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      color: var(--navy-800);
+      font-size: clamp(12px, 1.05vw, 16px);
+      font-weight: 800;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    .title-slide .brand { color: #dcfaf6; }
+    .brand-mark {
+      display: inline-grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--teal-500), #53d0c9);
+      font-weight: 900;
+      letter-spacing: 0;
+      box-shadow: 0 8px 24px rgba(18, 170, 165, .25);
+    }
+    .slide-number {
+      color: #8291a1;
+      font-size: clamp(12px, 1vw, 15px);
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+    .title-slide .slide-number { color: #b5cbd9; }
+
+    h1, h2, p { margin: 0; }
+    h1 {
+      max-width: 17ch;
+      font-size: clamp(43px, 5.8vw, 82px);
+      line-height: .99;
+      letter-spacing: -.045em;
+    }
+    h2 {
+      max-width: 23ch;
+      color: var(--navy-900);
+      font-size: clamp(34px, 4.1vw, 59px);
+      line-height: 1.04;
+      letter-spacing: -.035em;
+    }
+    .lead {
+      max-width: 54ch;
+      margin-top: clamp(14px, 2.2vh, 24px);
+      color: #c9dce7;
+      font-size: clamp(18px, 1.7vw, 25px);
+      line-height: 1.4;
+    }
+    .eyebrow {
+      margin-bottom: 12px;
+      color: var(--teal-600);
+      font-size: clamp(12px, 1vw, 15px);
+      font-weight: 850;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(300px, .7fr);
+      align-items: center;
+      gap: clamp(34px, 6vw, 92px);
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      z-index: 1;
+    }
+    .verdict {
+      padding: clamp(24px, 3vw, 42px);
+      border: 1px solid rgba(255, 255, 255, .19);
+      border-radius: 26px;
+      background: rgba(255, 255, 255, .08);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, .20);
+      backdrop-filter: blur(8px);
+    }
+    .verdict-label {
+      color: #8de3dc;
+      font-size: clamp(12px, 1vw, 15px);
+      font-weight: 850;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .verdict p {
+      margin-top: 16px;
+      color: var(--white);
+      font-size: clamp(25px, 2.5vw, 38px);
+      font-weight: 750;
+      line-height: 1.17;
+      letter-spacing: -.025em;
+    }
+    .verdict .caveat {
+      margin-top: 18px;
+      color: #c5d5df;
+      font-size: clamp(14px, 1.25vw, 18px);
+      font-weight: 500;
+      line-height: 1.45;
+      letter-spacing: 0;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 24px;
+      padding: 9px 14px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 999px;
+      color: #ecfbf9;
+      background: rgba(18, 170, 165, .20);
+      font-size: clamp(12px, 1vw, 15px);
+      font-weight: 750;
+    }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #57dbc9; box-shadow: 0 0 0 5px rgba(87, 219, 201, .13); }
+
+    .run-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      margin-top: clamp(24px, 4vh, 44px);
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 18px;
+      background: rgba(4, 17, 29, .25);
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+    .run-stat { padding: 17px 22px; border-right: 1px solid rgba(255, 255, 255, .12); }
+    .run-stat:last-child { border-right: 0; }
+    .run-stat strong { display: block; color: var(--white); font-size: clamp(20px, 2vw, 31px); letter-spacing: -.03em; }
+    .run-stat span { display: block; margin-top: 4px; color: #afc6d4; font-size: clamp(11px, .95vw, 14px); }
+
+    .content {
+      display: grid;
+      grid-template-columns: minmax(0, 1.18fr) minmax(310px, .82fr);
+      gap: clamp(30px, 4.5vw, 70px);
+      flex: 1;
+      min-height: 0;
+      margin-top: clamp(20px, 3vh, 34px);
+      position: relative;
+      z-index: 1;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--white);
+      box-shadow: var(--shadow);
+    }
+    .evidence-panel { padding: clamp(24px, 2.7vw, 38px); }
+    .panel-title {
+      color: var(--navy-900);
+      font-size: clamp(18px, 1.45vw, 23px);
+      font-weight: 800;
+      letter-spacing: -.015em;
+    }
+    .panel-subtitle { margin-top: 5px; color: var(--muted); font-size: clamp(12px, 1vw, 15px); }
+
+    .loss-row {
+      display: grid;
+      grid-template-columns: 132px 1fr;
+      align-items: center;
+      gap: 22px;
+      margin-top: clamp(22px, 3vh, 34px);
+    }
+    .site-name { color: var(--navy-900); font-size: clamp(17px, 1.35vw, 21px); font-weight: 800; }
+    .site-name small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
+    .loss-flow { display: grid; grid-template-columns: auto 1fr auto 1fr auto; align-items: center; gap: 10px; }
+    .value-chip {
+      min-width: 72px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      color: var(--navy-900);
+      background: #eef4f7;
+      font-size: clamp(17px, 1.45vw, 22px);
+      font-weight: 850;
+      text-align: center;
+    }
+    .value-chip.best { color: #056b69; background: var(--teal-100); }
+    .value-chip.spike { color: var(--red-600); background: var(--red-100); }
+    .flow-line { position: relative; height: 2px; background: #cbd9e2; }
+    .flow-line::after { content: ""; position: absolute; right: -1px; top: -4px; border-left: 7px solid #9eb2bf; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+    .flow-labels { grid-column: 2 / -1; display: grid; grid-template-columns: 1fr 1fr 1fr; margin-top: -9px; color: #8493a2; font-size: 11px; text-align: center; }
+
+    .baseline {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-top: clamp(24px, 3.6vh, 42px);
+      padding: 18px 20px;
+      border-left: 4px solid var(--amber-500);
+      border-radius: 12px;
+      background: var(--amber-100);
+    }
+    .baseline strong { color: #8a5b05; font-size: clamp(25px, 2.2vw, 34px); }
+    .baseline p { color: #6f5218; font-size: clamp(12px, 1vw, 15px); line-height: 1.38; }
+
+    .gap-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(25px, 3vw, 42px);
+      border-color: #f1cdcd;
+      background: linear-gradient(180deg, var(--white), #fff8f8);
+    }
+    .gap-badge {
+      display: inline-flex;
+      width: fit-content;
+      padding: 7px 11px;
+      border-radius: 999px;
+      color: var(--red-600);
+      background: var(--red-100);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .gap-panel h3 {
+      max-width: 13ch;
+      margin: 18px 0 14px;
+      color: var(--navy-900);
+      font-size: clamp(28px, 2.7vw, 42px);
+      line-height: 1.05;
+      letter-spacing: -.035em;
+    }
+    .check-list { display: grid; gap: 13px; margin-top: 12px; }
+    .check-item { display: grid; grid-template-columns: 22px 1fr; gap: 10px; color: #3e4b59; font-size: clamp(13px, 1.08vw, 16px); line-height: 1.35; }
+    .xmark { color: var(--red-600); font-weight: 900; }
+    .warning {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid #efd2d2;
+      color: #8e3333;
+      font-size: clamp(13px, 1.05vw, 16px);
+      font-weight: 750;
+      line-height: 1.4;
+    }
+
+    .validation-slide {
+      color: var(--white);
+      background:
+        radial-gradient(circle at 88% 8%, rgba(18, 170, 165, .24), transparent 28%),
+        linear-gradient(145deg, var(--navy-950), #0c334f 70%, #0d4658);
+    }
+    .validation-slide::after { border-color: rgba(255, 255, 255, .14); }
+    .validation-slide h2 { color: var(--white); max-width: 25ch; }
+    .validation-slide .eyebrow { color: #83e0d8; }
+    .validation-slide .brand { color: #dcfaf6; }
+    .validation-slide .slide-number { color: #b5cbd9; }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: clamp(12px, 1.6vw, 22px);
+      margin-top: clamp(22px, 3.3vh, 38px);
+      position: relative;
+      z-index: 1;
+    }
+    .metric-card {
+      min-height: 132px;
+      padding: clamp(18px, 2vw, 27px);
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 19px;
+      background: rgba(255, 255, 255, .075);
+    }
+    .metric-card strong { display: block; color: #8de3dc; font-size: clamp(27px, 3vw, 45px); letter-spacing: -.04em; }
+    .metric-card span { display: block; margin-top: 7px; color: #d0dee7; font-size: clamp(12px, 1vw, 15px); line-height: 1.35; }
+
+    .validation-bottom {
+      display: grid;
+      grid-template-columns: 1.07fr .93fr;
+      gap: clamp(18px, 2.8vw, 36px);
+      flex: 1;
+      min-height: 0;
+      margin-top: clamp(18px, 2.6vh, 30px);
+      position: relative;
+      z-index: 1;
+    }
+    .pipeline-panel, .next-panel {
+      padding: clamp(21px, 2.5vw, 34px);
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 20px;
+      background: rgba(3, 17, 29, .28);
+    }
+    .small-title { color: #dff9f6; font-size: clamp(15px, 1.3vw, 20px); font-weight: 800; }
+    .pipeline {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+      margin-top: 24px;
+    }
+    .pipe-step {
+      min-height: 74px;
+      display: grid;
+      place-items: center;
+      padding: 12px 10px;
+      border: 1px solid rgba(141, 227, 220, .20);
+      border-radius: 13px;
+      color: #e8f7f6;
+      background: rgba(18, 170, 165, .10);
+      font-size: clamp(11px, .9vw, 14px);
+      font-weight: 750;
+      line-height: 1.25;
+      text-align: center;
+    }
+    .pipe-arrow { color: #66cfc8; font-size: 20px; font-weight: 900; }
+    .caution-band {
+      margin-top: 22px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--amber-500);
+      border-radius: 10px;
+      color: #ffecc4;
+      background: rgba(244, 166, 42, .12);
+      font-size: clamp(12px, 1vw, 15px);
+      line-height: 1.42;
+    }
+    .next-panel { background: rgba(255, 255, 255, .07); }
+    .next-panel ol { margin: 20px 0 0; padding: 0; list-style: none; counter-reset: steps; }
+    .next-panel li {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 11px;
+      margin-top: 15px;
+      color: #d5e2ea;
+      font-size: clamp(13px, 1.05vw, 16px);
+      line-height: 1.35;
+      counter-increment: steps;
+    }
+    .next-panel li::before {
+      content: counter(steps);
+      display: grid;
+      place-items: center;
+      width: 27px;
+      height: 27px;
+      border-radius: 50%;
+      color: var(--navy-950);
+      background: #83e0d8;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .open-gap {
+      margin-top: 18px;
+      padding-top: 17px;
+      border-top: 1px solid rgba(255, 255, 255, .13);
+      color: #ffd689;
+      font-size: clamp(12px, .95vw, 14px);
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .footer {
+      position: absolute;
+      left: clamp(34px, 6vw, 92px);
+      right: clamp(34px, 6vw, 92px);
+      bottom: clamp(16px, 2.2vh, 28px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      color: #8595a5;
+      font-size: clamp(10px, .82vw, 13px);
+      z-index: 2;
+    }
+    .title-slide .footer, .validation-slide .footer { color: #9fb6c4; }
+    .footer a { color: inherit; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+
+    #progress {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      height: 5px;
+      background: linear-gradient(90deg, var(--teal-500), #69ddd5);
+      transition: width .22s ease;
+      z-index: 20;
+    }
+    .controls {
+      position: fixed;
+      right: 15px;
+      top: 14px;
+      display: flex;
+      gap: 7px;
+      z-index: 22;
+      opacity: .72;
+    }
+    .control {
+      width: 32px;
+      height: 32px;
+      border: 1px solid rgba(255, 255, 255, .26);
+      border-radius: 9px;
+      color: #dceaf1;
+      background: rgba(7, 27, 45, .56);
+      cursor: pointer;
+    }
+    .control:hover { opacity: 1; background: rgba(7, 27, 45, .88); }
+    #notes {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      max-height: 40vh;
+      overflow: auto;
+      padding: 22px clamp(34px, 6vw, 92px) 28px;
+      border-top: 4px solid var(--teal-500);
+      color: #eaf3f7;
+      background: rgba(4, 16, 27, .97);
+      font-size: clamp(15px, 1.25vw, 19px);
+      line-height: 1.6;
+      z-index: 30;
+    }
+    #notes.show { display: block; }
+    #notes b { color: #7fddd6; }
+
+    @media (max-width: 900px), (max-aspect-ratio: 4/3) {
+      body { overflow: auto; }
+      #deck { position: relative; }
+      .slide { position: relative; min-height: 100svh; }
+      .slide.active { display: flex; }
+      .hero-grid, .content, .validation-bottom { grid-template-columns: 1fr; }
+      .hero-grid { align-content: center; }
+      .run-strip, .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .run-stat:nth-child(2) { border-right: 0; }
+      .run-stat:nth-child(-n+2) { border-bottom: 1px solid rgba(255, 255, 255, .12); }
+      .pipeline { grid-template-columns: 1fr; }
+      .pipe-arrow { transform: rotate(90deg); text-align: center; }
+      .loss-row { grid-template-columns: 1fr; gap: 10px; }
+    }
+
+    @media print {
+      @page { size: 16in 9in; margin: 0; }
+      html, body { width: 100%; height: auto; overflow: visible; background: #fff; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      #deck { position: static; }
+      .slide, .slide.active {
+        position: relative;
+        display: flex !important;
+        width: 16in;
+        height: 9in;
+        min-height: 9in;
+        page-break-after: always;
+        break-after: page;
+      }
+      .slide:last-child { page-break-after: auto; break-after: auto; }
+      #progress, .controls, #notes { display: none !important; }
+    }
+
+
+    /* Completed Lynch-vs-Sporadic run — result-specific components */
+    .hero-score { margin-top: 10px; color: var(--white); font-size: clamp(66px, 7.2vw, 106px); font-weight: 880; line-height: .9; letter-spacing: -.07em; }
+    .score-caption { margin-top: 12px !important; color: #e8f8f6 !important; font-size: clamp(17px, 1.45vw, 23px) !important; font-weight: 780 !important; line-height: 1.2 !important; }
+    .score-formula { margin-top: 17px; padding: 12px 14px; border-radius: 11px; color: #c7dce6; background: rgba(3, 15, 25, .28); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: clamp(10px, .85vw, 13px); line-height: 1.4; }
+    .result-content { grid-template-columns: minmax(0, 1.24fr) minmax(320px, .76fr); }
+    .result-chart { height: clamp(235px, 34vh, 330px); margin-top: 9px; }
+    #round-chart { width: 100%; height: 100%; overflow: visible; }
+    .chart-gridline { stroke: #e4ecef; stroke-width: 1; }
+    .chart-axis { fill: #738492; font: 11px Inter, "Segoe UI", sans-serif; }
+    .chart-global { fill: none; stroke: var(--teal-500); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+    .chart-local { fill: none; stroke: var(--amber-500); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+    .chart-dot-global { fill: #fff; stroke: var(--teal-500); stroke-width: 2.3; }
+    .chart-dot-local { fill: var(--amber-500); stroke: #fff; stroke-width: 1.4; }
+    .chart-guide { stroke: #9cabb6; stroke-width: 1.2; stroke-dasharray: 5 5; }
+    .chart-label { fill: var(--navy-900); font: 800 12px Inter, "Segoe UI", sans-serif; }
+    .chart-label-small { fill: #6f818f; font: 700 10px Inter, "Segoe UI", sans-serif; }
+    .chart-legend { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 14px; color: #536777; font-size: clamp(10px, .82vw, 13px); font-weight: 700; }
+    .chart-legend span { display: inline-flex; align-items: center; gap: 7px; }
+    .chart-legend i { width: 20px; height: 3px; border-radius: 3px; background: var(--teal-500); }
+    .chart-legend .local i { background: var(--amber-500); }
+    .chart-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 8px; }
+    .chart-stat { padding: 11px 12px; border-radius: 11px; background: #eff5f7; }
+    .chart-stat strong { display: block; color: var(--navy-900); font-size: clamp(15px, 1.25vw, 20px); }
+    .chart-stat span { display: block; margin-top: 3px; color: var(--muted); font-size: clamp(9px, .72vw, 11px); line-height: 1.27; }
+    .chart-stat.warn { background: var(--red-100); }
+    .chart-stat.warn strong { color: var(--red-600); }
+    .site-panel { padding: clamp(23px, 2.7vw, 38px); background: var(--white); border-color: var(--line); }
+    .site-bars { display: grid; gap: 14px; margin-top: 19px; }
+    .site-bar-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .site-bar-head span { color: #40586a; font-size: clamp(11px, .9vw, 14px); font-weight: 770; }
+    .site-bar-head strong { color: var(--navy-900); font-size: clamp(17px, 1.4vw, 22px); }
+    .site-track { height: 10px; margin-top: 7px; overflow: hidden; border-radius: 999px; background: #e8eef2; }
+    .site-fill { height: 100%; border-radius: inherit; background: var(--teal-500); }
+    .site-fill.hd { background: #477ac5; }
+    .site-fill.mean { background: var(--amber-500); }
+    .site-gap { margin-top: 18px; padding: 12px 14px; border-left: 4px solid var(--amber-500); border-radius: 10px; color: #72520d; background: var(--amber-100); font-size: clamp(10px, .84vw, 13px); font-weight: 720; line-height: 1.38; }
+    .cohort-block { margin-top: 19px; padding-top: 17px; border-top: 1px solid var(--line); }
+    .cohort-title { color: var(--navy-900); font-size: clamp(12px, .98vw, 15px); font-weight: 820; }
+    .mix-row { display: grid; grid-template-columns: 76px 1fr auto; align-items: center; gap: 9px; margin-top: 11px; }
+    .mix-row > span { color: #43596a; font-size: 11px; font-weight: 750; }
+    .mix-row > b { color: #647787; font-size: 10px; }
+    .mix-track { display: flex; height: 9px; overflow: hidden; border-radius: 999px; background: #e8eef2; }
+    .mix-lynch { background: var(--navy-800); }
+    .mix-sporadic { background: var(--teal-200); }
+    .shift-note { margin-top: 11px; color: var(--red-600); font-size: clamp(10px, .78vw, 12px); font-weight: 760; line-height: 1.34; }
+    .result-card strong { color: #8de3dc; }
+    .result-card .status-word { font-size: clamp(24px, 2.5vw, 38px); }
+    .support-list { display: grid; gap: 11px; margin-top: 17px; }
+    .support-item { display: grid; grid-template-columns: 23px 1fr; gap: 9px; color: #d2e0e7; font-size: clamp(11px, .9vw, 14px); line-height: 1.38; }
+    .support-item i { display: grid; place-items: center; width: 21px; height: 21px; border-radius: 50%; color: var(--navy-950); background: #83e0d8; font-size: 11px; font-style: normal; font-weight: 900; }
+    .support-item.warn i { background: var(--amber-200); }
+    .support-item.stop i { color: #772d29; background: #f4a29a; }
+    .eval-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 17px; }
+    .eval-step { display: grid; grid-template-columns: 27px 1fr; gap: 9px; padding: 12px; border: 1px solid rgba(141, 227, 220, .19); border-radius: 12px; background: rgba(18, 170, 165, .09); }
+    .eval-step b { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 8px; color: var(--navy-950); background: #83e0d8; font-size: 11px; }
+    .eval-step span { color: #d5e3e9; font-size: clamp(10px, .8vw, 12px); line-height: 1.34; }
+    .report-wording { margin-top: 13px; padding: 12px 14px; border-left: 4px solid var(--amber-500); border-radius: 9px; color: #ffe9bb; background: rgba(244, 166, 42, .11); font-size: clamp(10px, .8vw, 12px); font-weight: 720; line-height: 1.38; }
+    @media (max-width: 900px), (max-aspect-ratio: 4/3) { .result-content { grid-template-columns: 1fr; } .eval-steps { grid-template-columns: 1fr; } }
+
+  </style>
+</head>
+<body>
+  <main id="deck" aria-label="DECADE Lynch versus Sporadic evaluation slide deck">
+    <section class="slide title-slide active" aria-labelledby="slide-1-title">
+      <div class="topline">
+        <div class="brand"><span class="brand-mark">M</span> MediSwarm · DECADE Consortium</div>
+        <div class="slide-number">01 / 03</div>
+      </div>
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow" style="color:#83e0d8">Completed clinical-data swarm · August 2026</div>
+          <h1 id="slide-1-title">Lynch vs Sporadic: the run completed—and exposed a site gap</h1>
+          <p class="lead">Two-site UNI-feature ViT training across Bonn (UKB) and Heidelberg. The workflow is operational; the headline score is internal and highly heterogeneous.</p>
+          <div class="status-pill"><span class="dot"></span> FINISHED:COMPLETED · best model broadcast to both sites</div>
+        </div>
+        <aside class="verdict" aria-label="Best federation selector score">
+          <div class="verdict-label">Best federation selector score</div>
+          <div class="hero-score">0.804</div>
+          <p class="score-caption">equal-site validation AUROC · round 19</p>
+          <div class="score-formula">( UKB 0.617 + UKHD 0.990* ) ÷ 2 = 0.803642</div>
+          <p class="caveat">*Heidelberg’s value is inferred from the logged two-site mean and UKB value. This is internal validation—not a held-out external result.</p>
+        </aside>
+      </div>
+      <div class="run-strip" aria-label="Run summary">
+        <div class="run-stat"><strong>20 / 20</strong><span>swarm rounds completed</span></div>
+        <div class="run-stat"><strong>33m 52s</strong><span>end-to-end duration</span></div>
+        <div class="run-stat"><strong>738</strong><span>complete UKB patients · 423 / 315</span></div>
+        <div class="run-stat"><strong>330</strong><span>UKHD reported slides · 262 / 68</span></div>
+      </div>
+      <div class="footer">
+        <span>Job baa7164d-fcf8-4056-bdc1-fa883e93f8dd · 5–6 Aug 2026</span>
+        <span>Exactly Lynch syndrome + Sporadic · no FAP class</span>
+      </div>
+    </section>
+
+    <section class="slide" aria-labelledby="slide-2-title">
+      <div class="topline">
+        <div class="brand"><span class="brand-mark">M</span> MediSwarm · DECADE Consortium</div>
+        <div class="slide-number">02 / 03</div>
+      </div>
+      <div class="eyebrow">Round-level evaluation</div>
+      <h2 id="slide-2-title">The average improved; the two sites did not agree</h2>
+      <div class="content result-content">
+        <div class="panel evidence-panel">
+          <div class="panel-title">UKB validation AUROC across all 20 rounds</div>
+          <div class="panel-subtitle">Same internal UKB validation split · higher is better</div>
+          <div class="chart-legend">
+            <span><i></i> incoming global model, before local update</span>
+            <span class="local"><i></i> UKB model, after one local epoch</span>
+          </div>
+          <div class="result-chart"><svg id="round-chart" viewBox="0 0 780 330" role="img" aria-label="UKB global AUROC fell from 0.510 to 0.395 by round 9, then recovered to 0.617 at round 19. The locally updated UKB model reached 0.806 at round 19."></svg></div>
+          <div class="chart-summary">
+            <div class="chart-stat"><strong>+0.107</strong><span>global AUROC · round 0 → 19</span></div>
+            <div class="chart-stat"><strong>0.806</strong><span>UKB after final local update—not global</span></div>
+            <div class="chart-stat warn"><strong>0.352 → 0.930</strong><span>global loss worsened despite AUROC recovery</span></div>
+          </div>
+        </div>
+        <aside class="panel site-panel">
+          <div class="panel-title">Selected round: site-stratified AUROC</div>
+          <div class="panel-subtitle">Equal site weights: 1.0 each</div>
+          <div class="site-bars">
+            <div><div class="site-bar-head"><span>UKB · observed</span><strong>0.617</strong></div><div class="site-track"><div class="site-fill" style="width:61.7%"></div></div></div>
+            <div><div class="site-bar-head"><span>Heidelberg · inferred*</span><strong>0.990</strong></div><div class="site-track"><div class="site-fill hd" style="width:99%"></div></div></div>
+            <div><div class="site-bar-head"><span>Equal-site selector mean</span><strong>0.804</strong></div><div class="site-track"><div class="site-fill mean" style="width:80.4%"></div></div></div>
+          </div>
+          <div class="site-gap">Site gap = <b>0.373 AUROC</b>. One mean hides materially different generalization across centres.</div>
+          <div class="cohort-block">
+            <div class="cohort-title">Label mix also differs</div>
+            <div class="mix-row"><span>UKB</span><div class="mix-track"><i class="mix-lynch" style="width:57.3%"></i><i class="mix-sporadic" style="width:42.7%"></i></div><b>57% Lynch</b></div>
+            <div class="mix-row"><span>UKHD</span><div class="mix-track"><i class="mix-lynch" style="width:79.4%"></i><i class="mix-sporadic" style="width:20.6%"></i></div><b>79% Lynch</b></div>
+            <div class="shift-note">22-point prevalence shift; UKB adenomas and UKHD Stage I–III slides are not exchangeable cohorts.</div>
+          </div>
+        </aside>
+      </div>
+      <div class="footer"><span>*2 × 0.803642 − 0.617089 = 0.990196</span><span>Promising discrimination signal · substantial domain heterogeneity</span></div>
+    </section>
+
+    <section class="slide validation-slide" aria-labelledby="slide-3-title">
+      <div class="topline">
+        <div class="brand"><span class="brand-mark">M</span> MediSwarm · DECADE Consortium</div>
+        <div class="slide-number">03 / 03</div>
+      </div>
+      <div class="eyebrow">Conclusion and next evaluation</div>
+      <h2 id="slide-3-title">Operationally complete. Scientifically promising. Not deployment-ready.</h2>
+      <div class="metric-grid" aria-label="Evaluation conclusions">
+        <div class="metric-card result-card"><strong class="status-word">PASS</strong><span>Engineering: 20 rounds, endpoint guard, best-model selection and broadcast</span></div>
+        <div class="metric-card result-card"><strong>0.804</strong><span>Internal equal-site selector score; not an external-test estimate</span></div>
+        <div class="metric-card result-card"><strong>0.373</strong><span>Site AUROC gap—the dominant result to investigate</span></div>
+        <div class="metric-card result-card"><strong class="status-word">OPEN</strong><span>Held-out testing, uncertainty, operating points and calibration</span></div>
+      </div>
+      <div class="validation-bottom">
+        <div class="pipeline-panel">
+          <div class="small-title">What this run supports</div>
+          <div class="support-list">
+            <div class="support-item"><i>✓</i><span>Federated Lynch-vs-Sporadic training is feasible with UNI 1024-dim features and a two-class ViT head.</span></div>
+            <div class="support-item"><i>✓</i><span>The repaired AUROC path selected and distributed a best result instead of silently retaining an unscored last model.</span></div>
+            <div class="support-item warn"><i>!</i><span>The score is an equal-site internal mean; it is neither patient-pooled nor evidence of transportability.</span></div>
+            <div class="support-item stop"><i>×</i><span>The central archive lacks per-patient predictions and client model files needed for confidence intervals and threshold analysis.</span></div>
+          </div>
+        </div>
+        <aside class="next-panel">
+          <div class="small-title">Minimum package for the scientific report</div>
+          <div class="eval-steps">
+            <div class="eval-step"><b>1</b><span>Collect the selected global checkpoint and prediction CSVs from both sites.</span></div>
+            <div class="eval-step"><b>2</b><span>Evaluate the identical checkpoint on frozen, non-overlapping held-out sets.</span></div>
+            <div class="eval-step"><b>3</b><span>Report AUROC + bootstrap 95% CI, PR-AUC, sensitivity/specificity, balanced accuracy and calibration.</span></div>
+            <div class="eval-step"><b>4</b><span>Stratify by centre/specimen context; audit patient leakage and site-batch effects.</span></div>
+          </div>
+          <div class="report-wording">Recommended wording: “The swarm completed and achieved an internal equal-site AUROC selector score of 0.804; external validity remains to be established.”</div>
+        </aside>
+      </div>
+      <div class="footer"><span>Evidence: admin status · server workflow log · UKB round log · submitted job configuration</span><span>No patient-level data are embedded in this presentation</span></div>
+    </section>
+  </main>
+
+  <div id="progress" aria-hidden="true"></div>
+  <div class="controls" aria-label="Presentation controls">
+    <button class="control" id="prev" aria-label="Previous slide" title="Previous (←)">←</button>
+    <button class="control" id="next" aria-label="Next slide" title="Next (→)">→</button>
+    <button class="control" id="full" aria-label="Toggle fullscreen" title="Fullscreen (F)">⛶</button>
+  </div>
+  <aside id="notes" aria-live="polite"></aside>
+
+  <script>
+
+    const globalAuroc = [0.509912,0.451696,0.458920,0.445396,0.424021,0.408019,0.435097,0.408347,0.406138,0.395092,0.406496,0.420528,0.434201,0.455995,0.472952,0.502926,0.517196,0.549200,0.573621,0.617089];
+    const localAuroc = [0.5172,0.5302,0.5300,0.5241,0.5078,0.4894,0.4684,0.4521,0.4429,0.4477,0.4647,0.4931,0.5227,0.5548,0.5880,0.6180,0.6754,0.7259,0.7624,0.8061];
+    function renderRoundChart() {
+      const svg = document.getElementById('round-chart');
+      const ns = 'http://www.w3.org/2000/svg';
+      const W=780,H=330,p={left:48,right:20,top:20,bottom:38},minY=.35,maxY=.85;
+      const x=i=>p.left+i*(W-p.left-p.right)/19;
+      const y=v=>p.top+(maxY-v)*(H-p.top-p.bottom)/(maxY-minY);
+      const add=(name,attrs,label)=>{const el=document.createElementNS(ns,name);Object.entries(attrs||{}).forEach(([k,v])=>el.setAttribute(k,v));if(label!==undefined)el.textContent=label;svg.appendChild(el);return el;};
+      [.4,.5,.6,.7,.8].forEach(v=>{add('line',{x1:p.left,y1:y(v),x2:W-p.right,y2:y(v),class:'chart-gridline'});add('text',{x:p.left-10,y:y(v)+4,'text-anchor':'end',class:'chart-axis'},v.toFixed(1));});
+      [0,5,10,15,19].forEach(r=>add('text',{x:x(r),y:H-12,'text-anchor':'middle',class:'chart-axis'},`R${r}`));
+      add('text',{x:8,y:17,class:'chart-axis'},'AUROC');
+      const points=values=>values.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+      add('polyline',{points:points(localAuroc),class:'chart-local'});add('polyline',{points:points(globalAuroc),class:'chart-global'});
+      globalAuroc.forEach((v,i)=>add('circle',{cx:x(i),cy:y(v),r:i===19?5:3,class:'chart-dot-global'}));
+      localAuroc.forEach((v,i)=>{if([0,5,9,15,19].includes(i))add('circle',{cx:x(i),cy:y(v),r:i===19?5:3.5,class:'chart-dot-local'});});
+      add('line',{x1:x(9),y1:y(globalAuroc[9]),x2:x(9),y2:H-p.bottom,class:'chart-guide'});
+      add('text',{x:x(9),y:y(globalAuroc[9])-10,'text-anchor':'middle',class:'chart-label'},'0.395');
+      add('text',{x:x(9),y:H-p.bottom-6,'text-anchor':'middle',class:'chart-label-small'},'global low');
+      add('text',{x:x(19)-7,y:y(globalAuroc[19])-10,'text-anchor':'end',class:'chart-label'},'global 0.617');
+      add('text',{x:x(19)-7,y:y(localAuroc[19])-10,'text-anchor':'end',class:'chart-label'},'local 0.806');
+    }
+
+
+    const slides = [...document.querySelectorAll('.slide')];
+    const progress = document.getElementById('progress');
+    const notes = document.getElementById('notes');
+    const speakerNotes = [
+      `This is the completed Lynch-versus-Sporadic run, not the older MSI experiment. Both mandatory clients completed all twenty rounds in thirty-four minutes. The federation selector reported 0.803642 at round nineteen and broadcast that best result. Be precise: this is the equal-site internal validation selector score, not a held-out external AUROC. UKB contributed 738 complete patients; Heidelberg reported 330 Stage I–III slides.`,
+      `The left panel reconstructs every UKB round from the runtime log. The incoming global model initially fell to 0.395 AUROC at round nine, then recovered to 0.617 by round nineteen. A one-epoch UKB local update reached 0.806, but that orange series is not the global model. The selector mean hides a major site gap: 0.617 at UKB versus approximately 0.990 at Heidelberg. Heidelberg's number is inferred exactly because aggregation used two equal weights. The 22-point label-prevalence shift and different specimen contexts make site confounding a serious hypothesis.`,
+      `The engineering verdict is a clean pass: endpoint safety, all rounds, model selection, best-model broadcast, and checkpoint consolidation worked. The scientific verdict is more cautious. The central job archive has no per-patient predictions or client model files, so confidence intervals, PR-AUC, operating points, and calibration cannot yet be computed. The next step is to collect the selected checkpoint and both sites' prediction CSVs, run the identical model on frozen held-out sets, and report site-stratified uncertainty rather than one average.`
+    ];
+
+    let current = Math.max(0, Math.min(slides.length - 1, Number(location.hash.slice(1)) - 1 || 0));
+
+    function renderNotes() {
+      notes.innerHTML = `<b>Speaker notes · ${current + 1}/${slides.length}</b><br>${speakerNotes[current]}`;
+    }
+
+    function show(index) {
+      current = Math.max(0, Math.min(slides.length - 1, index));
+      slides.forEach((slide, i) => slide.classList.toggle('active', i === current));
+      progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+      history.replaceState(null, '', `#${current + 1}`);
+      if (notes.classList.contains('show')) renderNotes();
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    }
+
+    document.getElementById('prev').addEventListener('click', () => show(current - 1));
+    document.getElementById('next').addEventListener('click', () => show(current + 1));
+    document.getElementById('full').addEventListener('click', toggleFullscreen);
+
+    document.addEventListener('keydown', event => {
+      if (['ArrowRight', 'PageDown', ' '].includes(event.key)) { show(current + 1); event.preventDefault(); }
+      else if (['ArrowLeft', 'PageUp'].includes(event.key)) { show(current - 1); event.preventDefault(); }
+      else if (event.key === 'Home') show(0);
+      else if (event.key === 'End') show(slides.length - 1);
+      else if (event.key.toLowerCase() === 'f') toggleFullscreen();
+      else if (event.key.toLowerCase() === 's') { notes.classList.toggle('show'); renderNotes(); }
+    });
+
+    window.addEventListener('hashchange', () => show(Number(location.hash.slice(1)) - 1 || 0));
+    renderRoundChart();
+    show(current);
+  </script>
+</body>
+</html>

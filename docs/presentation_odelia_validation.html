@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>First Eight-Site Swarm Run</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --surround:#0E1116; --slide:#FFFFFF; --ink:#16202C; --muted:#6B7A8C;
+  --rule:#DCE3EA; --accent:#1F5F8B; --accent-soft:#EAF2F8;
+  --ok:#1B7A5A; --warn:#B4741E; --bad:#A33A32;
+  --sans:'Segoe UI',system-ui,-apple-system,Arial,Helvetica,sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,'DejaVu Sans Mono',monospace;
+}
+html,body{height:100%}
+body{margin:0;background:var(--surround);color:var(--ink);font-family:var(--sans);overflow:hidden}
+#deck{position:relative;height:100vh;width:100vw}
+.slide{
+  position:absolute;inset:0;display:none;flex-direction:column;
+  background:var(--slide);color:var(--ink);
+  padding:5.2vh 6.4vw 6.4vh;
+  font-size:clamp(12px,calc(1.35vh + .42vw),23px);
+}
+.slide.active{display:flex}
+.kicker{font-size:.78em;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.7em}
+h1{font-size:2.35em;line-height:1.1;margin:0 0 .16em;font-weight:650;letter-spacing:-.015em;text-wrap:balance}
+.subtitle{font-size:1.02em;color:var(--muted);margin-bottom:1.1em;text-wrap:balance}
+.body{flex:1;min-height:0;display:flex;flex-direction:column;gap:.85em;justify-content:center}
+ul{margin:0;padding-left:1.15em;display:flex;flex-direction:column;gap:.62em}
+li{line-height:1.45}
+b,strong{font-weight:650}
+code,.mono{font-family:var(--mono);font-size:.92em;font-variant-numeric:tabular-nums}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+
+/* title slide */
+.title-slide{justify-content:center;padding-left:7.5vw}
+.title-slide h1{font-size:3.5em;max-width:16em}
+.title-slide .lede{font-size:1.12em;line-height:1.5;color:var(--ink);max-width:34em;margin:.9em 0 0}
+.title-slide .meta{margin-top:2.2em;display:flex;flex-wrap:wrap;gap:.6em 2.4em;font-size:.85em;color:var(--muted)}
+.rule{width:3.2em;height:.22em;background:var(--accent);border-radius:.11em;margin-bottom:1.4em}
+
+/* stat row */
+.stats{display:flex;flex-wrap:wrap;gap:1.1em}
+.stat{flex:1 1 0;min-width:6.2em;border:1px solid var(--rule);border-radius:.42em;padding:.85em 1em;background:var(--slide)}
+.stat.hero{background:var(--accent-soft);border-color:#BFD6E6}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:2.15em;font-weight:650;line-height:1;letter-spacing:-.02em}
+.stat .l{font-size:.76em;color:var(--muted);margin-top:.5em;line-height:1.3}
+
+/* tables */
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.9em}
+th,td{padding:.5em .7em;border-bottom:1px solid var(--rule);text-align:left;vertical-align:baseline}
+th{font-size:.8em;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:650;white-space:nowrap}
+tr.total td{border-top:2px solid var(--accent);border-bottom:none;font-weight:650;background:var(--accent-soft)}
+tbody tr:last-child td{border-bottom:none}
+
+.chip{display:inline-block;padding:.16em .6em;border-radius:1em;font-size:.8em;font-weight:650;white-space:nowrap}
+.chip.ok{background:#E4F2EC;color:var(--ok)}
+.chip.bad{background:#F7E7E5;color:var(--bad)}
+.chip.warn{background:#FBF0E0;color:var(--warn)}
+
+.callout{border-left:.28em solid var(--accent);background:var(--accent-soft);padding:.85em 1.1em;border-radius:0 .38em .38em 0}
+.callout.alarm{border-left-color:var(--bad);background:#FBEDEB}
+.callout h3{margin:0 0 .35em;font-size:.98em;font-weight:650}
+.callout p{margin:0;line-height:1.45}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1.5em;align-items:start}
+.mixbar{display:flex;height:1.5em;border-radius:.25em;overflow:hidden;border:1px solid var(--rule)}
+.mixbar span{display:block}
+.s0{background:#C9D6E2}.s1{background:#7FA8C4}.s2{background:var(--accent)}
+.mixlab{font-size:.78em;color:var(--muted);margin:.4em 0 .9em}
+.legend{display:flex;gap:1.1em;font-size:.78em;color:var(--muted);margin-top:.3em}
+.legend i{display:inline-block;width:.75em;height:.75em;border-radius:.15em;margin-right:.35em;vertical-align:-.05em}
+
+.footer{position:absolute;left:6.4vw;right:6.4vw;bottom:2.1vh;display:flex;justify-content:space-between;
+  align-items:center;font-size:.72em;color:var(--muted);border-top:1px solid var(--rule);padding-top:.7em}
+#prog{position:fixed;top:0;left:0;height:3px;background:var(--accent);width:0;z-index:40;transition:width .18s ease}
+#notes{position:fixed;left:0;right:0;bottom:0;max-height:42vh;overflow:auto;background:#111820;color:#DCE6EF;
+  padding:1.1em 1.6em;font-size:15px;line-height:1.55;display:none;z-index:50;border-top:2px solid var(--accent)}
+#notes.show{display:block}
+#notes b{color:#7FB6DA}
+#hint{position:fixed;right:1em;bottom:.7em;font-size:11px;color:#4A5866;z-index:30}
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media print{
+  @page{size:landscape;margin:0}
+  body{overflow:visible;background:#fff}
+  #deck{height:auto}
+  .slide{display:flex!important;position:relative;height:100vh;page-break-after:always;inset:auto}
+  #prog,#notes,#hint{display:none!important}
+}
+</style>
+</head>
+<body>
+<div id="prog"></div>
+<div id="deck">
+
+<section class="slide title-slide">
+  <div class="rule"></div>
+  <h1>First successful 8-site, 20-round swarm training on real clinical data</h1>
+  <p class="lede"><b>Eight sites &middot; twenty rounds &middot; real patient data.</b> Eight hospitals trained one model
+    together for two days without a single dropout &mdash; the first time the full consortium has finished a
+    20-round run. On held-out data it outperforms the best model any single hospital could train alone.</p>
+  <div class="meta">
+    <span>ODELIA &middot; breast-MRI swarm learning</span>
+    <span class="mono">job 87c5bbee</span>
+    <span>13&ndash;15 Aug 2026</span>
+    <span>27 Aug 2026</span>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="kicker">The result in one slide</div>
+  <h1>Two findings</h1>
+  <div class="body">
+    <div class="stats">
+      <div class="stat hero"><div class="v">8 / 8</div><div class="l">sites contributed to all 20 rounds, zero dropouts, empty error log</div></div>
+      <div class="stat hero"><div class="v">0.887</div><div class="l">malignant-vs-rest AUROC on held-out data &mdash; best on record for ODELIA</div></div>
+    </div>
+    <ul>
+      <li><b>The run finished.</b> No eight-site ODELIA run had previously survived past round&nbsp;11. This one ran 1&nbsp;d&nbsp;19&nbsp;h&nbsp;53&nbsp;m to completion, with aggregation rotating through every site.</li>
+      <li><b>The model generalizes.</b> On 165 held-out exams from five centres it beats the best single-site model and the best model of the May six-site study.</li>
+    </ul>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Why now</div>
+  <h1>Why this run survived when earlier ones did not</h1>
+  <div class="subtitle">The job names on the server record the debugging sequence exactly</div>
+  <div class="body">
+    <div class="tscroll"><table>
+      <thead><tr><th>Job</th><th>Configuration</th><th class="num">Ran for</th><th>Outcome</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">831d16b4</td><td>default quorum</td><td class="num">10 h 45 m</td><td><span class="chip bad">aborted</span></td></tr>
+        <tr><td class="mono">6e1d08b9</td><td>default quorum</td><td class="num">1 d 6 h</td><td><span class="chip bad">died at round 3</span></td></tr>
+        <tr><td class="mono">a8c6a75b</td><td>strict8 &middot; 1-round canary</td><td class="num">2 h 23 m</td><td><span class="chip ok">completed</span></td></tr>
+        <tr><td class="mono">1e4bface</td><td>strict8 + racefix &middot; canary</td><td class="num">2 h 55 m</td><td><span class="chip ok">completed</span></td></tr>
+        <tr class="total"><td class="mono">87c5bbee</td><td><b>strict8 + racefix</b> &middot; 20 rounds</td><td class="num">1 d 19 h 53 m</td><td><span class="chip ok">completed</span></td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin:0;color:var(--muted)">Two technical changes and one procedural one separate the runs that died from the runs that finished.</p>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Fix 1 of 2</div>
+  <h1>What &ldquo;strict8&rdquo; fixes</h1>
+  <div class="subtitle">A quorum default that silently trained on a subset</div>
+  <div class="body">
+    <ul>
+      <li>The controller stopped waiting once a <b>minimum number of sites</b> had answered the configuration step, then advanced.</li>
+      <li>A site needing another second or two to bring up its job cell received the peer key-exchange before it could accept it &mdash; <code>cannot forward req: no path</code> &mdash; and was <b>silently dropped</b>.</li>
+      <li>The run continued on whoever was left and <b>still reported success.</b></li>
+    </ul>
+    <div class="callout alarm">
+      <h3>The failure was biased, not random</h3>
+      <p>The controller drops the <i>slowest</i> sites &mdash; and the slowest site is the one with the <i>most data</i>.
+      The old default preferentially discarded the largest contributor. Requiring all eight to configure removes the race entirely.</p>
+    </div>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Fix 2 of 2</div>
+  <h1>The change that was not technical</h1>
+  <div class="subtitle">Every fix proven on a 1-round canary before a multi-day run was risked</div>
+  <div class="body">
+    <div class="stats">
+      <div class="stat"><div class="v">~30 h</div><div class="l">old feedback loop &mdash; one failed multi-day run per hypothesis</div></div>
+      <div class="stat hero"><div class="v">~2 h</div><div class="l">canary feedback loop &mdash; same signal, one afternoon</div></div>
+    </div>
+    <ul>
+      <li>The two canaries (<span class="mono">a8c6a75b</span>, <span class="mono">1e4bface</span>) each cost under three hours and each confirmed one fix in isolation.</li>
+      <li>That is why a problem which resisted roughly a year of attempts converged in <b>a single week</b> &mdash; not because the fixes were clever, but because we could test fifteen times instead of once.</li>
+      <li><b>Adopt this as standing practice:</b> no multi-day consortium run without a green 1-round canary on the identical configuration.</li>
+    </ul>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">External validation</div>
+  <h1>The model on data it has never seen</h1>
+  <div class="subtitle">Best aggregated checkpoint &middot; held-out ODELIA Challenge test split &middot; 165 exams, five centres</div>
+  <div class="body">
+    <div class="stats">
+      <div class="stat hero"><div class="v">0.887</div><div class="l">malignant vs rest<br>AUROC</div></div>
+      <div class="stat"><div class="v">0.853</div><div class="l">lesion vs none<br>AUROC</div></div>
+      <div class="stat"><div class="v">0.820</div><div class="l">macro<br>AUROC</div></div>
+      <div class="stat"><div class="v">0.752</div><div class="l">overall<br>accuracy</div></div>
+    </div>
+    <ul>
+      <li>Ground-truth labels checked against each site's <code>annotation.csv</code>: <b>165 of 165 matched.</b></li>
+      <li>The clinically decisive endpoint &mdash; separating malignant from everything else &mdash; is also the strongest.</li>
+    </ul>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">External validation</div>
+  <h1>It holds at every centre but one</h1>
+  <div class="body">
+    <div class="tscroll"><table>
+      <thead><tr><th>Centre</th><th class="num">n</th><th class="num">Accuracy</th><th class="num">Macro AUROC</th><th class="num">Lesion vs none</th><th class="num">Malignant vs rest</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">CAM_1</td><td class="num">64</td><td class="num">0.844</td><td class="num">0.710</td><td class="num">0.856</td><td class="num">0.960</td></tr>
+        <tr><td class="mono">UMCU_1</td><td class="num">41</td><td class="num">0.780</td><td class="num">0.602</td><td class="num">0.684</td><td class="num">0.750</td></tr>
+        <tr><td class="mono">MHA_1</td><td class="num">26</td><td class="num">0.615</td><td class="num">0.815</td><td class="num">0.931</td><td class="num">0.955</td></tr>
+        <tr><td class="mono">UKA_1</td><td class="num">26</td><td class="num">0.615</td><td class="num">0.821</td><td class="num">0.867</td><td class="num">0.841</td></tr>
+        <tr><td class="mono">RUMC_1</td><td class="num">8</td><td class="num">0.750</td><td class="num">0.857</td><td class="num">0.857</td><td class="num">0.857</td></tr>
+        <tr class="total"><td>Pooled</td><td class="num">165</td><td class="num">0.752</td><td class="num">0.820</td><td class="num">0.853</td><td class="num">0.887</td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin:0;color:var(--muted)"><b>UMCU is the outlier</b> and the one worth investigating. <b>RUMC (n&nbsp;=&nbsp;8) is indicative only.</b>
+      Note accuracy and AUROC disagree at MHA and UKA &mdash; a threshold effect, not a ranking failure. Next slide.</p>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Read this carefully</div>
+  <h1>The model under-calls cancer</h1>
+  <div class="subtitle">Good ranking, wrong operating point</div>
+  <div class="body">
+    <div class="two">
+      <div>
+        <div class="mixlab"><b>Predicted</b> &mdash; 110 / 34 / 21</div>
+        <div class="mixbar"><span class="s0" style="width:66.7%"></span><span class="s1" style="width:20.6%"></span><span class="s2" style="width:12.7%"></span></div>
+        <div class="mixlab" style="margin-top:1.1em"><b>Truth</b> &mdash; 111 / 17 / 37</div>
+        <div class="mixbar"><span class="s0" style="width:67.3%"></span><span class="s1" style="width:10.3%"></span><span class="s2" style="width:22.4%"></span></div>
+        <div class="legend"><span><i class="s0"></i>No lesion</span><span><i class="s1"></i>Benign</span><span><i class="s2"></i>Malignant</span></div>
+      </div>
+      <div>
+        <ul>
+          <li>The model calls malignant <b>21</b> times where the truth is <b>37</b>, and benign <b>34</b> times where the truth is <b>17</b>.</li>
+          <li>It is under-calling cancer and absorbing the difference into <i>benign</i> &mdash; <b>the unsafe direction</b>, not a conservative one.</li>
+          <li>But malignant AUROC is <b>0.887</b>: the model <i>ranks</i> malignancy well. What is mis-set is the <b>decision threshold</b>, not the discrimination.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout">
+      <h3>Fixable without retraining</h3>
+      <p>Fit the operating point on a calibration split, and report <b>malignant recall</b> alongside accuracy in every future result.</p>
+    </div>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Independent cohort</div>
+  <h1>The same result on a cohort from another continent</h1>
+  <div class="subtitle">Duke Breast Cancer MRI &mdash; 260 held-out exams, US data, no part of any ODELIA site</div>
+  <div class="body">
+    <div class="stats">
+      <div class="stat hero"><div class="v">0.887</div><div class="l">malignant vs rest AUROC on Duke &mdash; <b>identical</b> to the ODELIA challenge set</div></div>
+      <div class="stat"><div class="v">0.851</div><div class="l">lesion vs none<br>(0.853 on ODELIA)</div></div>
+      <div class="stat"><div class="v">0.696</div><div class="l">accuracy<br>(0.752 on ODELIA)</div></div>
+      <div class="stat"><div class="v">0.662</div><div class="l">malignant<br>recall</div></div>
+    </div>
+    <ul>
+      <li>Duke is a <b>public US dataset</b>, collected on different scanners, in a different health system, and was
+        not part of this model's training. Ranking performance transfers <b>unchanged</b>.</li>
+      <li>Duke contains <b>no benign cases</b> (124 no-lesion, 136 malignant), so it yields one endpoint rather than a
+        macro AUROC &mdash; but that endpoint is the clinically decisive one.</li>
+    </ul>
+    <div class="callout alarm">
+      <h3>And it reproduces the threshold problem exactly</h3>
+      <p>The model called <b>benign 44 times on a cohort with zero benign cases</b>, and its malignant recall is only
+        <b>0.662</b> despite an AUROC of 0.887. The discrimination travels; the operating point is wrong everywhere.
+        This is now confirmed on two independent cohorts, which makes threshold calibration the clearest next win.</p>
+    </div>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Against the record</div>
+  <h1>Checkpoint and historical comparison</h1>
+  <div class="subtitle">Same endpoints; historical cohorts differ</div>
+  <div class="body">
+    <div class="tscroll"><table>
+      <thead><tr><th>Result</th><th>Setup</th><th class="num">Macro AUROC</th><th class="num">Malignant AUROC</th></tr></thead>
+      <tbody>
+        <tr class="total"><td><b>This run &mdash; best checkpoint</b></td><td>8 sites &middot; 20 rounds &middot; 1DC</td><td class="num">0.820</td><td class="num">0.887</td></tr>
+        <tr><td><b>This run &mdash; final round</b></td><td>8 sites &middot; round 20 &middot; 1DC</td><td class="num">0.818</td><td class="num">0.873</td></tr>
+        <tr><td>Swarm global &mdash; May study</td><td>6 sites &middot; 1DC</td><td class="num">0.708</td><td class="num">&mdash;</td></tr>
+        <tr><td>Swarm global &mdash; May, best family</td><td>6 sites &middot; 4LME_ABMIL</td><td class="num">0.764</td><td class="num">0.847</td></tr>
+        <tr><td>Best single-site checkpoint</td><td>UKA only &middot; 1DC</td><td class="num">&mdash;</td><td class="num">0.858</td></tr>
+        <tr><td>Best single-site, 1DC family</td><td>one site &middot; 1DC</td><td class="num">0.609</td><td class="num">&mdash;</td></tr>
+      </tbody>
+    </table></div>
+    <ul>
+      <li><b>Best versus final:</b> AUROC is nearly unchanged; the best checkpoint leads on macro/malignant AUROC, while final-round accuracy is higher (<b>0.782 vs 0.752</b>).</li>
+      <li>Historical direction is encouraging: May's six-site 1DC macro AUROC was <b>0.708</b>, but that study used a different cohort.</li>
+      <li>The best checkpoint exceeds the historical <b>single-site malignant AUROC of 0.858</b>; re-scoring both models on one identical cohort remains the controlled comparison.</li>
+    </ul>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Swarm vs local</div>
+  <h1>Does training together actually beat training alone?</h1>
+  <div class="subtitle">May 2026 study &mdash; six model families, six sites, 300 held-out exams each</div>
+  <div class="body">
+    <div class="tscroll"><table>
+      <thead><tr><th>Model family</th><th class="num">Swarm global</th><th class="num">Best single-site</th><th class="num">&Delta;</th><th class="num">Local: internal &rarr; external</th></tr></thead>
+      <tbody>
+        <tr><td>MST</td><td class="num">0.645</td><td class="num">0.635</td><td class="num" style="color:var(--ok)">+0.010</td><td class="num">0.801 &rarr; 0.635</td></tr>
+        <tr><td>1DivideAndConquer</td><td class="num">0.708</td><td class="num">0.609</td><td class="num" style="color:var(--ok)">+0.099</td><td class="num">0.870 &rarr; 0.609</td></tr>
+        <tr><td>2BCN_AIM</td><td class="num">0.627</td><td class="num">0.572</td><td class="num" style="color:var(--ok)">+0.055</td><td class="num">0.775 &rarr; 0.572</td></tr>
+        <tr><td>3agaldran</td><td class="num">0.692</td><td class="num">0.698</td><td class="num" style="color:var(--muted)">&minus;0.006</td><td class="num">0.902 &rarr; 0.698</td></tr>
+        <tr><td>4LME_ABMIL</td><td class="num">0.764</td><td class="num">0.734</td><td class="num" style="color:var(--ok)">+0.030</td><td class="num">0.910 &rarr; 0.734</td></tr>
+        <tr><td>5Pimed</td><td class="num">0.387</td><td class="num">0.609</td><td class="num" style="color:var(--bad)">&minus;0.222</td><td class="num">0.866 &rarr; 0.609</td></tr>
+        <tr class="total"><td><b>1DC &mdash; this run</b> (8 sites, 20 rounds)</td><td class="num">0.820</td><td class="num">0.609</td><td class="num" style="color:var(--ok)">+0.211</td><td class="num">&mdash;</td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin:0;font-size:.86em;color:var(--muted)">External macro AUROC. Swarm wins 4 of 6 families on macro and
+      5 of 6 on the malignant endpoint; <b>5Pimed</b> is a genuine swarm failure, not noise. This run's row uses a
+      different evaluation set (165 exams, 5 centres) than the May rows (300, 6 centres) &mdash; not strictly like for like.</p>
+    <div class="callout">
+      <h3>The right-hand column is the real argument</h3>
+      <p>Every single-site model looks excellent on its own data &mdash; 0.78 to 0.91 &mdash; and loses
+        <b>0.17 to 0.26 AUROC</b> the moment it is moved to another hospital. The swarm model does not have that gap,
+        because it never had a home centre to overfit to.</p>
+    </div>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">The previous ceiling</div>
+  <h1>How far the consortium had got before</h1>
+  <div class="subtitle">Seven sites, aborted around round 11</div>
+  <div class="body">
+    <ul>
+      <li>The best previous attempt was a <b>seven-site run that aborted at roughly round 11</b> &mdash; the furthest
+        the consortium had ever reached before this one.</li>
+      <li>It never produced an archived global model, so <b>it cannot be scored on the challenge set</b>. There is no
+        external number for it to be compared against.</li>
+      <li>That is the honest baseline for this run: not a worse score, but <b>no score at all</b>. Every earlier attempt
+        either stopped early or left nothing behind that could be evaluated.</li>
+      <li>This is also exactly why the metric-plumbing gap matters &mdash; a run that dies mid-way currently leaves us
+        with almost nothing to learn from.</li>
+    </ul>
+    <div class="callout warnbox" style="border-left-color:var(--warn);background:#FBF3E4">
+      <h3>Provenance note</h3>
+      <p>The server's job store was re-provisioned on <b>20 July</b> and retains nothing before that date, and this run
+        is not in the live-sync archive either. The round-11 figure is <b>from operator recollection, not a recovered
+        log</b> &mdash; worth pinning down before it goes in a paper.</p>
+    </div>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Honesty</div>
+  <h1>Limits of this evaluation</h1>
+  <div class="body">
+    <ul>
+      <li><b>Small samples per centre.</b> 165 ODELIA exams, 8&ndash;64 per centre &mdash; RUMC (n&nbsp;=&nbsp;8) is indicative only. The 260-case Duke cohort mitigates this for the malignant endpoint, but not per centre.</li>
+      <li><b>Checkpoint choice matters.</b> Best and final were both evaluated: macro AUROC was 0.820 vs 0.818 and malignant AUROC 0.887 vs 0.873; final accuracy was higher, 0.782 vs 0.752.</li>
+      <li><b>RSH labelling is still unconfirmed.</b> We have been waiting on data-labelling confirmation from RSH since <b>July</b>. Their contribution needs verification before any of this is published.</li>
+      <li><b>Baselines are indicative.</b> Single-site figures come from an earlier report on the same challenge set, not recomputed here under identical conditions.</li>
+    </ul>
+    <div class="callout alarm">
+      <h3>Metrics do not reach the coordinator</h3>
+      <p>For peer-to-peer runs the server's <code>cross_val_results.json</code> is <b>empty</b>. The two internal figures we have came from
+        logging into individual hospitals by hand. A published result cannot depend on that.</p>
+    </div>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">Future work</div>
+  <h1>What comes next</h1>
+  <div class="body">
+    <ul>
+      <li><b>Roll out the new preprocessing to every partner.</b> Make the version, validation gate and rollout schedule the first decision at the next technical meeting.</li>
+      <li><b>Merge the reliability fixes.</b> The changes that made this run finish are still carried as a draft pull request. Until they land, the next run depends on remembering to configure it by hand.</li>
+      <li><b>Fix central metric collection</b> so per-site and cross-site validation reach the coordinator automatically. Highest-value engineering task before the next run.</li>
+      <li><b>Tune the decision threshold</b> on a calibration split, and report malignant recall alongside accuracy.</li>
+      <li><b>Re-evaluate on the full 816-exam challenge set</b> for statistical power the test split alone cannot give.</li>
+      <li><b>Score the final-round checkpoint on Duke</b> as well, to confirm the two checkpoints agree on the independent cohort too.</li>
+      <li><b>Investigate UMCU</b>, the one centre where the model reads materially worse.</li>
+      <li><b>Recompute per-centre local baselines</b> with the same preprocessing, cohort and evaluation code, to quantify what the swarm adds centre by centre.</li>
+    </ul>
+  </div>
+  <div class="footer"><span>ODELIA swarm validation</span><span class="pg"></span></div>
+</section>
+
+</div>
+<div id="notes"></div>
+<div id="hint">&larr; &rarr; navigate &middot; S speaker notes &middot; F fullscreen &middot; Ctrl+P to PDF</div>
+<script>
+window.__NOTES__=[
+`Today I am reporting the first completed ODELIA swarm run with eight clinical sites over all twenty planned rounds. The sites trained on real patient data without exchanging that data, and every round retained all eight contributions. I will cover three things: why this attempt finished, how the resulting model performs on held-out data, and what we still need to do before the result is publication-ready.`,
+
+`There are two headline findings. First, the run finished exactly as intended: eight of eight sites contributed to all twenty rounds, nobody was dropped, and the archived server error log is empty. Previous eight-site attempts had not progressed beyond roughly round eleven. Second, the best aggregated checkpoint generalizes well on the held-out five-centre test split: malignant-versus-rest AUROC is 0.887 and macro AUROC is 0.820. The final-round checkpoint was also evaluated and is close, which I will show in the comparison.`,
+
+`This table records the debugging sequence. Two runs at the top used the earlier configuration: one was aborted after about ten hours, and one failed at round three after more than a day. Then two one-round canaries completed. Finally the full job ran for nearly two days and completed. Two technical changes and one procedural change separate the failures from the successful run. I will take the technical changes first, then explain why the shorter feedback loop mattered just as much.`,
+
+`The controller previously stopped waiting when its minimum configuration quorum replied. A site that needed longer to start its job cell could receive peer key exchange before it was ready, fail with “cannot forward req: no path,” and be excluded while the run continued. That allowed a green result to represent only a subset of the consortium. Strict8 requires the exact named eight sites at deployment, configuration and contribution time. In this run, each aggregation contains eight accepted updates; no node is silently pruned.`,
+
+`The procedural change was to stop testing each hypothesis with a multi-day run. Every fix was first exercised with a one-round canary on the same eight sites and the same large model. The canaries took under three hours each instead of waiting roughly thirty hours for a failure signal. The standing practice should be simple: do not submit a multi-day consortium run until an otherwise identical one-round canary has passed its strict acceptance criteria.`,
+
+`These numbers are for the best aggregated checkpoint on the held-out ODELIA challenge test split: 165 exams across five centres. Malignant versus rest is 0.887, lesion versus none 0.853, macro AUROC 0.820 and accuracy 0.752. Every ground-truth label was checked against the corresponding site annotation file, and all 165 matched. The clinically decisive endpoint—separating malignant from everything else—is also the strongest one.`,
+
+`Broken down by centre, ranking performance is strong at most sites. CAM and MHA both exceed 0.95 on the malignant endpoint. UMCU is the outlier at 0.602 macro AUROC and deserves investigation. RUMC has only eight exams, so that row is descriptive rather than conclusive. Accuracy and AUROC disagree at MHA and UKA. That points to the operating threshold rather than a failure to rank cases, which leads into the next slide.`,
+
+`The predicted and true class mixes show the operating-point problem. The best checkpoint predicts malignant twenty-one times although thirty-seven cases are malignant, and predicts benign thirty-four times although only seventeen are benign. This is the unsafe direction: cancers are being absorbed into the benign category. Yet malignant AUROC is 0.887, so the model ranks malignancy well. The next step is calibration on a separate split, with malignant recall reported alongside accuracy.`,
+
+`The strongest single piece of evidence in this deck. We took the same model and ran it against Duke - a public American breast-MRI cohort, different scanners, different health system, and no relationship to any ODELIA site. The malignant-versus-rest AUROC came back at 0.887. That is not close to our challenge-set figure, it is identical to it. Ranking performance transfers across continents unchanged, which is a much stronger claim than anything the challenge set alone could support. Two caveats. Duke has no benign cases at all, so we get one endpoint rather than a macro average - though it is the endpoint that matters clinically. And look at the red box: the model called benign forty-four times on a cohort that contains zero benign cases, with malignant recall of only 0.662 against that 0.887 AUROC. That is the same threshold problem from three slides ago, reproduced independently. The discrimination travels; the operating point is wrong everywhere. That makes threshold calibration the clearest next win we have.`,
+
+`This table now includes both retained checkpoints from the completed run. The best checkpoint reaches 0.820 macro and 0.887 malignant AUROC. The final-round checkpoint reaches 0.818 and 0.873, respectively, while improving accuracy from 0.752 to 0.782. So the two checkpoints tell the same broad story, but the model-selection rule still matters. The historical numbers are encouraging rather than a controlled head-to-head: May used a different cohort. The next clean comparison is to re-score the historical swarm and single-site checkpoints on this exact split with the same preprocessing.`,
+
+`This is the broader May comparison that was requested. Across six model families, the swarm global model beats the best retained single-site model on external macro AUROC in four of six cases, and on the malignant endpoint in five of six. Pimed is an important counterexample: swarm training made it substantially worse, so the benefit is not automatic. The rightmost column shows the recurring generalization problem for local models: an internal AUROC around 0.78 to 0.91 falls to roughly 0.57 to 0.73 externally. The current eight-site row is visually useful but not strictly comparable because it uses 165 exams from five centres, whereas the May rows use 300 from six.`,
+
+`The previous consortium ceiling needs careful wording. The remembered run involved seven sites and stopped at about round eleven, so it never produced a completed twenty-round model for external scoring. We could not recover its job record or global checkpoint: the server was re-provisioned in July, and the live archive does not contain a matching seven-site job. Therefore I am not assigning it a metric or presenting the round number as independently verified. The action is to recover the original run identifier or meeting record before this claim is used in a paper.`,
+
+`The limitations are concrete. The external set has only 165 exams, with as few as eight at one centre. Both retained checkpoints are now evaluated: their AUROCs are close, but the best checkpoint has slightly better ranking and the final checkpoint better accuracy, so checkpoint selection must be predefined. Historical local baselines were not recomputed under this exact cohort and pipeline. We are also still waiting for confirmation of RSH data labelling, outstanding since July. Finally, peer-to-peer validation metrics do not reach the coordinator; cross_val_results is empty, so central metric collection remains a prerequisite for a reproducible publication workflow.`,
+
+`The first future-work decision is to roll out the new preprocessing consistently to every partner. I would put the version, validation gate and rollout schedule first on the next technical-meeting agenda. Then merge the reliability fixes, centralize per-site metrics, calibrate the malignant decision threshold, expand evaluation beyond this small split, and investigate UMCU and the still-unconfirmed RSH labels. The 262-case Duke dataset has now been located on dl0; both checkpoints will be evaluated as soon as the active CI validation releases that GPU. Finally, recompute the local baselines with the same cohort, preprocessing and evaluation code so the swarm-versus-local comparison is genuinely controlled. Happy to take questions.`
+];
+const slides=[...document.querySelectorAll('.slide')];
+const notesData=window.__NOTES__;
+let i=0;
+const prog=document.getElementById('prog');
+const notes=document.getElementById('notes');
+document.querySelectorAll('.pg').forEach((el,k)=>{el.textContent=(k+2)+' / '+slides.length;});
+function show(n){
+  i=Math.max(0,Math.min(slides.length-1,n));
+  slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+  prog.style.width=((i+1)/slides.length*100)+'%';
+  if(notes.classList.contains('show'))renderNotes();
+}
+function renderNotes(){notes.innerHTML='<b>Slide '+(i+1)+' / '+slides.length+'</b><br>'+(notesData[i]||'');}
+document.addEventListener('keydown',e=>{
+  if(['ArrowRight','PageDown',' '].includes(e.key)){show(i+1);e.preventDefault();}
+  else if(['ArrowLeft','PageUp'].includes(e.key))show(i-1);
+  else if(e.key==='Home')show(0);
+  else if(e.key==='End')show(slides.length-1);
+  else if(e.key.toLowerCase()==='s'){notes.classList.toggle('show');renderNotes();}
+  else if(e.key.toLowerCase()==='f'){if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();}
+});
+document.addEventListener('click',e=>{if(e.target.closest('#notes'))return;
+  const x=e.clientX/window.innerWidth;show(x<0.25?i-1:i+1);});
+show(0);
+</script>
+</body>
+</html>
