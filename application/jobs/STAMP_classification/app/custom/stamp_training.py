@@ -379,6 +379,126 @@ def compute_weighted_epochs(num_train_samples: int, site_name: str = "") -> int:
     return epochs
 
 
+# ---------------------------------------------------------------------------
+# Class-order verification
+# ---------------------------------------------------------------------------
+# Swarm aggregation averages the classifier head position by position. If one
+# site infers the class order ["no", "yes"] and another ["yes", "no"], every
+# round averages weights that mean opposite things: the run completes, the loss
+# looks plausible, and the result is silently meaningless. Nothing in NVFlare or
+# STAMP detects this — the shapes match, only the semantics differ.
+#
+# STAMP infers the order from each site's own clinical table, so it depends on
+# that site's label spelling and on which labels are present. Two real examples:
+# a site that leaves a third label ("not provided", "FAP") in its table gets a
+# 3-class head, and sites that disagree on capitalisation ("Lynch syndrome" vs
+# "Lynch Syndrome") produce different orders. The second cost us a DECADE run,
+# which aborted mid-flight with EXECUTION_EXCEPTION.
+#
+# Opt in per run by setting STAMP_EXPECTED_CATEGORIES to the agreed order, e.g.
+#     STAMP_EXPECTED_CATEGORIES="Lynch syndrome,Sporadic"
+#     STAMP_EXPECTED_CATEGORIES="no,yes"
+# Comparison is case-insensitive and whitespace-insensitive but ORDER-SENSITIVE,
+# because the order is exactly what must agree. When unset, the inferred order is
+# logged and not enforced, so existing runs are unaffected.
+
+ENV_EXPECTED_CATEGORIES = "STAMP_EXPECTED_CATEGORIES"
+
+
+def parse_expected_categories(raw):
+    """Parse a comma-separated class order into a list, or None if unset/blank."""
+    if raw is None:
+        return None
+    parts = [part.strip() for part in str(raw).split(",")]
+    parts = [part for part in parts if part]
+    return parts or None
+
+
+def categories_match(observed, expected):
+    """Order-sensitive, case- and whitespace-insensitive class-order comparison."""
+    if observed is None or expected is None:
+        return False
+    normalize = lambda values: [str(v).strip().casefold() for v in values]  # noqa: E731
+    return normalize(observed) == normalize(expected)
+
+
+def extract_categories(model):
+    """Best-effort read of the class order STAMP inferred, or None if unavailable.
+
+    STAMP exposes it as ``model.categories``; some versions only keep it in
+    ``model.hparams``. Returns stripped strings so comparison is not thrown off by
+    stray whitespace in a clinical table.
+    """
+    categories = getattr(model, "categories", None)
+    if categories is None:
+        hparams = getattr(model, "hparams", None)
+        if hparams is not None:
+            categories = (
+                hparams.get("categories")
+                if hasattr(hparams, "get")
+                else getattr(hparams, "categories", None)
+            )
+    if categories is None:
+        return None
+    try:
+        return [str(value).strip() for value in list(categories)]
+    except TypeError:
+        return None
+
+
+def verify_class_order(env: dict, model, expected_categories=None):
+    """Fail before round 0 if this site's class order is not the agreed one.
+
+    Raises ValueError on a mismatch — deliberately before any training happens,
+    since the alternative is a run that completes and cannot be trusted. Returns
+    the observed class order (or None if it could not be read).
+    """
+    observed = extract_categories(model)
+    if observed is None:
+        logger.warning(
+            "Could not read the inferred class order from the model — skipping "
+            "class-order verification. A cross-site order mismatch would NOT be "
+            "detected for this run."
+        )
+        return None
+
+    # Always worth checking: a stray third label (e.g. 'not provided', 'FAP')
+    # silently widens the head and guarantees a mismatch with the other sites.
+    num_classes = env.get("num_classes")
+    if num_classes is not None and len(observed) != int(num_classes):
+        raise ValueError(
+            f"Class-order check: this site inferred {len(observed)} classes "
+            f"{observed!r} but STAMP_NUM_CLASSES is {num_classes}. Remove any extra "
+            "label (e.g. 'not provided') from the clinical table, or correct "
+            "STAMP_NUM_CLASSES, before starting the run."
+        )
+
+    if expected_categories is None:
+        expected_categories = parse_expected_categories(
+            os.environ.get(ENV_EXPECTED_CATEGORIES)
+        )
+
+    if expected_categories is None:
+        logger.info(
+            "Inferred class order %r (not verified — set %s to the agreed order "
+            "to enforce it across sites)", observed, ENV_EXPECTED_CATEGORIES,
+        )
+        return observed
+
+    if not categories_match(observed, expected_categories):
+        raise ValueError(
+            f"Class-order mismatch: this site inferred {observed!r} but the run "
+            f"expects {list(expected_categories)!r} (compared case-insensitively, "
+            "order matters). Swarm aggregation averages the classifier head by "
+            "position, so continuing would silently combine classes that mean "
+            "different things. Align the labels in the clinical table, or correct "
+            f"{ENV_EXPECTED_CATEGORIES}."
+        )
+
+    logger.info("Class order verified: %r", observed)
+    return observed
+
+
 def _select_precision(task: str, use_gpu: bool) -> str:
     """Pick a Lightning precision that the task's loss can actually backprop.
 
