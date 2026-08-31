@@ -1,4 +1,5 @@
 import importlib.util
+import re
 import sys
 import types
 from pathlib import Path
@@ -894,5 +895,29 @@ def test_production_swarm_client_configs_keep_result_refs_and_control_retries_al
     assert "request_to_submit_result_msg_timeout = 60" in client_config
     assert "request_to_submit_result_interval = 5" in client_config
     assert "max_concurrent_submissions = 1" in client_config
-    # Reusable templates must not bake in the current ODELIA deployment's site count.
-    assert "min_responses_required = 5" in client_config
+    if job_name == "challenge_1DivideAndConquer":
+        # The live production job is pinned to the current 8-site deployment; the exact
+        # site list is asserted by test_1dc_config_pins_exact_strict_eight_sites_and_retry_settings.
+        assert "min_responses_required = 8" in client_config
+    else:
+        # Reusable templates must not bake in the current ODELIA deployment's site count.
+        assert "min_responses_required = 5" in client_config
+def test_1dc_config_pins_exact_strict_eight_sites_and_retry_settings():
+    expected_sites = {"CAM_1", "VHIO_1", "USZ_1", "RUMC_1", "MHA_1", "RSH_1", "UMCU_1", "UKA_1"}
+    job_dir = REPO_ROOT / "application" / "jobs" / "challenge_1DivideAndConquer"
+    server_config = (job_dir / "app" / "config" / "config_fed_server.conf").read_text()
+    client_config = (job_dir / "app" / "config" / "config_fed_client.conf").read_text()
+    metadata = (job_dir / "meta.conf").read_text()
+
+    participating = re.search(r"participating_clients\s*=\s*\[(.*?)\]", server_config, re.DOTALL)
+    mandatory = re.search(r"mandatory_clients\s*=\s*\[(.*?)\]", metadata, re.DOTALL)
+
+    assert participating is not None
+    assert mandatory is not None
+    assert set(re.findall(r'"([^"]+)"', participating.group(1))) == expected_sites
+    assert set(re.findall(r'"([^"]+)"', mandatory.group(1))) == expected_sites
+    assert "min_clients = 8" in server_config
+    assert "configure_min_clients = 8" in server_config
+    assert "min_responses_required = 8" in client_config
+    assert "learn_task_scatter_attempt_timeout = 3600" in client_config
+    assert "learn_task_scatter_retry_interval = 5" in client_config
