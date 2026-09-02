@@ -466,7 +466,9 @@ cmd_all() {
 
     echo ""
     ok "Full pipeline complete!"
-    info "Monitor progress at: http://172.24.4.65:8080/"
+    # Real address intentionally not in the public tree; set MEDISWARM_MONITOR_URL
+    # (see the members-only site registry) to print a clickable URL here.
+    info "Monitor progress at: ${MEDISWARM_MONITOR_URL:-http://<SERVER_IP>:8080/}"
     info "Check status with: ./deploy_and_test.sh status"
     info "View logs with: ./deploy_and_test.sh logs <MHA|RSH|server>"
 }
