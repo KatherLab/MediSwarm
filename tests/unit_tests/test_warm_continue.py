@@ -921,3 +921,38 @@ def test_1dc_config_pins_exact_strict_eight_sites_and_retry_settings():
     assert "min_responses_required = 8" in client_config
     assert "learn_task_scatter_attempt_timeout = 3600" in client_config
     assert "learn_task_scatter_retry_interval = 5" in client_config
+
+
+def test_prepare_script_default_roster_matches_the_pinned_1dc_config():
+    """The eight-site roster is declared twice on purpose and must not drift.
+
+    The committed 1DC job config pins the roster so a job submitted directly --
+    bypassing prepare_odelia_job.sh -- cannot fall back to a partial quorum
+    (failure mode F8). prepare_odelia_job.sh carries the same roster as its
+    default for the normal admin path. Neither is redundant, but they have to
+    agree, so assert it rather than trusting a comment.
+    """
+    prepare_script = (REPO_ROOT / "kit_admin_tools" / "prepare_odelia_job.sh").read_text()
+    server_config = (
+        REPO_ROOT / "application" / "jobs" / "challenge_1DivideAndConquer"
+        / "app" / "config" / "config_fed_server.conf"
+    ).read_text()
+
+    default_clients = re.search(
+        r'^DEFAULT_STRICT_CLIENTS="([^"]*)"', prepare_script, re.MULTILINE
+    )
+    participating = re.search(
+        r"participating_clients\s*=\s*\[(.*?)\]", server_config, re.DOTALL
+    )
+
+    assert default_clients is not None, "DEFAULT_STRICT_CLIENTS not found in prepare_odelia_job.sh"
+    assert participating is not None, "participating_clients not found in the 1DC server config"
+
+    script_roster = {c.strip() for c in default_clients.group(1).split(",") if c.strip()}
+    config_roster = set(re.findall(r'"([^"]+)"', participating.group(1)))
+
+    assert script_roster == config_roster, (
+        "prepare_odelia_job.sh and the 1DC job config disagree on the site roster: "
+        f"only in script {sorted(script_roster - config_roster)}, "
+        f"only in config {sorted(config_roster - script_roster)}"
+    )
