@@ -19,6 +19,8 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 | F5 | Run aborts: `MODEL_UNRECOGNIZED` from a slow site | Swarm advanced a round without the slow site; its late model rejected | Wait-for-all (`min_responses_required = #clients`) |
 | F6 | Run aborts after a node goes `deemed disconnected` | VPN tunnel drop for that site | Stabilise the VPN (keepalive / network); wait-for-all bounds it by `learn_task_timeout` |
 | F7 | `DataLoader worker killed by signal: Bus error … shared memory` | `/dev/shm` too small for the dataloader workers | `--ipc=host` (already set for swarm clients) / `--shm-size` |
+| F8 | Run trains on a **subset**: `clients [...] did not configure within timeout but min_clients=N allows proceeding` | Controller stops waiting once `configure_min_clients` answer; slower sites lose the key exchange | Set `configure_min_clients` **= number of participating sites** |
+| F9 | Site never appears in `check_status server`, container reports `(healthy)` for weeks | Startup kit older than the server's provisioning generation → `ClientConnectorCertificateError` | Re-issue the current startup kit to that site |
 
 ---
 
@@ -72,6 +74,49 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 
 ---
 
+## F8 — Silent client dropout during configuration (the run trains on a subset)
+- **Symptom (server job log):** `client configuration took 5.8 seconds` followed by
+  `clients ['RUMC_1', 'UKA_1'] did not configure within timeout but min_clients=5 allows proceeding; they remain as participants and may rejoin in a later round`.
+  The run then proceeds happily with the remaining sites and **reports success** — the missing sites contribute nothing.
+- **Symptom (dropped site's `startup/nohup.out`):**
+  ```
+  CoreCell WARNING ... CH=credential_manager TP=key_exchange ... no connection to child <SITE>.<job_id>
+  CoreCell ERROR   ... CH=credential_manager TP=key_exchange ... cannot forward req: no path
+  ```
+  then ~15 min later `PipeHandler: peer gone: no heartbeat for 900.0s`, `No best checkpoint found.`,
+  `No last checkpoint found.` — the training subprocess started, idled, and exited having trained nothing.
+- **Root cause:** the controller waits only until **`configure_min_clients`** sites have answered `swarm_config`, then advances. A site whose job cell takes a second or two longer to come up (worker process launched, cell not yet registered) receives the p2p `key_exchange` before its child cell exists — `no path` — and is left behind. It is a **race, not a site fault**: the affected sites are healthy, correctly provisioned, and their data loads.
+- **Detection:** in the job log, count `successfully configured client` lines — it must equal the number of participating sites. `check_status server` showing all sites *registered* is **not** sufficient: registered ≠ configured ≠ training.
+- **Fix:** submit the job with `configure_min_clients` (and `min_clients`) equal to the participating-site count:
+  ```bash
+  ./prepare_odelia_job.sh --job ODELIA_ternary_classification --warm-start fresh \
+      --num-rounds N --min-clients 7 --configure-min-clients 7
+  ```
+  Job configs ship with the submitted job (byoc) — **no startup-kit rebuild needed**.
+- **Prevention:** for any **benchmark** run, `configure_min_clients` must equal the number of sites, because a consortium benchmark requires every site to contribute. The default (`min_clients = 5`) exists for resilience during casual runs, but it will silently drop the **slowest** sites — which on a real consortium tend to be the **largest** ones, i.e. exactly the data you least want to lose.
+- **Observed 2026-07-31:** a 7-site run dropped `RUMC_1` and `UKA_1` at 5.8 s with `min_clients=5`; re-submitting the identical job with `--min-clients 7 --configure-min-clients 7` configured all seven. Neither site needed any change.
+
+## F9 — Stale startup kit: client "healthy" but never registers
+- **Symptom:** the site is absent from `check_status server` while `docker ps` shows its client `Up N weeks (healthy)`. The site believes it is connected.
+- **Symptom (client `startup/nohup.out`), repeating every ~10 s:**
+  ```
+  conn_manager ERROR - Connector [CH0000x ACTIVE http://<server>:8002] failed with exception ClientConnectorCertificateError
+  CoreCell WARNING - ... no connection to server
+  ```
+- **Root cause:** the site is running a startup kit from an **older provisioning generation** than the server. VPN and routing are fine — the TLS handshake is rejected because the kit's certificates were issued by a superseded root.
+- **Detection:** compare the client container-name suffix / image tag against the current kit
+  (`docker ps --filter name=odelia_swarm_client`), and grep the site's `nohup.out` for `CertificateError`.
+  Docker's `(healthy)` only means the process is alive — it says nothing about FL registration.
+- **Fix:** issue the current startup kit, extract it into a **fresh empty directory** (do not overwrite an old kit — sites accumulate several), then:
+  ```bash
+  docker rm -f <old_client_container>
+  rm -f <new_kit>/daemon_pid.fl <new_kit>/pid.fl      # see F3
+  cd <new_kit>/startup && ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --start_client
+  ```
+  Success looks like `Successfully registered client:<SITE> for project ...` / `Connected to server`.
+- **Prevention:** after every kit roll-out, verify the expected site count in `check_status server` rather than assuming; a silently-stale site can persist for weeks.
+- **Observed 2026-07-31:** `RSH_1` had been looping on `ClientConnectorCertificateError` for **three weeks** on a v1.5.0 kit while reporting `(healthy)`; installing the current kit registered it immediately.
+
 ## Operator diagnostic playbook
 
 **Drive the live server** via the admin startup kit (run `./fl_admin.sh` in the odelia image with `--net=host`, username line first):
@@ -99,3 +144,17 @@ Run the pre-flight checks from the startup kit, **even if they passed before** �
 ```
 
 Both now print a `Pre-run checks` block covering F2/F3/F4/F6. Reserve enough time before the scheduled run to resolve anything they flag.
+
+**Immediately after submitting a job, verify participation** — a run that silently trains on a
+subset still reports success (F8):
+
+```bash
+# 1. every participating site must have registered
+#    (admin console) check_status server   -> "Registered clients: <N>"
+# 2. every participating site must have CONFIGURED for this job
+grep -c 'successfully configured client ' <server-kit>/<job_id>/log.txt   # must equal <N>
+# 3. and each must reach the round
+grep 'updated status of client' <server-kit>/<job_id>/log.txt | grep start_learn_task
+```
+
+Registered != configured != training. Check all three.

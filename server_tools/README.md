@@ -11,7 +11,7 @@ cp server_tools/app.py /srv/mediswarm/app.py
 /srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080
 
 Then open:
-http://172.24.4.65:8080/
+http://<SERVER_IP>:8080/
 
 # Detailed version: MediSwarm Live Monitor: installation and usage
 
@@ -168,7 +168,7 @@ Start the FastAPI server with:
 If it starts successfully, open:
 
 ```text
-http://172.24.4.65:8080/
+http://<SERVER_IP>:8080/
 ```
 
 If you are testing on the server itself, you can also open:
@@ -334,7 +334,7 @@ sudo ufw allow 8080/tcp
 Then verify from another machine:
 
 ```bash
-curl http://172.24.4.65:8080/
+curl http://<SERVER_IP>:8080/
 ```
 
 ---
@@ -410,5 +410,5 @@ pip install fastapi uvicorn
 Then open:
 
 ```text
-http://172.24.4.65:8080/
+http://<SERVER_IP>:8080/
 ```

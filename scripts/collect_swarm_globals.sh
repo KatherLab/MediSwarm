@@ -12,7 +12,7 @@
 # Sites are read from a config file (default: ./swarm_sites.conf), one per line:
 #     <SITE_NAME> <SSH_HOST> [<CLIENT_CONTAINER_NAME>]
 # e.g.:
-#     UKA   swarm@172.24.4.79   odelia_swarm_client_UKA_1
+#     UKA   swarm@<SITE_IP>     odelia_swarm_client_UKA_1
 # SSH auth uses your ssh config / agent (no credentials are stored here).
 # If <CLIENT_CONTAINER_NAME> is omitted, the first container matching 'client'
 # is used. Prefix the ssh command with sudo on the remote via your ssh config if

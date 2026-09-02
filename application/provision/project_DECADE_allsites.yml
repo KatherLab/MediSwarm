@@ -55,8 +55,8 @@ builders:
         overseer_exists: false
         args:
           # SERVER_NAME:FL_PORT:ADMIN_PORT — must match the server above.
-          # Server runs on TUD (Tailscale 100.100.101.100); clients map
-          # dl3.tud.de -> 100.100.101.100 in /etc/hosts.
+          # Server runs on TUD; clients map dl3.tud.de -> <SERVER_IP> in
+          # /etc/hosts. The real address is in the members-only site registry.
           sp_end_point: dl3.tud.de:8002:8003
   - path: nvflare.lighter.impl.cert.CertBuilder
   - path: nvflare.lighter.impl.signature.SignatureBuilder

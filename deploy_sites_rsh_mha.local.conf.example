@@ -5,26 +5,26 @@ CLIENT_SITES=(RSH MHA)
 
 COSMOS_DEPLOY_DIR=/home/jeff/deploy_test
 # Optional override when clients cannot reach the automatically selected Cosmos IP.
-# COSMOS_HOST_IP=172.24.4.65
+# COSMOS_HOST_IP=100.100.100.165
 SERVER_NAME=dl3.tud.de
 ADMIN_USER=jiefu.zhu@tu-dresden.de
 
-RSH_HOST=172.24.4.71
-RSH_USER=asoro
+RSH_HOST=100.100.100.171
+RSH_USER=REDACTED
 RSH_PASS_ENV=RSH_PASS
 RSH_SITE_NAME=RSH_1
-RSH_DATADIR=/home/asoro/JULIA_ITERATION/odelia_breast_mri/odelia/RSH
-RSH_SCRATCHDIR=/home/asoro/JULIA_ITERATION/odelia_breast_mri/odelia/RSH/scratch
-RSH_DEPLOY_DIR=/home/asoro/mediswarm_warm_continue
+RSH_DATADIR=/path/to/data/RSH
+RSH_SCRATCHDIR=/path/to/data/RSH/scratch
+RSH_DEPLOY_DIR=/path/to/deploy
 RSH_GPU="device=0"
 
-MHA_HOST=172.24.4.91
-MHA_USER=odelia
+MHA_HOST=100.100.100.191
+MHA_USER=REDACTED
 MHA_PASS_ENV=MHA_PASS
 MHA_SITE_NAME=MHA_1
-MHA_DATADIR=/home/odelia/MediSwarm/data
-MHA_SCRATCHDIR=/home/odelia/MediSwarm/data/MHA_1/tmp
-MHA_DEPLOY_DIR=/home/odelia/mediswarm_warm_continue
+MHA_DATADIR=/path/to/data
+MHA_SCRATCHDIR=/path/to/data/MHA_1/tmp
+MHA_DEPLOY_DIR=/path/to/deploy
 MHA_GPU="device=0"
 
 EVAL_SITE_NAME=UKA_1
