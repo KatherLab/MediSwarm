@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-REMOTE_HOST="172.24.4.65"
+REMOTE_HOST="100.100.100.165"
 REMOTE_USER="mediswarm-upload"
 REMOTE_BASE="/srv/mediswarm/live"
 
