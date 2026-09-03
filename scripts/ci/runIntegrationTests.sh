@@ -930,7 +930,7 @@ run_3dcnn_local_training () {
         fi
     done
 
-    # The following fails; output is contained twice in log (for unknown reasons) even though it is printed only once during training.
+    # The following fails; output is contained twice in the captured output (for unknown reasons) even though it is printed only once during training.
     # _verify_that_string_is_contained_once_in_file 'Training completed successfully.' "$CONSOLE_OUTPUT_FILE"
     cd "$CWD"
 
