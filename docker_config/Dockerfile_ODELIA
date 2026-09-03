@@ -286,9 +286,10 @@ RUN chmod a+rwX /huggingface_home -R
 # install ODELIA fork of NVFlare from local source
 WORKDIR /workspace/
 COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
-## Override with MediSwarm master_template.yml (contains version placeholders injected by build script)
-COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/templates/
 RUN python3 -m pip install --no-cache-dir /workspace/nvflare && rm -rf /workspace/nvflare
+## Override with MediSwarm master_template.yml (contains version placeholders injected by build script)
+COPY ./MediSwarm/docker_config/master_template.yml /tmp/master_template.yml
+RUN mv /tmp/master_template.yml $(python3 -c "import nvflare.lighter,os;print(os.path.dirname(nvflare.lighter.__file__))")/templates/master_template.yml
 
 # ---------------------------------------------------------------------------
 # Stage 5: application code (changes every commit)
