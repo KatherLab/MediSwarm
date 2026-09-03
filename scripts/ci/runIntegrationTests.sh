@@ -1161,6 +1161,7 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         run_two_containers_in_parallel
         cleanup_temporary_data
+        # TODO add to CI if we want this
         ;;
 
     run_data_access_preflight_check)
