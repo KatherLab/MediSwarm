@@ -55,7 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # STAMP 2.5.0; the patch below lets this loader read them (the H5 layout and the
 # UNI extractor are identical between 2.4.0 and 2.5.0).
 RUN python3 -m pip install --no-cache-dir \
-    "stamp @ git+https://github.com/KatherLab/STAMP.git@2.4.0"
+    "stamp @ https://github.com/KatherLab/STAMP/archive/refs/tags/2.4.0.tar.gz"
 
 # Raise STAMP's *readable* feature-extraction version ceiling to 2.5.0 so that
 # features extracted by STAMP 2.5.0 load here. Fails the build loudly if the
