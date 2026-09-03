@@ -54,8 +54,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # NVFlare fork declares support only through 3.12. Sites extract features with
 # STAMP 2.5.0; the patch below lets this loader read them (the H5 layout and the
 # UNI extractor are identical between 2.4.0 and 2.5.0).
+#
+# Fetched as a release tarball rather than "git+https://...@2.4.0" on purpose.
+# The git form makes pip shell out to `git clone`; when GitHub throttles that
+# unauthenticated request it returns a non-protocol response, git then falls
+# back to asking for a username and dies under no tty with the misleading
+# "could not read Username for 'https://github.com'" -- which reads as a
+# permission problem but is rate limiting. It broke validate-swarm on several
+# unrelated PRs. A tarball is a plain HTTPS GET with no credential path.
 RUN python3 -m pip install --no-cache-dir \
-    "stamp @ git+https://github.com/KatherLab/STAMP.git@2.4.0"
+    "stamp @ https://github.com/KatherLab/STAMP/archive/refs/tags/2.4.0.tar.gz"
 
 # Raise STAMP's *readable* feature-extraction version ceiling to 2.5.0 so that
 # features extracted by STAMP 2.5.0 load here. Fails the build loudly if the
