@@ -91,6 +91,12 @@ def main():
             )
         )
 
+        # Verify the class order BEFORE any training. A cross-site mismatch makes
+        # swarm aggregation average classifier weights that mean different things,
+        # which produces a completed run whose result cannot be trusted. Enforced
+        # only when STAMP_EXPECTED_CATEGORIES is set; otherwise just logged.
+        stamp_training.verify_class_order(env, model)
+
         if TRAINING_MODE == TM_SWARM:
             flare.patch(trainer)
             torch.autograd.set_detect_anomaly(True)

@@ -27,10 +27,10 @@ COSMOS_USER=swarm
 # auto-detect via `tailscale ip -4` (the Tailscale IP the dl nodes route to).
 # Only set it if auto-detection is wrong — and it MUST be an address the clients
 # can actually reach (the Tailscale IP, NOT a GoodAccess/other-subnet address).
-#SERVER_HOST_IP=100.100.101.100
+#SERVER_HOST_IP=100.100.100.100
 
 # dl0: node_A
-DL0_HOST=100.64.4.100
+DL0_HOST=100.100.100.101
 DL0_USER=swarm
 DL0_SITE_NAME=node_A
 DL0_DATADIR=/mnt/dlhd0/DUKE_iid
@@ -41,7 +41,7 @@ DL0_DEPLOY_DIR=/home/swarm/deploy_test_duke_iid_2client
 DL0_GPU="device=0"
 
 # dl2: node_B
-DL2_HOST=100.64.4.102
+DL2_HOST=100.100.100.102
 DL2_USER=swarm
 DL2_SITE_NAME=node_B
 DL2_DATADIR=/mnt/sda1/DUKE_iid
