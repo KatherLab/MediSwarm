@@ -44,7 +44,15 @@ def base_model():
 
 
 def _make(base_model, monkeypatch, **env):
-    """Build a classifier with a clean, explicitly-set environment."""
+    """Build a classifier with a clean, explicitly-set environment.
+
+    Seeded because BootStrapper resamples: with only six samples a resample can
+    contain a single class, and AUROC then raises "No samples to concatenate".
+    Whether that happens depended on how much RNG earlier tests had consumed, so
+    the bootstrap test passed alone and failed about 1 run in 20 as part of the
+    file. Seeding here makes every test in this module independent of run order.
+    """
+    torch.manual_seed(0)
     for key in ENV_KEYS:
         monkeypatch.delenv(key, raising=False)
     for key, value in env.items():
