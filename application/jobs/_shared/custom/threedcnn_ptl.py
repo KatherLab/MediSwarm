@@ -485,7 +485,6 @@ def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv
     output_csv(results_validation, epoch, csv_filename_validation)
 
 
-
 class GT_PredProb_Output_Callback(Callback):
     def __init__(self, data_module, csv_filename_train, csv_filename_validation):
         self.data_module = data_module
@@ -563,11 +562,11 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
             mode=min_max,
         )
 
-        gt_predprob_output = GT_PredProb_Output_Callback(data_module,
-                                                         path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
-                                                         path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
+        gt_predprob_output_callback = GT_PredProb_Output_Callback(data_module,
+                                                                  path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
+                                                                  path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
 
-        callbacks = [checkpointing, gt_predprob_output]
+        callbacks = [checkpointing, gt_predprob_output_callback]
 
         # FedProx proximal term: penalise local model deviation from global model.
         # Enabled via FEDPROX_MU env var (default 0 = disabled).
@@ -604,6 +603,10 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
     return data_module, model, checkpointing, trainer, path_run_dir, env_vars
 
 
+def is_final_round(current_round, total_rounds) -> bool:
+    return total_rounds is not None and total_rounds > 0 and current_round >= total_rounds - 1
+
+
 def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
     """Whether to export per-sample aggregated predictions this swarm round (#314).
 
@@ -620,7 +623,7 @@ def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
         every_n = int(os.environ.get("ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS", "0") or "0")
     except (TypeError, ValueError):
         every_n = 0
-    is_final = total_rounds is not None and total_rounds > 0 and current_round >= total_rounds - 1
+    is_final = is_final_round(current_round, total_rounds)
     if every_n <= 0:
         return is_final
     if every_n == 1:

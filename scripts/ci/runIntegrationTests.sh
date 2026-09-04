@@ -179,12 +179,18 @@ run_dummy_training_standalone(){
                     --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
                     "$DOCKER_IMAGE" 2>&1 || echo "")
 
-    if grep -q "✓ MediSwarm test running dummy training in standalone mode completed." <<< "$OUTPUT" ; then
-        echo "✅ Running" $1 "in Docker completed."
-    else
-        echo "❌ Running" $1 "in Docker failed."
-        exit 1
-    fi
+    for EXPECTED_OUTPUT in "✓ MediSwarm test running dummy training in standalone mode completed." \
+                           "Best model checkpoint:"                                                ;
+    do
+        if grep -q "$EXPECTED_OUTPUT" <<< "$OUTPUT" ; then
+            echo "✅ Expected output $EXPECTED_OUTPUT of standalone dummy training found"
+        else
+            echo "$OUTPUT"
+            echo "❌ Missing expected output $EXPECTED_OUTPUT of standalone dummy training"
+            exit 1
+        fi
+    done
+
 
     OUTPUT_WITHOUT_GPU=$(docker run --rm \
                                 --shm-size=16g \
@@ -201,6 +207,7 @@ run_dummy_training_standalone(){
     if grep -q "RuntimeError: This example does not work without GPU" <<< "$OUTPUT_WITHOUT_GPU"; then
         echo "✅ Verified that minimal example requires GPU"
     else
+        echo "$OUTPUT_WITHOUT_GPU"
         echo "❌ Failed to verify that minimal example requires GPU"
         exit 1
     fi
@@ -211,11 +218,10 @@ run_dummy_training_simulation_mode(){
 
     OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
 
-    echo "$OUTPUT"
-
     if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example simulation mode succeeded."
     else
+        echo "$OUTPUT"
         echo "❌ Minimal example simulation mode failed."
         exit 1
     fi
@@ -229,11 +235,10 @@ run_dummy_training_poc_mode(){
     # showed up as a bare exit code with no log. Capture, always echo, then judge.
     OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
 
-    echo "$OUTPUT"
-
     if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example proof-of-concept mode succeeded."
     else
+        echo "$OUTPUT"
         echo "❌ Minimal example proof-of-concept mode failed."
         exit 1
     fi
@@ -313,6 +318,7 @@ create_startup_kits_and_check_contained_files () {
         if grep -q "$FILE" <<< "$ZIP_CONTENT"; then
             echo "✅ $FILE found in kit archive"
         else
+            echo "$ZIP_CONTENT"
             echo "❌ $FILE missing in kit archive"
             exit 1
         fi
@@ -350,6 +356,7 @@ run_list_licenses () {
             if grep -q "$expected_keyword" <<< "$license_output"; then
                 echo "✅ License check: $expected_keyword found"
             else
+                echo "$license_output"
                 echo "❌ License check: $expected_keyword missing"
                 exit 1
             fi
@@ -366,9 +373,10 @@ run_docker_gpu_preflight_check () {
     # also check that it finishes within one minute
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT_FILE"
 
-    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE"; then
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE" && grep -q "Training completed successfully." "$CONSOLE_OUTPUT_FILE"; then
         echo "✅ Expected output of Docker/GPU preflight check found"
     else
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Missing expected output of Docker/GPU preflight check"
         exit 1
     fi
@@ -389,9 +397,10 @@ run_two_containers_in_parallel () {
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull --container_name MediSwarmODELIATestSecondContainer 2>&1 | tee "$CONSOLE_OUTPUT_FILE_A" &
     sleep 60
 
-    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE_A" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE_A"; then
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE_A" && grep -q "Training completed successfully." "$CONSOLE_OUTPUT_FILE_A"; then
         echo "✅ Expected output of running two containers in parallel found"
     else
+        cat "$CONSOLE_OUTPUT_FILE_A"
         echo "❌ Missing expected output of running two containers in parallel"
         exit 1
     fi
@@ -430,6 +439,7 @@ run_data_access_preflight_check () {
     done
 
     if grep -q  "ID_0" "$CONSOLE_OUTPUT_FILE" ; then
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Unexpected output (UIDs) of data access preflight check without logging dataset details found"
         exit 1
     else
@@ -503,6 +513,7 @@ run_data_access_preflight_check_with_problems () {
         echo "❌ Unexpected output of data access preflight check with problematic dataset without logging dataset details found"
         exit 1
     else
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "✅ Output of data access preflight check with problematic dataset contains no unexpected UIDs."
     fi
 
@@ -567,6 +578,7 @@ run_data_access_preflight_check_without_data () {
     if grep -Eq "No such file or directory: '/data/client_P/metadata_unilateral/(annotation|split)\.csv'" "$CONSOLE_OUTPUT_FILE" ; then
         echo "✅ Expected error output of data access preflight check found if no data is present"
     else
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Missing expected output of data access preflight check found if no data is present"
         exit 1
     fi
@@ -585,11 +597,10 @@ run_3dcnn_simulation_mode () {
         exit 1
     fi
 
-    echo "$OUTPUT"
-
     if grep -q "=== 3DCNN Simulation Mode PASSED ===" <<< "$OUTPUT"; then
         echo "✅ 3DCNN simulation mode succeeded."
     else
+        echo "$OUTPUT"
         echo "❌ Missing 3DCNN simulation success marker."
         exit 1
     fi
@@ -651,6 +662,7 @@ run_container_with_pulling () {
     if grep -qi "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" <<< "$OUTPUT"; then
         echo "✅ Image pulled successfully"
     else
+        echo "$OUTPUT"
         echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
         exit 1
     fi
@@ -695,6 +707,7 @@ verify_wrong_certificates_are_rejected () {
     CONSOLE_OUTPUT_FILE_CLIENT=client_A/startup/nohup.out
 
     if grep -q "Total clients: 1" $CONSOLE_OUTPUT_FILE_SERVER; then
+        cat $CONSOLE_OUTPUT_FILE_SERVER
         echo "❌ Could not verify that connection to unauthorized client was rejected"
         exit 1
     else
@@ -704,6 +717,7 @@ verify_wrong_certificates_are_rejected () {
     if grep -q "SSLCertVerificationError" $CONSOLE_OUTPUT_FILE_CLIENT; then
         echo "✅ Connection to unauthorized server rejected successfully by client"
     else
+        cat $CONSOLE_OUTPUT_FILE_CLIENT
         echo "❌ Could not verify that connection to unauthorized server was rejected"
         exit 1
     fi
@@ -714,6 +728,7 @@ verify_wrong_certificates_are_rejected () {
     if grep -q "Communication Error - please try later" <<< "$CONSOLE_OUTPUT_FILE_ADMIN"; then
         echo "✅ Connection by unauthorized admin console rejected successfully"
     else
+        echo "$CONSOLE_OUTPUT_FILE_ADMIN"
         echo "❌ Connection with non-authorized admin console"
         exit 1
     fi
@@ -725,6 +740,20 @@ verify_wrong_certificates_are_rejected () {
     rm -rf "$PROJECT_DIR"/prod_wrong_client
 
     cd "$CWD"
+}
+
+
+_verify_that_string_is_contained_once_in_file() {
+    expected_string=$1
+    filename=$2
+    num_occurences=$(grep -o "$expected_string" "$filename" | wc -l)
+    if [ "$num_occurences" -eq 1 ]; then
+        echo "✅ Expected output" "$expected_string" "found exactly once"
+    else
+        cat "$filename"
+        echo "❌ Expected output" "$expected_string" "not found exactly once"
+        exit 1
+    fi
 }
 
 
@@ -832,7 +861,8 @@ run_dummy_training_in_swarm () {
                            'Got engine after .* seconds' \
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
-                           'broadcasting learn task of round . to .*; aggregation happens on client_.';
+                           'broadcasting learn task of round . to .*; aggregation happens on client_.' \
+                           'Best model checkpoint:';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -842,15 +872,18 @@ run_dummy_training_in_swarm () {
             exit 1
         fi
     done
+
+    _verify_that_string_is_contained_once_in_file 'Training completed successfully.' nohup.out
     cd "$CWD"
 
     cd "$PROJECT_DIR"/prod_00/client_A/
     FILES_PRESENT=$(find . -type f -name "*.*")
-    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt' ;
+    for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt';
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
+            echo "$FILES_PRESENT"
             echo "❌ Expected file $EXPECTED_FILE missing"
             exit 1
         fi
@@ -883,8 +916,10 @@ run_3dcnn_local_training () {
     CONSOLE_OUTPUT_FILE=local_training_console_output.txt
     timeout --signal=kill 3m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --num_epochs 2 --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
+    # verify that expected output is present in the log
     for EXPECTED_OUTPUT in "Epoch 1: 100%" \
-                           "Training completed successfully";
+                           "Best model checkpoint:" \
+                           "Training completed successfully.";
     do
         if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT of 3DCNN local training found"
@@ -895,7 +930,26 @@ run_3dcnn_local_training () {
         fi
     done
 
+    # The following fails; output is contained twice in the captured output (for unknown reasons) even though it is printed only once during training.
+    # _verify_that_string_is_contained_once_in_file 'Training completed successfully.' "$CONSOLE_OUTPUT_FILE"
     cd "$CWD"
+
+    # verify that expected files have been created
+    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR" -type f -name "*.*")
+    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
+                         "site_model_gt_and_classprob_validation.csv" \
+                         "last_global_model.ckpt";
+    do
+        if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
+            echo "✅ Expected file $EXPECTED_FILE found"
+        else
+            echo "$FILES_PRESENT"
+            echo "❌ Expected file $EXPECTED_FILE missing"
+            exit 1
+        fi
+    done
 }
 
 
@@ -906,8 +960,8 @@ run_3dcnn_training_in_swarm () {
     cd admin@test.odelia/startup
     # only require 2 clients in test
     sed -i 's#python3#sed -i "s/min_clients = [[:digit:]]*/min_clients = 2/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \nsed -i "s/min_responses_required = [[:digit:]]*/min_responses_required = 2/" `find /MediSwarm/application/ -name "config_fed_client.conf"`\npython3#' fl_admin.sh
-    # only run one round in test
-    sed -i 's#python3#sed -i "s/num_rounds = 20/num_rounds = 1/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \npython3#' fl_admin.sh
+    # only run 2 rounds in test
+    sed -i 's#python3#sed -i "s/num_rounds = 20/num_rounds = 2/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \npython3#' fl_admin.sh
 
     expect -f "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
@@ -953,8 +1007,10 @@ run_3dcnn_training_in_swarm () {
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     CONSOLE_OUTPUT_FILE=combined_nohup.out
     cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
-    for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
-                           'Epoch 4: 100%';
+    for EXPECTED_OUTPUT in "sending training result to aggregation client" \
+                           "Epoch 4: 100%" \
+                           "Training completed successfully" \
+                           "Best model checkpoint:";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -964,16 +1020,27 @@ run_3dcnn_training_in_swarm () {
             exit 1
         fi
     done
+
+    CONSOLE_OUTPUT_FILE_ONE_SITE=nohup.out
+    _verify_that_string_is_contained_once_in_file 'Training completed successfully.' "$CONSOLE_OUTPUT_FILE_ONE_SITE"
     cd "$CWD"
 
     # check for expected output files
-    cd "$PROJECT_DIR"/prod_00/client_A/
-    FILES_PRESENT=$(find . -type f -name "*.*")
-    for EXPECTED_FILE in 'custom/threedcnn_ptl.py' 'FL_global_model.pt' ;
+    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR"/client_A -type f -name "*.*")
+    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
+                         "site_model_gt_and_classprob_validation.csv" \
+                         "aggregated_model_gt_and_classprob_train.csv" \
+                         "aggregated_model_gt_and_classprob_validation.csv" \
+                         "custom/threedcnn_ptl.py" \
+                         "FL_global_model.pt" \
+                         "last_global_model.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
+            echo "$FILES_PRESENT"
             echo "❌ Expected file $EXPECTED_FILE missing"
             exit 1
         fi
@@ -990,6 +1057,7 @@ _verify_challenge_preflight_check() {
     if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
         echo "✅ Expected output of $MODEL_NAME preflight check found"
     else
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Missing expected output of $MODEL_NAME preflight check"
         exit 1
     fi
@@ -1106,6 +1174,7 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         run_two_containers_in_parallel
         cleanup_temporary_data
+        # TODO add to CI if we want this
         ;;
 
     run_data_access_preflight_check)
