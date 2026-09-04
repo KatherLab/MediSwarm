@@ -223,3 +223,41 @@ def test_non_numeric_values_in_a_batch_are_skipped(module):
     data = from_shareable(ctx.events[0][1]["_validation_result_"]).data
     assert "val/note" not in data
     assert data["val/AUC_ROC"] == pytest.approx(0.8)
+
+
+def test_publishes_on_about_to_end_run_not_end_run(module):
+    """Regression for the empty cross_val_results.json (#525).
+
+    ``ValidationJsonGenerator`` dumps the JSON inside its own ``END_RUN``
+    handler, and components are invoked in the order they appear in
+    ``config_fed_server.conf``. With the generator listed first -- which is how
+    every job config is written -- publishing on ``END_RUN`` writes the file
+    before the metrics land in the generator's dict. Job 7c6e72c6 reported all
+    eight sites and still produced ``{}``. Publishing on ``ABOUT_TO_END_RUN``
+    removes the dependency on component order.
+    """
+    from nvflare.apis.event_type import EventType
+
+    c = _collector(module)
+    ctx = FakeCtx()
+    c.initialize(ctx)
+    c._initialized = True
+    c.save(ctx, _metric(module, "val/AUC_ROC", 0.82), "UMCU_1")
+
+    c.handle_event(EventType.ABOUT_TO_END_RUN, ctx)
+    assert len(ctx.events) == 1, "metrics must be published before END_RUN"
+
+
+def test_end_run_does_not_publish_twice(module):
+    """finalize is idempotent, so the END_RUN fallback is a no-op."""
+    from nvflare.apis.event_type import EventType
+
+    c = _collector(module)
+    ctx = FakeCtx()
+    c.initialize(ctx)
+    c._initialized = True
+    c.save(ctx, _metric(module, "val/AUC_ROC", 0.82), "UMCU_1")
+
+    c.handle_event(EventType.ABOUT_TO_END_RUN, ctx)
+    c.handle_event(EventType.END_RUN, ctx)
+    assert len(ctx.events) == 1

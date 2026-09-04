@@ -28,6 +28,7 @@ from threading import Lock
 
 from nvflare.apis.analytix import AnalyticsData
 from nvflare.apis.dxo import DXO, DataKind, from_shareable
+from nvflare.apis.event_type import EventType
 from nvflare.apis.fl_context import FLContext
 from nvflare.apis.shareable import Shareable
 from nvflare.app_common.app_constant import AppConstants
@@ -54,11 +55,34 @@ class PerSiteMetricCollector(AnalyticsReceiver):
         self._model_owner = model_owner
         self._prefixes = tuple(metric_prefixes or ("val/", "test/"))
         self._metrics = {}
+        self._published = False
         self._lock = Lock()
 
     def initialize(self, fl_ctx: FLContext):
         with self._lock:
             self._metrics = {}
+            self._published = False
+
+    def handle_event(self, event_type: str, fl_ctx: FLContext):
+        """Publish on ABOUT_TO_END_RUN rather than waiting for END_RUN.
+
+        ``ValidationJsonGenerator`` dumps ``cross_val_results.json`` inside its own
+        ``END_RUN`` handler, and within one event the components run in the order
+        they are listed in ``config_fed_server.conf``. Publishing on ``END_RUN``
+        therefore only works when this collector happens to be listed first: with
+        the generator first, the file is written empty and the metrics land in its
+        dict a moment too late. That is exactly what job 7c6e72c6 did -- all eight
+        sites reported, and the JSON was still ``{}``.
+
+        ``ABOUT_TO_END_RUN`` is fired strictly before ``END_RUN``, so publishing
+        there removes the dependency on component order. ``END_RUN`` is still
+        handled as a fallback for any path that skips the earlier event;
+        ``finalize`` is idempotent, so the second pass is a no-op.
+        """
+        if event_type == EventType.ABOUT_TO_END_RUN:
+            self._handle_end_run_event(fl_ctx)
+            return
+        super().handle_event(event_type, fl_ctx)
 
     @staticmethod
     def _as_scalar(value):
@@ -122,6 +146,10 @@ class PerSiteMetricCollector(AnalyticsReceiver):
         ``cross_site_val/cross_val_results.json`` as
         ``{site: {model_owner: metrics}}``.
         """
+        if self._published:
+            return
+        self._published = True
+
         with self._lock:
             collected = {site: dict(values) for site, values in self._metrics.items()}
 
