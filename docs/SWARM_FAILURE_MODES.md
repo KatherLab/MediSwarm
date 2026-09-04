@@ -21,6 +21,7 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 | F7 | `DataLoader worker killed by signal: Bus error … shared memory` | `/dev/shm` too small for the dataloader workers | `--ipc=host` (already set for swarm clients) / `--shm-size` |
 | F8 | Run trains on a **subset**: `clients [...] did not configure within timeout but min_clients=N allows proceeding` | Controller stops waiting once `configure_min_clients` answer; slower sites lose the key exchange | Set `configure_min_clients` **= number of participating sites** |
 | F9 | Site never appears in `check_status server`, container reports `(healthy)` for weeks | Startup kit older than the server's provisioning generation → `ClientConnectorCertificateError` | Re-issue the current startup kit to that site |
+| F10 | `cross_val_results.json` is `{}` although the server logged `Published metrics for N site(s)` | Two components act on the same `END_RUN`; `ValidationJsonGenerator` writes the file before the later-listed collector publishes into it | Publish on `ABOUT_TO_END_RUN`, which is fired strictly earlier (already fixed in `per_site_metrics.py`) |
 
 ---
 
@@ -116,6 +117,36 @@ Most of these are now caught automatically by the pre-run checks in the startup-
   Success looks like `Successfully registered client:<SITE> for project ...` / `Connected to server`.
 - **Prevention:** after every kit roll-out, verify the expected site count in `check_status server` rather than assuming; a silently-stale site can persist for weeks.
 - **Observed 2026-07-31:** `RSH_1` had been looping on `ClientConnectorCertificateError` for **three weeks** on a v1.5.0 kit while reporting `(healthy)`; installing the current kit registered it immediately.
+
+## F10 — Empty `cross_val_results.json` from event ordering
+
+- **Symptom:** every peer-to-peer run leaves `cross_site_val/cross_val_results.json` as `{}` — on a
+  two-day 20-round run and on a 52-second smoke run alike — so per-site figures have to be collected
+  by logging into each hospital by hand.
+- **What makes it deceptive:** the server log says the metrics arrived.
+  ```
+  PerSiteMetricCollector - INFO - Published metrics for 8 site(s):
+      CAM_1, MHA_1, RSH_1, RUMC_1, UKA_1, UMCU_1, USZ_1, VHIO_1
+  ```
+  Every hop works — `ClientLogger` → `MLflowWriter` → metric `CellPipe` → `MetricRelay` →
+  `fed.analytix_log_stats` → `ClientFedEventRunner` → `ServerFedEventRunner` → the collector.
+  Nothing is missing and nothing errors.
+- **Root cause:** ordering *within a single event*. `ValidationJsonGenerator` dumps the JSON in its
+  own `END_RUN` handler; `AnalyticsReceiver.finalize` also runs on `END_RUN`; and
+  `fire_event_to_components` invokes components in the order they are listed in
+  `config_fed_server.conf`. With `json_generator` listed first — as it is in all seven job configs —
+  the file is written and only then does the collector publish into the generator's in-memory dict.
+- **Why it reads as a missing metric:** `ServerRunner` logs `END_RUN fired` *after* the dispatch
+  returns, so the publish line appears ~2 s *before* it in the log. The two look sequential when
+  they are in fact the same event.
+- **Fix:** publish on `EventType.ABOUT_TO_END_RUN`, which is fired strictly before `END_RUN`, so the
+  result does not depend on how a job config happens to be ordered. `END_RUN` remains a fallback;
+  `finalize` is idempotent.
+- **Prevention:** when two components react to the same event and one consumes what the other
+  produces, do not rely on config order — separate them onto different events. And note that CI was
+  green throughout: `pytest.importorskip("nvflare")` skipped the collector's tests entirely because
+  the workflow never installed NVFlare (cf. #416/#423). A skipped test file is not a passing one.
+- **Observed 2026-09-04:** job `7c6e72c6` reported all eight sites and still wrote `{}`.
 
 ## Operator diagnostic playbook
 
