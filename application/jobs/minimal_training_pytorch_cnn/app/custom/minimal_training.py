@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 import os
+from pathlib import Path
 import shutil
 
 from sklearn.model_selection import train_test_split
@@ -9,6 +10,10 @@ import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
+
+from nvflare.apis.event_type import EventType
+from nvflare.apis.fl_component import FLComponent
+from nvflare.apis.fl_context import FLContext
 
 from data.datamodules import DataModule
 from data.datasets import MiniDatasetForTesting
@@ -43,17 +48,22 @@ def set_up_data_module(env_vars):
     ds = MiniDatasetForTesting()
     labels = ds.get_labels()
 
-    # Generate indices and perform stratified split
-    indices = list(range(len(ds)))
-    train_indices, val_indices = train_test_split(indices, test_size=0.2, stratify=labels, random_state=42)
+    # Generate indices and train/val/test split
+    len_ds = len(ds)
+    indices = list(range(len_ds))
+    train_indices = indices[:len_ds//3]
+    val_indices = indices[len_ds//3:2*len_ds//3]
+    test_indices = indices[2*len_ds//3:]
 
     # Create training and validation subsets
     ds_train = Subset(ds, train_indices)
     ds_val = Subset(ds, val_indices)
+    ds_test = Subset(ds, test_indices)
 
     dm = DataModule(
         ds_train=ds_train,
         ds_val=ds_val,
+        ds_test=ds_test,
         batch_size=1,
         num_workers=16,
         pin_memory=True,
@@ -131,3 +141,43 @@ def finalize_training(logger, model, checkpointing, trainer) -> None:
         logger.warning('No last checkpoint found.')
 
     logger.info('Training completed successfully.')
+
+
+def _evaluate_global_model_on_test_data(model_filename) -> None:
+    dummy_logger = logging.getLogger('_evaluate_global_models_on_test_data')  # these log messages are not printed
+
+    data_module, global_model, _, _ = prepare_training(dummy_logger)
+
+    nvflare_run_dir = os.path.dirname(os.path.abspath(__file__)) + '/..'   # TODO is there a better way to obtain the run directory here?
+    nvflare_run_dir = Path(os.path.abspath(nvflare_run_dir))
+    global_model_path = nvflare_run_dir/model_filename                     #      Or the location of the (best) global model?
+
+    print(f'Loading {model_filename}')
+    loaded_pt = torch.load(global_model_path, weights_only=False)
+
+    results = []
+    with torch.autocast(device_type="cuda"):  # to avoid "RuntimeError: Input type (c10::Half) and bias type (float) should be the same" for this model
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        global_model.load_state_dict(loaded_pt["model"], strict=False)
+        global_model = global_model.to(device)
+        global_model.eval()
+
+        for batch in data_module.test_dataloader():
+            source, target = batch['source'], batch['target']
+            with torch.no_grad():
+                prediction = global_model(source.to(device))
+                results.append(prediction)
+    print(f'Predicted batch for {model_filename}: {results}')
+
+
+class EvaluatorOnTestData(FLComponent):
+    def handle_event(self, event_type: str, fl_ctx: FLContext):
+        if event_type == EventType.END_RUN:
+            _evaluate_global_model_on_test_data('FL_global_model.pt')
+            _evaluate_global_model_on_test_data('best_FL_global_model.pt')
+
+class EvaluatorOnTestDataTwo(FLComponent):  # TODO figure out why both need to be run in different order for both outputs to appear reliably
+    def handle_event(self, event_type: str, fl_ctx: FLContext):
+        if event_type == EventType.END_RUN:
+            _evaluate_global_model_on_test_data('best_FL_global_model.pt')
+            _evaluate_global_model_on_test_data('FL_global_model.pt')

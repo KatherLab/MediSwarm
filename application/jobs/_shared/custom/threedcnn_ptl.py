@@ -2,6 +2,7 @@ import csv
 import json
 import logging
 import os
+import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
@@ -33,6 +34,11 @@ FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN = 'site_model_gt_and_classprob_train.csv'
 
 FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION = 'aggregated_model_gt_and_classprob_validation.csv'
 FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_validation.csv'
+
+FILENAME_GT_PREDPROB_LAST_AGGREGATED_MODEL_TEST = 'last_aggregated_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_BEST_AGGREGATED_MODEL_TEST = 'best_aggregated_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_LAST_SITE_MODEL_TEST = 'last_site_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_BEST_SITE_MODEL_TEST = 'best_site_model_gt_and_classprob_test.csv'
 
 OMP_THREAD_ENV_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
 
@@ -448,41 +454,52 @@ def create_run_directory(env_vars):
     )
 
 
-def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv_filename_train, csv_filename_validation) -> None:
-    def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader, device: torch.device):
-        results = []
-        for batch in data_loader:
-            source, target = batch['source'], batch['target']
+def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader, device: torch.device):
+    results = []
+    for batch in data_loader:
+        source, target = batch['source'], batch['target']
 
-            with torch.no_grad():
-                logits = model(source.to(device))
+        with torch.no_grad():
+            logits = model(source.to(device))
 
-            pred_prob = model.logits2probabilities(logits).detach().cpu()
+        pred_prob = model.logits2probabilities(logits).detach().cpu()
 
-            for b in range(pred_prob.size(0)):
-                results.append({'GT': target[b].tolist(),
-                                'pred_prob': pred_prob[b].tolist(),
-                                })
-        return results
+        for b in range(pred_prob.size(0)):
+            results.append({'GT': target[b].tolist(),
+                            'pred_prob': pred_prob[b].tolist(),
+                            })
+    return results
 
-    def output_csv(results, epoch: int, csv_filename) -> None:
-        with open(csv_filename, 'a') as csvfile:
-            datawriter = csv.writer(csvfile)
-            for datapoint in results:
-                output_data = [epoch, datapoint['GT'][0]] + datapoint['pred_prob']
-                datawriter.writerow(output_data)
 
+def _output_GT_and_classprobs_csv(results, epoch: int, csv_filename) -> None:
+    with open(csv_filename, 'a') as csvfile:
+        datawriter = csv.writer(csvfile)
+        for datapoint in results:
+            output_data = [epoch, datapoint['GT'][0]] + datapoint['pred_prob']
+            datawriter.writerow(output_data)
+
+
+def output_GT_and_classprobs_csv_train_val(model, data_module: DataModule, epoch: int, csv_filename_train, csv_filename_validation) -> None:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     model = model.to(device)
 
     train_loader = data_module.train_dataloader()
     val_loader = data_module.val_dataloader()
 
     results_train = _determine_GT_and_classprobs(model, train_loader, device)
-    output_csv(results_train, epoch, csv_filename_train)
+    _output_GT_and_classprobs_csv(results_train, epoch, csv_filename_train)
     results_validation = _determine_GT_and_classprobs(model, val_loader, device)
-    output_csv(results_validation, epoch, csv_filename_validation)
+    _output_GT_and_classprobs_csv(results_validation, epoch, csv_filename_validation)
+
+
+def output_GT_and_classprobs_csv_test(model, data_module: DataModule, epoch: int, csv_filename_test) -> None:
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+
+    test_loader = data_module.test_dataloader()
+
+    results_test = _determine_GT_and_classprobs(model, test_loader, device)
+    _output_GT_and_classprobs_csv(results_test, epoch, csv_filename_test)
 
 
 class GT_PredProb_Output_Callback(Callback):
@@ -493,11 +510,11 @@ class GT_PredProb_Output_Callback(Callback):
         super().__init__()
 
     def on_train_epoch_end(self, trainer, pl_module):
-        output_GT_and_classprobs_csv(pl_module,
-                                     self.data_module,
-                                     trainer.current_epoch,
-                                     self.csv_filename_train,
-                                     self.csv_filename_validation)
+        output_GT_and_classprobs_csv_train_val(pl_module,
+                                               self.data_module,
+                                               trainer.current_epoch,
+                                               self.csv_filename_train,
+                                               self.csv_filename_validation)
 
 
 def prepare_training(logger, max_epochs: int, site_name: str = None,
@@ -611,7 +628,7 @@ def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
     """Whether to export per-sample aggregated predictions this swarm round (#314).
 
     The per-round aggregated prediction export (full train+val inference at
-    batch_size=1 plus CSV writes, in output_GT_and_classprobs_csv) dominates swarm
+    batch_size=1 plus CSV writes, in output_GT_and_classprobs_csv_train_val) dominates swarm
     round time -- it made the PR301 validation ~3.3x slower -- and is not
     informative more than once or twice. It is therefore throttled via the
     ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS environment variable:
@@ -631,16 +648,16 @@ def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
     return is_final or (current_round % every_n == 0)
 
 
-def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=True) -> None:
+def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
     stage_timings: Dict[str, float] = {}
 
     with timed_stage(logger, "Validation", stage_timings):
         logger.info("--- Validate global model ---")
         trainer.validate(model, datamodule=data_module)
 
-    if output_GT_and_classprob:
+    if output_GT_and_classprob_aggregated_model:
         with timed_stage(logger, "Aggregated prediction export", stage_timings):
-            output_GT_and_classprobs_csv(
+            output_GT_and_classprobs_csv_train_val(
                 model,
                 data_module,
                 trainer.current_epoch,
@@ -655,11 +672,37 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
     log_stage_timing_summary(logger, stage_timings, "ODELIA execution stage timings:")
 
 
-def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
-    """Save best and latest checkpoints after training completes."""
-    import shutil
+def _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model: bool):
+    def _output_for_last_local_model(logger, data_module, model, checkpointing, path_run_dir):
+        logger.info(f'Exporting prediction for test data, last local model')
+        last_local_model = model.load_checkpoint_from_file(path_run_dir/checkpointing.last_model_path, strict=False)
+        output_GT_and_classprobs_csv_test(
+            last_local_model,
+            data_module,
+            trainer.current_epoch,
+            path_run_dir/FILENAME_GT_PREDPROB_LAST_SITE_MODEL_TEST,
+        )
 
-    # Save best checkpoint (highest val/ACC)
+
+    def _output_for_best_local_model(logger, data_module, model, checkpointing, path_run_dir):
+        logger.info(f'Exporting prediction for test data, best local model')
+        best_local_model = model.load_best_checkpoint(trainer.logger.log_dir, path_run_dir, strict=False)
+        output_GT_and_classprobs_csv_test(
+            best_local_model,
+            data_module,
+            trainer.current_epoch,  # the best model is not from the current (last) epoch, but the best model (as the file name says) *up to* said epoch
+            path_run_dir/FILENAME_GT_PREDPROB_BEST_SITE_MODEL_TEST,
+        )
+
+    _output_for_last_local_model(logger, data_module, model, checkpointing, path_run_dir)
+    _output_for_best_local_model(logger, data_module, model, checkpointing, path_run_dir)
+
+    if output_GT_and_classprob_aggregated_model:
+        logger.info(f'Exporting prediction for test data (global model)—NOT IMPLEMENTED YET')
+
+
+def _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir):
+    """Save best checkpoint to file"""
     best_path = checkpointing.best_model_path
     if best_path:
         model.save_best_checkpoint(trainer.logger.log_dir, best_path)
@@ -667,15 +710,18 @@ def finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_v
     else:
         logger.warning('No best checkpoint found.')
 
-    # Save latest (last) checkpoint — useful for resuming training or when
-    # the best checkpoint was from an early round and the final aggregated
-    # model is preferred for deployment.
-    last_path = checkpointing.last_model_path
-    if last_path:
-        final_last = path_run_dir / "last_global_model.ckpt"
-        shutil.copy(last_path, final_last)
-        logger.info(f'Last model saved to: {final_last}')
-    else:
-        logger.warning('No last checkpoint found.')
+def _save_last_checkpoint(logger, checkpointing, path_run_dir):
+  """Save latest (last) checkpoint — useful for resuming training or when the best checkpoint was from an early round and the final aggregated model is preferred for deployment."""
+  last_path = checkpointing.last_model_path
+  if last_path:
+      final_last = path_run_dir / "last_global_model.ckpt"  # TODO should this be 'global' or 'local'?
+      shutil.copy(last_path, final_last)
+      logger.info(f'Last model saved to: {final_last}')
+  else:
+      logger.warning('No last checkpoint found.')
 
+def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
+    _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir)
+    _save_last_checkpoint(logger, checkpointing, path_run_dir)
+    _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model)
     logger.info('Training completed successfully.')
