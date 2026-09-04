@@ -86,6 +86,18 @@ def prepare_training(logger):
             mode=min_max,
         )
 
+        # Stream metrics to the coordinator as well as to local TensorBoard, so
+        # this smoke job exercises the full metric path (#525) and can verify it
+        # in under a minute instead of a multi-hour ODELIA round.
+        trainer_loggers = [TensorBoardLogger(save_dir=path_run_dir)]
+        if os.environ.get("TRAINING_MODE", "") == "swarm":
+            try:
+                from nvflare.app_opt.lightning.loggers.client_logger import ClientLogger
+                trainer_loggers.append(ClientLogger())
+                logger.info("ClientLogger attached: metrics will stream to the coordinator")
+            except Exception as exc:
+                logger.warning(f"ClientLogger unavailable, metrics stay local: {exc}")
+
         trainer = Trainer(
             accelerator=accelerator,
             precision=16,
@@ -96,7 +108,7 @@ def prepare_training(logger):
             log_every_n_steps=log_every_n_steps,
             max_epochs=2,
             num_sanity_val_steps=2,
-            logger=TensorBoardLogger(save_dir=path_run_dir)
+            logger=trainer_loggers
         )
     except Exception as e:
         logger.error(f"Error in set_up_training: {e}")

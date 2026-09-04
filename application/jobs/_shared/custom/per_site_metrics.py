@@ -60,8 +60,27 @@ class PerSiteMetricCollector(AnalyticsReceiver):
         with self._lock:
             self._metrics = {}
 
+    @staticmethod
+    def _as_scalar(value):
+        """Coerce a streamed value to a plain number, or None if it is not one."""
+        if hasattr(value, "item"):          # torch / numpy scalar
+            try:
+                value = value.item()
+            except Exception:
+                return None
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        return value
+
     def save(self, fl_ctx: FLContext, shareable: Shareable, record_origin: str):
-        """Record one streamed metric for ``record_origin``.
+        """Record streamed metrics for ``record_origin``.
+
+        Two payload shapes arrive, depending on which writer the training side
+        uses. ``MLflowWriter.log_metrics`` -- what ``ClientLogger`` calls, and so
+        what the Lightning path produces -- sends a whole dict under the single
+        tag ``"metrics"``; ``log_metric`` and ``SummaryWriter`` send one scalar
+        per record. Both are handled, because dropping the batch shape would
+        silently discard everything the Lightning trainer reports.
 
         Later values for the same key overwrite earlier ones, so what is
         published is each site's final value rather than its first.
@@ -72,21 +91,27 @@ class PerSiteMetricCollector(AnalyticsReceiver):
             # A malformed record from one site must not take down the run.
             self.log_warning(fl_ctx, f"Unparseable metric from {record_origin}: {exc}", fire_event=False)
             return
-        if not data or not data.tag or not str(data.tag).startswith(self._prefixes):
+        if not data:
             return
 
-        value = data.value
-        if hasattr(value, "item"):          # torch/np scalar
-            try:
-                value = value.item()
-            except Exception:
-                return
-        if not isinstance(value, (int, float, bool)):
+        if isinstance(data.value, dict):
+            incoming = {
+                str(k): self._as_scalar(v)
+                for k, v in data.value.items()
+                if str(k).startswith(self._prefixes)
+            }
+            incoming = {k: v for k, v in incoming.items() if v is not None}
+        else:
+            tag = str(data.tag or "")
+            value = self._as_scalar(data.value)
+            incoming = {tag: value} if tag.startswith(self._prefixes) and value is not None else {}
+
+        if not incoming:
             return
 
         with self._lock:
             site = self._metrics.setdefault(record_origin, {})
-            site[str(data.tag)] = value
+            site.update(incoming)
             if data.step is not None:
                 site["_last_step"] = data.step
 

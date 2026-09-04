@@ -159,3 +159,67 @@ def test_model_owner_is_recorded(module):
     c.save(ctx, _metric(module, "val/AUC_ROC", 0.82), "UKA_1")
     c.finalize(ctx)
     assert ctx.events[0][1]["_model_owner_"] == "swarm_global"
+
+def _metrics_batch(module, values, step=0):
+    """The shape MLflowWriter.log_metrics sends: a dict under the tag "metrics".
+
+    This is what ClientLogger produces, so it is what the Lightning training
+    path actually puts on the wire.
+    """
+    from nvflare.apis.analytix import AnalyticsData, AnalyticsDataType
+
+    return AnalyticsData(key="metrics", value=values, data_type=AnalyticsDataType.METRICS,
+                         global_step=step).to_dxo().to_shareable()
+
+
+def test_batch_payload_from_the_lightning_path_is_recorded(module):
+    """Regression: the dict shape was silently dropped, so nothing was published."""
+    from nvflare.apis.dxo import from_shareable
+
+    c = _collector(module)
+    ctx = FakeCtx()
+    c.initialize(ctx)
+    c.save(ctx, _metrics_batch(module, {
+        "val/AUC_ROC": 0.82,
+        "val/AUC_ROC_class1": 0.372,
+        "val/support_class1": 2.0,
+        "val/n": 41.0,
+        "train/loss": 0.5,          # filtered out
+    }), "UMCU_1")
+    c.finalize(ctx)
+
+    assert len(ctx.events) == 1
+    data = from_shareable(ctx.events[0][1]["_validation_result_"]).data
+    assert data["val/AUC_ROC"] == pytest.approx(0.82)
+    assert data["val/support_class1"] == pytest.approx(2.0)
+    assert data["val/n"] == pytest.approx(41.0)
+    assert "train/loss" not in data
+
+
+def test_batch_and_scalar_payloads_merge(module):
+    from nvflare.apis.dxo import from_shareable
+
+    c = _collector(module)
+    ctx = FakeCtx()
+    c.initialize(ctx)
+    c.save(ctx, _metrics_batch(module, {"val/AUC_ROC": 0.60}), "UKA_1")
+    c.save(ctx, _metric(module, "val/ACC", 0.75), "UKA_1")
+    c.finalize(ctx)
+
+    data = from_shareable(ctx.events[0][1]["_validation_result_"]).data
+    assert data["val/AUC_ROC"] == pytest.approx(0.60)
+    assert data["val/ACC"] == pytest.approx(0.75)
+
+
+def test_non_numeric_values_in_a_batch_are_skipped(module):
+    from nvflare.apis.dxo import from_shareable
+
+    c = _collector(module)
+    ctx = FakeCtx()
+    c.initialize(ctx)
+    c.save(ctx, _metrics_batch(module, {"val/AUC_ROC": 0.8, "val/note": "n/a"}), "UKA_1")
+    c.finalize(ctx)
+
+    data = from_shareable(ctx.events[0][1]["_validation_result_"]).data
+    assert "val/note" not in data
+    assert data["val/AUC_ROC"] == pytest.approx(0.8)
