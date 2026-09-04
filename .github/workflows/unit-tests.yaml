@@ -51,6 +51,13 @@ jobs:
           # fold validation). Without them pytest silently SKIPS those files, which is
           # how a broken guard test reached main (#416/#423).
           pip install torchio pandas
+          # The NVFlare fork gates the server-side metric collector tests
+          # (test_per_site_metrics.py). Same trap as torchio/pandas above: without
+          # it pytest SKIPS the file and the job still reports green, which is how
+          # an empty cross_val_results.json survived two live 8-site runs (#525).
+          # Installed from the in-tree fork so CI tests the same NVFlare the image
+          # ships, not whatever PyPI currently calls 'nvflare'.
+          pip install ./docker_config/NVFlare
 
       - name: Run unit tests
         run: |
