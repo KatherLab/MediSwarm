@@ -47,6 +47,33 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 - **Fix:** delete `daemon_pid.fl` in the kit root, then relaunch `./docker.sh --start_client`.
 - **Prevention:** always clear the lock when recreating a client; the pre-run check now does this automatically.
 
+**F3b — a host reboot mid-run triggers this silently, and the run then hangs for a full day.**
+Observed 2026-09-04 on UKA during job `24cdf247`: the node rebooted (`uptime` showed 1:16 while the
+run had started two hours earlier), Docker auto-restarted the client at boot, `start.sh` hit a
+`daemon_pid.fl` dated **five weeks earlier** and refused to launch. The container then sat as
+`Up (healthy)` running only `/bin/bash` -- no FL client, no training process, GPU at 0 %.
+
+Server-side the consequence is worse than the site outage: the swarm logs
+`Client UKA_1 is deemed disconnected!`, the remaining peers wait on a gather that can never
+complete, and with `progress_timeout = 86400` the job stays `RUNNING` for **24 hours** before
+anything fails. The server log simply stops advancing.
+
+- **Detection:** `uptime` on the node; GPU utilisation 0 % with the job still `RUNNING`;
+  `docker exec <client> ps -eo pid,args` showing no `python3 -m nvflare...`; server `log.txt`
+  mtime frozen while job status is still `RUNNING`.
+- **Recovery:** remove `daemon_pid.fl` **and** `pid.fl` from the kit root, relaunch the client
+  (`docker exec -d <client> /bin/bash -c 'cd /startupkit/startup && nohup ./start.sh >> ../nohup.out 2>&1'`
+  restarts it inside the existing container without recreating it), confirm
+  `Successfully registered client:<SITE>`, then abort the wedged job.
+- **Aborting:** `abort_job <job_id>` needs a `y` confirmation -- an automated session that does not
+  send it will appear to hang on the abort itself. Only if the abort genuinely will not take should
+  you kill that job's `runner_process` in the server container (`ps -eo pid,args | grep runner_process`,
+  match the job id, `kill -TERM`); the job then lands as `FINISHED:EXECUTION_EXCEPTION`. This stops
+  one job, not the server.
+- **Worth knowing:** the warm-start mirror is only rewritten when a round completes, so a run killed
+  mid-round leaves the previous global intact. Verified here: the `87c5bbee` mirror was still
+  byte-identical afterwards. See #535 for the mirror's lack of provenance guarding.
+
 ## F4 — Read-only preprocessing-cache path
 - **Symptom:** instant crash `OSError: [Errno 30] Read-only file system: '/data/.../odelia_preprocess_cache'`.
 - **Root cause:** `ODELIA_PREPROCESS_CACHE_DIR` was set under `/data`, which is mounted **read-only** in the container.
