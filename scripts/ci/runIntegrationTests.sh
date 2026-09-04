@@ -381,7 +381,7 @@ run_docker_gpu_preflight_check () {
     # also check that it finishes within one minute
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT_FILE"
 
-    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE"; then
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE" && grep -q "Training completed successfully." "$CONSOLE_OUTPUT_FILE"; then
         echo "✅ Expected output of Docker/GPU preflight check found"
     else
         cat "$CONSOLE_OUTPUT_FILE"
@@ -405,7 +405,7 @@ run_two_containers_in_parallel () {
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull --container_name MediSwarmODELIATestSecondContainer 2>&1 | tee "$CONSOLE_OUTPUT_FILE_A" &
     sleep 60
 
-    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE_A" && grep -q "Training completed successfully" "$CONSOLE_OUTPUT_FILE_A"; then
+    if grep -q "Epoch 1: 100%" "$CONSOLE_OUTPUT_FILE_A" && grep -q "Training completed successfully." "$CONSOLE_OUTPUT_FILE_A"; then
         echo "✅ Expected output of running two containers in parallel found"
     else
         cat "$CONSOLE_OUTPUT_FILE_A"
@@ -522,6 +522,7 @@ run_data_access_preflight_check_with_problems () {
         echo "❌ Unexpected output of data access preflight check with problematic dataset without logging dataset details found"
         exit 1
     else
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "✅ Output of data access preflight check with problematic dataset contains no unexpected UIDs."
     fi
 
@@ -605,8 +606,6 @@ run_3dcnn_simulation_mode () {
         exit 1
     fi
 
-    echo "$OUTPUT"
-
     if grep -q "=== 3DCNN Simulation Mode PASSED ===" <<< "$OUTPUT"; then
         echo "✅ 3DCNN simulation mode succeeded."
     else
@@ -672,7 +671,7 @@ run_container_with_pulling () {
     if grep -qi "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" <<< "$OUTPUT"; then
         echo "✅ Image pulled successfully"
     else
-        cat "$OUTPUT"
+        echo "$OUTPUT"
         echo "❌ Pulling image failed"
         exit 1
     fi
@@ -945,7 +944,7 @@ run_3dcnn_local_training () {
         fi
     done
 
-    # The following fails; output is contained twice in log (for unknown reasons) even though it is printed only once during training.
+    # The following fails; output is contained twice in the captured output (for unknown reasons) even though it is printed only once during training.
     # _verify_that_string_is_contained_once_in_file 'Training completed successfully.' "$CONSOLE_OUTPUT_FILE"
     cd "$CWD"
 
@@ -1081,6 +1080,7 @@ _verify_challenge_preflight_check() {
     if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
         echo "✅ Expected output of $MODEL_NAME preflight check found"
     else
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Missing expected output of $MODEL_NAME preflight check"
         exit 1
     fi
@@ -1197,6 +1197,7 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         run_two_containers_in_parallel
         cleanup_temporary_data
+        # TODO add to CI if we want this
         ;;
 
     run_data_access_preflight_check)

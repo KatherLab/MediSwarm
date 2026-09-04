@@ -97,13 +97,11 @@ def prepare_training(logger):
             mode=min_max,
         )
 
-        callbacks = [checkpointing]
-
         trainer = Trainer(
             accelerator=accelerator,
             precision=16,
             default_root_dir=str(path_run_dir),
-            callbacks=callbacks,
+            callbacks=[checkpointing],
             enable_checkpointing=True,
             check_val_every_n_epoch=1,
             log_every_n_steps=log_every_n_steps,
