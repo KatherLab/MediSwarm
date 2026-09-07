@@ -55,7 +55,7 @@ def load_environment_variables():
         'local_compare_flag': _env_flag('LOCAL_COMPARE_FLAG', default=False),
         'use_adaptive_sync': _env_flag('USE_ADAPTIVE_SYNC', default=False),
         'sync_frequency': int(os.environ.get('SYNC_FREQUENCY', 1024)),
-        'model_name': os.environ.get('MODEL_NAME', 'ResNet101'),
+        'model_name': os.environ.get('MODEL_NAME', default=None),
         'fold': _fold_from_env(),
         'prediction_flag': os.environ.get('PREDICT_FLAG', 'ext'),
         'mediswarm_version': os.environ.get('MEDISWARM_VERSION', 'unset'),
