@@ -8,7 +8,8 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+/build/            # repo-root build output only. Unanchored 'build/' also matched
+                   # scripts/build/, so new files added there were silently ignored.
 develop-eggs/
 dist/
 downloads/

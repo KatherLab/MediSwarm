@@ -2,11 +2,13 @@
 """Patch an NVFlare job copy for admin-controlled warm-start tests."""
 
 import argparse
+import json
 import re
 from pathlib import Path
 
 CONFIG_RELATIVE_PATH = Path("app/config/config_fed_client.conf")
 SERVER_CONFIG_RELATIVE_PATH = Path("app/config/config_fed_server.conf")
+META_CONFIG_RELATIVE_PATH = Path("meta.conf")
 PERSISTOR_PATH = 'path = "warm_continue.WarmStartablePTFileModelPersistor"'
 
 # The SubprocessLauncher strips leading KEY=VALUE tokens off `script` into the
@@ -54,6 +56,54 @@ def _positive_int_or_none(value, name: str):
     if value <= 0:
         raise ValueError(f"{name} must be a positive integer")
     return value
+
+
+def parse_strict_clients(value):
+    """Parse an exact, ordered CSV client set and reject ambiguous input."""
+    if value is None:
+        return None
+
+    raw_clients = value.split(",") if isinstance(value, str) else list(value)
+    clients = [str(client).strip() for client in raw_clients]
+    if not clients or any(not client for client in clients):
+        raise ValueError("strict_clients must be a comma-separated list of non-empty client names")
+
+    seen = set()
+    duplicates = []
+    for client in clients:
+        if client in seen and client not in duplicates:
+            duplicates.append(client)
+        seen.add(client)
+    if duplicates:
+        raise ValueError(f"strict_clients contains duplicate client name(s): {', '.join(duplicates)}")
+    return tuple(clients)
+
+
+def _resolve_strict_counts(
+    strict_clients,
+    min_clients=None,
+    configure_min_clients=None,
+    min_responses_required=None,
+):
+    clients = parse_strict_clients(strict_clients)
+    if clients is None:
+        return clients, min_clients, configure_min_clients, min_responses_required
+
+    client_count = len(clients)
+    explicit_counts = {
+        "min_clients": min_clients,
+        "configure_min_clients": configure_min_clients,
+        "min_responses_required": min_responses_required,
+    }
+    for name, value in explicit_counts.items():
+        value = _positive_int_or_none(value, name)
+        if value is not None and value != client_count:
+            raise ValueError(
+                f"{name}={value} conflicts with strict_clients count {client_count}; "
+                "strict mode requires the exact same count everywhere"
+            )
+
+    return clients, client_count, client_count, client_count
 
 
 def patch_launcher_env(config_text: str, key: str, value) -> str:
@@ -127,6 +177,37 @@ def upsert_numeric_assignment(config_text: str, key: str, value: int, after_key:
     line_end = match.group(0)
     eol = "\r\n" if line_end.endswith("\r\n") else "\n"
     insert = f"{match.group(1)}{key} = {value}{eol}"
+    return config_text[: match.end()] + insert + config_text[match.end() :]
+
+
+def upsert_string_list_assignment(config_text: str, key: str, values, after_key: str) -> str:
+    """Replace a HOCON string list, or insert it immediately after ``after_key``."""
+    values = parse_strict_clients(values)
+    if values is None:
+        raise ValueError(f"{key} requires at least one client")
+    rendered = "[" + ", ".join(json.dumps(value) for value in values) + "]"
+    pattern = re.compile(
+        rf"^(\s*{re.escape(key)}\s*=\s*)\[[^\]]*\]([^\S\r\n]*(?:#.*)?(?:\r?\n|$))",
+        re.MULTILINE,
+    )
+
+    def replace(match):
+        return f"{match.group(1)}{rendered}{match.group(2)}"
+
+    patched, count = pattern.subn(replace, config_text, count=1)
+    if count == 1:
+        return patched
+
+    after_pattern = re.compile(
+        rf"^(\s*){re.escape(after_key)}\s*=\s*[^\r\n]*(?:\r?\n|$)",
+        re.MULTILINE,
+    )
+    match = after_pattern.search(config_text)
+    if not match:
+        raise ValueError(f"Config does not contain assignment for {after_key}")
+
+    eol = "\r\n" if match.group(0).endswith("\r\n") else "\n"
+    insert = f"{match.group(1)}{key} = {rendered}{eol}"
     return config_text[: match.end()] + insert + config_text[match.end() :]
 
 
@@ -231,7 +312,13 @@ def patch_config_text(
     return patched
 
 
-def patch_server_config_text(config_text: str, num_rounds=None, min_clients=None, configure_min_clients=None) -> str:
+def patch_server_config_text(
+    config_text: str,
+    num_rounds=None,
+    min_clients=None,
+    configure_min_clients=None,
+    participating_clients=None,
+) -> str:
     patched = config_text
     num_rounds = _positive_int_or_none(num_rounds, "num_rounds")
     min_clients = _positive_int_or_none(min_clients, "min_clients")
@@ -247,7 +334,27 @@ def patch_server_config_text(config_text: str, num_rounds=None, min_clients=None
             configure_min_clients,
             after_key="min_clients",
         )
+    if participating_clients is not None:
+        patched = upsert_string_list_assignment(
+            patched,
+            "participating_clients",
+            participating_clients,
+            after_key="configure_min_clients",
+        )
     return patched
+
+
+def patch_meta_config_text(config_text: str, strict_clients) -> str:
+    clients = parse_strict_clients(strict_clients)
+    if clients is None:
+        return config_text
+    patched = patch_numeric_assignment(config_text, "min_clients", len(clients))
+    return upsert_string_list_assignment(
+        patched,
+        "mandatory_clients",
+        clients,
+        after_key="min_clients",
+    )
 
 
 def patch_job_dir(
@@ -259,35 +366,58 @@ def patch_job_dir(
     min_responses_required=None,
     broadcast_last_result=None,
     fold=None,
+    strict_clients=None,
 ) -> Path:
+    strict_clients, min_clients, configure_min_clients, min_responses_required = _resolve_strict_counts(
+        strict_clients,
+        min_clients=min_clients,
+        configure_min_clients=configure_min_clients,
+        min_responses_required=min_responses_required,
+    )
+
     config_path = job_dir / CONFIG_RELATIVE_PATH
     if not config_path.is_file():
         raise FileNotFoundError(f"Missing job config: {config_path}")
 
     config_text = config_path.read_text()
-    config_path.write_text(
-        patch_config_text(
-            config_text,
-            mode,
-            min_responses_required=min_responses_required,
-            broadcast_last_result=broadcast_last_result,
-            fold=fold,
-        )
+    patched_config_text = patch_config_text(
+        config_text,
+        mode,
+        min_responses_required=min_responses_required,
+        broadcast_last_result=broadcast_last_result,
+        fold=fold,
     )
 
-    if num_rounds is not None or min_clients is not None or configure_min_clients is not None:
+    server_config_path = None
+    patched_server_config_text = None
+    if num_rounds is not None or min_clients is not None or configure_min_clients is not None or strict_clients is not None:
         server_config_path = job_dir / SERVER_CONFIG_RELATIVE_PATH
         if not server_config_path.is_file():
             raise FileNotFoundError(f"Missing job server config: {server_config_path}")
         server_config_text = server_config_path.read_text()
-        server_config_path.write_text(
-            patch_server_config_text(
-                server_config_text,
-                num_rounds=num_rounds,
-                min_clients=min_clients,
-                configure_min_clients=configure_min_clients,
-            )
+        patched_server_config_text = patch_server_config_text(
+            server_config_text,
+            num_rounds=num_rounds,
+            min_clients=min_clients,
+            configure_min_clients=configure_min_clients,
+            participating_clients=strict_clients,
         )
+
+    meta_config_path = None
+    patched_meta_config_text = None
+    if strict_clients is not None:
+        meta_config_path = job_dir / META_CONFIG_RELATIVE_PATH
+        if not meta_config_path.is_file():
+            raise FileNotFoundError(f"Missing job metadata config: {meta_config_path}")
+        patched_meta_config_text = patch_meta_config_text(meta_config_path.read_text(), strict_clients)
+
+    # Compute every requested edit before writing any file, so invalid strict
+    # profiles cannot leave a partially configured job directory behind.
+    config_path.write_text(patched_config_text)
+    if server_config_path is not None:
+        server_config_path.write_text(patched_server_config_text)
+    if meta_config_path is not None:
+        meta_config_path.write_text(patched_meta_config_text)
 
     return config_path
 
@@ -313,6 +443,15 @@ def main() -> int:
         help="Patch app/config/config_fed_client.conf min_responses_required",
     )
     parser.add_argument(
+        "--strict-clients",
+        type=parse_strict_clients,
+        metavar="CLIENT_1,CLIENT_2,...",
+        help=(
+            "Require exactly this CSV client set. Consistently patches meta mandatory_clients/min_clients, "
+            "server participating_clients/min_clients/configure_min_clients, and client min_responses_required"
+        ),
+    )
+    parser.add_argument(
         "--broadcast-last-result",
         choices=("true", "false"),
         help="Patch app/config/config_fed_client.conf broadcast_last_result",
@@ -335,6 +474,7 @@ def main() -> int:
         min_responses_required=args.min_responses,
         broadcast_last_result=args.broadcast_last_result,
         fold=args.fold,
+        strict_clients=args.strict_clients,
     )
     print(f'Patched {config_path}: warm_start_mode = "{internal_mode}"')
     if args.num_rounds is not None:
@@ -348,6 +488,9 @@ def main() -> int:
         )
     if args.min_responses is not None:
         print(f"Patched {config_path}: min_responses_required = {args.min_responses}")
+    if args.strict_clients is not None:
+        client_list = ", ".join(args.strict_clients)
+        print(f"Patched strict client set ({len(args.strict_clients)}): {client_list}")
     if args.broadcast_last_result is not None:
         print(f"Patched {config_path}: broadcast_last_result = {args.broadcast_last_result}")
     if args.fold is not None:
