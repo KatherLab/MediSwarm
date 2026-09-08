@@ -5,6 +5,8 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PATCHER_PATH = REPO_ROOT / "scripts" / "admin" / "patch_warm_start_job.py"
+PREPARE_HELPER_PATH = REPO_ROOT / "kit_admin_tools" / "prepare_odelia_job.sh"
+KIT_INJECTOR_PATH = REPO_ROOT / "scripts" / "build" / "_injectLiveSyncIntoStartupKits.sh"
 
 
 def _import_patcher():
@@ -12,6 +14,30 @@ def _import_patcher():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_prepare_helper_defaults_to_exact_odelia_eight_unless_counts_are_explicit():
+    helper = PREPARE_HELPER_PATH.read_text()
+
+    assert (
+        'DEFAULT_STRICT_CLIENTS="CAM_1,VHIO_1,USZ_1,RUMC_1,MHA_1,RSH_1,UMCU_1,UKA_1"'
+        in helper
+    )
+    assert 'STRICT_CLIENTS="$DEFAULT_STRICT_CLIENTS"' in helper
+    assert 'CUSTOM_CLIENT_COUNTS_SET=true' in helper
+    assert '[ "$STRICT_CLIENTS_EXPLICIT" != true ] && [ "$CUSTOM_CLIENT_COUNTS_SET" = true ]' in helper
+
+
+def test_prepare_helper_stages_before_replacing_and_uses_kit_paired_patcher():
+    helper = PREPARE_HELPER_PATH.read_text()
+    injector = KIT_INJECTOR_PATH.read_text()
+
+    assert 'PATCH_ARGS=(--job-dir "/job_out/$TEMP_NAME"' in helper
+    assert 'mv -- "$TEMP_HOST" "$DEST_HOST"' in helper
+    assert 'rm -rf "$DEST_HOST"' not in helper
+    assert '-v "$PATCHER_HOST":/mediswarm_tools/patch_warm_start_job.py:ro' in helper
+    assert 'python3 /mediswarm_tools/patch_warm_start_job.py' in helper
+    assert 'cp "$ADMIN_PATCHER_SOURCE" "$STARTUP_DIR/patch_warm_start_job.py"' in injector
 
 
 CONFIG_TEMPLATE = """components = [
@@ -42,6 +68,17 @@ SERVER_CONFIG_TEMPLATE = """workflows = [
     }
   }
 ]
+"""
+
+META_CONFIG_TEMPLATE = """name = "challenge_1DivideAndConquer"
+resource_spec {}
+deploy_map {
+  app = [
+    "@ALL"
+  ]
+}
+min_clients = 2
+mandatory_clients = []
 """
 
 
@@ -135,6 +172,46 @@ def test_patch_server_config_replaces_existing_configure_min_clients():
     assert "configure_min_clients = 5" not in patched
 
 
+def test_parse_strict_clients_trims_and_preserves_order():
+    patcher = _import_patcher()
+
+    assert patcher.parse_strict_clients("CAM_1, MHA_1,UKA_1") == ("CAM_1", "MHA_1", "UKA_1")
+
+
+@pytest.mark.parametrize("value", ["", "CAM_1,,UKA_1", "CAM_1,  ,UKA_1"])
+def test_parse_strict_clients_rejects_empty_names(value):
+    patcher = _import_patcher()
+
+    with pytest.raises(ValueError, match="non-empty client names"):
+        patcher.parse_strict_clients(value)
+
+
+def test_parse_strict_clients_rejects_duplicate_names():
+    patcher = _import_patcher()
+
+    with pytest.raises(ValueError, match=r"duplicate client name\(s\): CAM_1"):
+        patcher.parse_strict_clients("CAM_1,MHA_1,CAM_1")
+
+
+def test_strict_profile_patches_all_client_membership_and_count_fields():
+    patcher = _import_patcher()
+    clients = ("CAM_1", "MHA_1", "UKA_1")
+
+    patched_server = patcher.patch_server_config_text(
+        SERVER_CONFIG_TEMPLATE,
+        min_clients=len(clients),
+        configure_min_clients=len(clients),
+        participating_clients=clients,
+    )
+    patched_meta = patcher.patch_meta_config_text(META_CONFIG_TEMPLATE, clients)
+
+    assert "min_clients = 3  # tolerate drops" in patched_server
+    assert "configure_min_clients = 3" in patched_server
+    assert 'participating_clients = ["CAM_1", "MHA_1", "UKA_1"]' in patched_server
+    assert "min_clients = 3" in patched_meta
+    assert 'mandatory_clients = ["CAM_1", "MHA_1", "UKA_1"]' in patched_meta
+
+
 def test_patch_numeric_assignment_rejects_missing_key():
     patcher = _import_patcher()
 
@@ -178,6 +255,86 @@ def test_patch_job_dir_smoke_prepares_admin_local_continue_job(tmp_path):
     assert "num_rounds = 2" in patched_server
     assert "min_clients = 2" in patched_server
     assert "configure_min_clients = 3" in patched_server
+
+
+def test_patch_job_dir_strict_clients_sets_one_consistent_exact_profile(tmp_path):
+    patcher = _import_patcher()
+    job_dir = tmp_path / "strict_job"
+    config_dir = job_dir / "app" / "config"
+    config_dir.mkdir(parents=True)
+    client_path = config_dir / "config_fed_client.conf"
+    server_path = config_dir / "config_fed_server.conf"
+    meta_path = job_dir / "meta.conf"
+    client_path.write_text(CONFIG_TEMPLATE)
+    server_path.write_text(SERVER_CONFIG_TEMPLATE)
+    meta_path.write_text(META_CONFIG_TEMPLATE)
+
+    patcher.patch_job_dir(
+        job_dir,
+        "continue",
+        strict_clients="CAM_1,MHA_1,UKA_1",
+    )
+
+    assert "min_responses_required = 3" in client_path.read_text()
+    assert "min_clients = 3  # tolerate drops" in server_path.read_text()
+    assert "configure_min_clients = 3" in server_path.read_text()
+    assert 'participating_clients = ["CAM_1", "MHA_1", "UKA_1"]' in server_path.read_text()
+    assert "min_clients = 3" in meta_path.read_text()
+    assert 'mandatory_clients = ["CAM_1", "MHA_1", "UKA_1"]' in meta_path.read_text()
+
+
+@pytest.mark.parametrize(
+    ("argument", "value", "error_name"),
+    [
+        ("min_clients", 2, "min_clients"),
+        ("configure_min_clients", 2, "configure_min_clients"),
+        ("min_responses_required", 2, "min_responses_required"),
+    ],
+)
+def test_patch_job_dir_rejects_counts_that_conflict_with_strict_clients_without_writing(
+    tmp_path, argument, value, error_name
+):
+    patcher = _import_patcher()
+    job_dir = tmp_path / "strict_job"
+    config_dir = job_dir / "app" / "config"
+    config_dir.mkdir(parents=True)
+    client_path = config_dir / "config_fed_client.conf"
+    server_path = config_dir / "config_fed_server.conf"
+    meta_path = job_dir / "meta.conf"
+    originals = {
+        client_path: CONFIG_TEMPLATE,
+        server_path: SERVER_CONFIG_TEMPLATE,
+        meta_path: META_CONFIG_TEMPLATE,
+    }
+    for path, text in originals.items():
+        path.write_text(text)
+
+    with pytest.raises(ValueError, match=rf"{error_name}=2 conflicts with strict_clients count 3"):
+        patcher.patch_job_dir(
+            job_dir,
+            "continue",
+            strict_clients="CAM_1,MHA_1,UKA_1",
+            **{argument: value},
+        )
+
+    assert {path: path.read_text() for path in originals} == originals
+
+
+def test_patch_job_dir_strict_profile_validates_every_file_before_writing(tmp_path):
+    patcher = _import_patcher()
+    job_dir = tmp_path / "strict_job"
+    config_dir = job_dir / "app" / "config"
+    config_dir.mkdir(parents=True)
+    client_path = config_dir / "config_fed_client.conf"
+    server_path = config_dir / "config_fed_server.conf"
+    client_path.write_text(CONFIG_TEMPLATE)
+    server_path.write_text(SERVER_CONFIG_TEMPLATE)
+
+    with pytest.raises(FileNotFoundError, match="Missing job metadata config"):
+        patcher.patch_job_dir(job_dir, "continue", strict_clients="CAM_1,MHA_1,UKA_1")
+
+    assert client_path.read_text() == CONFIG_TEMPLATE
+    assert server_path.read_text() == SERVER_CONFIG_TEMPLATE
 
 
 # ---------------------------------------------------------------------------

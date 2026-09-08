@@ -92,7 +92,11 @@ passwords somewhere, they are only displayed once (or you can download them agai
 ### Fresh vs Continue ODELIA Jobs
 
 Admin startup kits include `prepare_odelia_job.sh`, which copies an in-image job into the admin kit's mounted
-`local/mediswarm_jobs` folder and patches only that copied job.
+`local/mediswarm_jobs` folder and patches only that copied job. With no custom `--min-*` options, the helper
+defaults to the current exact eight-site ODELIA production roster (CAM, VHIO, USZ, RUMC, MHA, RSH, UMCU,
+and UKA), and synchronizes mandatory/participating clients plus every quorum value. A production run therefore
+cannot silently fall back to a 7-of-8 policy. Use `--strict-clients CLIENT_1,CLIENT_2,...` for a different exact
+roster. Supplying `--min-clients`, `--configure-min-clients`, or `--min-responses` opts into a custom test policy.
 
 Fresh start:
 ```bash
@@ -119,8 +123,8 @@ submit_job /fl_admin/local/mediswarm_jobs/ODELIA_ternary_classification_continue
 `continue` is strict: each client must have `/scratch/mediswarm_latest_global.pt` available through the same
 `--scratch_dir` used by the previous run. If any client is missing that checkpoint, the job aborts with
 `WARM_START_REQUIRED_MISSING` instead of silently starting fresh. `fresh` ignores old local checkpoints without
-deleting them. Direct `submit_job MediSwarm/application/jobs/...` remains supported and keeps automatic warm-start
-behavior.
+deleting them. Direct `submit_job MediSwarm/application/jobs/...` remains supported for generic/test workflows and
+keeps automatic warm-start behavior, but it bypasses the helper's exact-client production guard.
 
 The direct-submit "automatic warm-start" is `warm_start_mode = "auto"` (the shipped default in the challenge job
 configs): the first run of a chain finds no mirror and initializes fresh, and every later run warm-starts from
