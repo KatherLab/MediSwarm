@@ -646,6 +646,31 @@ start_server_and_clients () {
 }
 
 
+start_clients_for_ResNet18 () {
+    echo "[Run] Start client Docker containers ..."
+
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --model_name ResNet18 --GPU "$GPU_FOR_TESTING" --start_client
+    cd ../..
+    # Stagger the second client: launching both clients' heavy torch/lightning init against
+    # the SAME GPU at once has starved client_B on the shared CI host, leaving it stuck at the
+    # swarm-config step (it registers but never returns the config task, so the controller
+    # wedges in "Configuring clients" until the ~900s timeout). A short stagger avoids the
+    # simultaneous-init collision. Override with CI_SWARM_CLIENT_STAGGER.
+    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"
+    cd client_B/startup
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --model_name ResNet18 --GPU "$GPU_FOR_TESTING" --start_client
+    sleep 8
+
+    cd "$CWD"
+}
+
+start_server_and_clients_for_ResNet18 () {
+    start_server
+    start_clients_for_ResNet18
+}
+
 start_registry_docker_and_push () {
     docker run -d --rm -p 5000:5000 --name local_test_registry_$CONTAINER_VERSION_SUFFIX registry:3
     sleep 10
@@ -953,7 +978,7 @@ run_3dcnn_local_training () {
 }
 
 
-run_3dcnn_training_in_swarm () {
+run_3dcnn_resnet18_training_in_swarm () {
     echo "[Run] 3DCNN training in swarm (polling for completion, up to 10 minutes) ..."
 
     cd "$PROJECT_DIR"/prod_00
@@ -1245,8 +1270,8 @@ case "$1" in
     run_3dcnn_training_in_swarm)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
-        start_server_and_clients
-        run_3dcnn_training_in_swarm
+        start_server_and_clients_for_ResNet18
+        run_3dcnn_resnet18_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
         ;;
