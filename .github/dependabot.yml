@@ -1,0 +1,17 @@
+# There was no dependency-update automation of any kind before this (#395).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Surfaces base-image digest bumps as reviewable PRs, which is how the digest pin
+  # in Dockerfile_ODELIA is meant to be advanced -- deliberately, not silently.
+  - package-ecosystem: docker
+    directories:
+      - /docker_config
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
