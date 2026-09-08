@@ -200,4 +200,9 @@ From the 4-node deploy test with `challenge_1DivideAndConquer` (20 rounds):
 - ~19 min per round (includes training + P2P model exchange)
 - ~380 min total (6.3 hours) for 20 rounds
 - Model size: ~689 MB (3D CNN)
-- Sites: RUMC_1 (22 samples), MHA_1 (~50 samples), CAM_1 (~200 samples), UMCU_1 (~150 samples)
+- Sites (training samples, read from `Weighted epochs` log lines — `len(ds_train)`, batch_size=1):
+  RUMC_1 **3582**, MHA_1 **1120**, CAM_1 **1778**, UMCU_1 **6133**.
+  An earlier revision of this line claimed 22 / ~50 / ~200 / ~150. Those figures were wrong by
+  two orders of magnitude and were quoted into planning for D2.5 (#526) before being caught on
+  2026-09-07. If you need a site's size, read it from its `Weighted epochs` line rather than
+  from a doc — it prints `train_samples=` on every run.
