@@ -74,14 +74,32 @@ def auroc(scores, labels):
 
 
 def load(base, sites):
-    """Load per-case rows for the given sites, keyed by uid."""
+    """Load per-case rows for the given sites, keyed by a stable case key.
+
+    Two layouts are read, because the rows reach us two ways:
+
+    * ``<site>/predictions_*.csv`` from ``scripts/evaluation/predict.py``, which
+      has a ``uid`` column;
+    * ``<site>.csv`` returned through the swarm by ``per_case_predictions``,
+      which deliberately has **no** identifier and carries ``row_index``
+      instead -- a position within that site's own validation split.
+
+    Either way the key is namespaced by site, so two sites that both start
+    their row indices at 0 cannot collide and silently pair a Radboud case
+    with an Utrecht one.
+    """
     rows = {}
     for site in sites:
-        pattern = os.path.join(base, site, "predictions_*.csv")
-        for f in glob.glob(pattern):
+        found = sorted(glob.glob(os.path.join(base, site, "predictions_*.csv")))
+        found += sorted(glob.glob(os.path.join(base, f"{site}.csv")))
+        for f in found:
             with open(f) as fh:
                 for r in csv.DictReader(fh):
+                    key = r.get("uid") or r.get("row_index")
+                    if key is None:
+                        continue
                     r["_site"] = site
+                    r["uid"] = f"{site}:{key}"
                     rows[r["uid"]] = r
     return rows
 
