@@ -6,8 +6,15 @@ participants:
   - name: dl3.tud.de
     type: server
     org: TUD
-    fed_learn_port: 8002
-    admin_port: 8003
+    # 8102/8103, NOT 8002/8003. The productive ODELIA server runs on the same host
+    # under the same name and binds 8002/8003 with certificates from a different
+    # provisioning generation. Sharing the ports means the test server silently
+    # fails to bind, the test clients reach the PRODUCTIVE server instead, and they
+    # fail with ClientConnectorCertificateError -- which reads exactly like a stale
+    # startup kit (F9) and is not one. Same collision DECADE hit and solved the same
+    # way; project_MEVIS_test.yml uses 8032/8033 for the same reason.
+    fed_learn_port: 8102
+    admin_port: 8103
   - name: RUMC_1
     type: client
     org: TUD
