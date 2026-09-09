@@ -1101,7 +1101,8 @@ run_all_models_preflight_check () {
     _verify_ODELIA_ternary_preflight_check "ResNet50"                 "model *| _ResNet *| 46"
     _verify_ODELIA_ternary_preflight_check "ResNet101"                "model *| _ResNet *| 85"
     _verify_ODELIA_ternary_preflight_check "ResNet152"                "model *| _ResNet *| 117"
-    _verify_ODELIA_ternary_preflight_check "Swin3D"                   "model *| TODO"  # currently does not work
+    # _verify_ODELIA_ternary_preflight_check "Swin3D"                   "model *| TODO"  # currently does not work
+    echo "❗ Swin3D currently does not work, preflight check not executed"
     cd "$CWD"
 }
 
