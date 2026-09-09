@@ -149,6 +149,12 @@ jobs:
         run: |
           ./scripts/ci/runIntegrationTests.sh check_files_in_repo
 
+      - name: Run NVFlare unit and integration tests (weekly/manual)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: false
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_nvflare_unit_and_integration_tests
+
       - name: Run dummy training standalone
         continue-on-error: false
         run: |
@@ -215,6 +221,24 @@ jobs:
         continue-on-error: false
         run: |
           ./scripts/ci/runIntegrationTests.sh run_docker_gpu_preflight_check
+
+      - name: Run two containers in parallel (weekly/manual)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: false
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_two_containers_in_parallel
+
+      - name: Run push/pull image to/from local registry (weekly/manual)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: false
+        run: |
+          ./scripts/ci/runIntegrationTests.sh push_pull_image
+
+      - name: Run check wrong startup kit (weekly/manual)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: false
+        run: |
+          ./scripts/ci/runIntegrationTests.sh check_wrong_startup_kit
 
       - name: Run integration test data access preflight check
         continue-on-error: false

@@ -1159,7 +1159,6 @@ case "$1" in
         ;;
 
     run_nvflare_unit_and_integration_tests)
-        # TODO add to CI or "all" section if we want this (takes several minutes and fails for insufficient GPU memory)
         run_nvflare_unit_tests
         run_nvflare_integration_tests
         ;;
@@ -1206,7 +1205,6 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         run_two_containers_in_parallel
         cleanup_temporary_data
-        # TODO add to CI if we want this
         ;;
 
     run_data_access_preflight_check)
@@ -1225,7 +1223,6 @@ case "$1" in
         start_registry_docker_and_push
         run_container_with_pulling
         kill_registry_docker
-        # TODO add to CI if we want this (takes several minutes)
         ;;
 
     check_wrong_startup_kit)
