@@ -19,7 +19,7 @@ Slide 6 is the model comparison — the eight-site swarm against the previous si
 swarm and against ten single-site models.
 
 ### `presentation_data_by_site.html` — training data by site
-**4 charts · 9 September 2026**
+**5 charts · 9 September 2026**
 
 How much data each hospital brought when it joined, how the consortium total
 accumulated to 34,462 volumes across eight sites, and the class distribution shown
@@ -28,6 +28,10 @@ malignant-rich at 63 % until you see that is 221 volumes against UKA's 1,251.
 
 Sources are each site's own `Class counts` and `Weighted epochs` log lines, so every
 site's three classes sum exactly to its training size.
+
+The last chart carries the same model comparison as slide 6 of the briefing — the
+eight-site swarm against the six-site swarm and ten single-site models — so the data
+and what it produced sit on one page.
 
 ### `report_wp2_wp3_status_M45.html` — WP2/WP3 status at M45
 **9 September 2026 · for the technical committee**

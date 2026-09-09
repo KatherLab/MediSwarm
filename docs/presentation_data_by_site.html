@@ -205,6 +205,36 @@
     </figure>
   </section>
 
+  <!-- ============ 4. model comparison ============ -->
+  <section class="card">
+    <figure>
+      <h2>What that data has produced</h2>
+      <figcaption>
+        The eight-site swarm model against the previous six-site swarm and against ten single-site
+        models, all scored on the external ODELIA challenge. Higher is better; 0.5 is chance.
+      </figcaption>
+      <div class="legend" aria-hidden="true">
+        <span><i class="swatch" style="background:var(--series-1)"></i> Malignant vs rest AUROC</span>
+        <span><i class="swatch" style="background:var(--series-2)"></i> Macro AUROC</span>
+      </div>
+      <svg viewBox="0 0 720 300" role="img" aria-label="External challenge AUROC: the eight-site swarm reaches 0.887 malignant and 0.820 macro, above the six-site swarm at 0.847 and 0.764, the best single site at 0.858 and 0.709, and the median single site at 0.658 and 0.601">
+        <g id="modelBars"></g>
+      </svg>
+      <div class="note">
+        <strong>The narrowest margin is the most demanding one.</strong> The swarm beats the best
+        single-site model by only +0.029 on malignant AUROC — but that model is UKA's, trained on the
+        site holding half the consortium's data and 84 % of its benign cases. Against the median
+        single-site model the gap is +0.229.
+      </div>
+      <div class="note" style="border-left-color:var(--series-2)">
+        <strong>Read the ordering, not the decimals.</strong> These are three separate evaluations on
+        overlapping but not identical subsets of the challenge set — 165 cases for the eight-site
+        run, 300 for the June matrix. The direction is consistent and repeated; the exact gaps are
+        not a controlled comparison.
+      </div>
+    </figure>
+  </section>
+
   <!-- ============ table view ============ -->
   <section class="card">
     <details>
@@ -437,6 +467,55 @@
       tl.textContent = `n=${fmt(d.now)}  ·  benign ${fmt(d.c[1])}`;
       g.appendChild(tl);
     });
+  })();
+
+  /* ---------- 4. model comparison ---------- */
+  (function () {
+    const g = document.getElementById("modelBars");
+    const M = [
+      { m:"Swarm · 8 sites · 1DC",      sub:"Aug 2026 · current",  mal:0.887, mac:0.820, hi:true },
+      { m:"Best single site · UKA 1DC", sub:"trained alone",       mal:0.858, mac:0.709 },
+      { m:"Swarm · 6 sites · 4LME",     sub:"Jun 2026",            mal:0.847, mac:0.764 },
+      { m:"Median single-site model",   sub:"of 10",               mal:0.658, mac:0.601 },
+      { m:"Weakest single site · RUMC", sub:"trained alone",       mal:0.408, mac:0.483 }
+    ];
+    const L = 176, R = 58, T = 14, rowH = 52, barH = 15, GAP = 4;
+    const W = 720 - L - R;
+    const x = v => L + v * W;                       // AUROC 0..1 on one axis
+
+    [0, .25, .5, .75, 1].forEach(v => {
+      g.appendChild(el("line", { x1: x(v), y1: T - 6, x2: x(v), y2: T + M.length * rowH - 14, class: "grid" }));
+      const t = el("text", { x: x(v), y: T + M.length * rowH + 2, "text-anchor": "middle", class: "val-sm" });
+      t.textContent = v.toFixed(2); g.appendChild(t);
+    });
+    // chance reference
+    const ch = el("line", { x1: x(.5), y1: T - 6, x2: x(.5), y2: T + M.length * rowH - 14,
+                            stroke: "var(--text-muted)", "stroke-width": "1", "stroke-dasharray": "3 3" });
+    g.appendChild(ch);
+    const cl = el("text", { x: x(.5), y: T - 10, "text-anchor": "middle", class: "val-sm" });
+    cl.textContent = "chance"; g.appendChild(cl);
+
+    M.forEach((d, i) => {
+      const y = T + i * rowH;
+      [["mal", "var(--series-1)", 0], ["mac", "var(--series-2)", barH + GAP]].forEach(([k, col, dy]) => {
+        const w = Math.max(2, d[k] * W);
+        const grp = el("g", { class: "bar" });
+        grp.appendChild(el("rect", { x: L, y: y + dy, width: w, height: barH, rx: 4, fill: col }));
+        const ti = el("title");
+        ti.textContent = `${d.m} — ${k === "mal" ? "malignant vs rest" : "macro"} AUROC ${d[k].toFixed(3)}`;
+        grp.appendChild(ti);
+        g.appendChild(grp);
+        const t = el("text", { x: L + w + 7, y: y + dy + barH - 3,
+                               class: d.hi ? "val" : "val-sm" });
+        t.textContent = d[k].toFixed(3); g.appendChild(t);
+      });
+      const nm = el("text", { x: L - 12, y: y + barH - 2, "text-anchor": "end",
+                              class: d.hi ? "val" : "lbl" });
+      nm.textContent = d.m; g.appendChild(nm);
+      const sb = el("text", { x: L - 12, y: y + barH + 12, "text-anchor": "end", class: "val-sm" });
+      sb.textContent = d.sub; g.appendChild(sb);
+    });
+    g.appendChild(el("line", { x1: L, y1: T - 6, x2: L, y2: T + M.length * rowH - 14, class: "axis" }));
   })();
 
   /* ---------- table ---------- */
