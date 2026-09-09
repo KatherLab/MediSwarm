@@ -1277,6 +1277,13 @@ case "$1" in
         ;;
 
     run_all_models_preflight_check)
+        # The startup kits must be built here like every other preflight case:
+        # each workflow step is a separate invocation of this script, and the
+        # EXIT trap runs cleanup_temporary_data, which removes PROJECT_DIR. So
+        # the kits an earlier step built are gone by the time this one starts,
+        # and run_all_models_preflight_check begins with `cd $PROJECT_DIR/prod_00`.
+        # Without this the weekly run fails in about two seconds on a missing
+        # directory, which reads as "all six models are broken" and is not that.
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_all_models_preflight_check

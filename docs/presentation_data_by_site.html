@@ -1,0 +1,541 @@
+<title>ODELIA Data by Site</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-0:      #f6f7f8;
+    --surface-1:      #fcfcfb;
+    --surface-2:      #eef2f5;
+    --text-primary:   #16202B;
+    --text-secondary: #52514e;
+    --text-muted:     #6b7a86;
+    --rule:           #dde4ea;
+    --rule-soft:      #eaeff3;
+    --accent:         #0F6E8C;
+    --series-1:       #2a78d6;   /* no lesion  */
+    --series-2:       #eb6834;   /* benign     */
+    --series-3:       #1baf7a;   /* malignant  */
+    --bar:            #2a78d6;
+    --serif: "Iowan Old Style", "Charter", "Bitstream Charter", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-0:      #10161a;
+      --surface-1:      #1a1a19;
+      --surface-2:      #202a31;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #94a5b1;
+      --rule:           #2b3941;
+      --rule-soft:      #212c33;
+      --accent:         #54B5D0;
+      --series-1:       #3987e5;
+      --series-2:       #d95926;
+      --series-3:       #199e70;
+      --bar:            #3987e5;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-0:      #10161a;
+    --surface-1:      #1a1a19;
+    --surface-2:      #202a31;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #94a5b1;
+    --rule:           #2b3941;
+    --rule-soft:      #212c33;
+    --accent:         #54B5D0;
+    --series-1:       #3987e5;
+    --series-2:       #d95926;
+    --series-3:       #199e70;
+    --bar:            #3987e5;
+  }
+
+  body { background: var(--surface-0); color: var(--text-primary); font-family: var(--sans); line-height: 1.55; }
+  .viz-root { max-width: 60rem; margin: 0 auto; padding: clamp(1.5rem,4vw,3rem) clamp(1rem,4vw,2rem) 4rem;
+              display: flex; flex-direction: column; gap: 2.5rem; background: var(--surface-0); }
+
+  .eyebrow { font-family: var(--mono); font-size: .68rem; letter-spacing: .13em; text-transform: uppercase; color: var(--text-muted); }
+  h1 { font-family: var(--serif); font-size: clamp(1.8rem,4.5vw,2.6rem); line-height: 1.1; margin: .4rem 0 0; font-weight: 600; letter-spacing: -.015em; text-wrap: balance; }
+  h2 { font-family: var(--serif); font-size: clamp(1.2rem,2.6vw,1.5rem); margin: 0; font-weight: 600; letter-spacing: -.01em; }
+  .sub { color: var(--text-secondary); margin-top: .6rem; max-width: 42rem; text-wrap: pretty; }
+  p { margin: 0; }
+  figure { margin: 0; display: flex; flex-direction: column; gap: .7rem; }
+  figcaption { font-size: .84rem; color: var(--text-muted); max-width: 44rem; }
+  .card { background: var(--surface-1); border: 1px solid var(--rule); border-radius: 8px; padding: 1.2rem 1.3rem 1.4rem; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .scroll { overflow-x: auto; }
+
+  .lbl { font-family: var(--sans); font-size: 12px; fill: var(--text-secondary); }
+  .lbl-site { font-family: var(--mono); font-size: 12px; fill: var(--text-primary); }
+  .val { font-family: var(--mono); font-size: 12px; fill: var(--text-primary); font-weight: 600; }
+  .val-sm { font-family: var(--mono); font-size: 10.5px; fill: var(--text-secondary); }
+  .axis { stroke: var(--rule); stroke-width: 1; }
+  .grid { stroke: var(--rule-soft); stroke-width: 1; }
+  .bar rect, .stack rect { transition: opacity .12s; }
+  .bar:hover rect, .stack:hover rect { opacity: .82; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 1rem; font-size: .82rem; color: var(--text-secondary); }
+  .legend span { display: inline-flex; align-items: center; gap: .4rem; }
+  .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .85rem; min-width: 34rem; }
+  th, td { text-align: right; padding: .45rem .7rem; border-bottom: 1px solid var(--rule-soft); }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font-family: var(--mono); font-size: .66rem; letter-spacing: .09em; text-transform: uppercase;
+             color: var(--text-muted); font-weight: 500; background: var(--surface-2); border-bottom: 1px solid var(--rule); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.n, th.n { font-variant-numeric: tabular-nums; }
+  tfoot td { font-weight: 650; border-top: 2px solid var(--rule); }
+  details { font-size: .85rem; color: var(--text-secondary); }
+  summary { cursor: pointer; font-family: var(--mono); font-size: .72rem; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--text-muted); padding: .3rem 0; }
+  summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .note { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 4px;
+          padding: .8rem 1rem; font-size: .88rem; color: var(--text-secondary); }
+  .note strong { color: var(--text-primary); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="viz-root">
+
+  <header>
+    <div class="eyebrow">ODELIA · breast-MRI swarm learning · 9 September 2026</div>
+    <h1>Training data by site</h1>
+    <p class="sub">
+      How much data each hospital brought when it joined, how the consortium total accumulated,
+      and how the classes are distributed. Every figure is read from the sites' own run logs.
+    </p>
+  </header>
+
+  <!-- ============ 1. per-site size ============ -->
+  <section class="card">
+    <figure>
+      <h2>What each site contributes today</h2>
+      <figcaption>
+        Training samples per site (unilateral breast volumes), from each site's
+        <code>Weighted epochs</code> log line — <code>len(ds_train)</code> at batch size 1.
+      </figcaption>
+      <svg viewBox="0 0 720 300" role="img" aria-label="Training samples per site: UKA 17834, UMCU 6133, RUMC 3608, USZ 3448, CAM 1778, MHA 1120, RSH 351, VHIO 190">
+        <g id="sizeBars"></g>
+      </svg>
+      <div class="note">
+        <strong>UKA alone is 51.7 % of the consortium's training data</strong> — more than the other
+        seven sites combined. The range across sites is 94-fold, from 17,834 down to 190.
+      </div>
+    </figure>
+  </section>
+
+  <!-- ============ 2. cumulative ============ -->
+  <section class="card">
+    <figure>
+      <h2>How the consortium total accumulated</h2>
+      <figcaption>
+        Running total of training data demonstrably available to the swarm, as each site came online.
+        Steps mark a site joining or a site's dataset growing.
+      </figcaption>
+      <svg viewBox="0 0 720 330" role="img" aria-label="Cumulative consortium training data growing from 452 samples in April 2026 to 34462 across 8 sites by 31 July 2026">
+        <g id="cumChart"></g>
+      </svg>
+      <div class="note">
+        Two events account for three quarters of the total: <strong>UKA joining on 11 June (+18,614)</strong>
+        and <strong>a UKA/USZ dataset expansion on 3 July (+6,755)</strong>. The last three sites to join —
+        RSH, VHIO and the April cohort's later growth — added under 1,000 between them.
+      </div>
+    </figure>
+  </section>
+
+  <!-- ============ 3a. class distribution, true scale ============ -->
+  <section class="card">
+    <figure>
+      <h2>Class distribution at true scale</h2>
+      <figcaption>
+        The same class counts, but bar length is the actual number of volumes rather than a share —
+        so the sites are comparable against each other, not just against themselves.
+      </figcaption>
+      <div class="legend" aria-hidden="true">
+        <span><i class="swatch" style="background:var(--series-1)"></i> No lesion</span>
+        <span><i class="swatch" style="background:var(--series-2)"></i> Benign</span>
+        <span><i class="swatch" style="background:var(--series-3)"></i> Malignant</span>
+      </div>
+      <svg viewBox="0 0 720 300" role="img" aria-label="Class counts per site at true scale: UKA's 17834 volumes dwarf the rest; VHIO's 190 and RSH's 351 are barely visible">
+        <g id="absBars"></g>
+      </svg>
+      <div class="note">
+        <strong>This is why the previous chart can mislead on its own.</strong> RSH looks
+        malignant-rich at 63 %, but that is 221 volumes — against UKA's 1,251. Read as shares the two
+        sites look comparable; read at scale, UKA contributes five times more malignant data than
+        RSH has volumes of any kind.
+      </div>
+    </figure>
+  </section>
+
+  <!-- ============ 3. class distribution ============ -->
+  <section class="card">
+    <figure>
+      <h2>Class distribution as shares</h2>
+      <figcaption>
+        Composition of each site's <strong>training set</strong>, logged by the trainer at dataset
+        setup (<code>Class counts</code>). Bars show each site's own class mix; the label gives its
+        size and benign count.
+      </figcaption>
+      <div class="legend" aria-hidden="true">
+        <span><i class="swatch" style="background:var(--series-1)"></i> No lesion</span>
+        <span><i class="swatch" style="background:var(--series-2)"></i> Benign</span>
+        <span><i class="swatch" style="background:var(--series-3)"></i> Malignant</span>
+      </div>
+      <svg viewBox="0 0 720 300" role="img" aria-label="Training-set class distribution per site: UKA is 66 percent benign, RSH is 63 percent malignant, RUMC and VHIO have almost no benign cases">
+        <g id="classBars"></g>
+      </svg>
+      <div class="note">
+        <strong>The consortium's benign cases are almost all in one hospital.</strong> UKA holds
+        11,836 of the 14,110 benign volumes — <strong>83.9 %</strong> — and 61 % of the malignant.
+        Two sites have essentially none: RUMC has 2 benign in 3,608, VHIO has 0 in 190.
+      </div>
+      <div class="note" style="border-left-color:var(--series-2)">
+        <strong>RSH is inverted relative to everyone else.</strong> Of its 351 volumes only 4 carry no
+        lesion and 221 are malignant (63 %). Every other site is majority no-lesion. A site that
+        unusual will pull an aggregation step in its own direction, and it is worth knowing before
+        reading any per-site result.
+      </div>
+    </figure>
+  </section>
+
+  <!-- ============ 4. model comparison ============ -->
+  <section class="card">
+    <figure>
+      <h2>What that data has produced</h2>
+      <figcaption>
+        The eight-site swarm model against the previous six-site swarm and against ten single-site
+        models, all scored on the external ODELIA challenge. Higher is better; 0.5 is chance.
+      </figcaption>
+      <div class="legend" aria-hidden="true">
+        <span><i class="swatch" style="background:var(--series-1)"></i> Malignant vs rest AUROC</span>
+        <span><i class="swatch" style="background:var(--series-2)"></i> Macro AUROC</span>
+      </div>
+      <svg viewBox="0 0 720 300" role="img" aria-label="External challenge AUROC: the eight-site swarm reaches 0.887 malignant and 0.820 macro, above the six-site swarm at 0.847 and 0.764, the best single site at 0.858 and 0.709, and the median single site at 0.658 and 0.601">
+        <g id="modelBars"></g>
+      </svg>
+      <div class="note">
+        <strong>The narrowest margin is the most demanding one.</strong> The swarm beats the best
+        single-site model by only +0.029 on malignant AUROC — but that model is UKA's, trained on the
+        site holding half the consortium's data and 84 % of its benign cases. Against the median
+        single-site model the gap is +0.229.
+      </div>
+      <div class="note" style="border-left-color:var(--series-2)">
+        <strong>Read the ordering, not the decimals.</strong> These are three separate evaluations on
+        overlapping but not identical subsets of the challenge set — 165 cases for the eight-site
+        run, 300 for the June matrix. The direction is consistent and repeated; the exact gaps are
+        not a controlled comparison.
+      </div>
+    </figure>
+  </section>
+
+  <!-- ============ table view ============ -->
+  <section class="card">
+    <details>
+      <summary>Table view — all figures</summary>
+      <div class="scroll">
+        <table>
+          <caption class="lbl" style="text-align:left;padding:.4rem 0;color:var(--text-muted)">
+            Training size, join date, and challenge-test class counts
+          </caption>
+          <thead>
+            <tr><th>Site</th><th class="n">Joined</th><th class="n">n at join</th><th class="n">Training now</th>
+                <th class="n">Share</th><th class="n">No lesion</th><th class="n">Benign</th><th class="n">Malignant</th><th class="n">Benign %</th></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot>
+            <tr><td>Consortium</td><td class="n">—</td><td class="n">—</td><td class="n">34,462</td>
+                <td class="n">100 %</td><td class="n">18,311</td><td class="n">14,110</td><td class="n">2,041</td><td class="n">40.9 %</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="note">
+      <strong>Provenance.</strong> Class counts are the trainer's own <code>Class counts</code> line,
+      emitted at dataset setup; each site's three classes sum exactly to its training size, and the
+      eight sites sum to 34,462. Figures are the most recent run whose training size matches the
+      site's production configuration — 7 Sep for five sites, 4 Sep for UKA, 6 Jul for USZ and
+      21 Jun for RUMC, those two having not run since. Records written by the two-node deploy test,
+      which reuses the site names RUMC_1 and MHA_1, were excluded.
+    </div>
+  </section>
+
+<script>
+(function () {
+  const SITES = [
+    { s:"UKA",  joined:"2026-06-11", atJoin:17834, now:17834, c:[4747,11836,1251], d:"2026-09-04" },
+    { s:"UMCU", joined:"2026-04-07", atJoin:122,   now:6133,  c:[5337,740,56],     d:"2026-09-07" },
+    { s:"RUMC", joined:"2026-04-07", atJoin:22,    now:3608,  c:[3571,2,35],       d:"2026-06-21" },
+    { s:"USZ",  joined:"2026-06-05", atJoin:3448,  now:3448,  c:[1911,1244,293],   d:"2026-07-06" },
+    { s:"CAM",  joined:"2026-04-07", atJoin:190,   now:1778,  c:[1678,42,58],      d:"2026-09-07" },
+    { s:"MHA",  joined:"2026-04-05", atJoin:452,   now:1120,  c:[904,120,96],      d:"2026-09-07" },
+    { s:"RSH",  joined:"2026-06-29", atJoin:351,   now:351,   c:[4,126,221],       d:"2026-09-07" },
+    { s:"VHIO", joined:"2026-07-31", atJoin:190,   now:190,   c:[159,0,31],        d:"2026-09-07" }
+  ];
+  const CUM = [
+    { d:"2026-04-05", t:452,   n:1, ev:"MHA joins" },
+    { d:"2026-04-07", t:786,   n:4, ev:"UMCU, RUMC, CAM join" },
+    { d:"2026-04-30", t:4730,  n:4, ev:"RUMC dataset expands" },
+    { d:"2026-06-05", t:8178,  n:5, ev:"USZ joins" },
+    { d:"2026-06-11", t:26792, n:6, ev:"UKA joins" },
+    { d:"2026-06-29", t:27143, n:7, ev:"RSH joins" },
+    { d:"2026-07-03", t:33898, n:7, ev:"dataset expansion" },
+    { d:"2026-07-31", t:34462, n:8, ev:"VHIO joins" }
+  ];
+  const TOTAL = 34462;
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (n, a = {}) => { const e = document.createElementNS(NS, n);
+    for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const fmt = v => v.toLocaleString("en-GB");
+
+  /* ---------- 1. per-site bars ---------- */
+  (function () {
+    const g = document.getElementById("sizeBars");
+    const L = 58, R = 96, T = 10, rowH = 34, barH = 17;
+    const W = 720 - L - R;
+    const max = Math.max(...SITES.map(d => d.now));
+    SITES.forEach((d, i) => {
+      const y = T + i * rowH;
+      const w = Math.max(2, (d.now / max) * W);
+      const grp = el("g", { class: "bar" });
+      grp.appendChild(el("text", { x: L - 10, y: y + barH - 3, "text-anchor": "end", class: "lbl-site" }))
+         .textContent = d.s;
+      const r = el("rect", { x: L, y, width: w, height: barH, rx: 4, fill: "var(--bar)" });
+      grp.appendChild(r);
+      const t = el("text", { x: L + w + 8, y: y + barH - 3, class: "val" });
+      t.textContent = fmt(d.now);
+      grp.appendChild(t);
+      const p = el("text", { x: L + w + 8, y: y + barH + 10, class: "val-sm" });
+      p.textContent = (d.now / TOTAL * 100).toFixed(1) + " %";
+      grp.appendChild(p);
+      const title = el("title");
+      title.textContent = `${d.s}: ${fmt(d.now)} training samples (${(d.now/TOTAL*100).toFixed(1)}% of consortium), joined ${d.joined} with ${fmt(d.atJoin)}`;
+      grp.appendChild(title);
+      g.appendChild(grp);
+    });
+    g.appendChild(el("line", { x1: L, y1: T - 4, x2: L, y2: T + SITES.length * rowH - 12, class: "axis" }));
+  })();
+
+  /* ---------- 2. cumulative step ---------- */
+  (function () {
+    const g = document.getElementById("cumChart");
+    const L = 56, R = 22, T = 18, B = 62, H = 330;
+    const W = 720 - L - R, PH = H - T - B;
+    const t0 = Date.parse("2026-04-01"), t1 = Date.parse("2026-08-15");
+    const x = d => L + (Date.parse(d) - t0) / (t1 - t0) * W;
+    const maxY = 36000;
+    const y = v => T + PH - (v / maxY) * PH;
+
+    [0, 9000, 18000, 27000, 36000].forEach(v => {
+      g.appendChild(el("line", { x1: L, y1: y(v), x2: L + W, y2: y(v), class: "grid" }));
+      const t = el("text", { x: L - 9, y: y(v) + 4, "text-anchor": "end", class: "lbl" });
+      t.textContent = v === 0 ? "0" : (v / 1000) + "k";
+      g.appendChild(t);
+    });
+
+    let dPath = `M ${x(CUM[0].d)} ${y(0)}`, aPath = dPath;
+    CUM.forEach((p, i) => {
+      const px = x(p.d), py = y(p.t);
+      dPath += ` L ${px} ${i ? y(CUM[i-1].t) : y(0)} L ${px} ${py}`;
+      aPath += ` L ${px} ${i ? y(CUM[i-1].t) : y(0)} L ${px} ${py}`;
+    });
+    const endX = L + W;
+    dPath += ` L ${endX} ${y(TOTAL)}`;
+    aPath += ` L ${endX} ${y(TOTAL)} L ${endX} ${y(0)} Z`;
+    g.appendChild(el("path", { d: aPath, fill: "var(--bar)", "fill-opacity": ".12" }));
+    g.appendChild(el("path", { d: dPath, fill: "none", stroke: "var(--bar)", "stroke-width": "2",
+                               "stroke-linejoin": "round" }));
+
+    CUM.forEach((p, i) => {
+      const px = x(p.d), py = y(p.t);
+      const grp = el("g", { class: "bar" });
+      grp.appendChild(el("circle", { cx: px, cy: py, r: 4.5, fill: "var(--bar)",
+                                     stroke: "var(--surface-1)", "stroke-width": "2" }));
+      const ti = el("title");
+      ti.textContent = `${p.d} — ${fmt(p.t)} samples across ${p.n} site${p.n>1?"s":""} (${p.ev})`;
+      grp.appendChild(ti);
+      g.appendChild(grp);
+      if (["2026-06-11", "2026-07-31", "2026-04-05"].includes(p.d)) {
+        const lab = el("text", { x: px, y: py - 12, "text-anchor": i === 0 ? "start" : "middle", class: "val" });
+        lab.textContent = fmt(p.t);
+        g.appendChild(lab);
+      }
+    });
+
+    g.appendChild(el("line", { x1: L, y1: T + PH, x2: L + W, y2: T + PH, class: "axis" }));
+    [["2026-04-01","Apr"],["2026-05-01","May"],["2026-06-01","Jun"],["2026-07-01","Jul"],["2026-08-01","Aug"]]
+      .forEach(([d, lbl]) => {
+        const px = x(d);
+        g.appendChild(el("line", { x1: px, y1: T + PH, x2: px, y2: T + PH + 5, class: "axis" }));
+        const t = el("text", { x: px, y: T + PH + 19, "text-anchor": "middle", class: "lbl" });
+        t.textContent = lbl; g.appendChild(t);
+      });
+
+    [["2026-06-11","UKA joins  +18,614", -4],["2026-07-31","VHIO joins", 4]].forEach(([d, txt, dx]) => {
+      const px = x(d);
+      const t = el("text", { x: px + dx, y: T + PH + 40, "text-anchor": dx < 0 ? "end" : "start", class: "val-sm" });
+      t.textContent = txt; g.appendChild(t);
+      g.appendChild(el("line", { x1: px, y1: T + PH + 26, x2: px, y2: T + PH + 32, class: "axis" }));
+    });
+  })();
+
+  /* ---------- 3a. class stacks at TRUE SCALE ---------- */
+  (function () {
+    const g = document.getElementById("absBars");
+    const rows = SITES.slice().sort((a, b) => b.now - a.now);
+    const L = 62, R = 130, T = 12, rowH = 30, barH = 16, GAP = 2;
+    const W = 720 - L - R;
+    const max = Math.max(...rows.map(d => d.now));
+    const COL = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
+    const NAME = ["No lesion", "Benign", "Malignant"];
+
+    // gridlines so the scale is readable, not just implied
+    [0, 5000, 10000, 15000].forEach(v => {
+      const gx = L + (v / max) * W;
+      g.appendChild(el("line", { x1: gx, y1: T - 6, x2: gx, y2: T + rows.length * rowH - 8, class: "grid" }));
+      const t = el("text", { x: gx, y: T + rows.length * rowH + 6, "text-anchor": "middle", class: "val-sm" });
+      t.textContent = v === 0 ? "0" : (v / 1000) + "k";
+      g.appendChild(t);
+    });
+
+    rows.forEach((d, i) => {
+      const y = T + i * rowH;
+      let xoff = L;
+      const full = (d.now / max) * W;
+      d.c.forEach((v, k) => {
+        if (v === 0) return;
+        const w = Math.max(1, (v / d.now) * full - (full > 12 ? GAP : 0));
+        const grp = el("g", { class: "stack" });
+        grp.appendChild(el("rect", { x: xoff, y, width: w, height: barH, rx: w > 6 ? 3 : 1, fill: COL[k] }));
+        const ti = el("title");
+        ti.textContent = `${d.s} — ${NAME[k]}: ${fmt(v)} of ${fmt(d.now)} (${(v/d.now*100).toFixed(1)}%)`;
+        grp.appendChild(ti);
+        g.appendChild(grp);
+        xoff += w + (full > 12 ? GAP : 0);
+      });
+      const sl = el("text", { x: L - 10, y: y + barH - 3, "text-anchor": "end", class: "lbl-site" });
+      sl.textContent = d.s; g.appendChild(sl);
+      const tl = el("text", { x: L + full + 10, y: y + barH - 3, class: "val-sm" });
+      tl.textContent = `${fmt(d.now)}  ·  ${fmt(d.c[1])} benign`;
+      g.appendChild(tl);
+    });
+    g.appendChild(el("line", { x1: L, y1: T - 6, x2: L, y2: T + rows.length * rowH - 8, class: "axis" }));
+  })();
+
+  /* ---------- 3. class stacks (share of each site's training set) ---------- */
+  (function () {
+    const g = document.getElementById("classBars");
+    const rows = SITES.slice().sort((a, b) => b.now - a.now)
+      .concat([{ s: "CONSORTIUM", now: 34462, c: [18311, 14110, 2041], pooled: true }]);
+    const L = 70, R = 150, T = 8, rowH = 30, barH = 16, GAP = 2;
+    const W = 720 - L - R;
+    const COL = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
+    const NAME = ["No lesion", "Benign", "Malignant"];
+    rows.forEach((d, i) => {
+      const y = T + i * rowH + (d.pooled ? 10 : 0);
+      let xoff = L;
+      d.c.forEach((v, k) => {
+        if (v === 0) return;
+        const w = Math.max(1.5, (v / d.now) * W - GAP);
+        const grp = el("g", { class: "stack" });
+        grp.appendChild(el("rect", { x: xoff, y, width: w, height: barH, rx: 3, fill: COL[k] }));
+        const ti = el("title");
+        ti.textContent = `${d.s} — ${NAME[k]}: ${fmt(v)} of ${fmt(d.now)} (${(v/d.now*100).toFixed(1)}%)`;
+        grp.appendChild(ti);
+        g.appendChild(grp);
+        if (w > 34) {
+          const t = el("text", { x: xoff + w / 2, y: y + barH - 4, "text-anchor": "middle",
+                                 class: "val-sm", fill: "#fff" });
+          t.textContent = (v / d.now * 100).toFixed(0) + "%";
+          g.appendChild(t);
+        }
+        xoff += w + GAP;
+      });
+      const sl = el("text", { x: L - 10, y: y + barH - 3, "text-anchor": "end",
+                              class: d.pooled ? "val" : "lbl-site" });
+      sl.textContent = d.s; g.appendChild(sl);
+      const tl = el("text", { x: L + W + 10, y: y + barH - 3, class: "val-sm" });
+      tl.textContent = `n=${fmt(d.now)}  ·  benign ${fmt(d.c[1])}`;
+      g.appendChild(tl);
+    });
+  })();
+
+  /* ---------- 4. model comparison ---------- */
+  (function () {
+    const g = document.getElementById("modelBars");
+    const M = [
+      { m:"Swarm · 8 sites · 1DC",      sub:"Aug 2026 · current",  mal:0.887, mac:0.820, hi:true },
+      { m:"Best single site · UKA 1DC", sub:"trained alone",       mal:0.858, mac:0.709 },
+      { m:"Swarm · 6 sites · 4LME",     sub:"Jun 2026",            mal:0.847, mac:0.764 },
+      { m:"Median single-site model",   sub:"of 10",               mal:0.658, mac:0.601 },
+      { m:"Weakest single site · RUMC", sub:"trained alone",       mal:0.408, mac:0.483 }
+    ];
+    const L = 176, R = 58, T = 14, rowH = 52, barH = 15, GAP = 4;
+    const W = 720 - L - R;
+    const x = v => L + v * W;                       // AUROC 0..1 on one axis
+
+    [0, .25, .5, .75, 1].forEach(v => {
+      g.appendChild(el("line", { x1: x(v), y1: T - 6, x2: x(v), y2: T + M.length * rowH - 14, class: "grid" }));
+      const t = el("text", { x: x(v), y: T + M.length * rowH + 2, "text-anchor": "middle", class: "val-sm" });
+      t.textContent = v.toFixed(2); g.appendChild(t);
+    });
+    // chance reference
+    const ch = el("line", { x1: x(.5), y1: T - 6, x2: x(.5), y2: T + M.length * rowH - 14,
+                            stroke: "var(--text-muted)", "stroke-width": "1", "stroke-dasharray": "3 3" });
+    g.appendChild(ch);
+    const cl = el("text", { x: x(.5), y: T - 10, "text-anchor": "middle", class: "val-sm" });
+    cl.textContent = "chance"; g.appendChild(cl);
+
+    M.forEach((d, i) => {
+      const y = T + i * rowH;
+      [["mal", "var(--series-1)", 0], ["mac", "var(--series-2)", barH + GAP]].forEach(([k, col, dy]) => {
+        const w = Math.max(2, d[k] * W);
+        const grp = el("g", { class: "bar" });
+        grp.appendChild(el("rect", { x: L, y: y + dy, width: w, height: barH, rx: 4, fill: col }));
+        const ti = el("title");
+        ti.textContent = `${d.m} — ${k === "mal" ? "malignant vs rest" : "macro"} AUROC ${d[k].toFixed(3)}`;
+        grp.appendChild(ti);
+        g.appendChild(grp);
+        const t = el("text", { x: L + w + 7, y: y + dy + barH - 3,
+                               class: d.hi ? "val" : "val-sm" });
+        t.textContent = d[k].toFixed(3); g.appendChild(t);
+      });
+      const nm = el("text", { x: L - 12, y: y + barH - 2, "text-anchor": "end",
+                              class: d.hi ? "val" : "lbl" });
+      nm.textContent = d.m; g.appendChild(nm);
+      const sb = el("text", { x: L - 12, y: y + barH + 12, "text-anchor": "end", class: "val-sm" });
+      sb.textContent = d.sub; g.appendChild(sb);
+    });
+    g.appendChild(el("line", { x1: L, y1: T - 6, x2: L, y2: T + M.length * rowH - 14, class: "axis" }));
+  })();
+
+  /* ---------- table ---------- */
+  (function () {
+    const tb = document.getElementById("tableBody");
+    SITES.slice().sort((a, b) => b.now - a.now).forEach(d => {
+      const tr = document.createElement("tr");
+      [ d.s, d.joined, fmt(d.atJoin), fmt(d.now),
+        (d.now / TOTAL * 100).toFixed(1) + " %",
+        fmt(d.c[0]), fmt(d.c[1]), fmt(d.c[2]),
+        (d.c[1] / d.now * 100).toFixed(1) + " %"
+      ].forEach((c, i) => {
+        const td = document.createElement("td");
+        if (i) td.className = "n";
+        td.textContent = c;
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  })();
+})();
+</script>
+</div>
