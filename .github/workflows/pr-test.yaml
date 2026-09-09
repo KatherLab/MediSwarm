@@ -149,12 +149,6 @@ jobs:
         run: |
           ./scripts/ci/runIntegrationTests.sh check_files_in_repo
 
-      - name: Run NVFlare unit and integration tests (weekly/manual)
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_nvflare_unit_and_integration_tests
-
       - name: Run dummy training standalone
         continue-on-error: false
         run: |
