@@ -1048,36 +1048,43 @@ run_3dcnn_training_in_swarm () {
 }
 
 
+_verify_all_model_preflight_check_output () {
+    EXPECTED_OUTPUT_ABOUT_MODEL=$1
+    WHICH_MODEL=$2
+
+    for EXPECTED_OUTPUT in "$EXPECTED_OUTPUT_ABOUT_MODEL" \
+                           "Epoch 0: 100%";
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+            echo "✅ Expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" preflight check found"
+        else
+            cat "$CONSOLE_OUTPUT_FILE"
+            echo "❌ Missing expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" preflight check"
+            exit 1
+        fi
+    done
+
+}
+
 _verify_challenge_preflight_check() {
     JOB_NAME=$1
-    EXPECTED_OUTPUT=$2
+    EXPECTED_OUTPUT_ABOUT_MODEL=$2
     CONSOLE_OUTPUT_FILE=preflight_check_console_output_$JOB_NAME.txt
-    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job $JOB_NAME --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job "$JOB_NAME" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
-    if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
-        echo "✅ Expected output of $JOB_NAME preflight check found"
-    else
-        cat "$CONSOLE_OUTPUT_FILE"
-        echo "❌ Missing expected output "$EXPECTED_OUTPUT" of $JOB_NAME preflight check"
-        exit 1
-    fi
+    _verify_all_model_preflight_check_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$JOB_NAME"
+
     sleep 5
 }
 
-
 _verify_ODELIA_ternary_preflight_check() {
     MODEL_NAME=$1
-    EXPECTED_OUTPUT=$2
+    EXPECTED_OUTPUT_ABOUT_MODEL=$2
     CONSOLE_OUTPUT_FILE=preflight_check_console_output_$MODEL_NAME.txt
-    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name $MODEL_NAME --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$MODEL_NAME" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
-    if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
-        echo "✅ Expected output of ODELIA_ternary_classification/$MODEL_NAME preflight check found"
-    else
-        cat "$CONSOLE_OUTPUT_FILE"
-        echo "❌ Missing expected output "$EXPECTED_OUTPUT" of ODELIA_ternary_classification/$MODEL_NAME preflight check"
-        exit 1
-    fi
+    _verify_all_model_preflight_check_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "ODELIA_ternary_classification/$MODEL_NAME"
+
     sleep 5
 }
 
