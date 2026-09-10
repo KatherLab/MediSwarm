@@ -741,7 +741,7 @@ verify_wrong_certificates_are_rejected () {
     # cleanup
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX
     sleep 3
-    rm -rf "$PROJECT_DIR"/prod_wrong_client
+    rm -rf "$WRONG_STARTUP_DIR"
 
     cd "$CWD"
 }
