@@ -679,27 +679,28 @@ kill_registry_docker () {
 verify_wrong_certificates_are_rejected () {
     echo "[Run] Verify that client and admin console with invalid certificate in startup kit do not connect ..."
 
-    # start server
-    WRONG_STARTUP_DIR="$PROJECT_DIR"/../odelia_1.0.1-dev.250919.095c1b7_dummy_project_for_testing
-    mkdir -p "$WRONG_STARTUP_DIR"
-    cp -r "$PROJECT_DIR"/prod_01 "$WRONG_STARTUP_DIR"/prod_wrong_client
-    cd "$WRONG_STARTUP_DIR"/prod_wrong_client
-    cd localhost/startup
-    ./docker.sh --no_pull --start_server
-    cd ../..
-    sleep 10
+    cp -r "$PROJECT_DIR"/prod_01 "$PROJECT_DIR"/prod_wrong_client
+    cd "$PROJECT_DIR"/prod_wrong_client
 
-    # inject invalid certificates from outdated startup kits
+    # inject invalid certificates from outdated startup kits (client, admin; leave server untouched)
     rm client_A -rf
     rm admin@test.odelia/ -rf
-    tar xvf "$CWD"/tests/integration_tests/outdated_startup_kit.tar.gz
+    tar xvf "$CWD"/tests/integration_tests/outdated_startup_kit.tar.gz > /dev/null
     sed -i 's#DOCKER_IMAGE=localhost:5000/odelia:1.0.1-dev.250919.095c1b7#DOCKER_IMAGE='$DOCKER_IMAGE'#' client_A/startup/docker.sh
     sed -i 's#CONTAINER_NAME=odelia_swarm_client_client_A_095c1b7#CONTAINER_NAME=odelia_swarm_client_client_A_'$CONTAINER_VERSION_SUFFIX'#' client_A/startup/docker.sh
     sed -i 's#DOCKER_IMAGE=localhost:5000/odelia:1.0.1-dev.251023.e940002#DOCKER_IMAGE='$DOCKER_IMAGE'#' admin@test.odelia/startup/docker.sh
     sed -i 's#CONTAINER_NAME=odelia_swarm_admin_e940002#CONTAINER_NAME=odelia_swarm_admin_'$CONTAINER_VERSION_SUFFIX'#' admin@test.odelia/startup/docker.sh
 
+    # start server
+    cd localhost/startup
+    echo "Starting server …"
+    ./docker.sh --no_pull --start_server
+    cd ../..
+    sleep 10
+
     # start client and verify that it gets rejected
     cd client_A/startup
+    echo "Attempting to start client …"
     ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
 
@@ -726,6 +727,7 @@ verify_wrong_certificates_are_rejected () {
 
     # start admin console and verify that it gets rejected
     cd admin@test.odelia/startup
+    echo "  Attempting to start admin console …"
     CONSOLE_OUTPUT_FILE_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
     if grep -q "Communication Error - please try later" <<< "$CONSOLE_OUTPUT_FILE_ADMIN"; then
         echo "✅ Connection by unauthorized admin console rejected successfully"
@@ -739,7 +741,7 @@ verify_wrong_certificates_are_rejected () {
     # cleanup
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX
     sleep 3
-    rm -rf "$WRONG_STARTUP_DIR"
+    rm -rf "$PROJECT_DIR"/prod_wrong_client
 
     cd "$CWD"
 }
