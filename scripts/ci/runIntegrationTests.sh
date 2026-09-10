@@ -1121,14 +1121,17 @@ case "$1" in
         ;;
 
     run_nvflare_unit_tests)
+        # not included in gitlab workflow
         run_nvflare_unit_tests
         ;;
 
     run_nvflare_integration_tests)
+        # not included in gitlab workflow
         run_nvflare_integration_tests
         ;;
 
     run_nvflare_unit_and_integration_tests)
+        # not included in gitlab workflow
         run_nvflare_unit_tests
         run_nvflare_integration_tests
         ;;
@@ -1199,7 +1202,6 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         verify_wrong_certificates_are_rejected
         cleanup_temporary_data
-        # TODO add to CI if we want this
         ;;
 
     run_dummy_training_in_swarm)
