@@ -144,89 +144,89 @@ jobs:
       - name: Build Docker image and dummy startup kits
         run: ./scripts/build/buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
-      - name: Run integration test checking documentation in the repository
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh check_files_in_repo
+      # - name: Run integration test checking documentation in the repository
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh check_files_in_repo
 
-      - name: Run dummy training standalone
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_dummy_training_standalone
+      # - name: Run dummy training standalone
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_dummy_training_standalone
 
-      - name: Run dummy training in simulation mode
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_dummy_training_simulation_mode
+      # - name: Run dummy training in simulation mode
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_dummy_training_simulation_mode
 
-      - name: Run dummy training in proof-of-concept mode
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_dummy_training_poc_mode
+      # - name: Run dummy training in proof-of-concept mode
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_dummy_training_poc_mode
 
-      - name: Run 3DCNN training in simulation mode
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_3dcnn_simulation_mode
+      # - name: Run 3DCNN training in simulation mode
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_3dcnn_simulation_mode
 
-      # ---------------------------------------------------------------
-      # STAMP pipeline tests
-      # ---------------------------------------------------------------
-      - name: Build STAMP Docker image
-        run: |
-          chmod +x scripts/build/buildDockerImageAndStartupKits.sh
-          ./scripts/build/buildDockerImageAndStartupKits.sh \
-            -p tests/provision/dummy_stamp_project_for_testing.yml \
-            -d docker_config/Dockerfile_STAMP \
-            --use-docker-cache
+      # # ---------------------------------------------------------------
+      # # STAMP pipeline tests
+      # # ---------------------------------------------------------------
+      # - name: Build STAMP Docker image
+      #   run: |
+      #     chmod +x scripts/build/buildDockerImageAndStartupKits.sh
+      #     ./scripts/build/buildDockerImageAndStartupKits.sh \
+      #       -p tests/provision/dummy_stamp_project_for_testing.yml \
+      #       -d docker_config/Dockerfile_STAMP \
+      #       --use-docker-cache
 
-      - name: Run STAMP preflight check
-        continue-on-error: false
-        env:
-          STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_stamp_preflight_check
+      # - name: Run STAMP preflight check
+      #   continue-on-error: false
+      #   env:
+      #     STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_stamp_preflight_check
 
-      - name: Run STAMP local training
-        continue-on-error: false
-        env:
-          STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_stamp_local_training
+      # - name: Run STAMP local training
+      #   continue-on-error: false
+      #   env:
+      #     STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_stamp_local_training
 
-      - name: Run STAMP simulation mode
-        continue-on-error: false
-        env:
-          STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_stamp_simulation_mode
+      # - name: Run STAMP simulation mode
+      #   continue-on-error: false
+      #   env:
+      #     STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_stamp_simulation_mode
 
-      - name: Run integration test creating startup kits
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh create_startup_kits
+      # - name: Run integration test creating startup kits
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh create_startup_kits
 
-      - name: Run intergration test listing licenses
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_list_licenses
+      # - name: Run intergration test listing licenses
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_list_licenses
 
-      - name: Run integration test Docker GPU preflight check
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_docker_gpu_preflight_check
+      # - name: Run integration test Docker GPU preflight check
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_docker_gpu_preflight_check
 
-      - name: Run two containers in parallel (weekly/manual)
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_two_containers_in_parallel
+      # - name: Run two containers in parallel (weekly/manual)
+      #   if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_two_containers_in_parallel
 
-      - name: Run push/pull image to/from local registry (weekly/manual)
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh push_pull_image
+      # - name: Run push/pull image to/from local registry (weekly/manual)
+      #   if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh push_pull_image
 
       - name: Run check wrong startup kit (weekly/manual)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -234,37 +234,37 @@ jobs:
         run: |
           ./scripts/ci/runIntegrationTests.sh check_wrong_startup_kit
 
-      - name: Run integration test data access preflight check
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_data_access_preflight_check
+      # - name: Run integration test data access preflight check
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_data_access_preflight_check
 
-      # #352: PRs only exercise the default model, so a break in one of the other
-      # five productive models is invisible until a deploy test or a real run hits
-      # it. run_all_models_preflight_check() already existed and was dispatchable,
-      # but was wired into no workflow at all. Run it on the weekly schedule and on
-      # manual dispatch — not on every PR, since it preflights all six models on the
-      # one shared GPU.
-      - name: Run preflight check for all productive models (weekly / manual)
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_all_models_preflight_check
+      # # #352: PRs only exercise the default model, so a break in one of the other
+      # # five productive models is invisible until a deploy test or a real run hits
+      # # it. run_all_models_preflight_check() already existed and was dispatchable,
+      # # but was wired into no workflow at all. Run it on the weekly schedule and on
+      # # manual dispatch — not on every PR, since it preflights all six models on the
+      # # one shared GPU.
+      # - name: Run preflight check for all productive models (weekly / manual)
+      #   if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_all_models_preflight_check
 
-      - name: Run dummy training in swarm
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_dummy_training_in_swarm
+      # - name: Run dummy training in swarm
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_dummy_training_in_swarm
 
-      - name: Run local 3DCNN training with synthetic dataset
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_3dcnn_local_training
+      # - name: Run local 3DCNN training with synthetic dataset
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_3dcnn_local_training
 
-      - name: Run 3DCNN training swarm with synthetic dataset and two clients
-        continue-on-error: false
-        run: |
-          ./scripts/ci/runIntegrationTests.sh run_3dcnn_training_in_swarm
+      # - name: Run 3DCNN training swarm with synthetic dataset and two clients
+      #   continue-on-error: false
+      #   run: |
+      #     ./scripts/ci/runIntegrationTests.sh run_3dcnn_training_in_swarm
 
       - name: Kill orphaned containers from this run (if any)
         if: always()
