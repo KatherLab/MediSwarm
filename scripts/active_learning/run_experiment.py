@@ -38,7 +38,7 @@ composition, which is why composition is emitted alongside every point.
 
 Usage
     python3 scripts/active_learning/run_experiment.py \
-        --predictions workspace/eval_87c5bbee/results/best \
+        --predictions workspace/eval_87c5bbee/results/fixed \
         --out workspace/active_learning
 """
 
@@ -71,14 +71,90 @@ def load_rows(base):
     return rows
 
 
+# ---------------------------------------------------------------------------
+# E2 guard. The evaluation tree contains both a correct run and a
+# wrong-architecture one (results/fixed vs results/best); "best" names the
+# CHECKPOINT KIND, not the better result. This experiment was first run against
+# the wrong one and produced a false null result. Refuse rather than repeat it.
+# ---------------------------------------------------------------------------
+def guard_wrong_architecture(rows, source):
+    def _auroc(s, l):
+        pos = sum(l); neg = len(l) - pos
+        if not pos or not neg:
+            return None
+        o = sorted(range(len(s)), key=lambda i: s[i]); r = [0.0] * len(s); i = 0
+        while i < len(o):
+            j = i
+            while j + 1 < len(o) and s[o[j + 1]] == s[o[i]]:
+                j += 1
+            a = (i + j) / 2.0 + 1
+            for k in range(i, j + 1):
+                r[o[k]] = a
+            i = j + 1
+        return (sum(x for x, y in zip(r, l) if y == 1) - pos * (pos + 1) / 2.0) / (pos * neg)
+
+    gt = [int(float(r["ground_truth"])) for r in rows]
+    p2 = [float(r["prob_class_2"]) for r in rows]
+    a = _auroc(p2, [1 if g == 2 else 0 for g in gt])
+    if a is not None and a < 0.60:
+        raise SystemExit(
+            f"\nREFUSING TO ANALYSE {source}: malignant AUROC {a:.3f} is at or below chance.\n"
+            f"That is the signature of a checkpoint evaluated with the wrong architecture (E2).\n"
+            f"Compare prediction_results.json 'model_name' against the checkpoint's train_conf.\n"
+            f"The corrected ODELIA evaluation is workspace/eval_87c5bbee/results/fixed.\n")
+
+
 def probs(row):
     return [float(row[f"prob_class_{c}"]) for c in (0, 1, 2)]
+
+
+def _verdict(by, budgets, calib, total):
+    """Derive the conclusion FROM THE NUMBERS.
+
+    This used to be a hardcoded string. When the experiment was re-run against
+    corrected predictions the numbers reversed and the string did not, so the
+    summary asserted a null result on top of data showing the opposite. A
+    conclusion that cannot change when the data changes is not a conclusion.
+    """
+    beats, loses = [], []
+    for b in budgets:
+        e = by[("entropy", b)]["malignant_yield"]
+        r = by[("random", b)]
+        if e > r["malignant_yield"] + r["malignant_sd"]:
+            beats.append(b)
+        elif e < r["malignant_yield"] - r["malignant_sd"]:
+            loses.append(b)
+    ent = calib["mean_entropy_by_class"]
+    spread = max(ent.values()) - min(ent.values()) if ent else 0.0
+
+    if beats and not loses:
+        head = (f"Uncertainty sampling BEAT random at {len(beats)} of {len(budgets)} budgets "
+                f"({', '.join(map(str, beats))}) and lost at none.")
+    elif beats:
+        head = (f"Uncertainty sampling beat random at {len(beats)} budgets "
+                f"({', '.join(map(str, beats))}) and lost at {len(loses)} "
+                f"({', '.join(map(str, loses))}).")
+    elif loses:
+        head = (f"Uncertainty sampling did NOT beat random -- it lost at "
+                f"{len(loses)} of {len(budgets)} budgets.")
+    else:
+        head = "Uncertainty sampling was indistinguishable from random at every budget."
+
+    tail = (f" Mean predictive entropy by true class {ent} (spread {spread:.3f}). "
+            f"Pool composition {dict(total)}.")
+    if beats:
+        tail += (" Note the ceiling: at the largest budgets the selection covers most of "
+                 "the pool, so every method converges on the same cases and the "
+                 "advantage necessarily disappears. The informative region is the "
+                 "small-budget end, which is also where a labelling budget actually "
+                 "binds.")
+    return head + tail
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--predictions", default="workspace/eval_87c5bbee/results/best")
+    ap.add_argument("--predictions", default="workspace/eval_87c5bbee/results/fixed")
     ap.add_argument("--out", default="workspace/active_learning")
     ap.add_argument("--seeds", type=int, default=200,
                     help="repeats; random needs many to give a stable control")
@@ -89,6 +165,7 @@ def main():
     rows = load_rows(args.predictions)
     if not rows:
         raise SystemExit(f"no predictions under {args.predictions}")
+    guard_wrong_architecture(rows, args.predictions)
     budgets = [int(b) for b in args.budgets.split(",") if int(b) <= len(rows)]
 
     total = class_composition(rows)
@@ -163,17 +240,7 @@ def main():
                    "selections has not been evaluated; rare-class yield above "
                    "random is expected from uncertainty sampling on an imbalanced "
                    "pool and is not on its own evidence that active learning helps."),
-        "result": ("Uncertainty sampling did NOT beat random on this pool -- entropy "
-                   "found fewer malignant cases than random at every budget. The "
-                   "calibration diagnostic shows why: mean predictive entropy is "
-                   "near-identical across the three classes, and the model is most "
-                   "CONFIDENT on benign cases (12 of 17 benign fall in the 30 "
-                   "lowest-entropy cases). Its confidence is not informative about "
-                   "the true class, so an uncertainty rule cannot preferentially "
-                   "surface the rare one -- it deprioritises it. This is a property "
-                   "of the model's calibration, not of active learning as a method, "
-                   "and it says calibration has to be addressed before an "
-                   "uncertainty-based acquisition rule can be expected to help."),
+        "result": _verdict(by, budgets, calib, total),
     }
     json.dump(summary, open(os.path.join(args.out, "experiment_summary.json"), "w"), indent=1)
     print(f"\n  wrote {csv_path}")
