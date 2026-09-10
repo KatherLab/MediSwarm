@@ -680,8 +680,10 @@ verify_wrong_certificates_are_rejected () {
     echo "[Run] Verify that client and admin console with invalid certificate in startup kit do not connect ..."
 
     # start server
-    cp -r "$PROJECT_DIR"/prod_01 "$PROJECT_DIR"/prod_wrong_client
-    cd "$PROJECT_DIR"/prod_wrong_client
+    WRONG_CLIENT_DIR="$PROJECT_DIR"/../odelia_1.0.1-dev.250919.095c1b7_dummy_project_for_testing/prod_wrong_client
+    mkdir -p "$WRONG_CLIENT_DIR"
+    cp -r "$PROJECT_DIR"/prod_01 "$WRONG_CLIENT_DIR"
+    cd "$WRONG_CLIENT_DIR"
     cd localhost/startup
     ./docker.sh --no_pull --start_server
     cd ../..
