@@ -1116,6 +1116,7 @@ run_all_models_training_in_swarm () {
     # TODO implement
     # start_server_and_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
     # run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
+    echo "TODO implement"
 }
 
 
