@@ -35,15 +35,16 @@ the HTML by hand — the diagram coordinates are computed, and the data assertio
 it are what keep the class counts summing.
 
 ### `presentation_data_by_site.html` — training data by site
-**5 charts · 9 September 2026**
+**5 charts · 10 September 2026**
 
 How much data each hospital brought when it joined, how the consortium total
 accumulated to 34,462 volumes across eight sites, and the class distribution shown
 twice: at true scale and as shares. Reading them together is the point — RSH looks
 malignant-rich at 63 % until you see that is 221 volumes against UKA's 1,251.
 
-Sources are each site's own `Class counts` and `Weighted epochs` log lines, so every
-site's three classes sum exactly to its training size.
+Every count was emitted by that site's own trainer as it loaded its dataset, so each
+site's three classes sum exactly to its training size. The captions say this in plain
+language rather than by naming log lines — the deck is shown to partners.
 
 The last chart carries the same model comparison as slide 6 of the briefing — the
 eight-site swarm against the six-site swarm and ten single-site models — so the data
