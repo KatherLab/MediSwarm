@@ -1,13 +1,13 @@
-# Use the specified PyTorch image as the base
-ARG PYTORCH_IMAGE=pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime
+# Use the specified PyTorch image as the base.
+# Pinned by DIGEST, not just by tag: a tag is mutable and can be re-pushed under
+# us, so the digest is the only thing here that actually makes a build
+# reproducible. Bump it deliberately (see .github/workflows/daily-image-verify.yml).
+ARG PYTORCH_IMAGE=pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime@sha256:923f687790bec78081c357e71dcd5dcef80b0cc00f6c34484902a5e83362c854
 FROM ${PYTORCH_IMAGE}
 
 # Specify the NVFlare version
 ARG NVF_VERSION=2.8.0
 ENV NVF_BRANCH=${NVF_VERSION}
-
-# Set the Python version
-ENV PYTHON_VERSION=3.10.14
 
 # ===========================================================================
 # Layer ordering strategy for Docker build cache efficiency:
@@ -96,6 +96,9 @@ RUN python3 -m pip install --no-cache-dir \
     oauthlib==3.2.2 \
     openpyxl==3.1.5 \
     pandas==2.2.3 \
+    # PINNED (load-bearing): torch 2.2.2 comes from the base image and predates the
+    # NumPy 2.0 ABI break. Unpinning pulls NumPy 2.x and breaks torch/SimpleITK/monai
+    # at import. Do not relax without moving the base image first.
     numpy==1.26.4 \
     pyasn1-modules==0.4.2 \
     pyasn1==0.6.1 \
@@ -121,6 +124,9 @@ RUN python3 -m pip install --no-cache-dir \
     timm==1.0.15 \
     torchio==0.20.1 \
     torchmetrics==1.7.1 \
+    # PINNED (load-bearing): exact companion releases of the torch 2.2.2 that ships in
+    # the base image. Unpinning makes pip resolve newer builds and silently replace
+    # the CUDA torch from the base image.
     torchvision==0.17.2 \
     torchaudio==2.2.2 \
     tqdm==4.67.0 \
@@ -162,11 +168,20 @@ RUN python3 -m pip install --no-cache-dir \
     semantic-version==2.10.0
 
 # ---------------------------------------------------------------------------
-# Stage 2: apt packages (cheaper to rebuild, version-pinned for security)
+# Stage 2: apt packages (deliberately UNPINNED)
 # ---------------------------------------------------------------------------
-# These layers change more often than pip packages (CVE version bumps),
-# but are fast to install. Placing them after pip installs means version
-# bumps here don't invalidate the expensive pip cache layers above.
+# apt installs the current patch version on purpose. Exact pins here gave us
+# neither reproducibility (the base image floats unless pinned by digest -- see
+# above) nor security: a pin FREEZES an old patch version while the Ubuntu archive
+# garbage-collects it, so pinned builds simultaneously miss security updates AND
+# break once the pinned version is dropped from the mirror (#395).
+# Security comes from the daily CVE scan of the built image
+# (.github/workflows/daily-image-verify.yml), not from freezing versions here.
+# If bit-for-bit apt reproducibility is ever genuinely needed, that is
+# snapshot.ubuntu.com -- pins against a live archive cannot provide it in principle.
+#
+# Kept after the pip installs so apt changes don't invalidate the expensive pip
+# layers above.
 
 RUN apt update && apt install -y \
     apt \

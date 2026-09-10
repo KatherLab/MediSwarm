@@ -4,7 +4,7 @@ An open-source platform advancing medical AI via privacy-preserving swarm learni
 the ODELIA consortium.
 
 [![PR Tests](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml/badge.svg?branch=main)](https://github.com/KatherLab/MediSwarm/actions/workflows/pr-test.yaml?query=branch%3Amain)
-[![Build](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml/badge.svg?branch=main)](https://github.com/KatherLab/MediSwarm/actions/workflows/update-apt-versions.yml?query=branch%3Amain)
+[![Image Verify](https://github.com/KatherLab/MediSwarm/actions/workflows/daily-image-verify.yml/badge.svg?branch=main)](https://github.com/KatherLab/MediSwarm/actions/workflows/daily-image-verify.yml?query=branch%3Amain)
 [![Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml/badge.svg?branch=main)](https://github.com/KatherLab/MediSwarm/actions/workflows/odelia-deploy-test.yml?query=branch%3Amain)
 [![STAMP Deploy Test](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml/badge.svg?branch=main)](https://github.com/KatherLab/MediSwarm/actions/workflows/stamp-deploy-test.yml?query=branch%3Amain)
 

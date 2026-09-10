@@ -15,6 +15,7 @@ Key differences from standalone STAMP training:
 
 import logging
 import os
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -377,6 +378,112 @@ def compute_weighted_epochs(num_train_samples: int, site_name: str = "") -> int:
         f"raw={raw:.1f}, clamped={epochs}"
     )
     return epochs
+
+
+# ---------------------------------------------------------------------------
+# Scheduler horizon (#503)
+# ---------------------------------------------------------------------------
+# STAMP sizes its OneCycleLR scheduler once, for max_epochs x total_rounds steps.
+# The rounds actually executed come from num_rounds in the job's
+# config_fed_server.conf. These were two independent sources of truth: the client
+# read STAMP_NUM_ROUNDS from its environment, nothing checked the two agreed, and
+# when the server outran the scheduler training died mid-run with
+#
+#     ValueError: Tried to step 9 times. The specified number of total steps is 8
+#
+# reported to the server as EXECUTION_EXCEPTION -> FATAL_SYSTEM_ERROR. The message
+# names neither variable, and because oversizing is harmless the mismatch stays
+# invisible until someone RAISES num_rounds -- so it surfaces late, on a long run.
+#
+# The job's app (including config/) is deployed to every client, so the client can
+# read the authoritative value straight off disk instead of being told separately.
+
+ENV_NUM_ROUNDS = "STAMP_NUM_ROUNDS"
+DEFAULT_TOTAL_ROUNDS = 20
+
+
+def parse_num_rounds(text):
+    """Extract ``num_rounds`` from a config_fed_server.conf body, or None."""
+    if not text:
+        return None
+    match = re.search(r"^\s*num_rounds\s*=\s*(\d+)", text, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
+def find_server_config(explicit_path=None):
+    """Locate the deployed ``config_fed_server.conf``, or None if not found.
+
+    main.py runs as ``app_<SITE>/custom/main.py``, so the job's config sits at
+    ``app_<SITE>/config/``. Also tries the working directory, since the launcher's
+    cwd has differed between NVFlare versions.
+    """
+    candidates = []
+    if explicit_path:
+        candidates.append(Path(explicit_path))
+    here = Path(__file__).resolve().parent
+    candidates += [
+        here.parent / "config" / "config_fed_server.conf",
+        Path.cwd() / "config" / "config_fed_server.conf",
+        Path.cwd().parent / "config" / "config_fed_server.conf",
+    ]
+    for candidate in candidates:
+        try:
+            if candidate.is_file():
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
+def resolve_total_rounds(env_value=None, server_config=None, default=DEFAULT_TOTAL_ROUNDS):
+    """Return the round count the LR scheduler must be sized for.
+
+    Precedence: the job's ``num_rounds`` (authoritative -- it is what the server
+    actually runs) > ``STAMP_NUM_ROUNDS`` > ``default``. When both are present and
+    disagree, the job wins and the discrepancy is logged loudly, because following
+    the environment instead is what kills the run partway through.
+    """
+    if env_value is None:
+        env_value = os.environ.get(ENV_NUM_ROUNDS)
+    env_rounds = None
+    if env_value not in (None, ""):
+        try:
+            env_rounds = int(env_value)
+        except (TypeError, ValueError):
+            logger.warning("%s=%r is not an integer — ignoring it", ENV_NUM_ROUNDS, env_value)
+
+    config_path = server_config if server_config is not None else find_server_config()
+    job_rounds = None
+    if config_path is not None:
+        try:
+            job_rounds = parse_num_rounds(Path(config_path).read_text())
+        except OSError as exc:
+            logger.warning("Could not read %s: %s", config_path, exc)
+
+    if job_rounds is not None:
+        if env_rounds is not None and env_rounds != job_rounds:
+            logger.warning(
+                "%s=%d disagrees with the job's num_rounds=%d. Using the job's value: "
+                "it is what the server runs, and sizing the LR scheduler for fewer "
+                "rounds makes training fail partway through (#503).",
+                ENV_NUM_ROUNDS, env_rounds, job_rounds,
+            )
+        logger.info("Scheduler horizon: %d rounds (from the job's config)", job_rounds)
+        return job_rounds
+
+    if env_rounds is not None:
+        logger.info(
+            "Scheduler horizon: %d rounds (from %s; the job's config_fed_server.conf "
+            "was not found, so this value is unverified)", env_rounds, ENV_NUM_ROUNDS,
+        )
+        return env_rounds
+
+    logger.warning(
+        "Scheduler horizon: falling back to %d rounds — neither the job's config nor "
+        "%s was readable. If the job runs more rounds than this, training will fail "
+        "partway through (#503).", default, ENV_NUM_ROUNDS,
+    )
+    return default
 
 
 # ---------------------------------------------------------------------------

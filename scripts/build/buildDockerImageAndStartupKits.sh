@@ -15,6 +15,7 @@ fi
 DOCKER_BUILD_ARGS="--no-cache --progress=plain";
 DOCKERFILE="docker_config/Dockerfile_ODELIA"
 NUM_ROUNDS_OVERRIDE=""
+MIN_CLIENTS_OVERRIDE=""
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -22,16 +23,20 @@ while [[ "$#" -gt 0 ]]; do
         -d|--dockerfile)     DOCKERFILE="$2"; shift ;;
         --use-docker-cache)  DOCKER_BUILD_ARGS="";;
         --num-rounds)        NUM_ROUNDS_OVERRIDE="$2"; shift ;;
+        --min-clients)       MIN_CLIENTS_OVERRIDE="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
 done
 
 if [ -z "$PROJECT_FILE" ]; then
-    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [-d <Dockerfile>] [--use-docker-cache] [--num-rounds N]"
+    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [-d <Dockerfile>] [--use-docker-cache] [--num-rounds N] [--min-clients N]"
     echo "  -d  Dockerfile to use (default: docker_config/Dockerfile_ODELIA)"
     echo "      For STAMP builds, use: -d docker_config/Dockerfile_STAMP"
     echo "  --num-rounds  Override num_rounds in all config_fed_server.conf (for CI/CD testing)"
+    echo "  --min-clients Override min_clients / configure_min_clients to match the test site count."
+    echo "                Required for any deploy test with fewer sites than the productive job"
+    echo "                assumes, else the run aborts in 30s with min_clients exceeds ..."
     exit 1
 fi
 
@@ -85,6 +90,27 @@ if [[ -n "$NUM_ROUNDS_OVERRIDE" ]]; then
     echo "Overriding num_rounds to $NUM_ROUNDS_OVERRIDE in all config_fed_server.conf files"
     find application/jobs -name "config_fed_server.conf" -exec \
         sed -i 's/num_rounds = [0-9]\+/num_rounds = '"$NUM_ROUNDS_OVERRIDE"'/' {} \;
+fi
+
+# Override min_clients in all server configs if requested.
+#
+# The productive jobs carry min_clients tuned for the full consortium
+# (challenge_1DivideAndConquer ships 5, for 8 sites with fault tolerance). Submit
+# such a job to a 2- or 3-node deploy test and the server aborts within 30 seconds:
+#
+#   RuntimeError: min_clients (5) exceeds the number of participating clients (2)
+#
+# The job is read from inside the image (the admin submits
+# MediSwarm/application/jobs/<job>), so this has to be patched at build time --
+# editing the repo copy after the image is built has no effect.
+#
+# configure_min_clients is moved in lockstep: it must equal the participating site
+# count or the controller advances before slower sites finish configuring and
+# trains on a subset while still reporting success (F8 in docs/SWARM_FAILURE_MODES.md).
+if [[ -n "$MIN_CLIENTS_OVERRIDE" ]]; then
+    echo "Overriding min_clients/configure_min_clients to $MIN_CLIENTS_OVERRIDE in all config_fed_server.conf files"
+    find application/jobs -name "config_fed_server.conf" -exec \
+        sed -i 's/min_clients = [0-9]\+/min_clients = '"$MIN_CLIENTS_OVERRIDE"'/g' {} \;
 fi
 
 # Only cache pretrained model weights for ODELIA builds (STAMP uses pre-extracted

@@ -1,0 +1,73 @@
+{
+ "n": 165,
+ "sites": {
+  "CAM_1": 64,
+  "MHA_1": 26,
+  "RUMC_1": 8,
+  "UKA_1": 26,
+  "UMCU_1": 41
+ },
+ "k": 5,
+ "permutations": 600,
+ "majority_baseline": 0.3878787878787879,
+ "accuracy": 0.3878787878787879,
+ "balanced_accuracy": 0.3050480769230769,
+ "null_mean_balanced": 0.19438753713258286,
+ "null_sd_balanced": 0.033092940926690774,
+ "p_accuracy": 0.03494176372712146,
+ "p_balanced": 0.0016638935108153079,
+ "per_site_recall": {
+  "CAM_1": [
+   41,
+   64
+  ],
+  "MHA_1": [
+   7,
+   26
+  ],
+  "RUMC_1": [
+   0,
+   8
+  ],
+  "UKA_1": [
+   16,
+   26
+  ],
+  "UMCU_1": [
+   0,
+   41
+  ]
+ },
+ "site_identifiable": true,
+ "within_class_control": {
+  "No lesion": {
+   "n": 111,
+   "sites": [
+    "CAM_1",
+    "MHA_1",
+    "RUMC_1",
+    "UKA_1",
+    "UMCU_1"
+   ],
+   "dropped": [],
+   "balanced": 0.1852,
+   "null_mean": 0.1919,
+   "p": 0.5408
+  },
+  "Malignant": {
+   "n": 33,
+   "sites": [
+    "CAM_1",
+    "MHA_1",
+    "UMCU_1"
+   ],
+   "dropped": [
+    "RUMC_1",
+    "UKA_1"
+   ],
+   "balanced": 0.6038,
+   "null_mean": 0.3172,
+   "p": 0.0067
+  }
+ }
+}
