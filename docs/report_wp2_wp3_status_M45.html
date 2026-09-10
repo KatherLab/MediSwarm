@@ -278,12 +278,14 @@
 <div class="wrap">
 
   <header class="masthead">
-    <div class="eyebrow">ODELIA · WP2 / WP3 · 9 September 2026</div>
+    <div class="eyebrow">ODELIA · WP2 / WP3 · 10 September 2026</div>
     <h1>ODELIA at M45</h1>
     <p class="standfirst">
-      The capability that blocked all four outstanding grant tasks is fixed, and now verified on
-      real hospital data. Three deliverables are due in three months. The obstacle is no longer
-      the software — it is that the consortium fleet cannot currently hold a run together.
+      The capability that blocked all four outstanding grant tasks is fixed, verified on real
+      hospital data, and now merged along with the eight PRs behind it. Two of the four tasks have
+      produced their first result — one of them negative and informative. Three deliverables are
+      due in three months. The obstacle is no longer the software; it is that the consortium fleet
+      cannot currently hold a run together.
     </p>
   </header>
 
@@ -392,12 +394,12 @@
           <tr>
             <td class="id">D2.5</td><td class="id">T2.4</td><td class="id">M48</td><td class="num">3 mo</td>
             <td><span class="chip flight">In progress</span></td>
-            <td>Fine-tuning ran; paired analysis built. Was blocked on retrieving the model — #556 removes that need.</td>
+            <td>Fine-tuning ran; paired analysis built. The checkpoint-retrieval blocker is gone — #556 and #557 are merged. Needs one run with per-case return enabled at RUMC and UMCU.</td>
           </tr>
           <tr>
             <td class="id">D3.2</td><td class="id">T3.2</td><td class="id">M48</td><td class="num">3 mo</td>
-            <td><span class="chip flight">Started</span></td>
-            <td>Selection strategies built (#555). Federated form would cost ~110&nbsp;h; simulated instead, with one confirmation run.</td>
+            <td><span class="chip flight">First result</span></td>
+            <td>Strategies merged (#555); acquisition experiment run (#563). <strong>Negative result</strong> — uncertainty sampling underperforms random on this pool. Cause identified and reported below.</td>
           </tr>
           <tr>
             <td class="id">D3.4</td><td class="id">WP3</td><td class="id">M48</td><td class="num">3 mo</td>
@@ -413,6 +415,11 @@
             <td class="id">MS6</td><td class="id">T3.3</td><td class="id">M54</td><td class="num">9 mo</td>
             <td><span class="chip blocked">Needs partners</span></td>
             <td>White-hat attack requires CAM and RUMC. The one item not executable alone.</td>
+          </tr>
+          <tr>
+            <td class="id">T3.3</td><td class="id">T3.3</td><td class="id">M54</td><td class="num">9 mo</td>
+            <td><span class="chip flight">Phase 2 built</span></td>
+            <td>Calibrated-noise filter and an RDP accountant (#563). The guarantee is now a number the consortium can choose, not a claim. Phase 3 (record-level) not started.</td>
           </tr>
           <tr>
             <td class="id">D3.5</td><td class="id">T3.4</td><td class="id">M60</td><td class="num">15 mo</td>
@@ -515,30 +522,111 @@
 
   <!-- ============================================================ -->
   <section>
+    <h2>Two tasks produced their first result</h2>
+    <div class="prose">
+      <p>
+        Both were built as minimum viable versions against the M48 clock rather than the full
+        experiment in the proposal, and both are open as <strong>#563</strong>. One of them
+        returned a negative result, which is reported here as a finding rather than buried.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>D3.2 — uncertainty sampling is worse than random on this pool</h3>
+      <p>
+        The full deliverable is a labelling-budget curve of model performance, which needs a
+        retraining run per acquisition round per arm — roughly 110&nbsp;h of consortium GPU at the
+        measured 2.2&nbsp;h per round. That does not fit before M48, so the experiment answers the
+        part that needs no retraining: given a fixed model's per-case probabilities, does an
+        uncertainty rule surface the cases worth labelling sooner than random?
+      </p>
+      <p>
+        It does not. Over a pool of 165 cases (111 no-lesion, 17 benign, 37 malignant), at a
+        100-label budget: <strong>entropy 19 malignant, margin 21, random 22.2&nbsp;±&nbsp;2.8</strong>.
+        Entropy loses at <em>every</em> budget.
+      </p>
+      <p>
+        The calibration diagnostic shipped alongside it explains why, and this is the part worth
+        carrying forward. Mean predictive entropy is near-identical across the three classes —
+        0.987 / 0.878 / 0.981 — and the model is <strong>most confident on benign cases</strong>,
+        the rarest class: <strong>12 of 17 benign fall in the 30 lowest-entropy cases</strong>.
+        The model's confidence does not track whether it is right, so a rule that asks for the
+        cases it is least sure about actively deprioritises the rare ones.
+      </p>
+      <p>
+        <strong>This is a property of the model's calibration, not a verdict on active learning.</strong>
+        It says calibration has to be addressed before an uncertainty-based acquisition rule can be
+        expected to help, and that is a more useful thing to write in D3.2 than a curve produced by
+        a rule nobody checked.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>T3.3 Phase 2 — the privacy guarantee is now a number</h3>
+      <p>
+        The <code>PercentilePrivacy</code> filter wired into every job clips nothing and calibrates
+        noise to nothing, so it carries no formal guarantee at all. Phase 2 adds a filter that
+        clips each site's update to a known L2 norm and adds Gaussian noise scaled to it, plus a
+        self-contained Rényi-DP accountant — self-contained because Opacus is not in the ODELIA
+        image and adding it would force a rebuild and redistribution to all eight sites.
+      </p>
+      <p>
+        Over a 20-round run at δ&nbsp;=&nbsp;10⁻⁵, the cost of each guarantee is:
+      </p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Target ε</th><th>Noise multiplier σ required</th><th>Reading</th></tr></thead>
+          <tbody>
+            <tr><td class="num">≤ 10</td><td class="num">2.4</td><td>Weak but non-vacuous; commonly accepted in practice</td></tr>
+            <tr><td class="num">≤ 3</td><td class="num">6.7</td><td>Strong</td></tr>
+            <tr><td class="num">≤ 1</td><td class="num">18.1</td><td>Strictest commonly cited; likely destroys utility at this scale</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Two qualifications are stated in the code and must survive into the deliverable. The
+        guarantee is <strong>client-level, not record-level</strong> — it hides whether a site
+        participated in a round, and says nothing about whether a given patient was in that site's
+        training set; that needs DP-SGD during local training, which is Phase 3. And the accounting
+        assumes a sampling rate of 1, which is our case and is the conservative direction: it
+        over-states the privacy cost rather than under-stating it.
+      </p>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>What neither of these is yet.</strong> No model has been trained on an
+        actively-selected set, and no model has been trained with the noise filter enabled, so the
+        utility cost of any σ above is unmeasured. Both are the next runs, not the next builds.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
     <h2>What to do next</h2>
 
     <div class="recommend">
       <div class="recommend-head">
         <div class="eyebrow">Recommended next task</div>
-        <div class="title">Return per-case predictions through the channel that now works</div>
+        <div class="title">Close D2.5 with a two-site run that returns per-case predictions</div>
       </div>
       <div class="recommend-body">
         <p>
-          D2.5 is blocked on retrieving a 722&nbsp;MB checkpoint from hospitals nobody can log into.
-          That is the wrong problem to solve. The fix that landed this week already carries per-site
-          results out of the sites without moving a model — it just carries aggregates today.
+          The mechanism D2.5 was waiting on is merged (#556, #557). Nothing further needs building:
+          the deliverable now needs a <em>run</em>. The checkpoint that could not be retrieved from
+          RUMC and UMCU no longer has to be — both models are evaluated where they sit and only the
+          predictions come back.
         </p>
         <ul class="steps">
-          <li>Extend the same path to return <strong>per-case predictions</strong> — a row index, the ground-truth label, and the class probabilities. <strong>No case or patient identifier</strong>: the index is a position in the site's own split and means nothing outside it, which is enough to pair two models because the validation loader is not shuffled.</li>
-          <li>D2.5 then needs no checkpoint transfer at all: evaluate both models site-side, compare centrally.</li>
-          <li>It also unblocks the paired bootstrap, which needs case-level pairing and cannot run on aggregates.</li>
-          <li>And it is the mechanism D3.3's regulatory testing node was always going to require.</li>
+          <li>Ask RUMC and UMCU to set the opt-in flag. This is a consortium decision, not a maintainer's: it is off by default and stays off until each site turns it on.</li>
+          <li>Run the pan-European baseline and the Dutch fine-tuned model over each site's own validation split, returning row index, ground-truth label and class probabilities. No case or patient identifier — the index is a position in the site's own split and means nothing outside it.</li>
+          <li>Feed both prediction sets to <code>compare_regional_finetune.py</code>. The primary endpoint is malignant-vs-rest, paired bootstrap over jointly resampled cases; macro AUROC is reported only with support attached, never as a ranking.</li>
+          <li>Expect the honest answer to be "no difference detectable at this sample size" — 49 paired Dutch cases with 9 malignant. That is a publishable result for D2.5 provided the interval is reported, and it is far better than a point estimate from an uncontrolled comparison.</li>
         </ul>
         <p>
-          One deliverable's blocker, the analysis method it needs, and an M54 deliverable's core
-          capability turn out to be the same piece of work. <strong>Built and open as #556</strong>,
-          off by default: nothing leaves a site unless that site sets the flag itself, because
-          returning patient-derived data is the consortium's decision and not a maintainer's.
+          One request to two partners converts a blocked deliverable into a measured one. It also
+          exercises, on real sites, the exact path D3.3's regulatory testing node will need at M54.
         </p>
       </div>
     </div>
@@ -556,9 +644,16 @@
       <h3>Worth starting in parallel</h3>
       <p>
         MS6's white-hat attack needs CAM and RUMC, and M54 arrives after a coordination round-trip,
-        so that request should go out regardless of the rest. And the shared warm-start checkpoint
-        path (#535) came within one round of destroying the pan-European baseline three separate
-        times this week — a small fix guarding a large and entirely silent loss.
+        so that request should go out regardless of the rest. The warm-start guard (#535) is merged
+        as #545, after the shared checkpoint path came within one round of destroying the
+        pan-European baseline three separate times.
+      </p>
+      <p>
+        Two items also need owning rather than waiting: <strong>calibration</strong>, which the
+        D3.2 negative result puts on the critical path for both active learning and any
+        confidence-based clinical claim; and the <strong>utility cost of privacy noise</strong>,
+        which cannot be argued from the accountant alone and needs one training run at
+        σ&nbsp;=&nbsp;2.4 to become a real trade-off rather than a table.
       </p>
     </div>
   </section>
@@ -573,13 +668,16 @@
         </thead>
         <tbody>
           <tr><td class="id">Merged 8 Sep</td><td>#533 pitfalls · #544 deploy test · #446 supply chain · #514 strict swarm · #520 STAMP</td><td><span class="chip done">5 merged</span></td></tr>
-          <tr><td class="id">PR #534</td><td>Per-site metrics with class support</td><td><span class="chip flight">6/6 green — needs review</span></td></tr>
-          <tr><td class="id">PR #545</td><td>Warm-start provenance guard (#535)</td><td><span class="chip flight">6/6 green — needs review</span></td></tr>
-          <tr><td class="id">PR #552</td><td>Weekly all-models preflight never ran</td><td><span class="chip flight">6/6 green — needs review</span></td></tr>
-          <tr><td class="id">main</td><td>Post-merge health, checked by hand</td><td><span class="chip done">25/26 steps pass</span></td></tr>
+          <tr><td class="id">Merged 9–10 Sep</td><td>#534 per-site metrics · #545 warm-start guard · #552 weekly preflight · #555 AL strategies · #558 deck index</td><td><span class="chip done">5 merged</span></td></tr>
+          <tr><td class="id">Merged 10 Sep</td><td>#556 + #557 per-case predictions, wired end to end · #560 run history frozen</td><td><span class="chip done">D2.5 unblocked</span></td></tr>
+          <tr><td class="id">Merged 10 Sep</td><td>#559 all-models preflight (Ole's, reviewed against his cited green run) · #548 · #549 · #551 dependabot</td><td><span class="chip done">Critical trivy alert closed — 0 open</span></td></tr>
+          <tr><td class="id">PR #563</td><td>Active-learning and privacy-accounting MVPs</td><td><span class="chip flight">5/6 green, swarm check running</span></td></tr>
+          <tr><td class="id">PR #550</td><td>Dependabot upload-artifact 4 → 7</td><td><span class="chip blocked">Failed 4×, rerun queued</span></td></tr>
+          <tr><td class="id">PR #547</td><td>Ole's — clarify run_3dcnn_training_in_swarm</td><td><span class="chip blocked">Real failure: test expects ResNet101, actual is MST</span></td></tr>
           <tr><td class="id">#525 · #441</td><td>Per-site metrics and metric alignment</td><td><span class="chip done">Verified on real data</span></td></tr>
-          <tr><td class="id">#541–#543</td><td>Model mismatch · run never publishes · deploy not scoped</td><td><span class="chip blocked">Filed 8 Sep</span></td></tr>
-          <tr><td class="id">#553 · #554</td><td>Frankfurt relay · nothing validates main after a merge</td><td><span class="chip blocked">Filed</span></td></tr>
+          <tr><td class="id">Run history</td><td>101 jobs, 231 site-rows, Mar–Sep 2026, committed to the repo</td><td><span class="chip done">Frozen — 59 real-site jobs</span></td></tr>
+          <tr><td class="id">#541–#543 · #562</td><td>Model mismatch · run never publishes · deploy not scoped · Swin3D cannot train</td><td><span class="chip blocked">Open</span></td></tr>
+          <tr><td class="id">#553 · #554</td><td>Frankfurt relay · nothing validates main after a merge</td><td><span class="chip blocked">Open</span></td></tr>
           <tr><td class="id">M48</td><td>D2.5, D3.2, D3.4 — three months out</td><td>4 open</td></tr>
           <tr><td class="id">M54</td><td>D3.3, MS6, differential privacy phase 2</td><td>3 open</td></tr>
           <tr><td class="id">M60</td><td>D3.5 operational demonstration</td><td>1 open</td></tr>
@@ -588,17 +686,24 @@
     </div>
     <div class="prose">
       <p>
-        Three pull requests sit green on all six checks, blocked only on a review that cannot come
-        from their author. That is the cheapest unblock available — no code, no compute, just a
-        second pair of eyes.
+        The review backlog that dominated this board a day ago is gone: nine pull requests merged,
+        the critical supply-chain alert closed, and the two changes D2.5 was waiting on are on
+        <code>main</code>. What is left is not a code queue. <strong>#563</strong> needs its swarm
+        check to finish; <strong>#550</strong> has failed four times and needs someone to read the
+        failure rather than rerun it a fifth; <strong>#547</strong> has a genuine test failure — it
+        asserts a <code>ResNet101</code> default where the actual default is <code>MST</code>, which
+        is worth resolving as a question about which is correct, not as a test fix.
       </p>
     </div>
   </section>
 
   <footer>
-    Status as of 9 September 2026. Every figure here was read from the live server, the site logs or
-    CI on 8 September. The per-site training-set sizes previously quoted in planning were wrong by
-    two orders of magnitude and have been corrected at source.
+    Status as of 10 September 2026. Every figure here was read from the live server, the site logs,
+    the committed run-history dataset, or CI. The active-learning and privacy figures were
+    regenerated from <code>workspace/active_learning/acquisition_curve.csv</code> and the accountant
+    itself while writing this page, not copied from notes. The per-site training-set sizes
+    previously quoted in planning were wrong by two orders of magnitude and have been corrected at
+    source.
   </footer>
 
 </div>
