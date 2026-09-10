@@ -1,0 +1,709 @@
+<title>ODELIA at M45</title>
+<style>
+  :root {
+    --ground:      #FBFCFD;
+    --surface:     #FFFFFF;
+    --surface-alt: #F2F6F8;
+    --ink:         #16202B;
+    --ink-soft:    #35485A;
+    --muted:       #59697A;
+    --rule:        #DCE3E9;
+    --rule-soft:   #EBF0F4;
+    --accent:      #0F6E8C;
+    --accent-soft: #E2EFF4;
+    --good:        #2E7250;
+    --good-bg:     #E4F0E9;
+    --warn:        #96662A;
+    --warn-bg:     #F6EDDF;
+    --bad:         #9E3339;
+    --bad-bg:      #F7E5E6;
+    --shadow:      0 1px 2px rgba(22,32,43,.05), 0 8px 24px -16px rgba(22,32,43,.28);
+
+    --serif: "Iowan Old Style", "Charter", "Bitstream Charter", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0D1418;
+      --surface:     #141D23;
+      --surface-alt: #1A252C;
+      --ink:         #E2EAEF;
+      --ink-soft:    #BDCBD5;
+      --muted:       #93A5B2;
+      --rule:        #25333C;
+      --rule-soft:   #1C282F;
+      --accent:      #54B5D0;
+      --accent-soft: #12303A;
+      --good:        #6FBE92;
+      --good-bg:     #163024;
+      --warn:        #D6A45C;
+      --warn-bg:     #33260F;
+      --bad:         #E08088;
+      --bad-bg:      #351A1D;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #0D1418;
+    --surface:     #141D23;
+    --surface-alt: #1A252C;
+    --ink:         #E2EAEF;
+    --ink-soft:    #BDCBD5;
+    --muted:       #93A5B2;
+    --rule:        #25333C;
+    --rule-soft:   #1C282F;
+    --accent:      #54B5D0;
+    --accent-soft: #12303A;
+    --good:        #6FBE92;
+    --good-bg:     #163024;
+    --warn:        #D6A45C;
+    --warn-bg:     #33260F;
+    --bad:         #E08088;
+    --bad-bg:      #351A1D;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: clamp(1.75rem, 4vw, 4rem) clamp(1.1rem, 4vw, 2.5rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+  .prose { max-width: 44rem; }
+
+  /* ---- masthead ---------------------------------------------------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(2.1rem, 5.5vw, 3.1rem);
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    font-weight: 600;
+    margin: .55rem 0 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-family: var(--serif);
+    font-size: clamp(1.05rem, 2.2vw, 1.28rem);
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 1rem 0 0;
+    max-width: 40rem;
+    text-wrap: pretty;
+  }
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 1.75rem; }
+
+  /* ---- sections ---------------------------------------------------- */
+  section { display: flex; flex-direction: column; gap: 1.1rem; }
+  h2 {
+    font-family: var(--serif);
+    font-size: clamp(1.4rem, 3vw, 1.72rem);
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--rule);
+    text-wrap: balance;
+  }
+  h3 {
+    font-size: .95rem;
+    font-weight: 650;
+    margin: 0;
+    letter-spacing: -.005em;
+  }
+  p { margin: 0; }
+  .prose p + p { margin-top: .85rem; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  code {
+    font-family: var(--mono);
+    font-size: .855em;
+    background: var(--surface-alt);
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    padding: .08em .34em;
+  }
+  strong { font-weight: 650; }
+
+  /* ---- timeline ---------------------------------------------------- */
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .tl-cell { background: var(--surface); padding: 1rem 1.1rem 1.15rem; }
+  .tl-cell.now { background: var(--accent-soft); }
+  .tl-when {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .tl-cell.now .tl-when { color: var(--accent); font-weight: 600; }
+  .tl-what { font-size: 1.32rem; font-family: var(--serif); font-weight: 600; margin-top: .2rem; line-height: 1.15; }
+  .tl-note { font-size: .82rem; color: var(--muted); margin-top: .3rem; line-height: 1.45; }
+
+  /* ---- tables ------------------------------------------------------ */
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .875rem; min-width: 44rem; }
+  th, td { text-align: left; padding: .68rem .85rem; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  thead th {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.id { font-family: var(--mono); font-size: .8rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---- chips ------------------------------------------------------- */
+  .chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: .18em .5em;
+    border-radius: 3px;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .chip.done    { background: var(--good-bg); color: var(--good); }
+  .chip.flight  { background: var(--accent-soft); color: var(--accent); }
+  .chip.blocked { background: var(--bad-bg); color: var(--bad); }
+  .chip.none    { background: var(--warn-bg); color: var(--warn); }
+
+  /* ---- callouts ---------------------------------------------------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.15rem 1.3rem;
+    box-shadow: var(--shadow);
+  }
+  .card + .card { margin-top: .8rem; }
+  .card p { font-size: .93rem; color: var(--ink-soft); }
+  .card h3 + p { margin-top: .4rem; }
+
+  .recommend {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .recommend-head {
+    background: var(--accent-soft);
+    padding: 1rem 1.3rem;
+    border-bottom: 1px solid var(--accent);
+  }
+  .recommend-head .eyebrow { color: var(--accent); }
+  .recommend-head .title { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; margin-top: .2rem; line-height: 1.2; }
+  .recommend-body { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: .9rem; }
+  .recommend-body p { font-size: .93rem; }
+
+  ul.steps { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .45rem; font-size: .93rem; color: var(--ink-soft); }
+  ul.steps li::marker { color: var(--accent); }
+
+  .caveats { display: flex; flex-direction: column; gap: .75rem; }
+  .caveat {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .8rem;
+    align-items: baseline;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--warn);
+    border-radius: 4px;
+    padding: .85rem 1rem;
+    font-size: .91rem;
+    color: var(--ink-soft);
+  }
+  .caveat .n {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--warn);
+    font-weight: 700;
+  }
+
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .kv > div { background: var(--surface); padding: .85rem 1rem; }
+  .kv dt { font-family: var(--mono); font-size: .67rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .kv dd { margin: .25rem 0 0; font-size: 1.22rem; font-family: var(--serif); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kv .sub { display: block; font-size: .78rem; color: var(--muted); font-family: var(--sans); font-weight: 400; margin-top: .1rem; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    font-size: .82rem;
+    color: var(--muted);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">ODELIA · WP2 / WP3 · 10 September 2026</div>
+    <h1>ODELIA at M45</h1>
+    <p class="standfirst">
+      The capability that blocked all four outstanding grant tasks is fixed, verified on real
+      hospital data, and now merged along with the eight PRs behind it. Two of the four tasks have
+      produced their first result — one of them negative and informative. Three deliverables are
+      due in three months. The obstacle is no longer the software; it is that the consortium fleet
+      cannot currently hold a run together.
+    </p>
+  </header>
+
+  <!-- ============================================================ -->
+  <section>
+    <h2>The clock</h2>
+    <div class="timeline">
+      <div class="tl-cell now">
+        <div class="tl-when">Now</div>
+        <div class="tl-what">M45</div>
+        <div class="tl-note">Sep 2026. 15 months of the 60&#8209;month grant remain.</div>
+      </div>
+      <div class="tl-cell">
+        <div class="tl-when">In 3 months</div>
+        <div class="tl-what">M48</div>
+        <div class="tl-note">D2.5, D3.2, D3.4 — three deliverables at once.</div>
+      </div>
+      <div class="tl-cell">
+        <div class="tl-when">In 9 months</div>
+        <div class="tl-what">M54</div>
+        <div class="tl-note">D3.3 and MS6. MS6 needs partner scheduling now.</div>
+      </div>
+      <div class="tl-cell">
+        <div class="tl-when">In 15 months</div>
+        <div class="tl-what">M60</div>
+        <div class="tl-note">D3.5. Largely evidenced already by the 8&#8209;site run.</div>
+      </div>
+    </div>
+    <div class="prose">
+      <p>
+        Every one of these is typed in Part&nbsp;A as <em>R — Document, report</em>, including D3.3,
+        which reads like a software release. The grant asks for evidence and documentation; software
+        is the means. That makes the M48 cluster achievable — but only if the experiments behind
+        the reports start now.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <h2>What landed today</h2>
+    <div class="prose">
+      <p>
+        Per-site metrics never reached the coordinator.
+        <code>cross_site_val/cross_val_results.json</code> came back <code>{}</code> after every
+        peer-to-peer run — the two-day 20-round run and a 52-second smoke run alike — so per-site
+        figures had to be gathered by logging into each hospital by hand.
+      </p>
+      <p>
+        This was the critical path. The regulatory testing node in T3.2 exists specifically to
+        receive per-site performance figures; D2.5 needs per-region metrics to compare against; the
+        T3.3 privacy work needs per-round epsilon logged beside utility. None of it could be built
+        on top of nothing.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>Two bugs, not one</h3>
+      <p>
+        The first was the expected gap: nothing on the server handled the
+        <code>fed.analytix_log_stats</code> event the clients were already streaming. A collector
+        component closes that hop.
+      </p>
+      <p>
+        The second only appeared once the first was fixed, and it is the interesting one. The server
+        log said the metrics had arrived —
+        <code>Published metrics for 8 site(s)</code> — and the file was
+        <em>still</em> <code>{}</code>. Two components act on the same <code>END_RUN</code> event,
+        and components fire in the order they appear in the job config. The JSON writer is listed
+        first in all seven configs, so it wrote the file and only then did the collector publish into
+        it. Now published on <code>ABOUT_TO_END_RUN</code>, which is fired strictly earlier, so the
+        result no longer depends on config ordering.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>CI was green throughout</h3>
+      <p>
+        The collector's test file was skipped in its entirety, because the unit-test workflow never
+        installed NVFlare — and a skipped file reports the same green as a passing one. That is why
+        a broken metric path survived two live eight-site runs. The workflow now installs the
+        in-tree fork; the tests run and are visible by name. This is the third time this repository
+        has been bitten by a missing test dependency.
+      </p>
+    </div>
+
+    <dl class="kv">
+      <div><dt>Verification run</dt><dd>8 / 8<span class="sub">sites reporting, job <code>c5520641</code></span></dd></div>
+      <div><dt>Run time</dt><dd>34 s<span class="sub">a fast loop for future checks</span></dd></div>
+      <div><dt>Unit tests</dt><dd>392<span class="sub">passing in CI, 13 previously skipped</span></dd></div>
+      <div><dt>Catalogued as</dt><dd>F10<span class="sub">in the swarm failure modes doc</span></dd></div>
+    </dl>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <h2>The four tasks</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Deliverable</th><th>Task</th><th>Due</th><th>Left</th><th>Status</th><th>Position</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="id">D2.5</td><td class="id">T2.4</td><td class="id">M48</td><td class="num">3 mo</td>
+            <td><span class="chip flight">In progress</span></td>
+            <td>Fine-tuning ran; paired analysis built. The checkpoint-retrieval blocker is gone — #556 and #557 are merged. Needs one run with per-case return enabled at RUMC and UMCU.</td>
+          </tr>
+          <tr>
+            <td class="id">D3.2</td><td class="id">T3.2</td><td class="id">M48</td><td class="num">3 mo</td>
+            <td><span class="chip flight">First result</span></td>
+            <td>Strategies merged (#555); acquisition experiment run (#563). <strong>Negative result</strong> — uncertainty sampling underperforms random on this pool. Cause identified and reported below.</td>
+          </tr>
+          <tr>
+            <td class="id">D3.4</td><td class="id">WP3</td><td class="id">M48</td><td class="num">3 mo</td>
+            <td><span class="chip flight">Started</span></td>
+            <td>Design on #529. All nine jobs aggregate by plain weighted mean; the fork ships no robust alternative, so one participant can move the global model.</td>
+          </tr>
+          <tr>
+            <td class="id">D3.3</td><td class="id">T3.2</td><td class="id">M54</td><td class="num">9 mo</td>
+            <td><span class="chip none">Not started</span></td>
+            <td>Regulatory testing node. Depended entirely on today's fix.</td>
+          </tr>
+          <tr>
+            <td class="id">MS6</td><td class="id">T3.3</td><td class="id">M54</td><td class="num">9 mo</td>
+            <td><span class="chip blocked">Needs partners</span></td>
+            <td>White-hat attack requires CAM and RUMC. The one item not executable alone.</td>
+          </tr>
+          <tr>
+            <td class="id">T3.3</td><td class="id">T3.3</td><td class="id">M54</td><td class="num">9 mo</td>
+            <td><span class="chip flight">Phase 2 built</span></td>
+            <td>Calibrated-noise filter and an RDP accountant (#563). The guarantee is now a number the consortium can choose, not a claim. Phase 3 (record-level) not started.</td>
+          </tr>
+          <tr>
+            <td class="id">D3.5</td><td class="id">T3.4</td><td class="id">M60</td><td class="num">15 mo</td>
+            <td><span class="chip flight">Part-evidenced</span></td>
+            <td>The 8-site run is the demonstration. Needs a re-run on the released version.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p>
+        <strong>The round-cost budget is measured, not guessed.</strong> The reference run completed
+        20 rounds across 8 sites in 1&nbsp;day 19&nbsp;h 53&nbsp;m — <strong>2.2&nbsp;hours per
+        round</strong>, gated by the slowest site. Any active-learning loop must be costed against
+        that: five selection iterations of five rounds each is roughly 55&nbsp;hours per
+        configuration. Design the D3.2 experiment to fit, or it will not land by M48.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <h2>What is verified, and what is not</h2>
+    <div class="prose">
+      <p>
+        The metric path is <strong>verified end to end on the production trainer</strong>, at real
+        sites, on real data. Job <code>513c8988</code> (RUMC + UMCU) returned this to the
+        coordinator — the file that came back empty after every previous peer-to-peer run:
+      </p>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Site</th><th>n</th><th>No lesion</th><th>Benign</th><th>Malignant</th><th>Accuracy</th><th>AUROC</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="id">RUMC_1</td><td class="num">896</td><td class="num">888</td><td class="num">0</td><td class="num">8</td><td class="num">0.991</td><td class="num">0.417</td></tr>
+          <tr><td class="id">UMCU_1</td><td class="num">1557</td><td class="num">1361</td><td class="num">186</td><td class="num">10</td><td class="num">0.874</td><td class="num">0.698</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>These two rows are the argument for the whole change</h3>
+      <p>
+        RUMC reports <strong>99.1&#8239;% accuracy with an AUROC of 0.417 — below chance</strong>.
+        The support columns explain it at a glance: 888 no-lesion cases, <strong>zero</strong>
+        benign, 8 malignant. The model answers "no lesion" almost always, scores 99&#8239;% on a
+        99:1 split, and discriminates nothing.
+      </p>
+      <p>
+        Reported without its support — which is how per-site figures were gathered until now — RUMC
+        would read as the consortium's strongest site. That is E1 and E3 from the evaluation
+        pitfalls, not argued but demonstrated, on the first run that could produce the evidence.
+      </p>
+    </div>
+
+    <div class="prose"><p>Four things remain genuinely open:</p></div>
+    <div class="caveats">
+      <div class="caveat">
+        <span class="n">01</span>
+        <span>
+          <strong>Model transfers are relayed through Frankfurt.</strong> Eight consecutive runs
+          failed with no code defect among them, and the in-house loop finally gave the mechanism:
+          dl0 and dl2 sit on one subnet and reach each other directly in 1&nbsp;ms, but the
+          coordinating server is in another city and unreachable directly, so Tailscale falls back
+          to a DERP relay — and the swarm routes peer traffic through the server. A 700&nbsp;MB
+          model travels Dresden&nbsp;→&nbsp;Frankfurt&nbsp;→&nbsp;Heidelberg&nbsp;→&nbsp;Frankfurt&nbsp;→&nbsp;Dresden,
+          twice per round (#553). Topology, not a defect in the training software.
+        </span>
+      </div>
+      <div class="caveat">
+        <span class="n">02</span>
+        <span>
+          <strong>D2.5's fine-tuned model cannot be reached.</strong> Peer-to-peer runs leave the
+          model client-side only — the server archive holds no checkpoint at all — so the Dutch
+          model exists solely at RUMC and UMCU, which nobody here can log into.
+        </span>
+      </div>
+      <div class="caveat">
+        <span class="n">03</span>
+        <span>
+          <strong>A run can finish its rounds and never publish.</strong> <code>513c8988</code>
+          completed all five rounds, then sat five hours without firing end-of-run; the results
+          appeared only when it was aborted. Separate from the metric path, and it would silently
+          lose a completed benchmark.
+        </span>
+      </div>
+      <div class="caveat">
+        <span class="n">04</span>
+        <span>
+          <strong>Excluding a site from training does not exclude it from the job.</strong> UKA and
+          CAM both reported dead into runs they were not participating in, because the job still
+          deploys everywhere.
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <h2>Two tasks produced their first result</h2>
+    <div class="prose">
+      <p>
+        Both were built as minimum viable versions against the M48 clock rather than the full
+        experiment in the proposal, and both are open as <strong>#563</strong>. One of them
+        returned a negative result, which is reported here as a finding rather than buried.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>D3.2 — uncertainty sampling is worse than random on this pool</h3>
+      <p>
+        The full deliverable is a labelling-budget curve of model performance, which needs a
+        retraining run per acquisition round per arm — roughly 110&nbsp;h of consortium GPU at the
+        measured 2.2&nbsp;h per round. That does not fit before M48, so the experiment answers the
+        part that needs no retraining: given a fixed model's per-case probabilities, does an
+        uncertainty rule surface the cases worth labelling sooner than random?
+      </p>
+      <p>
+        It does not. Over a pool of 165 cases (111 no-lesion, 17 benign, 37 malignant), at a
+        100-label budget: <strong>entropy 19 malignant, margin 21, random 22.2&nbsp;±&nbsp;2.8</strong>.
+        Entropy loses at <em>every</em> budget.
+      </p>
+      <p>
+        The calibration diagnostic shipped alongside it explains why, and this is the part worth
+        carrying forward. Mean predictive entropy is near-identical across the three classes —
+        0.987 / 0.878 / 0.981 — and the model is <strong>most confident on benign cases</strong>,
+        the rarest class: <strong>12 of 17 benign fall in the 30 lowest-entropy cases</strong>.
+        The model's confidence does not track whether it is right, so a rule that asks for the
+        cases it is least sure about actively deprioritises the rare ones.
+      </p>
+      <p>
+        <strong>This is a property of the model's calibration, not a verdict on active learning.</strong>
+        It says calibration has to be addressed before an uncertainty-based acquisition rule can be
+        expected to help, and that is a more useful thing to write in D3.2 than a curve produced by
+        a rule nobody checked.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>T3.3 Phase 2 — the privacy guarantee is now a number</h3>
+      <p>
+        The <code>PercentilePrivacy</code> filter wired into every job clips nothing and calibrates
+        noise to nothing, so it carries no formal guarantee at all. Phase 2 adds a filter that
+        clips each site's update to a known L2 norm and adds Gaussian noise scaled to it, plus a
+        self-contained Rényi-DP accountant — self-contained because Opacus is not in the ODELIA
+        image and adding it would force a rebuild and redistribution to all eight sites.
+      </p>
+      <p>
+        Over a 20-round run at δ&nbsp;=&nbsp;10⁻⁵, the cost of each guarantee is:
+      </p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Target ε</th><th>Noise multiplier σ required</th><th>Reading</th></tr></thead>
+          <tbody>
+            <tr><td class="num">≤ 10</td><td class="num">2.4</td><td>Weak but non-vacuous; commonly accepted in practice</td></tr>
+            <tr><td class="num">≤ 3</td><td class="num">6.7</td><td>Strong</td></tr>
+            <tr><td class="num">≤ 1</td><td class="num">18.1</td><td>Strictest commonly cited; likely destroys utility at this scale</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Two qualifications are stated in the code and must survive into the deliverable. The
+        guarantee is <strong>client-level, not record-level</strong> — it hides whether a site
+        participated in a round, and says nothing about whether a given patient was in that site's
+        training set; that needs DP-SGD during local training, which is Phase 3. And the accounting
+        assumes a sampling rate of 1, which is our case and is the conservative direction: it
+        over-states the privacy cost rather than under-stating it.
+      </p>
+    </div>
+
+    <div class="prose">
+      <p>
+        <strong>What neither of these is yet.</strong> No model has been trained on an
+        actively-selected set, and no model has been trained with the noise filter enabled, so the
+        utility cost of any σ above is unmeasured. Both are the next runs, not the next builds.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <h2>What to do next</h2>
+
+    <div class="recommend">
+      <div class="recommend-head">
+        <div class="eyebrow">Recommended next task</div>
+        <div class="title">Close D2.5 with a two-site run that returns per-case predictions</div>
+      </div>
+      <div class="recommend-body">
+        <p>
+          The mechanism D2.5 was waiting on is merged (#556, #557). Nothing further needs building:
+          the deliverable now needs a <em>run</em>. The checkpoint that could not be retrieved from
+          RUMC and UMCU no longer has to be — both models are evaluated where they sit and only the
+          predictions come back.
+        </p>
+        <ul class="steps">
+          <li>Ask RUMC and UMCU to set the opt-in flag. This is a consortium decision, not a maintainer's: it is off by default and stays off until each site turns it on.</li>
+          <li>Run the pan-European baseline and the Dutch fine-tuned model over each site's own validation split, returning row index, ground-truth label and class probabilities. No case or patient identifier — the index is a position in the site's own split and means nothing outside it.</li>
+          <li>Feed both prediction sets to <code>compare_regional_finetune.py</code>. The primary endpoint is malignant-vs-rest, paired bootstrap over jointly resampled cases; macro AUROC is reported only with support attached, never as a ranking.</li>
+          <li>Expect the honest answer to be "no difference detectable at this sample size" — 49 paired Dutch cases with 9 malignant. That is a publishable result for D2.5 provided the interval is reported, and it is far better than a point estimate from an uncontrolled comparison.</li>
+        </ul>
+        <p>
+          One request to two partners converts a blocked deliverable into a measured one. It also
+          exercises, on real sites, the exact path D3.3's regulatory testing node will need at M54.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Stop iterating on the partner fleet</h3>
+      <p>
+        Five failed runs cost days and partner GPU time while teaching nothing about the code. Both
+        in-house dl servers sit idle, and the two-node config already maps them to real site names.
+        Development and testing move there; the consortium is reserved for final benchmarks.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>Worth starting in parallel</h3>
+      <p>
+        MS6's white-hat attack needs CAM and RUMC, and M54 arrives after a coordination round-trip,
+        so that request should go out regardless of the rest. The warm-start guard (#535) is merged
+        as #545, after the shared checkpoint path came within one round of destroying the
+        pan-European baseline three separate times.
+      </p>
+      <p>
+        Two items also need owning rather than waiting: <strong>calibration</strong>, which the
+        D3.2 negative result puts on the critical path for both active learning and any
+        confidence-based clinical claim; and the <strong>utility cost of privacy noise</strong>,
+        which cannot be argued from the accountant alone and needs one training run at
+        σ&nbsp;=&nbsp;2.4 to become a real trade-off rather than a table.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <h2>Board</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Item</th><th>What</th><th>State</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="id">Merged 8 Sep</td><td>#533 pitfalls · #544 deploy test · #446 supply chain · #514 strict swarm · #520 STAMP</td><td><span class="chip done">5 merged</span></td></tr>
+          <tr><td class="id">Merged 9–10 Sep</td><td>#534 per-site metrics · #545 warm-start guard · #552 weekly preflight · #555 AL strategies · #558 deck index</td><td><span class="chip done">5 merged</span></td></tr>
+          <tr><td class="id">Merged 10 Sep</td><td>#556 + #557 per-case predictions, wired end to end · #560 run history frozen</td><td><span class="chip done">D2.5 unblocked</span></td></tr>
+          <tr><td class="id">Merged 10 Sep</td><td>#559 all-models preflight (Ole's, reviewed against his cited green run) · #548 · #549 · #551 dependabot</td><td><span class="chip done">Critical trivy alert closed — 0 open</span></td></tr>
+          <tr><td class="id">PR #563</td><td>Active-learning and privacy-accounting MVPs</td><td><span class="chip flight">5/6 green, swarm check running</span></td></tr>
+          <tr><td class="id">PR #550</td><td>Dependabot upload-artifact 4 → 7</td><td><span class="chip blocked">Failed 4×, rerun queued</span></td></tr>
+          <tr><td class="id">PR #547</td><td>Ole's — clarify run_3dcnn_training_in_swarm</td><td><span class="chip blocked">Real failure: test expects ResNet101, actual is MST</span></td></tr>
+          <tr><td class="id">#525 · #441</td><td>Per-site metrics and metric alignment</td><td><span class="chip done">Verified on real data</span></td></tr>
+          <tr><td class="id">Run history</td><td>101 jobs, 231 site-rows, Mar–Sep 2026, committed to the repo</td><td><span class="chip done">Frozen — 59 real-site jobs</span></td></tr>
+          <tr><td class="id">#541–#543 · #562</td><td>Model mismatch · run never publishes · deploy not scoped · Swin3D cannot train</td><td><span class="chip blocked">Open</span></td></tr>
+          <tr><td class="id">#553 · #554</td><td>Frankfurt relay · nothing validates main after a merge</td><td><span class="chip blocked">Open</span></td></tr>
+          <tr><td class="id">M48</td><td>D2.5, D3.2, D3.4 — three months out</td><td>4 open</td></tr>
+          <tr><td class="id">M54</td><td>D3.3, MS6, differential privacy phase 2</td><td>3 open</td></tr>
+          <tr><td class="id">M60</td><td>D3.5 operational demonstration</td><td>1 open</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p>
+        The review backlog that dominated this board a day ago is gone: nine pull requests merged,
+        the critical supply-chain alert closed, and the two changes D2.5 was waiting on are on
+        <code>main</code>. What is left is not a code queue. <strong>#563</strong> needs its swarm
+        check to finish; <strong>#550</strong> has failed four times and needs someone to read the
+        failure rather than rerun it a fifth; <strong>#547</strong> has a genuine test failure — it
+        asserts a <code>ResNet101</code> default where the actual default is <code>MST</code>, which
+        is worth resolving as a question about which is correct, not as a test fix.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    Status as of 10 September 2026. Every figure here was read from the live server, the site logs,
+    the committed run-history dataset, or CI. The active-learning and privacy figures were
+    regenerated from <code>workspace/active_learning/acquisition_curve.csv</code> and the accountant
+    itself while writing this page, not copied from notes. The per-site training-set sizes
+    previously quoted in planning were wrong by two orders of magnitude and have been corrected at
+    source.
+  </footer>
+
+</div>

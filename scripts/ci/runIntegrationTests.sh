@@ -1048,19 +1048,43 @@ run_3dcnn_training_in_swarm () {
 }
 
 
-_verify_challenge_preflight_check() {
-    MODEL_NAME=$1
-    EXPECTED_OUTPUT=$2
-    CONSOLE_OUTPUT_FILE=preflight_check_console_output_$MODEL_NAME.txt
-    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job $MODEL_NAME --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+_verify_all_model_preflight_check_output () {
+    EXPECTED_OUTPUT_ABOUT_MODEL=$1
+    WHICH_MODEL=$2
 
-    if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
-        echo "✅ Expected output of $MODEL_NAME preflight check found"
-    else
-        cat "$CONSOLE_OUTPUT_FILE"
-        echo "❌ Missing expected output of $MODEL_NAME preflight check"
-        exit 1
-    fi
+    for EXPECTED_OUTPUT in "$EXPECTED_OUTPUT_ABOUT_MODEL" \
+                           "Epoch 0: 100%";
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+            echo "✅ Expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" preflight check found"
+        else
+            cat "$CONSOLE_OUTPUT_FILE"
+            echo "❌ Missing expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" preflight check"
+            exit 1
+        fi
+    done
+
+}
+
+_verify_challenge_preflight_check() {
+    JOB_NAME=$1
+    EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    CONSOLE_OUTPUT_FILE=preflight_check_console_output_$JOB_NAME.txt
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job "$JOB_NAME" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+
+    _verify_all_model_preflight_check_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$JOB_NAME"
+
+    sleep 5
+}
+
+_verify_ODELIA_ternary_preflight_check() {
+    MODEL_NAME=$1
+    EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    CONSOLE_OUTPUT_FILE=preflight_check_console_output_$MODEL_NAME.txt
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$MODEL_NAME" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+
+    _verify_all_model_preflight_check_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "ODELIA_ternary_classification/$MODEL_NAME"
+
     sleep 5
 }
 
@@ -1070,17 +1094,25 @@ run_all_models_preflight_check () {
     echo "[Run] 3DCNN local training..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT_FILE=preflight_check_console_output.txt
 
-    _verify_challenge_preflight_check "challenge_1DivideAndConquer"   "3 | model   | ResidualEncoderClsNetwork"
-    _verify_challenge_preflight_check "challenge_2BCN_AIM"            "3 | backbone | SwinUNETRMultiTask"
-    _verify_challenge_preflight_check "challenge_3agaldran"           "3 | backbone | Wrapper"
-    _verify_challenge_preflight_check "challenge_4abmil"              "3 | backbone | ABMIL_Swin"
-    _verify_challenge_preflight_check "challenge_5pimed"              "3 | backbone | Resnet"
-    _verify_challenge_preflight_check "ODELIA_ternary_classification" "3 | mst     | _MST"
+    _verify_challenge_preflight_check "challenge_1DivideAndConquer"   "model *| ResidualEncoderClsNetwork"
+    _verify_challenge_preflight_check "challenge_2BCN_AIM"            "backbone *| SwinUNETRMultiTask"
+    _verify_challenge_preflight_check "challenge_3agaldran"           "backbone *| Wrapper"
+    _verify_challenge_preflight_check "challenge_4abmil"              "backbone *| ABMIL_Swin"
+    _verify_challenge_preflight_check "challenge_5pimed"              "backbone *| Resnet"
 
+    _verify_ODELIA_ternary_preflight_check "MST"                      "mst *| _MST *| 23"
+    _verify_ODELIA_ternary_preflight_check "ResNet10"                 "model *| _ResNet *| 14"
+    _verify_ODELIA_ternary_preflight_check "ResNet18"                 "model *| _ResNet *| 33"
+    _verify_ODELIA_ternary_preflight_check "ResNet34"                 "model *| _ResNet *| 63"
+    _verify_ODELIA_ternary_preflight_check "ResNet50"                 "model *| _ResNet *| 46"
+    _verify_ODELIA_ternary_preflight_check "ResNet101"                "model *| _ResNet *| 85"
+    _verify_ODELIA_ternary_preflight_check "ResNet152"                "model *| _ResNet *| 117"
+    # _verify_ODELIA_ternary_preflight_check "Swin3D"                   "model *| TODO"  # currently does not work
+    echo "❗ Swin3D currently does not work, preflight check not executed"
     cd "$CWD"
 }
+
 
 
 cleanup_synthetic_data () {
@@ -1228,6 +1260,14 @@ case "$1" in
         ;;
 
     run_all_models_preflight_check)
+        # The startup kits must be built here like every other preflight case:
+        # each workflow step is a separate invocation of this script, and the
+        # EXIT trap runs cleanup_temporary_data, which removes PROJECT_DIR. So
+        # the kits an earlier step built are gone by the time this one starts,
+        # and run_all_models_preflight_check begins with `cd $PROJECT_DIR/prod_00`.
+        # Without this the weekly run fails in about two seconds on a missing
+        # directory, which reads as "all six models are broken" and is not that.
+        create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_all_models_preflight_check
         cleanup_temporary_data

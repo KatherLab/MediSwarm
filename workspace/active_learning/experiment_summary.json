@@ -1,0 +1,39 @@
+{
+ "calibration": {
+  "mean_entropy_by_class": {
+   "0": 0.987,
+   "1": 0.878,
+   "2": 0.981
+  },
+  "top30_entropy_composition": {
+   "0": 24,
+   "1": 0,
+   "2": 6
+  },
+  "bottom30_entropy_composition": {
+   "0": 13,
+   "1": 12,
+   "2": 5
+  }
+ },
+ "pool_size": 165,
+ "pool_composition": {
+  "0": 111,
+  "1": 17,
+  "2": 37
+ },
+ "budgets": [
+  10,
+  20,
+  30,
+  40,
+  50,
+  60,
+  80,
+  100
+ ],
+ "seeds_random": 200,
+ "source": "workspace/eval_87c5bbee/results/best",
+ "caveat": "Measures acquisition quality only. A model trained on these selections has not been evaluated; rare-class yield above random is expected from uncertainty sampling on an imbalanced pool and is not on its own evidence that active learning helps.",
+ "result": "Uncertainty sampling did NOT beat random on this pool -- entropy found fewer malignant cases than random at every budget. The calibration diagnostic shows why: mean predictive entropy is near-identical across the three classes, and the model is most CONFIDENT on benign cases (12 of 17 benign fall in the 30 lowest-entropy cases). Its confidence is not informative about the true class, so an uncertainty rule cannot preferentially surface the rare one -- it deprioritises it. This is a property of the model's calibration, not of active learning as a method, and it says calibration has to be addressed before an uncertainty-based acquisition rule can be expected to help."
+}
