@@ -486,10 +486,25 @@ def output_GT_and_classprobs_csv(model, data_module: DataModule, epoch: int, csv
 
 
 class GT_PredProb_Output_Callback(Callback):
-    def __init__(self, data_module, csv_filename_train, csv_filename_validation):
+    """Write per-case ground truth and class probabilities to local CSV.
+
+    Optionally also returns the *validation* rows to the coordinator, so that
+    D2.5's paired comparison and D3.2's uncertainty ranking can be computed
+    centrally instead of requiring a 722 MB checkpoint to leave the hospital
+    (#526, #527, #528).
+
+    The return is off unless the site sets ODELIA_RETURN_PER_CASE=1, and it
+    carries a row index rather than any identifier -- see per_case_predictions.
+    Training rows are never returned: they are the larger set and nothing in
+    the deliverables needs them.
+    """
+
+    def __init__(self, data_module, csv_filename_train, csv_filename_validation,
+                 metric_writer=None):
         self.data_module = data_module
         self.csv_filename_train = csv_filename_train
         self.csv_filename_validation = csv_filename_validation
+        self.metric_writer = metric_writer
         super().__init__()
 
     def on_train_epoch_end(self, trainer, pl_module):
@@ -498,6 +513,41 @@ class GT_PredProb_Output_Callback(Callback):
                                      trainer.current_epoch,
                                      self.csv_filename_train,
                                      self.csv_filename_validation)
+        self._maybe_return_validation_rows(pl_module)
+
+    def _maybe_return_validation_rows(self, pl_module):
+        """Send validation rows to the coordinator if this site has opted in.
+
+        Wrapped whole: returning predictions is an extra, and a failure here
+        must never cost a training round that has already succeeded.
+        """
+        if self.metric_writer is None:
+            return
+        try:
+            from per_case_predictions import emit_per_case_predictions
+
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            results = []
+            model = pl_module.to(device)
+            for batch in self.data_module.val_dataloader():
+                source, target = batch['source'], batch['target']
+                with torch.no_grad():
+                    probs = model.logits2probabilities(model(source.to(device))).detach().cpu()
+                for b in range(probs.size(0)):
+                    results.append((target[b].tolist()[0], probs[b].tolist()))
+
+            sent = emit_per_case_predictions(
+                self.metric_writer,
+                [gt for gt, _ in results],
+                [p for _, p in results],
+                split="val",
+            )
+            if sent:
+                logging.getLogger(__name__).info(
+                    f"Returned {len(results)} per-case validation rows in {sent} chunk(s)")
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                f"Per-case prediction return failed, training unaffected: {exc}")
 
 
 def prepare_training(logger, max_epochs: int, site_name: str = None,
@@ -565,6 +615,8 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
         gt_predprob_output_callback = GT_PredProb_Output_Callback(data_module,
                                                                   path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_TRAIN,
                                                                   path_run_dir/FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION)
+        # The writer is attached below, once the ClientLogger exists. Outside a
+        # swarm run there is no writer and nothing is returned.
 
         callbacks = [checkpointing, gt_predprob_output_callback]
 
@@ -595,7 +647,10 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
         if os.environ.get("TRAINING_MODE", "") == "swarm":
             try:
                 from nvflare.app_opt.lightning.loggers.client_logger import ClientLogger
-                trainer_loggers.append(ClientLogger())
+                client_logger = ClientLogger()
+                trainer_loggers.append(client_logger)
+                # Same channel carries the per-case rows, when the site opts in.
+                gt_predprob_output_callback.metric_writer = client_logger._metric_writer
                 logger.info("ClientLogger attached: metrics will stream to the coordinator")
             except Exception as exc:
                 # A missing metric stream must not stop a training run.
