@@ -1,4 +1,221 @@
-<title>ODELIA Consortium Briefing</title>
+#!/usr/bin/env python3
+"""Build docs/presentation_consortium_briefing.html.
+
+Regenerate rather than editing the HTML by hand: the diagram coordinates are
+computed here, and the assertions in `bars()` are what keep the per-site class
+counts summing to each site's training total.
+
+Diagrams are **inline SVG, not mermaid**. Mermaid auto-renders inside the Claude
+artifact viewer but this file is also opened straight from the repo, where a
+mermaid fence would show as raw text. Inline SVG renders everywhere and inherits
+the deck's own theme tokens, so it works in light and dark alike.
+
+    python3 scripts/presentation/build_consortium_briefing.py \
+        docs/presentation_consortium_briefing.html
+"""
+
+import math
+import sys
+
+def esc(s):
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+# ---------------------------------------------------------------- 1. the ring
+SITES = [
+    ("UKA",  "Aachen"),
+    ("RSH",  "Guildford"),
+    ("CAM",  "Cambridge"),
+    ("MHA",  "Athens"),
+    ("VHIO", "Barcelona"),
+    ("USZ",  "Zurich"),
+    ("UMCU", "Utrecht"),
+    ("RUMC", "Nijmegen"),
+]
+
+def ring():
+    cx, cy, r = 255, 262, 155
+    bw, bh = 100, 38
+    out = []
+    out.append('<svg viewBox="0 0 500 486" role="img" aria-label="Eight hospitals arranged in a ring. The model is passed clockwise from hospital to hospital: Aachen, Guildford, Cambridge, Athens, Barcelona, Zurich, Utrecht, Nijmegen. Patient data stays inside each hospital. A coordination server in Dresden only schedules whose turn it is.">')
+    # travel path
+    out.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="7 6" opacity=".55"/>')
+    # direction arrowheads at the midpoints between nodes
+    for i in range(8):
+        th = math.radians(-90 + 45 * i + 22.5)
+        x, y = cx + r * math.cos(th), cy + r * math.sin(th)
+        rot = math.degrees(th) + 90
+        out.append(f'<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" '
+                   f'transform="translate({x:.1f} {y:.1f}) rotate({rot:.1f})"/>')
+    # centre
+    out.append(f'<circle cx="{cx}" cy="{cy}" r="66" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>')
+    out.append(f'<text class="d-ctr-h" x="{cx}" y="{cy-14}" text-anchor="middle">THE MODEL</text>')
+    out.append(f'<text class="d-ctr" x="{cx}" y="{cy+6}" text-anchor="middle">a file of numbers</text>')
+    out.append(f'<text class="d-ctr" x="{cx}" y="{cy+22}" text-anchor="middle">no images inside</text>')
+    out.append(f'<text class="d-ctr-g" x="{cx}" y="{cy+42}" text-anchor="middle">better at every stop</text>')
+    # nodes
+    for i, (code, city) in enumerate(SITES):
+        th = math.radians(-90 + 45 * i)
+        x, y = cx + r * math.cos(th), cy + r * math.sin(th)
+        out.append(f'<g><rect x="{x-bw/2:.1f}" y="{y-bh/2:.1f}" width="{bw}" height="{bh}" rx="6" '
+                   f'fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>')
+        out.append(f'<text class="d-node" x="{x:.1f}" y="{y-2:.1f}" text-anchor="middle">{code}</text>')
+        out.append(f'<text class="d-node-sub" x="{x:.1f}" y="{y+11:.1f}" text-anchor="middle">{esc(city)}</text></g>')
+    # coordinator, deliberately small
+    out.append('<g><rect x="6" y="10" width="196" height="36" rx="6" fill="none" stroke="var(--muted)" '
+               'stroke-width="1.1" stroke-dasharray="4 4"/>')
+    out.append('<text class="d-note" x="104" y="26" text-anchor="middle">Coordination server · Dresden</text>')
+    out.append('<text class="d-note-sm" x="104" y="39" text-anchor="middle">schedules turns · holds no data</text></g>')
+    out.append('<path d="M104 46 L104 70 Q104 82 116 88 L140 108" fill="none" stroke="var(--muted)" '
+               'stroke-width="1.1" stroke-dasharray="4 4"/>')
+    out.append('</svg>')
+    return "\n".join(out)
+
+# --------------------------------------------------------------- 2. the round
+def round_flow():
+    steps = [
+        ("1", "The coordinator", "sets the order", "for this round"),
+        ("2", "A hospital receives", "the current model", "over the network"),
+        ("3", "It trains", "on its own patients,", "on its own hardware"),
+        ("4", "It hands the", "improved model", "to the next hospital"),
+    ]
+    bw, bh, gap, y = 190, 84, 34, 18
+    out = ['<svg viewBox="0 0 880 200" role="img" aria-label="A training round in four steps: the coordinator sets the order; a hospital receives the current model; it trains on its own patients on its own hardware; it hands the improved model to the next hospital. The last three steps repeat once per hospital, and eight hops complete one round.">']
+    xs = []
+    for i, (n, l1, l2, l3) in enumerate(steps):
+        x = 12 + i * (bw + gap)
+        xs.append(x)
+        fill = "var(--accent-soft)" if i == 2 else "var(--slide-alt)"
+        stroke = "var(--accent)" if i == 2 else "var(--rule)"
+        out.append(f'<rect x="{x}" y="{y}" width="{bw}" height="{bh}" rx="7" fill="{fill}" stroke="{stroke}" stroke-width="1.2"/>')
+        out.append(f'<text class="d-step-n" x="{x+13}" y="{y+21}">{n}</text>')
+        out.append(f'<text class="d-step" x="{x+13}" y="{y+43}">{esc(l1)}</text>')
+        out.append(f'<text class="d-step" x="{x+13}" y="{y+59}">{esc(l2)}</text>')
+        out.append(f'<text class="d-step" x="{x+13}" y="{y+75}">{esc(l3)}</text>')
+        if i < 3:
+            ax = x + bw + 6
+            out.append(f'<path d="M{ax} {y+bh/2} L{ax+gap-12} {y+bh/2}" stroke="var(--muted)" stroke-width="1.4"/>')
+            out.append(f'<polygon points="-5,-4 5,0 -5,4" fill="var(--muted)" transform="translate({ax+gap-11} {y+bh/2})"/>')
+    # return loop: step 4 -> step 2
+    x4c = xs[3] + bw / 2
+    x2c = xs[1] + bw / 2
+    ly = y + bh + 36
+    out.append(f'<path d="M{x4c} {y+bh} L{x4c} {ly} L{x2c} {ly} L{x2c} {y+bh+9}" fill="none" '
+               f'stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="6 5"/>')
+    out.append(f'<polygon points="-4.5,4.5 0,-5 4.5,4.5" fill="var(--accent)" transform="translate({x2c} {y+bh+7})"/>')
+    out.append(f'<rect x="{(x2c+x4c)/2-142}" y="{ly-13}" width="284" height="26" rx="5" fill="var(--slide)"/>')
+    out.append(f'<text class="d-loop" x="{(x2c+x4c)/2}" y="{ly+4}" text-anchor="middle">eight hops — one per hospital — complete one round</text>')
+    out.append('</svg>')
+    return "\n".join(out)
+
+# ------------------------------------------------------------ 3. the boundary
+def boundary():
+    stay = [
+        ("MRI images and the raw DICOM series", None),
+        ("Patient names, dates of birth, record numbers", None),
+        ("Radiology reports and clinical notes", None),
+        ("The hospital's own database and file store", None),
+    ]
+    cross = [
+        ("The model itself — weights, which are numbers", "no images and no text are stored inside it"),
+        ("How many cases the site trained on", "and how many of each of the three classes"),
+        ("How well the shared model scored at that site", "accuracy and AUROC, with the counts behind them"),
+        ("Per-case predictions — opt-in, off by default", "a row number, the label, the probabilities. No identifier."),
+    ]
+    out = ['<svg viewBox="0 0 880 312" role="img" aria-label="Two columns divided by the hospital boundary. Staying inside: MRI images and raw DICOM, patient identifiers, radiology reports, the hospital database. Crossing the boundary: the model weights, case counts per class, accuracy scores, and optionally per-case predictions carrying a row number but no identifier.">']
+    # left
+    out.append('<rect x="6" y="34" width="394" height="272" rx="8" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>')
+    out.append('<text class="d-panel-h" x="24" y="22">STAYS INSIDE THE HOSPITAL — ALWAYS</text>')
+    for i, (t, _) in enumerate(stay):
+        yy = 74 + i * 58
+        out.append(f'<circle cx="34" cy="{yy-5}" r="9" fill="var(--bad-bg)"/>')
+        out.append(f'<path d="M30 {yy-9} L38 {yy-1} M38 {yy-9} L30 {yy-1}" stroke="var(--bad)" stroke-width="1.8" stroke-linecap="round"/>')
+        out.append(f'<text class="d-item" x="54" y="{yy}">{esc(t)}</text>')
+    # boundary
+    out.append('<path d="M436 8 L436 306" stroke="var(--rule)" stroke-width="2" stroke-dasharray="6 6"/>')
+    out.append('<rect x="404" y="140" width="64" height="34" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>')
+    out.append('<text class="d-note-sm" x="436" y="154" text-anchor="middle">HOSPITAL</text>')
+    out.append('<text class="d-note-sm" x="436" y="166" text-anchor="middle">BOUNDARY</text>')
+    # right
+    out.append('<rect x="472" y="34" width="402" height="272" rx="8" fill="var(--slide)" stroke="var(--accent)" stroke-width="1.2"/>')
+    out.append('<text class="d-panel-h" x="490" y="22">CROSSES THE BOUNDARY</text>')
+    for i, (t, sub) in enumerate(cross):
+        yy = 70 + i * 58
+        col = "var(--warn)" if i == 3 else "var(--good)"
+        bg = "var(--warn-bg)" if i == 3 else "var(--good-bg)"
+        out.append(f'<circle cx="500" cy="{yy-5}" r="9" fill="{bg}"/>')
+        out.append(f'<path d="M496 {yy-5} L505 {yy-5} M501.5 {yy-9} L505.5 {yy-5} L501.5 {yy-1}" fill="none" stroke="{col}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>')
+        out.append(f'<text class="d-item" x="520" y="{yy}">{esc(t)}</text>')
+        if sub:
+            out.append(f'<text class="d-item-sub" x="520" y="{yy+16}">{esc(sub)}</text>')
+    out.append('</svg>')
+    return "\n".join(out)
+
+# ------------------------------------------------------- 4. prevention loop
+def loop():
+    nodes = [
+        ("A run fails", "at one hospital"),
+        ("We reproduce it", "on our own machines"),
+        ("The cause is fixed", "in the software"),
+        ("An automatic check", "is added"),
+        ("The next run", "cannot hit it again"),
+    ]
+    cx, cy, r = 250, 208, 138
+    bw, bh = 138, 46
+    out = ['<svg viewBox="0 0 500 376" role="img" aria-label="A five-step loop: a run fails at one hospital, we reproduce it on our own machines, the cause is fixed in the software, an automatic check is added, and the next run cannot hit it again. At the centre: ten named failure modes, all written up for partners.">']
+    out.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="var(--rule)" stroke-width="1.4" stroke-dasharray="6 6"/>')
+    for i in range(5):
+        th = math.radians(-90 + 72 * i + 36)
+        x, y = cx + r * math.cos(th), cy + r * math.sin(th)
+        rot = math.degrees(th) + 90
+        out.append(f'<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate({x:.1f} {y:.1f}) rotate({rot:.1f})"/>')
+    out.append(f'<text class="d-ctr-h" x="{cx}" y="{cy-6}" text-anchor="middle">10 NAMED FAILURE MODES</text>')
+    out.append(f'<text class="d-ctr" x="{cx}" y="{cy+14}" text-anchor="middle">each one written up for partners</text>')
+    for i, (l1, l2) in enumerate(nodes):
+        th = math.radians(-90 + 72 * i)
+        x, y = cx + r * math.cos(th), cy + r * math.sin(th)
+        out.append(f'<rect x="{x-bw/2:.1f}" y="{y-bh/2:.1f}" width="{bw}" height="{bh}" rx="6" '
+                   f'fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>')
+        out.append(f'<text class="d-node" x="{x:.1f}" y="{y-3:.1f}" text-anchor="middle">{esc(l1)}</text>')
+        out.append(f'<text class="d-node-sub" x="{x:.1f}" y="{y+11:.1f}" text-anchor="middle">{esc(l2)}</text>')
+    out.append('</svg>')
+    return "\n".join(out)
+
+# ------------------------------------------------------------- 5. data bars
+DATA = [
+    ("UKA",  "Aachen",     17834, 4747, 11836, 1251),
+    ("UMCU", "Utrecht",     6133, 5337,   740,   56),
+    ("RUMC", "Nijmegen",    3608, 3571,     2,   35),
+    ("USZ",  "Zurich",      3448, 1911,  1244,  293),
+    ("CAM",  "Cambridge",   1778, 1678,    42,   58),
+    ("MHA",  "Athens",      1120,  904,   120,   96),
+    ("RSH",  "Guildford",    351,    4,   126,  221),
+    ("VHIO", "Barcelona",    190,  159,     0,   31),
+]
+
+def bars():
+    assert all(n == a + b + c for _, _, n, a, b, c in DATA), "class counts must sum to n"
+    total = sum(d[2] for d in DATA)
+    assert total == 34462, total
+    x0, maxw = 96, 500
+    rh, gapy, y0 = 26, 8, 14
+    sc = maxw / DATA[0][2]
+    out = [f'<svg viewBox="0 0 720 {y0 + len(DATA)*(rh+gapy) + 6}" role="img" '
+           f'aria-label="Training volumes per hospital at true scale: Aachen 17834, Utrecht 6133, Nijmegen 3608, Zurich 3448, Cambridge 1778, Athens 1120, Guildford 351, Barcelona 190. Total 34462.">']
+    for i, (code, city, n, c0, c1, c2) in enumerate(DATA):
+        y = y0 + i * (rh + gapy)
+        out.append(f'<text class="d-bar-lbl" x="{x0-12}" y="{y+17}" text-anchor="end">{code}</text>')
+        xx = x0
+        for val, col in ((c0, "var(--s1)"), (c1, "var(--s2)"), (c2, "var(--s3)")):
+            w = val * sc
+            if w > 0:
+                out.append(f'<rect x="{xx:.1f}" y="{y}" width="{max(w,0.8):.1f}" height="{rh}" fill="{col}"/>')
+            xx += w
+        out.append(f'<text class="d-bar-val" x="{x0+maxw+18}" y="{y+17}" text-anchor="end">{n:,}</text>')
+    out.append('</svg>')
+    return "\n".join(out)
+
+
+CSS = """<title>ODELIA Consortium Briefing</title>
 <style>
   :root {
     --ground:      #FAFBFC;
@@ -143,15 +360,24 @@
     .slide { page-break-after: always; border: none; border-radius: 0; min-height: 100vh; }
   }
 </style>
+"""
 
-<div class="deck">
+SLIDES = []
 
-  <!-- 1 -->
+def slide(n, eyebrow, head, body, h="h2"):
+    SLIDES.append(f'''
+  <!-- {n} -->
   <section class="slide">
-    <span class="num">1</span>
-    <div class="eyebrow">ODELIA consortium · September 2026</div>
-    <h1>Eight hospitals, one shared model, no patient data moved</h1>
-    <p class="sub">
+    <span class="num">{n}</span>
+    <div class="eyebrow">{eyebrow}</div>
+    <{h}>{head}</{h}>
+{body}
+  </section>''')
+
+# ---- 1 -------------------------------------------------------------------
+slide(1, "ODELIA consortium · September 2026",
+      "Eight hospitals, one shared model, no patient data moved",
+      '''    <p class="sub">
       How the system works, what it has achieved, and what we need from partners next.
       This briefing avoids technical detail on purpose — everything here is the plain version.
     </p>
@@ -162,15 +388,12 @@
         <div><dt>Best shared model</dt><dd>0.887<span class="cap">detecting malignancy — better than any single hospital achieved alone</span></dd></div>
         <div><dt>Project month</dt><dd>45<span class="cap">of 60</span></dd></div>
       </div>
-    </div>
-  </section>
+    </div>''', h="h1")
 
-  <!-- 2 -->
-  <section class="slide">
-    <span class="num">2</span>
-    <div class="eyebrow">The design</div>
-    <h2>The model travels. The data never does.</h2>
-    <div class="split">
+# ---- 2 -------------------------------------------------------------------
+slide(2, "The design",
+      "The model travels. The data never does.",
+      f'''    <div class="split">
       <div style="display:flex;flex-direction:column;gap:.8rem">
         <ul>
           <li>Every hospital keeps its images on its own machines, behind its own firewall. Nothing is copied to a central store, because there is no central store.</li>
@@ -185,94 +408,17 @@
         </div>
       </div>
       <figure class="fig">
-        <svg viewBox="0 0 500 486" role="img" aria-label="Eight hospitals arranged in a ring. The model is passed clockwise from hospital to hospital: Aachen, Guildford, Cambridge, Athens, Barcelona, Zurich, Utrecht, Nijmegen. Patient data stays inside each hospital. A coordination server in Dresden only schedules whose turn it is.">
-<circle cx="255" cy="262" r="155" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="7 6" opacity=".55"/>
-<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(314.3 118.8) rotate(22.5)"/>
-<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(398.2 202.7) rotate(67.5)"/>
-<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(398.2 321.3) rotate(112.5)"/>
-<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(314.3 405.2) rotate(157.5)"/>
-<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(195.7 405.2) rotate(202.5)"/>
-<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(111.8 321.3) rotate(247.5)"/>
-<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(111.8 202.7) rotate(292.5)"/>
-<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(195.7 118.8) rotate(337.5)"/>
-<circle cx="255" cy="262" r="66" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
-<text class="d-ctr-h" x="255" y="248" text-anchor="middle">THE MODEL</text>
-<text class="d-ctr" x="255" y="268" text-anchor="middle">a file of numbers</text>
-<text class="d-ctr" x="255" y="284" text-anchor="middle">no images inside</text>
-<text class="d-ctr-g" x="255" y="304" text-anchor="middle">better at every stop</text>
-<g><rect x="205.0" y="88.0" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="255.0" y="105.0" text-anchor="middle">UKA</text>
-<text class="d-node-sub" x="255.0" y="118.0" text-anchor="middle">Aachen</text></g>
-<g><rect x="314.6" y="133.4" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="364.6" y="150.4" text-anchor="middle">RSH</text>
-<text class="d-node-sub" x="364.6" y="163.4" text-anchor="middle">Guildford</text></g>
-<g><rect x="360.0" y="243.0" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="410.0" y="260.0" text-anchor="middle">CAM</text>
-<text class="d-node-sub" x="410.0" y="273.0" text-anchor="middle">Cambridge</text></g>
-<g><rect x="314.6" y="352.6" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="364.6" y="369.6" text-anchor="middle">MHA</text>
-<text class="d-node-sub" x="364.6" y="382.6" text-anchor="middle">Athens</text></g>
-<g><rect x="205.0" y="398.0" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="255.0" y="415.0" text-anchor="middle">VHIO</text>
-<text class="d-node-sub" x="255.0" y="428.0" text-anchor="middle">Barcelona</text></g>
-<g><rect x="95.4" y="352.6" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="145.4" y="369.6" text-anchor="middle">USZ</text>
-<text class="d-node-sub" x="145.4" y="382.6" text-anchor="middle">Zurich</text></g>
-<g><rect x="50.0" y="243.0" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="100.0" y="260.0" text-anchor="middle">UMCU</text>
-<text class="d-node-sub" x="100.0" y="273.0" text-anchor="middle">Utrecht</text></g>
-<g><rect x="95.4" y="133.4" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="145.4" y="150.4" text-anchor="middle">RUMC</text>
-<text class="d-node-sub" x="145.4" y="163.4" text-anchor="middle">Nijmegen</text></g>
-<g><rect x="6" y="10" width="196" height="36" rx="6" fill="none" stroke="var(--muted)" stroke-width="1.1" stroke-dasharray="4 4"/>
-<text class="d-note" x="104" y="26" text-anchor="middle">Coordination server · Dresden</text>
-<text class="d-note-sm" x="104" y="39" text-anchor="middle">schedules turns · holds no data</text></g>
-<path d="M104 46 L104 70 Q104 82 116 88 L140 108" fill="none" stroke="var(--muted)" stroke-width="1.1" stroke-dasharray="4 4"/>
-</svg>
+        {ring()}
         <figcaption>The eight ODELIA sites and the path the model takes.</figcaption>
       </figure>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 3 -->
-  <section class="slide">
-    <span class="num">3</span>
-    <div class="eyebrow">The design</div>
-    <h2>What actually happens during a training round</h2>
-    <div class="body">
+# ---- 3 -------------------------------------------------------------------
+slide(3, "The design",
+      "What actually happens during a training round",
+      f'''    <div class="body">
       <figure class="fig">
-        <svg viewBox="0 0 880 200" role="img" aria-label="A training round in four steps: the coordinator sets the order; a hospital receives the current model; it trains on its own patients on its own hardware; it hands the improved model to the next hospital. The last three steps repeat once per hospital, and eight hops complete one round.">
-<rect x="12" y="18" width="190" height="84" rx="7" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-step-n" x="25" y="39">1</text>
-<text class="d-step" x="25" y="61">The coordinator</text>
-<text class="d-step" x="25" y="77">sets the order</text>
-<text class="d-step" x="25" y="93">for this round</text>
-<path d="M208 60.0 L230 60.0" stroke="var(--muted)" stroke-width="1.4"/>
-<polygon points="-5,-4 5,0 -5,4" fill="var(--muted)" transform="translate(231 60.0)"/>
-<rect x="236" y="18" width="190" height="84" rx="7" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-step-n" x="249" y="39">2</text>
-<text class="d-step" x="249" y="61">A hospital receives</text>
-<text class="d-step" x="249" y="77">the current model</text>
-<text class="d-step" x="249" y="93">over the network</text>
-<path d="M432 60.0 L454 60.0" stroke="var(--muted)" stroke-width="1.4"/>
-<polygon points="-5,-4 5,0 -5,4" fill="var(--muted)" transform="translate(455 60.0)"/>
-<rect x="460" y="18" width="190" height="84" rx="7" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.2"/>
-<text class="d-step-n" x="473" y="39">3</text>
-<text class="d-step" x="473" y="61">It trains</text>
-<text class="d-step" x="473" y="77">on its own patients,</text>
-<text class="d-step" x="473" y="93">on its own hardware</text>
-<path d="M656 60.0 L678 60.0" stroke="var(--muted)" stroke-width="1.4"/>
-<polygon points="-5,-4 5,0 -5,4" fill="var(--muted)" transform="translate(679 60.0)"/>
-<rect x="684" y="18" width="190" height="84" rx="7" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-step-n" x="697" y="39">4</text>
-<text class="d-step" x="697" y="61">It hands the</text>
-<text class="d-step" x="697" y="77">improved model</text>
-<text class="d-step" x="697" y="93">to the next hospital</text>
-<path d="M779.0 102 L779.0 138 L331.0 138 L331.0 111" fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="6 5"/>
-<polygon points="-4.5,4.5 0,-5 4.5,4.5" fill="var(--accent)" transform="translate(331.0 109)"/>
-<rect x="413.0" y="125" width="284" height="26" rx="5" fill="var(--slide)"/>
-<text class="d-loop" x="555.0" y="142" text-anchor="middle">eight hops — one per hospital — complete one round</text>
-</svg>
+        {round_flow()}
       </figure>
       <div class="two">
         <div class="panel">
@@ -288,54 +434,14 @@
           with a hundred and ninety are both taking a full turn.</p>
         </div>
       </div>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 4 -->
-  <section class="slide">
-    <span class="num">4</span>
-    <div class="eyebrow">The design · what partners are usually asked</div>
-    <h2>What leaves a hospital, and what never does</h2>
-    <div class="body">
+# ---- 4 -------------------------------------------------------------------
+slide(4, "The design · what partners are usually asked",
+      "What leaves a hospital, and what never does",
+      f'''    <div class="body">
       <figure class="fig">
-        <svg viewBox="0 0 880 312" role="img" aria-label="Two columns divided by the hospital boundary. Staying inside: MRI images and raw DICOM, patient identifiers, radiology reports, the hospital database. Crossing the boundary: the model weights, case counts per class, accuracy scores, and optionally per-case predictions carrying a row number but no identifier.">
-<rect x="6" y="34" width="394" height="272" rx="8" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-panel-h" x="24" y="22">STAYS INSIDE THE HOSPITAL — ALWAYS</text>
-<circle cx="34" cy="69" r="9" fill="var(--bad-bg)"/>
-<path d="M30 65 L38 73 M38 65 L30 73" stroke="var(--bad)" stroke-width="1.8" stroke-linecap="round"/>
-<text class="d-item" x="54" y="74">MRI images and the raw DICOM series</text>
-<circle cx="34" cy="127" r="9" fill="var(--bad-bg)"/>
-<path d="M30 123 L38 131 M38 123 L30 131" stroke="var(--bad)" stroke-width="1.8" stroke-linecap="round"/>
-<text class="d-item" x="54" y="132">Patient names, dates of birth, record numbers</text>
-<circle cx="34" cy="185" r="9" fill="var(--bad-bg)"/>
-<path d="M30 181 L38 189 M38 181 L30 189" stroke="var(--bad)" stroke-width="1.8" stroke-linecap="round"/>
-<text class="d-item" x="54" y="190">Radiology reports and clinical notes</text>
-<circle cx="34" cy="243" r="9" fill="var(--bad-bg)"/>
-<path d="M30 239 L38 247 M38 239 L30 247" stroke="var(--bad)" stroke-width="1.8" stroke-linecap="round"/>
-<text class="d-item" x="54" y="248">The hospital's own database and file store</text>
-<path d="M436 8 L436 306" stroke="var(--rule)" stroke-width="2" stroke-dasharray="6 6"/>
-<rect x="404" y="140" width="64" height="34" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-note-sm" x="436" y="154" text-anchor="middle">HOSPITAL</text>
-<text class="d-note-sm" x="436" y="166" text-anchor="middle">BOUNDARY</text>
-<rect x="472" y="34" width="402" height="272" rx="8" fill="var(--slide)" stroke="var(--accent)" stroke-width="1.2"/>
-<text class="d-panel-h" x="490" y="22">CROSSES THE BOUNDARY</text>
-<circle cx="500" cy="65" r="9" fill="var(--good-bg)"/>
-<path d="M496 65 L505 65 M501.5 61 L505.5 65 L501.5 69" fill="none" stroke="var(--good)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-<text class="d-item" x="520" y="70">The model itself — weights, which are numbers</text>
-<text class="d-item-sub" x="520" y="86">no images and no text are stored inside it</text>
-<circle cx="500" cy="123" r="9" fill="var(--good-bg)"/>
-<path d="M496 123 L505 123 M501.5 119 L505.5 123 L501.5 127" fill="none" stroke="var(--good)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-<text class="d-item" x="520" y="128">How many cases the site trained on</text>
-<text class="d-item-sub" x="520" y="144">and how many of each of the three classes</text>
-<circle cx="500" cy="181" r="9" fill="var(--good-bg)"/>
-<path d="M496 181 L505 181 M501.5 177 L505.5 181 L501.5 185" fill="none" stroke="var(--good)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-<text class="d-item" x="520" y="186">How well the shared model scored at that site</text>
-<text class="d-item-sub" x="520" y="202">accuracy and AUROC, with the counts behind them</text>
-<circle cx="500" cy="239" r="9" fill="var(--warn-bg)"/>
-<path d="M496 239 L505 239 M501.5 235 L505.5 239 L501.5 243" fill="none" stroke="var(--warn)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-<text class="d-item" x="520" y="244">Per-case predictions — opt-in, off by default</text>
-<text class="d-item-sub" x="520" y="260">a row number, the label, the probabilities. No identifier.</text>
-</svg>
+        {boundary()}
       </figure>
       <div class="callout">
         <strong>The last row is the one we would like to discuss.</strong> Returning
@@ -343,57 +449,14 @@
         It is what makes proper statistical comparison between hospitals possible, and it
         is required for the regulatory testing node due next year.
       </div>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 5 -->
-  <section class="slide">
-    <span class="num">5</span>
-    <div class="eyebrow">The achievement · the data</div>
-    <h2>What the consortium can now train on</h2>
-    <div class="body">
+# ---- 5 -------------------------------------------------------------------
+slide(5, "The achievement · the data",
+      "What the consortium can now train on",
+      f'''    <div class="body">
       <figure class="fig">
-        <svg viewBox="0 0 720 292" role="img" aria-label="Training volumes per hospital at true scale: Aachen 17834, Utrecht 6133, Nijmegen 3608, Zurich 3448, Cambridge 1778, Athens 1120, Guildford 351, Barcelona 190. Total 34462.">
-<text class="d-bar-lbl" x="84" y="31" text-anchor="end">UKA</text>
-<rect x="96.0" y="14" width="133.1" height="26" fill="var(--s1)"/>
-<rect x="229.1" y="14" width="331.8" height="26" fill="var(--s2)"/>
-<rect x="560.9" y="14" width="35.1" height="26" fill="var(--s3)"/>
-<text class="d-bar-val" x="614" y="31" text-anchor="end">17,834</text>
-<text class="d-bar-lbl" x="84" y="65" text-anchor="end">UMCU</text>
-<rect x="96.0" y="48" width="149.6" height="26" fill="var(--s1)"/>
-<rect x="245.6" y="48" width="20.7" height="26" fill="var(--s2)"/>
-<rect x="266.4" y="48" width="1.6" height="26" fill="var(--s3)"/>
-<text class="d-bar-val" x="614" y="65" text-anchor="end">6,133</text>
-<text class="d-bar-lbl" x="84" y="99" text-anchor="end">RUMC</text>
-<rect x="96.0" y="82" width="100.1" height="26" fill="var(--s1)"/>
-<rect x="196.1" y="82" width="0.8" height="26" fill="var(--s2)"/>
-<rect x="196.2" y="82" width="1.0" height="26" fill="var(--s3)"/>
-<text class="d-bar-val" x="614" y="99" text-anchor="end">3,608</text>
-<text class="d-bar-lbl" x="84" y="133" text-anchor="end">USZ</text>
-<rect x="96.0" y="116" width="53.6" height="26" fill="var(--s1)"/>
-<rect x="149.6" y="116" width="34.9" height="26" fill="var(--s2)"/>
-<rect x="184.5" y="116" width="8.2" height="26" fill="var(--s3)"/>
-<text class="d-bar-val" x="614" y="133" text-anchor="end">3,448</text>
-<text class="d-bar-lbl" x="84" y="167" text-anchor="end">CAM</text>
-<rect x="96.0" y="150" width="47.0" height="26" fill="var(--s1)"/>
-<rect x="143.0" y="150" width="1.2" height="26" fill="var(--s2)"/>
-<rect x="144.2" y="150" width="1.6" height="26" fill="var(--s3)"/>
-<text class="d-bar-val" x="614" y="167" text-anchor="end">1,778</text>
-<text class="d-bar-lbl" x="84" y="201" text-anchor="end">MHA</text>
-<rect x="96.0" y="184" width="25.3" height="26" fill="var(--s1)"/>
-<rect x="121.3" y="184" width="3.4" height="26" fill="var(--s2)"/>
-<rect x="124.7" y="184" width="2.7" height="26" fill="var(--s3)"/>
-<text class="d-bar-val" x="614" y="201" text-anchor="end">1,120</text>
-<text class="d-bar-lbl" x="84" y="235" text-anchor="end">RSH</text>
-<rect x="96.0" y="218" width="0.8" height="26" fill="var(--s1)"/>
-<rect x="96.1" y="218" width="3.5" height="26" fill="var(--s2)"/>
-<rect x="99.6" y="218" width="6.2" height="26" fill="var(--s3)"/>
-<text class="d-bar-val" x="614" y="235" text-anchor="end">351</text>
-<text class="d-bar-lbl" x="84" y="269" text-anchor="end">VHIO</text>
-<rect x="96.0" y="252" width="4.5" height="26" fill="var(--s1)"/>
-<rect x="100.5" y="252" width="0.9" height="26" fill="var(--s3)"/>
-<text class="d-bar-val" x="614" y="269" text-anchor="end">190</text>
-</svg>
+        {bars()}
         <figcaption>Training volumes per hospital, drawn at true scale. Read from each
         site's own training logs; the three classes sum exactly to each site's total.</figcaption>
       </figure>
@@ -409,15 +472,12 @@
         seven put together — and the range from largest to smallest is 94-fold. Timeouts,
         round budgets and the way results are weighted all had to be designed around that.
       </div>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 6 -->
-  <section class="slide">
-    <span class="num">6</span>
-    <div class="eyebrow">The achievement · the result</div>
-    <h2>The shared model beats what any hospital could train alone</h2>
-    <div class="body">
+# ---- 6 -------------------------------------------------------------------
+slide(6, "The achievement · the result",
+      "The shared model beats what any hospital could train alone",
+      '''    <div class="body">
       <div class="scroll">
         <table>
           <thead>
@@ -459,15 +519,12 @@
         overlapping but not identical sets of test cases. The ordering is consistent and
         has repeated; the exact size of each gap is not a controlled comparison.
       </div>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 7 -->
-  <section class="slide">
-    <span class="num">7</span>
-    <div class="eyebrow">The achievement · why it matters</div>
-    <h2>The smaller the hospital, the more it gains</h2>
-    <div class="body">
+# ---- 7 -------------------------------------------------------------------
+slide(7, "The achievement · why it matters",
+      "The smaller the hospital, the more it gains",
+      '''    <div class="body">
       <p class="sub" style="margin-top:0">
         This is the case for the consortium existing, stated in one line: a hospital that
         trains alone is limited by the patients it happens to have seen.
@@ -492,15 +549,12 @@
         the data and still ends up with a better model by taking part. Being the largest
         contributor is not the same as having seen enough.
       </div>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 8 -->
-  <section class="slide">
-    <span class="num">8</span>
-    <div class="eyebrow">What the work actually was</div>
-    <h2>Most of the effort went into making it survive the real world</h2>
-    <div class="split" style="align-items:start">
+# ---- 8 -------------------------------------------------------------------
+slide(8, "What the work actually was",
+      "Most of the effort went into making it survive the real world",
+      f'''    <div class="split" style="align-items:start">
       <div style="display:flex;flex-direction:column;gap:.8rem">
         <p class="sub" style="margin-top:0">
           The learning itself was rarely the hard part. Hospital IT is eight different
@@ -533,42 +587,15 @@
         </div>
       </div>
       <figure class="fig">
-        <svg viewBox="0 0 500 376" role="img" aria-label="A five-step loop: a run fails at one hospital, we reproduce it on our own machines, the cause is fixed in the software, an automatic check is added, and the next run cannot hit it again. At the centre: ten named failure modes, all written up for partners.">
-<circle cx="250" cy="208" r="138" fill="none" stroke="var(--rule)" stroke-width="1.4" stroke-dasharray="6 6"/>
-<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(331.1 96.4) rotate(36.0)"/>
-<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(381.2 250.6) rotate(108.0)"/>
-<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(250.0 346.0) rotate(180.0)"/>
-<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(118.8 250.6) rotate(252.0)"/>
-<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(168.9 96.4) rotate(324.0)"/>
-<text class="d-ctr-h" x="250" y="202" text-anchor="middle">10 NAMED FAILURE MODES</text>
-<text class="d-ctr" x="250" y="222" text-anchor="middle">each one written up for partners</text>
-<rect x="181.0" y="47.0" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="250.0" y="67.0" text-anchor="middle">A run fails</text>
-<text class="d-node-sub" x="250.0" y="81.0" text-anchor="middle">at one hospital</text>
-<rect x="312.2" y="142.4" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="381.2" y="162.4" text-anchor="middle">We reproduce it</text>
-<text class="d-node-sub" x="381.2" y="176.4" text-anchor="middle">on our own machines</text>
-<rect x="262.1" y="296.6" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="331.1" y="316.6" text-anchor="middle">The cause is fixed</text>
-<text class="d-node-sub" x="331.1" y="330.6" text-anchor="middle">in the software</text>
-<rect x="99.9" y="296.6" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="168.9" y="316.6" text-anchor="middle">An automatic check</text>
-<text class="d-node-sub" x="168.9" y="330.6" text-anchor="middle">is added</text>
-<rect x="49.8" y="142.4" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
-<text class="d-node" x="118.8" y="162.4" text-anchor="middle">The next run</text>
-<text class="d-node-sub" x="118.8" y="176.4" text-anchor="middle">cannot hit it again</text>
-</svg>
+        {loop()}
         <figcaption>How an incident at one hospital becomes a permanent fix for all eight.</figcaption>
       </figure>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 9 -->
-  <section class="slide">
-    <span class="num">9</span>
-    <div class="eyebrow">How we read the results</div>
-    <h2>A number without its denominator is not a result</h2>
-    <div class="body">
+# ---- 9 : merged from the previously published deck (its slides 2-4) ------
+slide(9, "How we read the results",
+      "A number without its denominator is not a result",
+      '''    <div class="body">
       <p class="sub" style="margin-top:0">
         Until recently, each hospital's results had to be collected by logging into that
         hospital by hand. They now come back to the coordinator automatically — and the
@@ -606,15 +633,12 @@
         were summarising it. Every figure now travels with the counts behind it, and we no
         longer rank centres on an average where a class has only a handful of cases.
       </div>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 10 -->
-  <section class="slide">
-    <span class="num">10</span>
-    <div class="eyebrow">New this quarter</div>
-    <h2>Two new capabilities — and one useful negative result</h2>
-    <div class="body">
+# ---- 10 ------------------------------------------------------------------
+slide(10, "New this quarter",
+      "Two new capabilities — and one useful negative result",
+      '''    <div class="body">
       <div class="two">
         <div class="panel">
           <h3>Choosing what to label next</h3>
@@ -650,15 +674,12 @@
         <em>patient</em> was in a hospital's data is a further step, and we are not
         claiming it yet.
       </div>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 11 -->
-  <section class="slide">
-    <span class="num">11</span>
-    <div class="eyebrow">Where we stand</div>
-    <h2>Three deliverables due in three months</h2>
-    <div class="body">
+# ---- 10 ------------------------------------------------------------------
+slide(11, "Where we stand",
+      "Three deliverables due in three months",
+      '''    <div class="body">
       <div class="scroll">
         <table>
           <thead><tr><th>Deliverable</th><th>Due</th><th>Status</th><th>What it still needs</th></tr></thead>
@@ -673,15 +694,12 @@
           </tbody>
         </table>
       </div>
-    </div>
-  </section>
+    </div>''')
 
-  <!-- 12 -->
-  <section class="slide">
-    <span class="num">12</span>
-    <div class="eyebrow">What we need from partners</div>
-    <h2>Two things, and neither is technical</h2>
-    <div class="body">
+# ---- 12 : the ask, restored in full from the previously published deck ----
+slide(12, "What we need from partners",
+      "Two things, and neither is technical",
+      '''    <div class="body">
       <div class="ask">
         <div class="ask-h">1 · Let sites return per-case predictions, not just summaries</div>
         <div class="ask-b">
@@ -718,8 +736,13 @@
           own system to show what it withstands. We are scheduling this now.
         </div>
       </div>
-    </div>
-  </section>
+    </div>''')
+
+html = CSS + '\n<div class="deck">\n' + "\n".join(SLIDES) + '''
 
   <footer>ODELIA WP2 / WP3 · 10 September 2026 · every figure read from the coordination server, the sites' own training logs, or CI</footer>
 </div>
+'''
+out_path = sys.argv[1] if len(sys.argv) > 1 else "docs/presentation_consortium_briefing.html"
+open(out_path, "w").write(html)
+print(f"wrote {out_path} — {len(html):,} bytes, {html.count(chr(60) + chr(115) + chr(101) + chr(99))} slides")

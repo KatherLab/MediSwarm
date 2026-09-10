@@ -1,0 +1,210 @@
+{
+ "n": 165,
+ "temperature_at_bound": null,
+ "composition": {
+  "No lesion": 111,
+  "Benign": 17,
+  "Malignant": 37
+ },
+ "temperature": 0.9544994385688633,
+ "fit_n": 82,
+ "held_n": 83,
+ "held_out": {
+  "ece_before": 0.053423597644365724,
+  "ece_after": 0.04906333159191079,
+  "brier_before": 0.44953184886875824,
+  "brier_after": 0.4496447711176485,
+  "nll_before": 0.8795295688701201,
+  "nll_after": 0.8903991440831412
+ },
+ "reliability_before": [
+  {
+   "bin": "0.3-0.4",
+   "n": 2,
+   "confidence": 0.394,
+   "accuracy": 0.5,
+   "gap": 0.106
+  },
+  {
+   "bin": "0.4-0.5",
+   "n": 6,
+   "confidence": 0.45,
+   "accuracy": 0.5,
+   "gap": 0.05
+  },
+  {
+   "bin": "0.5-0.6",
+   "n": 17,
+   "confidence": 0.554,
+   "accuracy": 0.471,
+   "gap": -0.084
+  },
+  {
+   "bin": "0.6-0.7",
+   "n": 10,
+   "confidence": 0.657,
+   "accuracy": 0.6,
+   "gap": -0.057
+  },
+  {
+   "bin": "0.7-0.8",
+   "n": 18,
+   "confidence": 0.754,
+   "accuracy": 0.722,
+   "gap": -0.032
+  },
+  {
+   "bin": "0.8-0.9",
+   "n": 25,
+   "confidence": 0.844,
+   "accuracy": 0.88,
+   "gap": 0.036
+  },
+  {
+   "bin": "0.9-1.0",
+   "n": 5,
+   "confidence": 0.907,
+   "accuracy": 1.0,
+   "gap": 0.093
+  }
+ ],
+ "reliability_after": [
+  {
+   "bin": "0.3-0.4",
+   "n": 2,
+   "confidence": 0.396,
+   "accuracy": 0.5,
+   "gap": 0.104
+  },
+  {
+   "bin": "0.4-0.5",
+   "n": 6,
+   "confidence": 0.454,
+   "accuracy": 0.5,
+   "gap": 0.046
+  },
+  {
+   "bin": "0.5-0.6",
+   "n": 17,
+   "confidence": 0.56,
+   "accuracy": 0.471,
+   "gap": -0.09
+  },
+  {
+   "bin": "0.6-0.7",
+   "n": 8,
+   "confidence": 0.658,
+   "accuracy": 0.5,
+   "gap": -0.158
+  },
+  {
+   "bin": "0.7-0.8",
+   "n": 17,
+   "confidence": 0.752,
+   "accuracy": 0.765,
+   "gap": 0.012
+  },
+  {
+   "bin": "0.8-0.9",
+   "n": 27,
+   "confidence": 0.849,
+   "accuracy": 0.852,
+   "gap": 0.003
+  },
+  {
+   "bin": "0.9-1.0",
+   "n": 6,
+   "confidence": 0.917,
+   "accuracy": 1.0,
+   "gap": 0.083
+  }
+ ],
+ "per_class_entropy": {
+  "No lesion": {
+   "n": 111,
+   "before": 0.626,
+   "after": 0.605
+  },
+  "Benign": {
+   "n": 17,
+   "before": 0.68,
+   "after": 0.659
+  },
+  "Malignant": {
+   "n": 37,
+   "before": 0.631,
+   "after": 0.608
+  }
+ },
+ "entropy_spread_before": 0.05400000000000005,
+ "entropy_spread_after": 0.05400000000000005,
+ "reliability_monotonicity": {
+  "bins_with_n_ge_5": 6,
+  "inversions": 1,
+  "monotone": false,
+  "z": 0.12,
+  "p_value": 0.9026977444892736,
+  "lower_bin": "0.4-0.5",
+  "higher_bin": "0.5-0.6"
+ },
+ "acquisition": {
+  "uncalibrated": {
+   "10": 5,
+   "20": 9,
+   "30": 11,
+   "40": 14,
+   "50": 14,
+   "60": 16,
+   "80": 18,
+   "100": 21
+  },
+  "calibrated": {
+   "10": 5,
+   "20": 9,
+   "30": 10,
+   "40": 13,
+   "50": 14,
+   "60": 16,
+   "80": 18,
+   "100": 21
+  },
+  "random": {
+   "10": {
+    "mean": 2.31,
+    "sd": 1.26
+   },
+   "20": {
+    "mean": 4.7,
+    "sd": 1.81
+   },
+   "30": {
+    "mean": 6.78,
+    "sd": 2.05
+   },
+   "40": {
+    "mean": 8.99,
+    "sd": 2.21
+   },
+   "50": {
+    "mean": 11.34,
+    "sd": 2.51
+   },
+   "60": {
+    "mean": 13.47,
+    "sd": 2.48
+   },
+   "80": {
+    "mean": 18.41,
+    "sd": 2.6
+   },
+   "100": {
+    "mean": 22.84,
+    "sd": 2.71
+   }
+  }
+ },
+ "budgets_where_calibrated_beats_random": 6,
+ "budgets_where_uncalibrated_beats_random": 6,
+ "budgets_where_calibration_changed_selection": 2,
+ "works": true
+}
