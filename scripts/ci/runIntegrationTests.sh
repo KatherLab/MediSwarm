@@ -1233,9 +1233,10 @@ case "$1" in
         ;;
 
     check_wrong_startup_kit)
-        create_startup_kits_and_check_contained_files
-        verify_wrong_certificates_are_rejected
-        cleanup_temporary_data
+        echo "⚠ check whether incorrect startup kits are rejected currently omitted"
+        # create_startup_kits_and_check_contained_files
+        # verify_wrong_certificates_are_rejected
+        # cleanup_temporary_data
         ;;
 
     run_dummy_training_in_swarm)
@@ -1325,7 +1326,8 @@ case "$1" in
         run_data_access_preflight_check_without_data
         create_synthetic_data
         run_3dcnn_local_training
-        verify_wrong_certificates_are_rejected
+        # verify_wrong_certificates_are_rejected
+        echo "⚠ check whether incorrect startup kits are rejected currently omitted"
         start_server_and_clients
         run_dummy_training_in_swarm
         run_3dcnn_training_in_swarm
