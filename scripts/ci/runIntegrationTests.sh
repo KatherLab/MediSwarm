@@ -23,6 +23,7 @@ if [ -z "$GPU_FOR_TESTING" ]; then
     export GPU_FOR_TESTING="all"
 fi
 
+DEFAULT_MODEL_FOR_TESTS=ResNet18
 
 check_files_in_repo () {
     echo "[Run] Test whether expected content is available in the repo"
@@ -418,7 +419,7 @@ run_data_access_preflight_check () {
     # Data access assertions do not depend on the default challenge model. Use
     # the lightweight 3D-CNN path so this check stays focused on dataset access
     # and logging rather than challenge-model startup time.
-    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "Epoch 0: 100%"                                            \
                            "INFO:threedcnn_ptl:Run directory"                         \
@@ -482,7 +483,7 @@ run_data_access_preflight_check_with_problems () {
     cd client_P/startup
     CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # timeout may kill epoch before it is finished, this test is only about logging before the epoch is started
-    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                \
                            "ERROR:threedcnn_ptl:Duplicate image UIDs detected. This should not happen."                                                  \
@@ -531,7 +532,7 @@ run_data_access_preflight_check_with_problems_log_details () {
     cd client_P/startup
     CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # timeout may kill epoch before it is finished, this test is only about logging before the epoch is started
-    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:"                                                       \
                            "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                                                     \
@@ -620,55 +621,26 @@ start_server () {
 }
 
 
-start_clients () {
+start_clients_for_model () {
+    MODEL_NAME=$1
     echo "[Run] Start client Docker containers ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --model_name "$MODEL_NAME" --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
-    # Stagger the second client: launching both clients' heavy torch/lightning init against
-    # the SAME GPU at once has starved client_B on the shared CI host, leaving it stuck at the
-    # swarm-config step (it registers but never returns the config task, so the controller
-    # wedges in "Configuring clients" until the ~900s timeout). A short stagger avoids the
-    # simultaneous-init collision. Override with CI_SWARM_CLIENT_STAGGER.
-    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"
+    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"  # avoid simultaneous-init collision
     cd client_B/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --model_name "$MODEL_NAME" --GPU "$GPU_FOR_TESTING" --start_client
     sleep 8
 
     cd "$CWD"
 }
 
-start_server_and_clients () {
+start_server_and_clients_for_model () {
+    MODEL_NAME=$1
     start_server
-    start_clients
-}
-
-
-start_clients_for_ResNet18 () {
-    echo "[Run] Start client Docker containers ..."
-
-    cd "$PROJECT_DIR"/prod_00
-    cd client_A/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --model_name ResNet18 --GPU "$GPU_FOR_TESTING" --start_client
-    cd ../..
-    # Stagger the second client: launching both clients' heavy torch/lightning init against
-    # the SAME GPU at once has starved client_B on the shared CI host, leaving it stuck at the
-    # swarm-config step (it registers but never returns the config task, so the controller
-    # wedges in "Configuring clients" until the ~900s timeout). A short stagger avoids the
-    # simultaneous-init collision. Override with CI_SWARM_CLIENT_STAGGER.
-    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"
-    cd client_B/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --model_name ResNet18 --GPU "$GPU_FOR_TESTING" --start_client
-    sleep 8
-
-    cd "$CWD"
-}
-
-start_server_and_clients_for_ResNet18 () {
-    start_server
-    start_clients_for_ResNet18
+    start_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
 }
 
 start_registry_docker_and_push () {
@@ -978,7 +950,8 @@ run_3dcnn_local_training () {
 }
 
 
-run_3dcnn_resnet18_training_in_swarm () {
+run_3dcnn_training_in_swarm_for_odelia_model () {
+    MODEL_NAME=$1
     echo "[Run] 3DCNN training in swarm (polling for completion, up to 10 minutes) ..."
 
     cd "$PROJECT_DIR"/prod_00
@@ -1139,6 +1112,12 @@ run_all_models_preflight_check () {
 }
 
 
+run_all_models_training_in_swarm () {
+    # TODO implement
+    # start_server_and_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
+    # run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
+}
+
 
 cleanup_synthetic_data () {
     echo "[Cleanup] Removing synthetic data ..."
@@ -1262,7 +1241,7 @@ case "$1" in
 
     run_dummy_training_in_swarm)
         create_startup_kits_and_check_contained_files
-        start_server_and_clients
+        start_server_and_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
@@ -1276,10 +1255,11 @@ case "$1" in
         ;;
 
     run_3dcnn_training_in_swarm)
+        # TODO rename, also in workflow(s)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
-        start_server_and_clients_for_ResNet18
-        run_3dcnn_resnet18_training_in_swarm
+        start_server_and_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
+        run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         kill_server_and_clients
         cleanup_temporary_data
         ;;
@@ -1295,6 +1275,15 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_all_models_preflight_check
+        cleanup_temporary_data
+        ;;
+
+    run_all_models_training_in_swarm)
+        # TODO add to weekly/manual workflow
+        create_startup_kits_and_check_contained_files
+        create_synthetic_data
+        run_all_models_training_in_swarm
+        kill_server_and_clients
         cleanup_temporary_data
         ;;
 
@@ -1349,9 +1338,11 @@ case "$1" in
         create_synthetic_data
         run_3dcnn_local_training
         verify_wrong_certificates_are_rejected
-        start_server_and_clients
+        start_server_and_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
         run_dummy_training_in_swarm
-        run_3dcnn_training_in_swarm
+        run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
+        run_all_models_preflight_check
+        run_all_models_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
         ;;
