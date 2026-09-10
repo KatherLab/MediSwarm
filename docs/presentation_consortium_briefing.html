@@ -1,0 +1,405 @@
+<title>ODELIA Consortium Briefing</title>
+<style>
+  :root {
+    --ground:      #FAFBFC;
+    --slide:       #FFFFFF;
+    --slide-alt:   #F1F5F8;
+    --ink:         #131C24;
+    --ink-soft:    #35485A;
+    --muted:       #5B6B79;
+    --rule:        #D9E1E7;
+    --rule-soft:   #E9EFF3;
+    --accent:      #0F6E8C;
+    --accent-soft: #E0EEF3;
+    --good:        #2E7250;
+    --good-bg:     #E3F0E8;
+    --warn:        #96662A;
+    --warn-bg:     #F6EDDF;
+    --bad:         #9E3339;
+    --bad-bg:      #F7E5E6;
+    --serif: "Iowan Old Style", "Charter", "Bitstream Charter", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0B1116; --slide: #131C23; --slide-alt: #19242C;
+      --ink: #E3EBF0; --ink-soft: #BDCBD5; --muted: #92A4B1;
+      --rule: #253440; --rule-soft: #1B262D;
+      --accent: #57B7D2; --accent-soft: #11303B;
+      --good: #6FBE92; --good-bg: #15301F;
+      --warn: #D6A45C; --warn-bg: #33260F;
+      --bad: #E08088;  --bad-bg: #351A1D;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0B1116; --slide: #131C23; --slide-alt: #19242C;
+    --ink: #E3EBF0; --ink-soft: #BDCBD5; --muted: #92A4B1;
+    --rule: #253440; --rule-soft: #1B262D;
+    --accent: #57B7D2; --accent-soft: #11303B;
+    --good: #6FBE92; --good-bg: #15301F;
+    --warn: #D6A45C; --warn-bg: #33260F;
+    --bad: #E08088;  --bad-bg: #351A1D;
+  }
+
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); line-height: 1.5; }
+
+  .deck { max-width: 68rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .slide {
+    background: var(--slide);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: clamp(1.5rem, 3.5vw, 2.75rem);
+    aspect-ratio: 16 / 9;
+    min-height: 26rem;
+    display: flex; flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  @media (max-width: 700px) { .slide { aspect-ratio: auto; min-height: 0; } }
+
+  .num {
+    position: absolute; top: 1rem; right: 1.25rem;
+    font-family: var(--mono); font-size: .7rem; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: .68rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+  }
+  h1 {
+    font-family: var(--serif); font-size: clamp(1.9rem, 4.4vw, 2.9rem);
+    line-height: 1.08; margin: .5rem 0 0; font-weight: 600; letter-spacing: -.015em;
+    text-wrap: balance;
+  }
+  h2 {
+    font-family: var(--serif); font-size: clamp(1.35rem, 2.8vw, 1.95rem);
+    line-height: 1.15; margin: .35rem 0 0; font-weight: 600; letter-spacing: -.01em;
+    text-wrap: balance;
+  }
+  .sub { color: var(--ink-soft); font-size: clamp(.95rem, 1.6vw, 1.08rem); margin-top: .75rem; max-width: 46rem; text-wrap: pretty; }
+  .body { margin-top: 1.4rem; display: flex; flex-direction: column; gap: .9rem; flex: 1; }
+  p { margin: 0; }
+  code { font-family: var(--mono); font-size: .86em; background: var(--slide-alt); border: 1px solid var(--rule-soft); border-radius: 3px; padding: .08em .34em; }
+  strong { font-weight: 650; }
+
+  ul { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .55rem; }
+  li { color: var(--ink-soft); font-size: clamp(.92rem, 1.5vw, 1rem); }
+  li::marker { color: var(--accent); }
+
+  .big { font-family: var(--serif); font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 600; line-height: 1; letter-spacing: -.02em; }
+  .big-note { color: var(--muted); font-size: .88rem; margin-top: .4rem; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .stats > div { background: var(--slide); padding: .9rem 1rem; }
+  .stats dt { font-family: var(--mono); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .stats dd { margin: .2rem 0 0; font-family: var(--serif); font-size: 1.55rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stats .cap { display: block; font-family: var(--sans); font-size: .74rem; font-weight: 400; color: var(--muted); margin-top: .1rem; line-height: 1.35; }
+
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: .87rem; min-width: 34rem; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--rule-soft); }
+  thead th { font-family: var(--mono); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--slide-alt); border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.id { font-family: var(--mono); font-size: .8rem; white-space: nowrap; }
+  tr.flag td { background: var(--bad-bg); }
+
+  .chip { display: inline-block; font-family: var(--mono); font-size: .64rem; letter-spacing: .06em; text-transform: uppercase; padding: .16em .5em; border-radius: 3px; font-weight: 600; white-space: nowrap; }
+  .chip.good { background: var(--good-bg); color: var(--good); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .chip.bad  { background: var(--bad-bg);  color: var(--bad); }
+  .chip.info { background: var(--accent-soft); color: var(--accent); }
+
+  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 4px; padding: .9rem 1.1rem; font-size: .95rem; color: var(--ink-soft); }
+  .callout strong { color: var(--ink); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+  .panel { background: var(--slide-alt); border: 1px solid var(--rule-soft); border-radius: 6px; padding: .95rem 1.1rem; }
+  .panel h3 { margin: 0 0 .4rem; font-size: .82rem; font-family: var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .panel p, .panel li { font-size: .89rem; }
+
+  .ask { border: 1px solid var(--accent); border-radius: 6px; overflow: hidden; }
+  .ask-h { background: var(--accent-soft); padding: .7rem 1.1rem; font-family: var(--mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .ask-b { padding: 1rem 1.1rem; font-size: .95rem; color: var(--ink-soft); }
+
+  footer { text-align: center; color: var(--muted); font-size: .8rem; padding-top: 1rem; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  @media print {
+    body { background: #fff; }
+    .deck { gap: 0; padding: 0; max-width: none; }
+    .slide { page-break-after: always; border: none; border-radius: 0; aspect-ratio: auto; min-height: 100vh; }
+  }
+</style>
+
+<div class="deck">
+
+  <!-- 1 ------------------------------------------------------------- -->
+  <section class="slide">
+    <span class="num">1</span>
+    <div class="eyebrow">ODELIA consortium · technical meeting</div>
+    <h1>Per-site results now come back from every hospital</h1>
+    <p class="sub">
+      What changed this week, what it revealed about our evaluation, and the one thing we need
+      from partners next.
+    </p>
+    <div class="body" style="justify-content:flex-end">
+      <div class="stats">
+        <div><dt>Project month</dt><dd>45<span class="cap">of 60</span></dd></div>
+        <div><dt>Next deadline</dt><dd>M48<span class="cap">three deliverables</span></dd></div>
+        <div><dt>Sites online</dt><dd>8<span class="cap">full consortium</span></dd></div>
+        <div><dt>Status</dt><dd>Fixed<span class="cap">verified on real data</span></dd></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 ------------------------------------------------------------- -->
+  <section class="slide">
+    <span class="num">2</span>
+    <div class="eyebrow">The problem</div>
+    <h2>Until this week, results never left the hospitals</h2>
+    <div class="body">
+      <p class="sub" style="margin-top:0">
+        The coordinator's results file came back empty after <em>every</em> peer-to-peer run — after
+        a two-day twenty-round run and after a fifty-second test run alike.
+      </p>
+      <div class="two">
+        <div class="panel">
+          <h3>What that cost us</h3>
+          <ul>
+            <li>Per-site figures had to be collected by logging into each hospital by hand</li>
+            <li>No central view of how the shared model performs at each centre</li>
+            <li>Blocked the regulatory testing node, the regional comparison, and privacy accounting</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Why it went unnoticed</h3>
+          <ul>
+            <li>Every run reported success</li>
+            <li>The server log said metrics had arrived from all eight sites</li>
+            <li>Automated tests passed — while silently skipping the file that would have caught it</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 ------------------------------------------------------------- -->
+  <section class="slide">
+    <span class="num">3</span>
+    <div class="eyebrow">Verified</div>
+    <h2>Radboud and Utrecht reported straight to the coordinator</h2>
+    <div class="body">
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Site</th><th>Cases</th><th>No lesion</th><th>Benign</th><th>Malignant</th><th>Accuracy</th><th>AUROC</th></tr>
+          </thead>
+          <tbody>
+            <tr class="flag"><td class="id">Radboud</td><td class="n">896</td><td class="n">888</td><td class="n">0</td><td class="n">8</td><td class="n">0.991</td><td class="n">0.417</td></tr>
+            <tr><td class="id">Utrecht</td><td class="n">1557</td><td class="n">1361</td><td class="n">186</td><td class="n">10</td><td class="n">0.874</td><td class="n">0.698</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <strong>Read the highlighted row carefully.</strong> 99.1&#8239;% accuracy with an AUROC of
+        0.417 — below chance. Of 896 cases, 888 carry no lesion and none are benign. A model that
+        answers "no lesion" almost always scores 99&#8239;% and discriminates nothing.
+      </div>
+      <p style="font-size:.9rem;color:var(--muted)">
+        These are validation figures shown as evidence that the mechanism works — not model
+        performance results.
+      </p>
+    </div>
+  </section>
+
+  <!-- 4 ------------------------------------------------------------- -->
+  <section class="slide">
+    <span class="num">4</span>
+    <div class="eyebrow">Why this matters clinically</div>
+    <h2>A number without its denominator is not a result</h2>
+    <div class="body">
+      <p class="sub" style="margin-top:0">
+        Reported on its own, Radboud's 99&#8239;% would make it look like the strongest centre in
+        the consortium. It is an artefact of a 99:1 class split.
+      </p>
+      <div class="two">
+        <div class="panel">
+          <h3>We have already been caught by this</h3>
+          <p>
+            UMC Utrecht was described as performing materially worse than other centres. That came
+            from a macro-averaged AUROC in which one class was represented by <strong>two</strong>
+            cases. Excluding that class, Utrecht moves 0.602&nbsp;→&nbsp;0.717 and Cambridge
+            0.710&nbsp;→&nbsp;0.908.
+          </p>
+        </div>
+        <div class="panel">
+          <h3>What we do now</h3>
+          <ul>
+            <li>Every metric travels with its per-class support count</li>
+            <li>Ranking centres by macro AUROC is off the table where a class has single-digit support</li>
+            <li>The failure modes are written up for all partners</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>Nothing here reflects on any centre's data quality.</strong> It reflects on how we
+        were summarising it.
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 ------------------------------------------------------------- -->
+  <section class="slide">
+    <span class="num">5</span>
+    <div class="eyebrow">Honest status</div>
+    <h2>The software is fixed. The fleet is the bottleneck.</h2>
+    <div class="body">
+      <div class="scroll">
+        <table>
+          <thead><tr><th>When</th><th>What happened</th><th>Outcome</th></tr></thead>
+          <tbody>
+            <tr><td class="id">4 Sep</td><td>Aachen host rebooted mid-run, twice, at the same point</td><td><span class="chip bad">Lost</span></td></tr>
+            <tr><td class="id">7 Sep</td><td>Stopped deliberately — was about to overwrite the shared baseline model</td><td><span class="chip warn">Stopped</span></td></tr>
+            <tr><td class="id">7 Sep</td><td>Mitera could not download the model from Royal Surrey; Cambridge dropped</td><td><span class="chip bad">Lost</span></td></tr>
+            <tr><td class="id">7–8 Sep</td><td>Dutch run finished all five rounds, then failed to publish for five hours</td><td><span class="chip good">Recovered</span></td></tr>
+            <tr><td class="id">8 Sep</td><td>In-house test runs — three attempts, all lost to relayed model transfers</td><td><span class="chip info">Cause found</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="sub" style="margin-top:0">
+        Eight consecutive runs, no code defect among them. Development has moved to in-house
+        servers so the consortium fleet is used only for final benchmark runs.
+      </p>
+      <div class="callout">
+        <strong>We now know why the in-house runs failed too.</strong> Model transfers were being
+        relayed through Frankfurt: our two test machines sit on one subnet and talk in 1&nbsp;ms,
+        but the coordinating server is in another city, and the swarm routes every transfer through
+        it. A 700&nbsp;MB model was crossing the country twice per round. That is a network
+        topology problem, not a defect in the training software.
+      </div>
+    </div>
+  </section>
+
+  <!-- 5b ------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="num">6</span>
+    <div class="eyebrow">Where the model stands</div>
+    <h2>The eight-site swarm is the best model we have produced</h2>
+    <div class="body">
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Model</th><th>Sites</th><th>When</th><th>Malignant AUROC</th><th>Macro AUROC</th></tr>
+          </thead>
+          <tbody>
+            <tr style="background:var(--good-bg)">
+              <td class="id"><strong>Swarm · 1DivideAndConquer</strong></td><td class="n">8</td><td class="n">Aug 2026</td>
+              <td class="n"><strong>0.887</strong></td><td class="n"><strong>0.820</strong></td></tr>
+            <tr><td class="id">Swarm · 4LME_ABMIL</td><td class="n">6</td><td class="n">Jun 2026</td>
+                <td class="n">0.847</td><td class="n">0.764</td></tr>
+            <tr><td class="id">Best single site — UKA · 1DC</td><td class="n">1</td><td class="n">Jun 2026</td>
+                <td class="n">0.858</td><td class="n">0.709</td></tr>
+            <tr><td class="id">Median of 10 single-site models</td><td class="n">1</td><td class="n">Jun 2026</td>
+                <td class="n">0.658</td><td class="n">0.601</td></tr>
+            <tr><td class="id">Weakest single site — RUMC · 1DC</td><td class="n">1</td><td class="n">Jun 2026</td>
+                <td class="n">0.408</td><td class="n">0.483</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="two">
+        <div class="panel">
+          <h3>Against training alone</h3>
+          <ul>
+            <li><strong>+0.229</strong> malignant AUROC over the median single-site model</li>
+            <li><strong>+0.029</strong> over the strongest single site, which is UKA — the site holding half the consortium's data</li>
+            <li><strong>+0.111</strong> macro AUROC over that same best single site</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Against the previous swarm</h3>
+          <ul>
+            <li><strong>+0.040</strong> malignant AUROC over the six-site June run</li>
+            <li><strong>+0.056</strong> macro AUROC</li>
+            <li>Two more sites, twenty rounds, and the first run to complete with the full consortium</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>Read the ordering, not the decimals.</strong> These come from three separate
+        evaluations on overlapping but not identical subsets of the challenge set — 165 cases for the
+        eight-site run, 300 for the June matrix. The direction is consistent and repeated; the exact
+        gaps are not a controlled comparison.
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 ------------------------------------------------------------- -->
+  <section class="slide">
+    <span class="num">7</span>
+    <div class="eyebrow">The ask</div>
+    <h2>Let sites return per-case predictions, not just summaries</h2>
+    <div class="body">
+      <div class="ask">
+        <div class="ask-h">What we would send back</div>
+        <div class="ask-b">
+          A <strong>row number</strong>, the ground-truth label, and the model's class
+          probabilities. <strong>No case identifier and no patient identifier</strong> — the row
+          number is a position within your own validation split and means nothing outside it. No
+          images. Nothing new is computed; this is what your site already writes to its own disk
+          during a normal training run.
+        </div>
+      </div>
+      <div class="two">
+        <div class="panel">
+          <h3>Why we need it</h3>
+          <ul>
+            <li>Regional fine-tuning (D2.5) is currently blocked on moving a 722&nbsp;MB model out of two hospitals — this removes that need entirely</li>
+            <li>Proper statistical comparison needs case-level pairing; summaries cannot provide it</li>
+            <li>The regulatory testing node due at M54 requires it regardless</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>What we need from you</h3>
+          <ul>
+            <li>Confirmation that this is acceptable under your local data agreement</li>
+            <li>It stays off unless your site switches it on — the decision is yours, per site</li>
+            <li>Nothing technical — no new kit, no reconfiguration</li>
+            <li>Please keep clients online for the active-learning tests</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 ------------------------------------------------------------- -->
+  <section class="slide">
+    <span class="num">8</span>
+    <div class="eyebrow">Where we stand</div>
+    <h2>Three deliverables due in three months</h2>
+    <div class="body">
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Deliverable</th><th>Due</th><th>Status</th><th>What it needs</th></tr></thead>
+          <tbody>
+            <tr><td class="id">D2.5 · regional fine-tuning</td><td class="n">M48</td><td><span class="chip warn">In progress</span></td><td>Per-case predictions (slide 6)</td></tr>
+            <tr><td class="id">D3.2 · active learning</td><td class="n">M48</td><td><span class="chip warn">Starting</span></td><td>Clients online; runs fit the round budget</td></tr>
+            <tr><td class="id">D3.4 · adversarial robustness</td><td class="n">M48</td><td><span class="chip warn">Starting</span></td><td>—</td></tr>
+            <tr><td class="id">D3.3 · testing node</td><td class="n">M54</td><td><span class="chip good">Unblocked</span></td><td>Builds on this week's fix</td></tr>
+            <tr><td class="id">T3.3 · differential privacy</td><td class="n">M54</td><td><span class="chip warn">Phase 1 done</span></td><td>Assessment written; calibrated noise and a privacy budget still to build</td></tr>
+            <tr><td class="id">MS6 · white-hat attack</td><td class="n">M54</td><td><span class="chip bad">Needs partners</span></td><td><strong>Cambridge and Radboud</strong> — scheduling now</td></tr>
+            <tr><td class="id">D3.5 · TRL7 demonstration</td><td class="n">M60</td><td><span class="chip info">Part-evidenced</span></td><td>Re-run on the released version</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <strong>One request today:</strong> agreement in principle on returning per-case predictions,
+        and a slot with Cambridge and Radboud for the MS6 testing.
+      </div>
+    </div>
+  </section>
+
+  <footer>ODELIA WP2 / WP3 · 9 September 2026 · figures read from the coordination server and site logs</footer>
+</div>
