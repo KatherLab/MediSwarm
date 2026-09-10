@@ -18,7 +18,7 @@ COSMOS_DEPLOY_DIR=/home/swarm/MediSwarm
 DL0_HOST=100.100.100.101
 DL0_USER=swarm
 DL0_PASS='CHANGEME'
-DL0_SITE_NAME=RUMC_1
+DL0_SITE_NAME=TEST_A_1
 DL0_DATADIR=/mnt/dlhd0/odelia_data
 DL0_SCRATCHDIR=/mnt/dlhd0/odelia_data/tmp
 DL0_DEPLOY_DIR=/home/swarm/MediSwarm
@@ -28,7 +28,7 @@ DL0_GPU="device=0"
 DL2_HOST=100.100.100.102
 DL2_USER=swarm
 DL2_PASS='CHANGEME'
-DL2_SITE_NAME=MHA_1
+DL2_SITE_NAME=TEST_B_1
 DL2_DATADIR=/mnt/sda1/odelia_data
 DL2_SCRATCHDIR=/mnt/sda1/odelia_data/tmp
 DL2_DEPLOY_DIR=/home/swarm/MediSwarm
