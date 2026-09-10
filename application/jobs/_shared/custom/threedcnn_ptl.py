@@ -581,6 +581,26 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
         # compared to pure SGD updates every sample.
         accumulate_grad_batches = 8
 
+        # Metrics reach the coordinator only if something writes them to
+        # NVFlare's pipe. TensorBoardLogger writes to local disk, which is why
+        # per-site results had to be collected by logging into each hospital by
+        # hand and cross_val_results.json came back empty (#525). ClientLogger
+        # forwards the same self.log() calls through the pipe, where MetricRelay
+        # turns them into fed.analytix_log_stats and PerSiteMetricCollector
+        # publishes them server-side.
+        #
+        # Only meaningful inside a swarm run: outside one there is no client
+        # runtime to write to, so the local TensorBoard logger stands alone.
+        trainer_loggers = [TensorBoardLogger(save_dir=path_run_dir)]
+        if os.environ.get("TRAINING_MODE", "") == "swarm":
+            try:
+                from nvflare.app_opt.lightning.loggers.client_logger import ClientLogger
+                trainer_loggers.append(ClientLogger())
+                logger.info("ClientLogger attached: metrics will stream to the coordinator")
+            except Exception as exc:
+                # A missing metric stream must not stop a training run.
+                logger.warning(f"ClientLogger unavailable, metrics stay local: {exc}")
+
         trainer = Trainer(
             accelerator='gpu',
             accumulate_grad_batches=accumulate_grad_batches,
@@ -593,7 +613,7 @@ def prepare_training(logger, max_epochs: int, site_name: str = None,
             log_every_n_steps=log_every_n_steps,
             max_epochs=max_epochs,
             num_sanity_val_steps=2,
-            logger=TensorBoardLogger(save_dir=path_run_dir)
+            logger=trainer_loggers
         )
 
     except Exception as e:
