@@ -198,6 +198,15 @@ class BasicClassifier(BasicModel):
             for state in EXTENDED_METRIC_STATES
         })
 
+        # Ground-truth label counts per class, reset each epoch alongside the
+        # metrics. A per-class metric reported without its support invites the
+        # reader to compare numbers that are not comparable -- an AUROC over two
+        # positives is noise, but it looks like a score. See
+        # docs/EVALUATION_PITFALLS.md (E1). Plain ints, so there is no device to
+        # manage and no cost worth measuring.
+        self.num_classes = out_ch
+        self._support = {state: [0] * out_ch for state in ["train_", "val_", "test_"]}
+
     def _build_extended_metrics(self, num_classes, state):
         """Metrics beyond ACC/AUROC. All accept raw logits (torchmetrics softmaxes)."""
         kwargs = {"task": "multiclass", "num_classes": num_classes}
@@ -235,6 +244,15 @@ class BasicClassifier(BasicModel):
             f"{state}/ACC": self.acc[key].compute(),
             f"{state}/AUC_ROC": self.auc_roc[key].compute(),
         }
+        # Emitted before the early return below, so support travels with the
+        # metrics whether or not the extended tier is enabled.
+        counts = self._support.get(key)
+        if counts is not None:
+            # 0-dim tensors, matching every other value in this dict so callers
+            # can treat the mapping uniformly (Lightning logs them either way).
+            for index, count in enumerate(counts):
+                values[f"{state}/support_class{index}"] = torch.tensor(float(count))
+            values[f"{state}/n"] = torch.tensor(float(sum(counts)))
         if key not in self.extra_metrics:
             return values
         for name, metric in self.extra_metrics[key].items():
@@ -266,9 +284,24 @@ class BasicClassifier(BasicModel):
         if state + "_" in self.extra_metrics:
             for metric in self.extra_metrics[state + "_"].values():
                 metric.update(pred, target_squeezed)
+        self._update_support(state, target_squeezed)
 
         self.log(f"{state}/loss", loss_val, batch_size=batch_size, on_step=True, on_epoch=True)
         return loss_val
+
+    def _update_support(self, state, target_squeezed):
+        """Count ground-truth labels seen this epoch, per class.
+
+        Pure bookkeeping -- no gradients, no device transfer beyond the labels
+        already on hand.
+        """
+        counts = self._support.get(state + "_")
+        if counts is None:
+            return
+        for label in target_squeezed.detach().flatten().tolist():
+            index = int(label)
+            if 0 <= index < len(counts):
+                counts[index] += 1
 
     def _epoch_end(self, state):
         metric_values = self.compute_epoch_metrics(state)
@@ -286,6 +319,7 @@ class BasicClassifier(BasicModel):
         if state + "_" in self.extra_metrics:
             for metric in self.extra_metrics[state + "_"].values():
                 metric.reset()
+        self._support[state + "_"] = [0] * self.num_classes
 
     def compute_loss(self, pred, target):
         target_squeezed = torch.squeeze(target, 1)  # TODO Why is this necessary and is it the right thing to do?

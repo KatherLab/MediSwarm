@@ -1,0 +1,1586 @@
+[
+ {
+  "job_id": "39e430ea-90f6-4bb7-b818-b1d2f1aecc6b",
+  "date_first": "",
+  "date_last": "",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "da02aad3-155e-4adf-ba66-65777e9bd6c5",
+  "date_first": "",
+  "date_last": "",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "ecab02cf-1d12-40d5-a265-561a9efebedf",
+  "date_first": "",
+  "date_last": "",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "51223d4a-17ee-4a20-9bab-6ce5f36b84fe",
+  "date_first": "",
+  "date_last": "",
+  "n_sites": 1,
+  "n_real_sites": 0,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "a33cd94e-580a-4b1c-97be-af1697910414",
+  "date_first": "",
+  "date_last": "",
+  "n_sites": 1,
+  "n_real_sites": 0,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "_active",
+  "date_first": "",
+  "date_last": "",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "test_from_usz",
+  "date_first": "",
+  "date_last": "",
+  "n_sites": 1,
+  "n_real_sites": 0,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "615ec280-db03-458e-8a31-eb3d185c031e",
+  "date_first": "2026-03-26",
+  "date_last": "2026-03-26",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "b520032f-88f2-499d-a520-6593669cf0a5",
+  "date_first": "2026-03-26",
+  "date_last": "2026-03-26",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 10,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "d1ca84e7-258d-465a-ade7-03e4ae3bd167",
+  "date_first": "2026-03-26",
+  "date_last": "2026-03-26",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "f2bcd6e1-4bf4-496e-8c5b-de87eddf56cd",
+  "date_first": "2026-03-26",
+  "date_last": "2026-03-26",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 12,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "390449da-661b-4243-a3c3-872d3c232189",
+  "date_first": "2026-04-02",
+  "date_last": "2026-04-02",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "5c8bf621-bc83-43c4-b45e-5b474b2d3405",
+  "date_first": "2026-04-02",
+  "date_last": "2026-04-02",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "816d27c1-c091-4e69-a3bf-023ddd2e8930",
+  "date_first": "2026-04-02",
+  "date_last": "2026-04-02",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "83efb7c3-5466-4a4c-be53-8c433640f277",
+  "date_first": "2026-04-02",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 40,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "875d58ea-f693-4fae-9d37-8682d3688da5",
+  "date_first": "2026-04-02",
+  "date_last": "2026-04-02",
+  "n_sites": 2,
+  "n_real_sites": 1,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "bb21bf98-1530-43b3-ad96-c9435bd6bc19",
+  "date_first": "2026-04-02",
+  "date_last": "2026-04-02",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "12710656-08b3-44ed-afdd-5303ec8c5252",
+  "date_first": "2026-04-03",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 2,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "1ef7c061-4df9-4d34-bbfa-a65f85ae623f",
+  "date_first": "2026-04-03",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 10,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "29829355-fe1c-43fd-bd94-d19273e678dd",
+  "date_first": "2026-04-03",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "31d9e6f3-1c03-48a9-899c-1eb570896ca4",
+  "date_first": "2026-04-03",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "5e1509e0-e141-4f83-9e91-8fefdecf7ea1",
+  "date_first": "2026-04-03",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "c07777be-2916-474a-a491-a444fb4501e1",
+  "date_first": "2026-04-03",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "cf1f1f66-2094-48f4-aca6-686179cd692d",
+  "date_first": "2026-04-03",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "d98dd706-6f6c-474e-b916-e14855dd7435",
+  "date_first": "2026-04-03",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 4,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "edc9a48a-0617-4e84-b0e1-0fe1187ffd5a",
+  "date_first": "2026-04-03",
+  "date_last": "2026-04-03",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 7,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "6dd080da-98b4-4cf4-b73b-0d2ea6f85508",
+  "date_first": "2026-04-05",
+  "date_last": "2026-04-05",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 2,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "6e5446d7-2ea6-4a29-8f6b-a2a0abb9126b",
+  "date_first": "2026-04-05",
+  "date_last": "2026-04-05",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 2,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "739ea839-2c82-4b79-9eb1-1598fc4ed670",
+  "date_first": "2026-04-05",
+  "date_last": "2026-04-05",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 2,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "8de5aead-b1dc-4ed2-9f61-2f27dedee6aa",
+  "date_first": "2026-04-05",
+  "date_last": "2026-04-05",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 6,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "a5158eff-0861-4dc0-be2d-b619743caa34",
+  "date_first": "2026-04-05",
+  "date_last": "2026-04-05",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 2,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "b9666fed-e475-415c-b619-a73e0e4be1b4",
+  "date_first": "2026-04-05",
+  "date_last": "2026-04-05",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 9,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "04321cbe-0712-4c06-bb44-8169e48b788e",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-07",
+  "n_sites": 4,
+  "n_real_sites": 0,
+  "n_test_sites": 4,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "23613f88-e0b0-4a6c-89c1-90a60e36b538",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-07",
+  "n_sites": 4,
+  "n_real_sites": 0,
+  "n_test_sites": 4,
+  "is_production": false,
+  "learn_tasks": 4,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "59aa5b1c-4419-4fe6-abb0-f8b4f2d37562",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-07",
+  "n_sites": 4,
+  "n_real_sites": 0,
+  "n_test_sites": 4,
+  "is_production": false,
+  "learn_tasks": 4,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "a6766aee-b7e7-478a-b33a-81e193ff7fd6",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-07",
+  "n_sites": 3,
+  "n_real_sites": 0,
+  "n_test_sites": 3,
+  "is_production": false,
+  "learn_tasks": 7,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "b3c47faf-7a81-4778-9b1a-7de0bf5a1f71",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-07",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "cde7528a-da13-4a0e-8fe7-49af2a2c1132",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-07",
+  "n_sites": 4,
+  "n_real_sites": 0,
+  "n_test_sites": 4,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "e84722ec-9526-4aec-bee6-60de5344acf9",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-07",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 6,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "f929b74c-9638-4700-a976-53b7261ee6e1",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-07",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "1bf2e773-513b-440a-a30c-5e59288b7456",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 26,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "a1365bf0-b2cc-4ab3-9e83-4df8c09b71c6",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 42,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "f982d373-69a2-4027-b8d4-61164700ef28",
+  "date_first": "2026-04-07",
+  "date_last": "2026-04-07",
+  "n_sites": 3,
+  "n_real_sites": 0,
+  "n_test_sites": 3,
+  "is_production": false,
+  "learn_tasks": 7,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "572ea0f7-69d0-4f6a-9673-d36f121b9652",
+  "date_first": "2026-04-08",
+  "date_last": "2026-04-08",
+  "n_sites": 4,
+  "n_real_sites": 0,
+  "n_test_sites": 4,
+  "is_production": false,
+  "learn_tasks": 4,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "cfa36533-a55c-47c1-9322-7fb723f8bf91",
+  "date_first": "2026-04-08",
+  "date_last": "2026-04-08",
+  "n_sites": 4,
+  "n_real_sites": 0,
+  "n_test_sites": 4,
+  "is_production": false,
+  "learn_tasks": 16,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "fd2f3406-1440-4a27-83ad-259029c6b6ce",
+  "date_first": "2026-04-08",
+  "date_last": "2026-04-08",
+  "n_sites": 4,
+  "n_real_sites": 0,
+  "n_test_sites": 4,
+  "is_production": false,
+  "learn_tasks": 20,
+  "failure_classes": [
+   "cert_mismatch"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "0503438c-283f-4399-94b2-7bdd630850e1",
+  "date_first": "2026-04-08",
+  "date_last": "2026-04-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 32,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "2fb97425-f2e3-4fc3-9727-2c1a654fe79c",
+  "date_first": "2026-04-08",
+  "date_last": "2026-04-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [
+   "cert_mismatch"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "a1e4c9bc-5721-4878-bf17-4bbd81ed27bb",
+  "date_first": "2026-04-08",
+  "date_last": "2026-04-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 4,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "a4ea2d7e-3eaa-4937-8c51-c3e3345e5149",
+  "date_first": "2026-04-08",
+  "date_last": "2026-04-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "e71afa34-95c0-4a5f-a070-e3b8d3a1ec17",
+  "date_first": "2026-04-08",
+  "date_last": "2026-04-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "54f9ed61-b0e6-4ba2-8b56-7a13ddb9e4c5",
+  "date_first": "2026-04-09",
+  "date_last": "2026-04-09",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 4,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "fe93a85c-7046-4214-b1d1-6f97f86c45d8",
+  "date_first": "2026-04-28",
+  "date_last": "2026-04-30",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [
+   "cert_mismatch"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "024b9741-fe20-479d-9e9f-a453d2bd2c58",
+  "date_first": "2026-04-30",
+  "date_last": "2026-04-30",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "b7f61adb-bd38-48d5-bbc0-53038993e441",
+  "date_first": "2026-04-30",
+  "date_last": "2026-05-29",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 1,
+  "failure_classes": [
+   "cert_mismatch"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "8d767f32-e246-4e02-9c41-e2bc29f4bbcf",
+  "date_first": "2026-04-30",
+  "date_last": "2026-04-30",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 1,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "e491fe34-2146-4242-939a-83534c4ac2cd",
+  "date_first": "2026-04-30",
+  "date_last": "2026-05-12",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 3,
+  "failure_classes": [
+   "cert_mismatch"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "1e83ac1e-2702-4255-a3d6-1f0718bf0626",
+  "date_first": "2026-06-05",
+  "date_last": "2026-06-09",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 6,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "cb04b5c7-618d-4486-9776-e25e53a981e2",
+  "date_first": "2026-06-05",
+  "date_last": "2026-06-05",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 6,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "615c417c-b14c-4e85-9af7-7e6c86fe0c15",
+  "date_first": "2026-06-09",
+  "date_last": "2026-06-09",
+  "n_sites": 1,
+  "n_real_sites": 0,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "7bca823c-0b46-4589-8fb6-e705586248ac",
+  "date_first": "2026-06-09",
+  "date_last": "2026-06-09",
+  "n_sites": 1,
+  "n_real_sites": 0,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 1,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "b31cdd17-9a67-4e3f-a70b-b257996902f8",
+  "date_first": "2026-06-09",
+  "date_last": "2026-06-09",
+  "n_sites": 1,
+  "n_real_sites": 0,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 5,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "fd413dd9-24fb-4e17-b7c3-e500f9266127",
+  "date_first": "2026-06-09",
+  "date_last": "2026-06-09",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 4,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "82046a3f-7888-4529-8fe6-249a9154317b",
+  "date_first": "2026-06-10",
+  "date_last": "2026-06-10",
+  "n_sites": 2,
+  "n_real_sites": 1,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 2,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "c2b515c4-b411-4e0b-947c-b6a3ec333ef6",
+  "date_first": "2026-06-10",
+  "date_last": "2026-06-10",
+  "n_sites": 2,
+  "n_real_sites": 1,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "d8f7e0b3-a884-4bf7-91e4-8bb2eafe6f17",
+  "date_first": "2026-06-10",
+  "date_last": "2026-06-10",
+  "n_sites": 2,
+  "n_real_sites": 1,
+  "n_test_sites": 1,
+  "is_production": false,
+  "learn_tasks": 4,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "5742feb5-5a93-41a9-8f54-d356b2b47ec6",
+  "date_first": "2026-06-11",
+  "date_last": "2026-06-12",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 7,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "ac4440ab-2bde-4a2c-90bb-ea28e303d8f2",
+  "date_first": "2026-06-11",
+  "date_last": "2026-07-02",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 7,
+  "failure_classes": [
+   "stale_lock"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "a940283a-b9a9-4e0e-a617-05d4c2037160",
+  "date_first": "2026-06-11",
+  "date_last": "2026-06-12",
+  "n_sites": 3,
+  "n_real_sites": 3,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 27,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "f3c52419-97c8-460c-8075-8bd05b786fb9",
+  "date_first": "2026-06-11",
+  "date_last": "2026-06-16",
+  "n_sites": 3,
+  "n_real_sites": 3,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 135,
+  "failure_classes": [
+   "data_missing",
+   "stale_lock"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "fd6fdc94-a8af-46c1-a9ed-57eceeb0d135",
+  "date_first": "2026-06-11",
+  "date_last": "2026-07-03",
+  "n_sites": 4,
+  "n_real_sites": 4,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 447,
+  "failure_classes": [
+   "cert_mismatch",
+   "stale_lock"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "55fb72f2-e6ef-4881-a2e6-dcec458dca15",
+  "date_first": "2026-06-11",
+  "date_last": "2026-06-18",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 6,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "cc06f27a-00fc-47f1-b992-10e3ceb12535",
+  "date_first": "2026-06-11",
+  "date_last": "2026-06-20",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 50,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "d6486290-67c4-4dfe-b427-cbd9a3d24f3f",
+  "date_first": "2026-06-11",
+  "date_last": "2026-07-07",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 80,
+  "failure_classes": [
+   "cert_mismatch"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "0e4adec0-237b-4baf-9c75-e0af60a25be8",
+  "date_first": "2026-06-29",
+  "date_last": "2026-06-29",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "5195555d-1d65-4e8c-87f4-ab217707a789",
+  "date_first": "2026-06-29",
+  "date_last": "2026-06-29",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "7486b70e-3fbc-4cb1-8f86-787d89720c1c",
+  "date_first": "2026-06-29",
+  "date_last": "2026-06-29",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 4,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "76665396-f937-401a-a191-bf0bd5143c19",
+  "date_first": "2026-06-29",
+  "date_last": "2026-06-29",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [
+   "data_missing"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "c53aadf8-2f70-4e60-a72a-20459706cada",
+  "date_first": "2026-06-29",
+  "date_last": "2026-06-29",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 4,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "c9fc63bb-21be-4dd8-8912-9d161cdab57f",
+  "date_first": "2026-06-29",
+  "date_last": "2026-06-29",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "d89e9a3a-687c-4514-9f61-7056517968cd",
+  "date_first": "2026-06-29",
+  "date_last": "2026-06-29",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 17,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "f15bddf4-727f-4e4f-8eea-dadf933e5d6e",
+  "date_first": "2026-06-29",
+  "date_last": "2026-06-29",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 10,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "fef10dec-502c-4a1e-a919-f98bb2c13fa7",
+  "date_first": "2026-06-29",
+  "date_last": "2026-06-29",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 10,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "01122bb5-f923-47ce-a2e3-5b4380a81cf0",
+  "date_first": "2026-06-30",
+  "date_last": "2026-06-30",
+  "n_sites": 3,
+  "n_real_sites": 3,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "bfc781ad-3b09-4bfc-9424-ffa5145bd02e",
+  "date_first": "2026-06-30",
+  "date_last": "2026-06-30",
+  "n_sites": 3,
+  "n_real_sites": 3,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 0,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "e20bdf3b-648b-4299-a02b-7423fe367ed9",
+  "date_first": "2026-06-30",
+  "date_last": "2026-06-30",
+  "n_sites": 3,
+  "n_real_sites": 3,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 16,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "003ccdeb-1f5d-40a6-b6a9-50caf358bcb4",
+  "date_first": "2026-07-01",
+  "date_last": "2026-07-01",
+  "n_sites": 3,
+  "n_real_sites": 3,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 9,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "b999ee3f-4ead-4bd0-b585-8ee6dd9e21ba",
+  "date_first": "2026-07-01",
+  "date_last": "2026-07-01",
+  "n_sites": 3,
+  "n_real_sites": 3,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 12,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "5c3805e5-2390-48d9-9193-474a4edd1227",
+  "date_first": "2026-07-02",
+  "date_last": "2026-07-03",
+  "n_sites": 5,
+  "n_real_sites": 5,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 5,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "adcd0b80-5ac1-41e4-ad55-54bc97f76e25",
+  "date_first": "2026-07-02",
+  "date_last": "2026-07-03",
+  "n_sites": 6,
+  "n_real_sites": 6,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 35,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "eb9b942d-0796-423e-920e-3261534c0663",
+  "date_first": "2026-07-02",
+  "date_last": "2026-07-06",
+  "n_sites": 6,
+  "n_real_sites": 6,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 74,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "f7824f34-187f-4eb7-9460-5b71dcf72851",
+  "date_first": "2026-07-02",
+  "date_last": "2026-08-05",
+  "n_sites": 6,
+  "n_real_sites": 6,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 80,
+  "failure_classes": [
+   "cert_mismatch"
+  ],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "0a4a286a-5036-4d58-a813-396a605d3d59",
+  "date_first": "2026-07-06",
+  "date_last": "2026-07-06",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 4,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "be05a8e9-2595-4028-aed7-7f829f115039",
+  "date_first": "2026-07-06",
+  "date_last": "2026-07-06",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 4,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "ca69f347-0d0b-4f14-9b67-353744253498",
+  "date_first": "2026-07-21",
+  "date_last": "2026-09-03",
+  "n_sites": 6,
+  "n_real_sites": 6,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 206,
+  "failure_classes": [],
+  "source": "both",
+  "status": "FINISHED:ABORTED",
+  "duration": "0:29:09.213414"
+ },
+ {
+  "job_id": "fd8ce441-1120-4dd8-b9d3-e238d2ccb48c",
+  "date_first": "2026-07-21",
+  "date_last": "2026-09-09",
+  "n_sites": 6,
+  "n_real_sites": 6,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 252,
+  "failure_classes": [
+   "stale_lock"
+  ],
+  "source": "both",
+  "status": "FINISHED:COMPLETED",
+  "duration": "0:00:27.519649"
+ },
+ {
+  "job_id": "27b33655-80fe-478c-ad68-1a53d0850ad3",
+  "date_first": "2026-07-31",
+  "date_last": "2026-07-31",
+  "n_sites": 7,
+  "n_real_sites": 7,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 14,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "1:50:55.533980",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "c5066fbf-aee4-43c9-99ad-c4f4bc4350ed",
+  "date_first": "2026-08-05",
+  "date_last": "2026-09-03",
+  "n_sites": 1,
+  "n_real_sites": 1,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 32,
+  "failure_classes": [],
+  "source": "both",
+  "status": "FINISHED:EXECUTION_EXCEPTION",
+  "duration": "0:01:19.152849"
+ },
+ {
+  "job_id": "bade52db-e621-444d-a6e5-c3e7d2332ac7",
+  "date_first": "2026-08-05",
+  "date_last": "2026-08-05",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "0:00:27.547070",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "6d228ba1-5470-47a2-bb81-aac98e3e9a33",
+  "date_first": "2026-08-06",
+  "date_last": "2026-08-06",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "0:00:27.534211",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "6e1d08b9-09fc-4dc1-a683-dcc4dfcbea01",
+  "date_first": "2026-08-06",
+  "date_last": "2026-08-08",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 32,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "status": "FINISHED:EXECUTION_EXCEPTION",
+  "duration": "1 day, 6:14:24.670639",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "831d16b4-8500-44b3-b449-fdef28d1a0e7",
+  "date_first": "2026-08-06",
+  "date_last": "2026-08-06",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [],
+  "status": "FINISHED:ABORTED",
+  "duration": "10:45:23.062270",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "3fa12bcd-124a-4ac6-a3f9-bdd356888026",
+  "date_first": "2026-08-11",
+  "date_last": "2026-08-11",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "0:00:27.700511",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "a01b7629-e49c-4e7b-978f-980e6ca32d5c",
+  "date_first": "2026-08-11",
+  "date_last": "2026-08-11",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 6,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "status": "FINISHED:EXECUTION_EXCEPTION",
+  "duration": "0:02:28.448489",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "a8c6a75b-0666-49fa-a832-ba3c2d15f5d2",
+  "date_first": "2026-08-11",
+  "date_last": "2026-08-11",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "2:23:15.745261",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "1e4bface-91f8-460b-bcf0-2e14d60b5d72",
+  "date_first": "2026-08-12",
+  "date_last": "2026-08-12",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "2:54:47.416760",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "87c5bbee-6f8b-41cb-bd37-e9625cbecee2",
+  "date_first": "2026-08-13",
+  "date_last": "2026-08-15",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 160,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "1 day, 19:52:47.775123",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "85159a6d-5fc1-4ead-bb8c-6ed610f2ab5a",
+  "date_first": "2026-09-03",
+  "date_last": "2026-09-03",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "0:00:52.081768",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "24cdf247-14da-4f8e-a374-fa00f0e0c07a",
+  "date_first": "2026-09-04",
+  "date_last": "2026-09-04",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [
+   "client_disconnected"
+  ],
+  "status": "FINISHED:EXECUTION_EXCEPTION",
+  "duration": "5:00:05.912490",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "7c6e72c6-e337-4fd8-b6d9-fd77146fedd3",
+  "date_first": "2026-09-04",
+  "date_last": "2026-09-04",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "0:00:36.753440",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "912acc1a-29e6-4405-a071-e1cd80d35857",
+  "date_first": "2026-09-04",
+  "date_last": "2026-09-04",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "status": "FINISHED:ABORTED",
+  "duration": "1:13:32.745118",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "b534abf6-e914-4324-8c67-396695b39dde",
+  "date_first": "2026-09-04",
+  "date_last": "2026-09-04",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "status": "FINISHED:EXECUTION_EXCEPTION",
+  "duration": "0:03:16.111151",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "c5520641-f1ed-4251-a63c-95c7ee61144b",
+  "date_first": "2026-09-04",
+  "date_last": "2026-09-04",
+  "n_sites": 8,
+  "n_real_sites": 8,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 8,
+  "failure_classes": [],
+  "status": "FINISHED:COMPLETED",
+  "duration": "0:00:34.134654",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "17fb1512-dda8-4468-9841-bdbc66b2f30d",
+  "date_first": "2026-09-07",
+  "date_last": "2026-09-07",
+  "n_sites": 7,
+  "n_real_sites": 7,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 2,
+  "failure_classes": [
+   "liveness_timeout"
+  ],
+  "status": "FINISHED:ABORTED",
+  "duration": "0:10:13.555210",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "354c87da-dd2c-4bb4-9863-2c53daeca644",
+  "date_first": "2026-09-07",
+  "date_last": "2026-09-07",
+  "n_sites": 7,
+  "n_real_sites": 7,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 7,
+  "failure_classes": [
+   "client_disconnected",
+   "liveness_timeout"
+  ],
+  "status": "FINISHED:ABORTED",
+  "duration": "3:41:59.437832",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "513c8988-c9e1-4f54-b79b-765c07a88656",
+  "date_first": "2026-09-07",
+  "date_last": "2026-09-08",
+  "n_sites": 2,
+  "n_real_sites": 2,
+  "n_test_sites": 0,
+  "is_production": true,
+  "learn_tasks": 10,
+  "failure_classes": [
+   "client_disconnected",
+   "liveness_timeout"
+  ],
+  "status": "FINISHED:ABORTED",
+  "duration": "19:23:35.362388",
+  "source": "coordinator"
+ },
+ {
+  "job_id": "5667d451-8299-4856-b4aa-b40100fff69d",
+  "date_first": "2026-09-08",
+  "date_last": "2026-09-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "63859fb0-0b9c-435d-ba97-6be481246d14",
+  "date_first": "2026-09-08",
+  "date_last": "2026-09-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 1,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "ed81a052-4c5f-4804-99e1-94b1cd142ba4",
+  "date_first": "2026-09-08",
+  "date_last": "2026-09-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 0,
+  "failure_classes": [],
+  "source": "live_monitor"
+ },
+ {
+  "job_id": "fc2d7170-a302-4033-be05-bb9ce1cb9526",
+  "date_first": "2026-09-08",
+  "date_last": "2026-09-08",
+  "n_sites": 2,
+  "n_real_sites": 0,
+  "n_test_sites": 2,
+  "is_production": false,
+  "learn_tasks": 6,
+  "failure_classes": [],
+  "source": "live_monitor"
+ }
+]

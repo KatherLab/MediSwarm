@@ -17,6 +17,9 @@
     --warn-bg:     #F6EDDF;
     --bad:         #9E3339;
     --bad-bg:      #F7E5E6;
+    --s1:          #2a78d6;
+    --s2:          #eb6834;
+    --s3:          #1baf7a;
     --serif: "Iowan Old Style", "Charter", "Bitstream Charter", "Palatino Linotype", Palatino, Georgia, serif;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
@@ -30,6 +33,7 @@
       --good: #6FBE92; --good-bg: #15301F;
       --warn: #D6A45C; --warn-bg: #33260F;
       --bad: #E08088;  --bad-bg: #351A1D;
+      --s1: #3987e5;   --s2: #d95926;  --s3: #199e70;
     }
   }
   :root[data-theme="dark"] {
@@ -40,56 +44,37 @@
     --good: #6FBE92; --good-bg: #15301F;
     --warn: #D6A45C; --warn-bg: #33260F;
     --bad: #E08088;  --bad-bg: #351A1D;
+    --s1: #3987e5;   --s2: #d95926;  --s3: #199e70;
   }
 
   body { background: var(--ground); color: var(--ink); font-family: var(--sans); line-height: 1.5; }
-
   .deck { max-width: 68rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; display: flex; flex-direction: column; gap: 1.5rem; }
 
   .slide {
     background: var(--slide);
     border: 1px solid var(--rule);
     border-radius: 8px;
-    padding: clamp(1.5rem, 3.5vw, 2.75rem);
-    aspect-ratio: 16 / 9;
-    min-height: 26rem;
+    padding: clamp(1.4rem, 3.2vw, 2.5rem);
+    /* Slide-shaped when the content fits, taller when it does not. A hard
+       aspect-ratio plus overflow:hidden silently clips the diagram slides. */
+    min-height: min(56.25vw, 37rem);
     display: flex; flex-direction: column;
     position: relative;
-    overflow: hidden;
   }
-  @media (max-width: 700px) { .slide { aspect-ratio: auto; min-height: 0; } }
+  @media (max-width: 820px) { .slide { min-height: 0; } }
 
-  .num {
-    position: absolute; top: 1rem; right: 1.25rem;
-    font-family: var(--mono); font-size: .7rem; color: var(--muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .eyebrow {
-    font-family: var(--mono); font-size: .68rem; letter-spacing: .14em;
-    text-transform: uppercase; color: var(--accent); font-weight: 600;
-  }
-  h1 {
-    font-family: var(--serif); font-size: clamp(1.9rem, 4.4vw, 2.9rem);
-    line-height: 1.08; margin: .5rem 0 0; font-weight: 600; letter-spacing: -.015em;
-    text-wrap: balance;
-  }
-  h2 {
-    font-family: var(--serif); font-size: clamp(1.35rem, 2.8vw, 1.95rem);
-    line-height: 1.15; margin: .35rem 0 0; font-weight: 600; letter-spacing: -.01em;
-    text-wrap: balance;
-  }
-  .sub { color: var(--ink-soft); font-size: clamp(.95rem, 1.6vw, 1.08rem); margin-top: .75rem; max-width: 46rem; text-wrap: pretty; }
-  .body { margin-top: 1.4rem; display: flex; flex-direction: column; gap: .9rem; flex: 1; }
+  .num { position: absolute; top: 1rem; right: 1.25rem; font-family: var(--mono); font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .eyebrow { font-family: var(--mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1 { font-family: var(--serif); font-size: clamp(1.9rem, 4.4vw, 2.9rem); line-height: 1.08; margin: .5rem 0 0; font-weight: 600; letter-spacing: -.015em; text-wrap: balance; }
+  h2 { font-family: var(--serif); font-size: clamp(1.3rem, 2.7vw, 1.85rem); line-height: 1.15; margin: .35rem 0 0; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+  .sub { color: var(--ink-soft); font-size: clamp(.94rem, 1.55vw, 1.06rem); margin-top: .7rem; max-width: 46rem; text-wrap: pretty; }
+  .body { margin-top: 1.2rem; display: flex; flex-direction: column; gap: .85rem; flex: 1; min-height: 0; }
   p { margin: 0; }
-  code { font-family: var(--mono); font-size: .86em; background: var(--slide-alt); border: 1px solid var(--rule-soft); border-radius: 3px; padding: .08em .34em; }
   strong { font-weight: 650; }
 
-  ul { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .55rem; }
-  li { color: var(--ink-soft); font-size: clamp(.92rem, 1.5vw, 1rem); }
+  ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .5rem; }
+  li { color: var(--ink-soft); font-size: clamp(.88rem, 1.45vw, .98rem); }
   li::marker { color: var(--accent); }
-
-  .big { font-family: var(--serif); font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 600; line-height: 1; letter-spacing: -.02em; }
-  .big-note { color: var(--muted); font-size: .88rem; margin-top: .4rem; }
 
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
   .stats > div { background: var(--slide); padding: .9rem 1rem; }
@@ -98,13 +83,12 @@
   .stats .cap { display: block; font-family: var(--sans); font-size: .74rem; font-weight: 400; color: var(--muted); margin-top: .1rem; line-height: 1.35; }
 
   .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; }
-  table { border-collapse: collapse; width: 100%; font-size: .87rem; min-width: 34rem; }
-  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--rule-soft); }
+  table { border-collapse: collapse; width: 100%; font-size: .87rem; min-width: 32rem; }
+  th, td { text-align: left; padding: .5rem .8rem; border-bottom: 1px solid var(--rule-soft); }
   thead th { font-family: var(--mono); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--slide-alt); border-bottom: 1px solid var(--rule); white-space: nowrap; }
   tbody tr:last-child td { border-bottom: none; }
   td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
-  td.id { font-family: var(--mono); font-size: .8rem; white-space: nowrap; }
-  tr.flag td { background: var(--bad-bg); }
+  td.id { white-space: nowrap; }
 
   .chip { display: inline-block; font-family: var(--mono); font-size: .64rem; letter-spacing: .06em; text-transform: uppercase; padding: .16em .5em; border-radius: 3px; font-weight: 600; white-space: nowrap; }
   .chip.good { background: var(--good-bg); color: var(--good); }
@@ -112,294 +96,630 @@
   .chip.bad  { background: var(--bad-bg);  color: var(--bad); }
   .chip.info { background: var(--accent-soft); color: var(--accent); }
 
-  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 4px; padding: .9rem 1.1rem; font-size: .95rem; color: var(--ink-soft); }
+  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 4px; padding: .8rem 1rem; font-size: .92rem; color: var(--ink-soft); }
   .callout strong { color: var(--ink); }
+  .callout.plain { background: var(--slide-alt); border-left-color: var(--muted); }
 
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
-  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
-  .panel { background: var(--slide-alt); border: 1px solid var(--rule-soft); border-radius: 6px; padding: .95rem 1.1rem; }
-  .panel h3 { margin: 0 0 .4rem; font-size: .82rem; font-family: var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-  .panel p, .panel li { font-size: .89rem; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .split { display: grid; grid-template-columns: minmax(0,0.82fr) minmax(0,1fr); gap: 1.4rem; align-items: center; flex: 1; min-height: 0; }
+  @media (max-width: 820px) { .two, .split { grid-template-columns: 1fr; } }
+  .panel { background: var(--slide-alt); border: 1px solid var(--rule-soft); border-radius: 6px; padding: .9rem 1rem; }
+  .panel h3 { margin: 0 0 .35rem; font-size: .8rem; font-family: var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .panel p, .panel li { font-size: .88rem; }
 
   .ask { border: 1px solid var(--accent); border-radius: 6px; overflow: hidden; }
-  .ask-h { background: var(--accent-soft); padding: .7rem 1.1rem; font-family: var(--mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
-  .ask-b { padding: 1rem 1.1rem; font-size: .95rem; color: var(--ink-soft); }
+  .ask-h { background: var(--accent-soft); padding: .65rem 1.1rem; font-family: var(--mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .ask-b { padding: .9rem 1.1rem; font-size: .93rem; color: var(--ink-soft); }
+
+  /* ---- diagrams ---------------------------------------------------- */
+  .fig { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+  .fig svg { display: block; width: 100%; height: auto; max-height: 100%; overflow: visible; }
+  .fig figcaption { font-size: .78rem; color: var(--muted); }
+  .d-node      { font-family: var(--sans); font-size: 12.5px; font-weight: 650; fill: var(--ink); }
+  .d-node-sub  { font-family: var(--sans); font-size: 10px; fill: var(--muted); }
+  .d-ctr-h     { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; fill: var(--accent); font-weight: 700; }
+  .d-ctr       { font-family: var(--sans); font-size: 11px; fill: var(--ink-soft); }
+  .d-ctr-g     { font-family: var(--sans); font-size: 10px; fill: var(--muted); font-style: italic; }
+  .d-note      { font-family: var(--sans); font-size: 11px; fill: var(--ink-soft); font-weight: 600; }
+  .d-note-sm   { font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em; fill: var(--muted); }
+  .d-step-n    { font-family: var(--mono); font-size: 11px; fill: var(--accent); font-weight: 700; }
+  .d-step      { font-family: var(--sans); font-size: 12px; fill: var(--ink-soft); }
+  .d-loop      { font-family: var(--sans); font-size: 11.5px; fill: var(--accent); font-weight: 600; }
+  .d-panel-h   { font-family: var(--mono); font-size: 9.5px; letter-spacing: .11em; fill: var(--muted); font-weight: 600; }
+  .d-item      { font-family: var(--sans); font-size: 12.5px; fill: var(--ink); }
+  .d-item-sub  { font-family: var(--sans); font-size: 10.5px; fill: var(--muted); }
+  .d-bar-lbl   { font-family: var(--sans); font-size: 12px; font-weight: 650; fill: var(--ink); }
+  .d-bar-val   { font-family: var(--mono); font-size: 11.5px; fill: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: .9rem; font-size: .8rem; color: var(--ink-soft); }
+  .legend span { display: inline-flex; align-items: center; gap: .35rem; }
+  .sw { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
 
   footer { text-align: center; color: var(--muted); font-size: .8rem; padding-top: 1rem; }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
   @media print {
     body { background: #fff; }
     .deck { gap: 0; padding: 0; max-width: none; }
-    .slide { page-break-after: always; border: none; border-radius: 0; aspect-ratio: auto; min-height: 100vh; }
+    .slide { page-break-after: always; border: none; border-radius: 0; min-height: 100vh; }
   }
 </style>
 
 <div class="deck">
 
-  <!-- 1 ------------------------------------------------------------- -->
+  <!-- 1 -->
   <section class="slide">
     <span class="num">1</span>
-    <div class="eyebrow">ODELIA consortium · technical meeting</div>
-    <h1>Per-site results now come back from every hospital</h1>
+    <div class="eyebrow">ODELIA consortium · September 2026</div>
+    <h1>Eight hospitals, one shared model, no patient data moved</h1>
     <p class="sub">
-      What changed this week, what it revealed about our evaluation, and the one thing we need
-      from partners next.
+      How the system works, what it has achieved, and what we need from partners next.
+      This briefing avoids technical detail on purpose — everything here is the plain version.
     </p>
     <div class="body" style="justify-content:flex-end">
       <div class="stats">
+        <div><dt>Hospitals</dt><dd>8<span class="cap">six countries, all training together</span></dd></div>
+        <div><dt>Scans trained on</dt><dd>34,462<span class="cap">none of them left its hospital</span></dd></div>
+        <div><dt>Best shared model</dt><dd>0.887<span class="cap">detecting malignancy — better than any single hospital achieved alone</span></dd></div>
         <div><dt>Project month</dt><dd>45<span class="cap">of 60</span></dd></div>
-        <div><dt>Next deadline</dt><dd>M48<span class="cap">three deliverables</span></dd></div>
-        <div><dt>Sites online</dt><dd>8<span class="cap">full consortium</span></dd></div>
-        <div><dt>Status</dt><dd>Fixed<span class="cap">verified on real data</span></dd></div>
       </div>
     </div>
   </section>
 
-  <!-- 2 ------------------------------------------------------------- -->
+  <!-- 2 -->
   <section class="slide">
     <span class="num">2</span>
-    <div class="eyebrow">The problem</div>
-    <h2>Until this week, results never left the hospitals</h2>
-    <div class="body">
-      <p class="sub" style="margin-top:0">
-        The coordinator's results file came back empty after <em>every</em> peer-to-peer run — after
-        a two-day twenty-round run and after a fifty-second test run alike.
-      </p>
-      <div class="two">
-        <div class="panel">
-          <h3>What that cost us</h3>
-          <ul>
-            <li>Per-site figures had to be collected by logging into each hospital by hand</li>
-            <li>No central view of how the shared model performs at each centre</li>
-            <li>Blocked the regulatory testing node, the regional comparison, and privacy accounting</li>
-          </ul>
-        </div>
-        <div class="panel">
-          <h3>Why it went unnoticed</h3>
-          <ul>
-            <li>Every run reported success</li>
-            <li>The server log said metrics had arrived from all eight sites</li>
-            <li>Automated tests passed — while silently skipping the file that would have caught it</li>
-          </ul>
+    <div class="eyebrow">The design</div>
+    <h2>The model travels. The data never does.</h2>
+    <div class="split">
+      <div style="display:flex;flex-direction:column;gap:.8rem">
+        <ul>
+          <li>Every hospital keeps its images on its own machines, behind its own firewall. Nothing is copied to a central store, because there is no central store.</li>
+          <li>What moves is <strong>the model</strong> — a file of numbers. It contains no images, no reports and no patient details.</li>
+          <li>Each hospital improves the model on its own patients, then passes it to the next hospital in the ring.</li>
+          <li>A coordination server in Dresden decides <em>whose turn it is</em>. It never receives data and never does the learning itself.</li>
+        </ul>
+        <div class="callout">
+          <strong>That last point is what makes this a swarm.</strong> In most collaborative
+          AI there is a central server that collects everyone's contributions. Here there
+          is not — the hospitals hand the model directly to one another.
         </div>
       </div>
+      <figure class="fig">
+        <svg viewBox="0 0 500 486" role="img" aria-label="Eight hospitals arranged in a ring. The model is passed clockwise from hospital to hospital: Aachen, Guildford, Cambridge, Athens, Barcelona, Zurich, Utrecht, Nijmegen. Patient data stays inside each hospital. A coordination server in Dresden only schedules whose turn it is.">
+<circle cx="255" cy="262" r="155" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="7 6" opacity=".55"/>
+<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(314.3 118.8) rotate(22.5)"/>
+<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(398.2 202.7) rotate(67.5)"/>
+<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(398.2 321.3) rotate(112.5)"/>
+<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(314.3 405.2) rotate(157.5)"/>
+<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(195.7 405.2) rotate(202.5)"/>
+<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(111.8 321.3) rotate(247.5)"/>
+<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(111.8 202.7) rotate(292.5)"/>
+<polygon points="-5.5,-4.5 6,0 -5.5,4.5" fill="var(--accent)" transform="translate(195.7 118.8) rotate(337.5)"/>
+<circle cx="255" cy="262" r="66" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
+<text class="d-ctr-h" x="255" y="248" text-anchor="middle">THE MODEL</text>
+<text class="d-ctr" x="255" y="268" text-anchor="middle">a file of numbers</text>
+<text class="d-ctr" x="255" y="284" text-anchor="middle">no images inside</text>
+<text class="d-ctr-g" x="255" y="304" text-anchor="middle">better at every stop</text>
+<g><rect x="205.0" y="88.0" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="255.0" y="105.0" text-anchor="middle">UKA</text>
+<text class="d-node-sub" x="255.0" y="118.0" text-anchor="middle">Aachen</text></g>
+<g><rect x="314.6" y="133.4" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="364.6" y="150.4" text-anchor="middle">RSH</text>
+<text class="d-node-sub" x="364.6" y="163.4" text-anchor="middle">Guildford</text></g>
+<g><rect x="360.0" y="243.0" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="410.0" y="260.0" text-anchor="middle">CAM</text>
+<text class="d-node-sub" x="410.0" y="273.0" text-anchor="middle">Cambridge</text></g>
+<g><rect x="314.6" y="352.6" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="364.6" y="369.6" text-anchor="middle">MHA</text>
+<text class="d-node-sub" x="364.6" y="382.6" text-anchor="middle">Athens</text></g>
+<g><rect x="205.0" y="398.0" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="255.0" y="415.0" text-anchor="middle">VHIO</text>
+<text class="d-node-sub" x="255.0" y="428.0" text-anchor="middle">Barcelona</text></g>
+<g><rect x="95.4" y="352.6" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="145.4" y="369.6" text-anchor="middle">USZ</text>
+<text class="d-node-sub" x="145.4" y="382.6" text-anchor="middle">Zurich</text></g>
+<g><rect x="50.0" y="243.0" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="100.0" y="260.0" text-anchor="middle">UMCU</text>
+<text class="d-node-sub" x="100.0" y="273.0" text-anchor="middle">Utrecht</text></g>
+<g><rect x="95.4" y="133.4" width="100" height="38" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="145.4" y="150.4" text-anchor="middle">RUMC</text>
+<text class="d-node-sub" x="145.4" y="163.4" text-anchor="middle">Nijmegen</text></g>
+<g><rect x="6" y="10" width="196" height="36" rx="6" fill="none" stroke="var(--muted)" stroke-width="1.1" stroke-dasharray="4 4"/>
+<text class="d-note" x="104" y="26" text-anchor="middle">Coordination server · Dresden</text>
+<text class="d-note-sm" x="104" y="39" text-anchor="middle">schedules turns · holds no data</text></g>
+<path d="M104 46 L104 70 Q104 82 116 88 L140 108" fill="none" stroke="var(--muted)" stroke-width="1.1" stroke-dasharray="4 4"/>
+</svg>
+        <figcaption>The eight ODELIA sites and the path the model takes.</figcaption>
+      </figure>
     </div>
   </section>
 
-  <!-- 3 ------------------------------------------------------------- -->
+  <!-- 3 -->
   <section class="slide">
     <span class="num">3</span>
-    <div class="eyebrow">Verified</div>
-    <h2>Radboud and Utrecht reported straight to the coordinator</h2>
+    <div class="eyebrow">The design</div>
+    <h2>What actually happens during a training round</h2>
     <div class="body">
-      <div class="scroll">
-        <table>
-          <thead>
-            <tr><th>Site</th><th>Cases</th><th>No lesion</th><th>Benign</th><th>Malignant</th><th>Accuracy</th><th>AUROC</th></tr>
-          </thead>
-          <tbody>
-            <tr class="flag"><td class="id">Radboud</td><td class="n">896</td><td class="n">888</td><td class="n">0</td><td class="n">8</td><td class="n">0.991</td><td class="n">0.417</td></tr>
-            <tr><td class="id">Utrecht</td><td class="n">1557</td><td class="n">1361</td><td class="n">186</td><td class="n">10</td><td class="n">0.874</td><td class="n">0.698</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="callout">
-        <strong>Read the highlighted row carefully.</strong> 99.1&#8239;% accuracy with an AUROC of
-        0.417 — below chance. Of 896 cases, 888 carry no lesion and none are benign. A model that
-        answers "no lesion" almost always scores 99&#8239;% and discriminates nothing.
-      </div>
-      <p style="font-size:.9rem;color:var(--muted)">
-        These are validation figures shown as evidence that the mechanism works — not model
-        performance results.
-      </p>
-    </div>
-  </section>
-
-  <!-- 4 ------------------------------------------------------------- -->
-  <section class="slide">
-    <span class="num">4</span>
-    <div class="eyebrow">Why this matters clinically</div>
-    <h2>A number without its denominator is not a result</h2>
-    <div class="body">
-      <p class="sub" style="margin-top:0">
-        Reported on its own, Radboud's 99&#8239;% would make it look like the strongest centre in
-        the consortium. It is an artefact of a 99:1 class split.
-      </p>
+      <figure class="fig">
+        <svg viewBox="0 0 880 200" role="img" aria-label="A training round in four steps: the coordinator sets the order; a hospital receives the current model; it trains on its own patients on its own hardware; it hands the improved model to the next hospital. The last three steps repeat once per hospital, and eight hops complete one round.">
+<rect x="12" y="18" width="190" height="84" rx="7" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-step-n" x="25" y="39">1</text>
+<text class="d-step" x="25" y="61">The coordinator</text>
+<text class="d-step" x="25" y="77">sets the order</text>
+<text class="d-step" x="25" y="93">for this round</text>
+<path d="M208 60.0 L230 60.0" stroke="var(--muted)" stroke-width="1.4"/>
+<polygon points="-5,-4 5,0 -5,4" fill="var(--muted)" transform="translate(231 60.0)"/>
+<rect x="236" y="18" width="190" height="84" rx="7" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-step-n" x="249" y="39">2</text>
+<text class="d-step" x="249" y="61">A hospital receives</text>
+<text class="d-step" x="249" y="77">the current model</text>
+<text class="d-step" x="249" y="93">over the network</text>
+<path d="M432 60.0 L454 60.0" stroke="var(--muted)" stroke-width="1.4"/>
+<polygon points="-5,-4 5,0 -5,4" fill="var(--muted)" transform="translate(455 60.0)"/>
+<rect x="460" y="18" width="190" height="84" rx="7" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.2"/>
+<text class="d-step-n" x="473" y="39">3</text>
+<text class="d-step" x="473" y="61">It trains</text>
+<text class="d-step" x="473" y="77">on its own patients,</text>
+<text class="d-step" x="473" y="93">on its own hardware</text>
+<path d="M656 60.0 L678 60.0" stroke="var(--muted)" stroke-width="1.4"/>
+<polygon points="-5,-4 5,0 -5,4" fill="var(--muted)" transform="translate(679 60.0)"/>
+<rect x="684" y="18" width="190" height="84" rx="7" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-step-n" x="697" y="39">4</text>
+<text class="d-step" x="697" y="61">It hands the</text>
+<text class="d-step" x="697" y="77">improved model</text>
+<text class="d-step" x="697" y="93">to the next hospital</text>
+<path d="M779.0 102 L779.0 138 L331.0 138 L331.0 111" fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="6 5"/>
+<polygon points="-4.5,4.5 0,-5 4.5,4.5" fill="var(--accent)" transform="translate(331.0 109)"/>
+<rect x="413.0" y="125" width="284" height="26" rx="5" fill="var(--slide)"/>
+<text class="d-loop" x="555.0" y="142" text-anchor="middle">eight hops — one per hospital — complete one round</text>
+</svg>
+      </figure>
       <div class="two">
         <div class="panel">
-          <h3>We have already been caught by this</h3>
-          <p>
-            UMC Utrecht was described as performing materially worse than other centres. That came
-            from a macro-averaged AUROC in which one class was represented by <strong>two</strong>
-            cases. Excluding that class, Utrecht moves 0.602&nbsp;→&nbsp;0.717 and Cambridge
-            0.710&nbsp;→&nbsp;0.908.
-          </p>
+          <h3>The unit of work</h3>
+          <p>One hospital, one turn with the model. Eight turns make a round. The August
+          benchmark ran <strong>twenty rounds</strong> — 160 turns in all, roughly two
+          hours each, spread over two days.</p>
         </div>
         <div class="panel">
-          <h3>What we do now</h3>
-          <ul>
-            <li>Every metric travels with its per-class support count</li>
-            <li>Ranking centres by macro AUROC is off the table where a class has single-digit support</li>
-            <li>The failure modes are written up for all partners</li>
-          </ul>
+          <h3>Why it takes so long</h3>
+          <p>The hospitals are very different sizes, and a round is only finished when
+          the slowest one has finished. A site with eighteen thousand scans and a site
+          with a hundred and ninety are both taking a full turn.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <span class="num">4</span>
+    <div class="eyebrow">The design · what partners are usually asked</div>
+    <h2>What leaves a hospital, and what never does</h2>
+    <div class="body">
+      <figure class="fig">
+        <svg viewBox="0 0 880 312" role="img" aria-label="Two columns divided by the hospital boundary. Staying inside: MRI images and raw DICOM, patient identifiers, radiology reports, the hospital database. Crossing the boundary: the model weights, case counts per class, accuracy scores, and optionally per-case predictions carrying a row number but no identifier.">
+<rect x="6" y="34" width="394" height="272" rx="8" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-panel-h" x="24" y="22">STAYS INSIDE THE HOSPITAL — ALWAYS</text>
+<circle cx="34" cy="69" r="9" fill="var(--bad-bg)"/>
+<path d="M30 65 L38 73 M38 65 L30 73" stroke="var(--bad)" stroke-width="1.8" stroke-linecap="round"/>
+<text class="d-item" x="54" y="74">MRI images and the raw DICOM series</text>
+<circle cx="34" cy="127" r="9" fill="var(--bad-bg)"/>
+<path d="M30 123 L38 131 M38 123 L30 131" stroke="var(--bad)" stroke-width="1.8" stroke-linecap="round"/>
+<text class="d-item" x="54" y="132">Patient names, dates of birth, record numbers</text>
+<circle cx="34" cy="185" r="9" fill="var(--bad-bg)"/>
+<path d="M30 181 L38 189 M38 181 L30 189" stroke="var(--bad)" stroke-width="1.8" stroke-linecap="round"/>
+<text class="d-item" x="54" y="190">Radiology reports and clinical notes</text>
+<circle cx="34" cy="243" r="9" fill="var(--bad-bg)"/>
+<path d="M30 239 L38 247 M38 239 L30 247" stroke="var(--bad)" stroke-width="1.8" stroke-linecap="round"/>
+<text class="d-item" x="54" y="248">The hospital's own database and file store</text>
+<path d="M436 8 L436 306" stroke="var(--rule)" stroke-width="2" stroke-dasharray="6 6"/>
+<rect x="404" y="140" width="64" height="34" rx="6" fill="var(--slide)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-note-sm" x="436" y="154" text-anchor="middle">HOSPITAL</text>
+<text class="d-note-sm" x="436" y="166" text-anchor="middle">BOUNDARY</text>
+<rect x="472" y="34" width="402" height="272" rx="8" fill="var(--slide)" stroke="var(--accent)" stroke-width="1.2"/>
+<text class="d-panel-h" x="490" y="22">CROSSES THE BOUNDARY</text>
+<circle cx="500" cy="65" r="9" fill="var(--good-bg)"/>
+<path d="M496 65 L505 65 M501.5 61 L505.5 65 L501.5 69" fill="none" stroke="var(--good)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<text class="d-item" x="520" y="70">The model itself — weights, which are numbers</text>
+<text class="d-item-sub" x="520" y="86">no images and no text are stored inside it</text>
+<circle cx="500" cy="123" r="9" fill="var(--good-bg)"/>
+<path d="M496 123 L505 123 M501.5 119 L505.5 123 L501.5 127" fill="none" stroke="var(--good)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<text class="d-item" x="520" y="128">How many cases the site trained on</text>
+<text class="d-item-sub" x="520" y="144">and how many of each of the three classes</text>
+<circle cx="500" cy="181" r="9" fill="var(--good-bg)"/>
+<path d="M496 181 L505 181 M501.5 177 L505.5 181 L501.5 185" fill="none" stroke="var(--good)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<text class="d-item" x="520" y="186">How well the shared model scored at that site</text>
+<text class="d-item-sub" x="520" y="202">accuracy and AUROC, with the counts behind them</text>
+<circle cx="500" cy="239" r="9" fill="var(--warn-bg)"/>
+<path d="M496 239 L505 239 M501.5 235 L505.5 239 L501.5 243" fill="none" stroke="var(--warn)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<text class="d-item" x="520" y="244">Per-case predictions — opt-in, off by default</text>
+<text class="d-item-sub" x="520" y="260">a row number, the label, the probabilities. No identifier.</text>
+</svg>
+      </figure>
       <div class="callout">
-        <strong>Nothing here reflects on any centre's data quality.</strong> It reflects on how we
-        were summarising it.
+        <strong>The last row is the one we would like to discuss.</strong> Returning
+        per-case predictions is <em>off by default</em> and each site decides for itself.
+        It is what makes proper statistical comparison between hospitals possible, and it
+        is required for the regulatory testing node due next year.
       </div>
     </div>
   </section>
 
-  <!-- 5 ------------------------------------------------------------- -->
+  <!-- 5 -->
   <section class="slide">
     <span class="num">5</span>
-    <div class="eyebrow">Honest status</div>
-    <h2>The software is fixed. The fleet is the bottleneck.</h2>
+    <div class="eyebrow">The achievement · the data</div>
+    <h2>What the consortium can now train on</h2>
     <div class="body">
-      <div class="scroll">
-        <table>
-          <thead><tr><th>When</th><th>What happened</th><th>Outcome</th></tr></thead>
-          <tbody>
-            <tr><td class="id">4 Sep</td><td>Aachen host rebooted mid-run, twice, at the same point</td><td><span class="chip bad">Lost</span></td></tr>
-            <tr><td class="id">7 Sep</td><td>Stopped deliberately — was about to overwrite the shared baseline model</td><td><span class="chip warn">Stopped</span></td></tr>
-            <tr><td class="id">7 Sep</td><td>Mitera could not download the model from Royal Surrey; Cambridge dropped</td><td><span class="chip bad">Lost</span></td></tr>
-            <tr><td class="id">7–8 Sep</td><td>Dutch run finished all five rounds, then failed to publish for five hours</td><td><span class="chip good">Recovered</span></td></tr>
-            <tr><td class="id">8 Sep</td><td>In-house test runs — three attempts, all lost to relayed model transfers</td><td><span class="chip info">Cause found</span></td></tr>
-          </tbody>
-        </table>
+      <figure class="fig">
+        <svg viewBox="0 0 720 292" role="img" aria-label="Training volumes per hospital at true scale: Aachen 17834, Utrecht 6133, Nijmegen 3608, Zurich 3448, Cambridge 1778, Athens 1120, Guildford 351, Barcelona 190. Total 34462.">
+<text class="d-bar-lbl" x="84" y="31" text-anchor="end">UKA</text>
+<rect x="96.0" y="14" width="133.1" height="26" fill="var(--s1)"/>
+<rect x="229.1" y="14" width="331.8" height="26" fill="var(--s2)"/>
+<rect x="560.9" y="14" width="35.1" height="26" fill="var(--s3)"/>
+<text class="d-bar-val" x="614" y="31" text-anchor="end">17,834</text>
+<text class="d-bar-lbl" x="84" y="65" text-anchor="end">UMCU</text>
+<rect x="96.0" y="48" width="149.6" height="26" fill="var(--s1)"/>
+<rect x="245.6" y="48" width="20.7" height="26" fill="var(--s2)"/>
+<rect x="266.4" y="48" width="1.6" height="26" fill="var(--s3)"/>
+<text class="d-bar-val" x="614" y="65" text-anchor="end">6,133</text>
+<text class="d-bar-lbl" x="84" y="99" text-anchor="end">RUMC</text>
+<rect x="96.0" y="82" width="100.1" height="26" fill="var(--s1)"/>
+<rect x="196.1" y="82" width="0.8" height="26" fill="var(--s2)"/>
+<rect x="196.2" y="82" width="1.0" height="26" fill="var(--s3)"/>
+<text class="d-bar-val" x="614" y="99" text-anchor="end">3,608</text>
+<text class="d-bar-lbl" x="84" y="133" text-anchor="end">USZ</text>
+<rect x="96.0" y="116" width="53.6" height="26" fill="var(--s1)"/>
+<rect x="149.6" y="116" width="34.9" height="26" fill="var(--s2)"/>
+<rect x="184.5" y="116" width="8.2" height="26" fill="var(--s3)"/>
+<text class="d-bar-val" x="614" y="133" text-anchor="end">3,448</text>
+<text class="d-bar-lbl" x="84" y="167" text-anchor="end">CAM</text>
+<rect x="96.0" y="150" width="47.0" height="26" fill="var(--s1)"/>
+<rect x="143.0" y="150" width="1.2" height="26" fill="var(--s2)"/>
+<rect x="144.2" y="150" width="1.6" height="26" fill="var(--s3)"/>
+<text class="d-bar-val" x="614" y="167" text-anchor="end">1,778</text>
+<text class="d-bar-lbl" x="84" y="201" text-anchor="end">MHA</text>
+<rect x="96.0" y="184" width="25.3" height="26" fill="var(--s1)"/>
+<rect x="121.3" y="184" width="3.4" height="26" fill="var(--s2)"/>
+<rect x="124.7" y="184" width="2.7" height="26" fill="var(--s3)"/>
+<text class="d-bar-val" x="614" y="201" text-anchor="end">1,120</text>
+<text class="d-bar-lbl" x="84" y="235" text-anchor="end">RSH</text>
+<rect x="96.0" y="218" width="0.8" height="26" fill="var(--s1)"/>
+<rect x="96.1" y="218" width="3.5" height="26" fill="var(--s2)"/>
+<rect x="99.6" y="218" width="6.2" height="26" fill="var(--s3)"/>
+<text class="d-bar-val" x="614" y="235" text-anchor="end">351</text>
+<text class="d-bar-lbl" x="84" y="269" text-anchor="end">VHIO</text>
+<rect x="96.0" y="252" width="4.5" height="26" fill="var(--s1)"/>
+<rect x="100.5" y="252" width="0.9" height="26" fill="var(--s3)"/>
+<text class="d-bar-val" x="614" y="269" text-anchor="end">190</text>
+</svg>
+        <figcaption>Training volumes per hospital, drawn at true scale. Read from each
+        site's own training logs; the three classes sum exactly to each site's total.</figcaption>
+      </figure>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--s1)"></i> No lesion — 18,311</span>
+        <span><i class="sw" style="background:var(--s2)"></i> Benign — 14,110</span>
+        <span><i class="sw" style="background:var(--s3)"></i> Malignant — 2,041</span>
+        <span style="margin-left:auto;font-variant-numeric:tabular-nums"><strong>34,462 total</strong></span>
       </div>
-      <p class="sub" style="margin-top:0">
-        Eight consecutive runs, no code defect among them. Development has moved to in-house
-        servers so the consortium fleet is used only for final benchmark runs.
-      </p>
       <div class="callout">
-        <strong>We now know why the in-house runs failed too.</strong> Model transfers were being
-        relayed through Frankfurt: our two test machines sit on one subnet and talk in 1&nbsp;ms,
-        but the coordinating server is in another city, and the swarm routes every transfer through
-        it. A 700&nbsp;MB model was crossing the country twice per round. That is a network
-        topology problem, not a defect in the training software.
+        <strong>The hospitals are not comparable in size, and that shapes everything.</strong>
+        Aachen alone holds 51.7&#8239;% of the consortium's training data — more than the other
+        seven put together — and the range from largest to smallest is 94-fold. Timeouts,
+        round budgets and the way results are weighted all had to be designed around that.
       </div>
     </div>
   </section>
 
-  <!-- 5b ------------------------------------------------------------ -->
+  <!-- 6 -->
   <section class="slide">
     <span class="num">6</span>
-    <div class="eyebrow">Where the model stands</div>
-    <h2>The eight-site swarm is the best model we have produced</h2>
+    <div class="eyebrow">The achievement · the result</div>
+    <h2>The shared model beats what any hospital could train alone</h2>
     <div class="body">
       <div class="scroll">
         <table>
           <thead>
-            <tr><th>Model</th><th>Sites</th><th>When</th><th>Malignant AUROC</th><th>Macro AUROC</th></tr>
+            <tr><th>Model</th><th>Hospitals</th><th>When</th><th>Malignancy detection</th><th>All three classes</th></tr>
           </thead>
           <tbody>
             <tr style="background:var(--good-bg)">
-              <td class="id"><strong>Swarm · 1DivideAndConquer</strong></td><td class="n">8</td><td class="n">Aug 2026</td>
+              <td class="id"><strong>Shared model, full consortium</strong></td><td class="n">8</td><td class="n">Aug 2026</td>
               <td class="n"><strong>0.887</strong></td><td class="n"><strong>0.820</strong></td></tr>
-            <tr><td class="id">Swarm · 4LME_ABMIL</td><td class="n">6</td><td class="n">Jun 2026</td>
+            <tr><td class="id">Shared model, previous run</td><td class="n">6</td><td class="n">Jun 2026</td>
                 <td class="n">0.847</td><td class="n">0.764</td></tr>
-            <tr><td class="id">Best single site — UKA · 1DC</td><td class="n">1</td><td class="n">Jun 2026</td>
+            <tr><td class="id">Best hospital training on its own — Aachen</td><td class="n">1</td><td class="n">Jun 2026</td>
                 <td class="n">0.858</td><td class="n">0.709</td></tr>
-            <tr><td class="id">Median of 10 single-site models</td><td class="n">1</td><td class="n">Jun 2026</td>
+            <tr><td class="id">A typical hospital training on its own</td><td class="n">1</td><td class="n">Jun 2026</td>
                 <td class="n">0.658</td><td class="n">0.601</td></tr>
-            <tr><td class="id">Weakest single site — RUMC · 1DC</td><td class="n">1</td><td class="n">Jun 2026</td>
+            <tr><td class="id">Weakest hospital training on its own</td><td class="n">1</td><td class="n">Jun 2026</td>
                 <td class="n">0.408</td><td class="n">0.483</td></tr>
           </tbody>
         </table>
       </div>
       <div class="two">
         <div class="panel">
-          <h3>Against training alone</h3>
-          <ul>
-            <li><strong>+0.229</strong> malignant AUROC over the median single-site model</li>
-            <li><strong>+0.029</strong> over the strongest single site, which is UKA — the site holding half the consortium's data</li>
-            <li><strong>+0.111</strong> macro AUROC over that same best single site</li>
-          </ul>
+          <h3>How to read these numbers</h3>
+          <p>They run from 0.5 (no better than guessing) to 1.0 (perfect). The
+          malignancy column is the clinically decisive one: how reliably the model
+          separates a malignant finding from everything else.</p>
         </div>
         <div class="panel">
-          <h3>Against the previous swarm</h3>
+          <h3>What the table says</h3>
           <ul>
-            <li><strong>+0.040</strong> malignant AUROC over the six-site June run</li>
-            <li><strong>+0.056</strong> macro AUROC</li>
-            <li>Two more sites, twenty rounds, and the first run to complete with the full consortium</li>
+            <li>The shared model is ahead of <strong>every</strong> hospital's own model, including Aachen's — and Aachen holds half the data</li>
+            <li>It is ahead of the previous six-hospital run on both measures</li>
+            <li>A typical hospital gains <strong>0.229</strong> by joining, which is a large clinical difference</li>
           </ul>
         </div>
       </div>
-      <div class="callout">
-        <strong>Read the ordering, not the decimals.</strong> These come from three separate
-        evaluations on overlapping but not identical subsets of the challenge set — 165 cases for the
-        eight-site run, 300 for the June matrix. The direction is consistent and repeated; the exact
-        gaps are not a controlled comparison.
+      <div class="callout plain">
+        <strong>An honest caveat.</strong> These come from three separate evaluations on
+        overlapping but not identical sets of test cases. The ordering is consistent and
+        has repeated; the exact size of each gap is not a controlled comparison.
       </div>
     </div>
   </section>
 
-  <!-- 6 ------------------------------------------------------------- -->
+  <!-- 7 -->
   <section class="slide">
     <span class="num">7</span>
-    <div class="eyebrow">The ask</div>
-    <h2>Let sites return per-case predictions, not just summaries</h2>
+    <div class="eyebrow">The achievement · why it matters</div>
+    <h2>The smaller the hospital, the more it gains</h2>
+    <div class="body">
+      <p class="sub" style="margin-top:0">
+        This is the case for the consortium existing, stated in one line: a hospital that
+        trains alone is limited by the patients it happens to have seen.
+      </p>
+      <div class="two">
+        <div class="panel">
+          <h3>What a small site sees on its own</h3>
+          <p>Barcelona has 190 scans and <strong>no benign cases at all</strong>.
+          Guildford has 351. Nijmegen has 3,608 scans but only 2 benign among them. A
+          model trained on any of these learns whatever that hospital's referral pattern
+          happens to look like, and mistakes it for how breast MRI works.</p>
+        </div>
+        <div class="panel">
+          <h3>What the same site sees in the swarm</h3>
+          <p>All 34,462 scans, from six countries, six scanner manufacturers and eight
+          different ways of running a breast-MRI service — without a single image being
+          copied anywhere. Every site takes the same finished model home.</p>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>And it is not only the small sites.</strong> Aachen holds more than half
+        the data and still ends up with a better model by taking part. Being the largest
+        contributor is not the same as having seen enough.
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide">
+    <span class="num">8</span>
+    <div class="eyebrow">What the work actually was</div>
+    <h2>Most of the effort went into making it survive the real world</h2>
+    <div class="split" style="align-items:start">
+      <div style="display:flex;flex-direction:column;gap:.8rem">
+        <p class="sub" style="margin-top:0">
+          The learning itself was rarely the hard part. Hospital IT is eight different
+          networks, eight security policies and eight sets of hardware, and any one of
+          them can end a two-day run.
+        </p>
+        <ul>
+          <li><strong>101 runs since March</strong>, 59 of them involving hospital sites.</li>
+          <li>Every distinct way a run can fail has been named, written up and given an
+          automatic check, so it is caught before the next run rather than during it.</li>
+          <li>Development moved onto our own machines, so partner hardware is used only
+          for real benchmark runs.</li>
+        </ul>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Recent run</th><th>What ended it</th><th>Outcome</th></tr></thead>
+            <tbody>
+              <tr><td class="id">4 Sep</td><td>Aachen's machine rebooted mid-run — twice, at the same point</td><td><span class="chip bad">Lost</span></td></tr>
+              <tr><td class="id">7 Sep</td><td>Stopped by us, deliberately — it was about to overwrite the shared model</td><td><span class="chip warn">Stopped</span></td></tr>
+              <tr><td class="id">7 Sep</td><td>Athens could not download the model from Guildford; Cambridge dropped out</td><td><span class="chip bad">Lost</span></td></tr>
+              <tr><td class="id">7–8 Sep</td><td>Dutch run finished all its rounds, then took five hours to publish</td><td><span class="chip good">Recovered</span></td></tr>
+              <tr><td class="id">8 Sep</td><td>Our own test runs — every model transfer was being routed via Frankfurt</td><td><span class="chip info">Cause found</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <strong>Not one of these was a defect in the training software.</strong> A crashing
+          server, dropped VPN links, and a network route that sent a 700&#8239;MB model across
+          the country twice per round. That is the honest state of the field.
+        </div>
+      </div>
+      <figure class="fig">
+        <svg viewBox="0 0 500 376" role="img" aria-label="A five-step loop: a run fails at one hospital, we reproduce it on our own machines, the cause is fixed in the software, an automatic check is added, and the next run cannot hit it again. At the centre: ten named failure modes, all written up for partners.">
+<circle cx="250" cy="208" r="138" fill="none" stroke="var(--rule)" stroke-width="1.4" stroke-dasharray="6 6"/>
+<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(331.1 96.4) rotate(36.0)"/>
+<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(381.2 250.6) rotate(108.0)"/>
+<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(250.0 346.0) rotate(180.0)"/>
+<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(118.8 250.6) rotate(252.0)"/>
+<polygon points="-5,-4 6,0 -5,4" fill="var(--accent)" transform="translate(168.9 96.4) rotate(324.0)"/>
+<text class="d-ctr-h" x="250" y="202" text-anchor="middle">10 NAMED FAILURE MODES</text>
+<text class="d-ctr" x="250" y="222" text-anchor="middle">each one written up for partners</text>
+<rect x="181.0" y="47.0" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="250.0" y="67.0" text-anchor="middle">A run fails</text>
+<text class="d-node-sub" x="250.0" y="81.0" text-anchor="middle">at one hospital</text>
+<rect x="312.2" y="142.4" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="381.2" y="162.4" text-anchor="middle">We reproduce it</text>
+<text class="d-node-sub" x="381.2" y="176.4" text-anchor="middle">on our own machines</text>
+<rect x="262.1" y="296.6" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="331.1" y="316.6" text-anchor="middle">The cause is fixed</text>
+<text class="d-node-sub" x="331.1" y="330.6" text-anchor="middle">in the software</text>
+<rect x="99.9" y="296.6" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="168.9" y="316.6" text-anchor="middle">An automatic check</text>
+<text class="d-node-sub" x="168.9" y="330.6" text-anchor="middle">is added</text>
+<rect x="49.8" y="142.4" width="138" height="46" rx="6" fill="var(--slide-alt)" stroke="var(--rule)" stroke-width="1.2"/>
+<text class="d-node" x="118.8" y="162.4" text-anchor="middle">The next run</text>
+<text class="d-node-sub" x="118.8" y="176.4" text-anchor="middle">cannot hit it again</text>
+</svg>
+        <figcaption>How an incident at one hospital becomes a permanent fix for all eight.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide">
+    <span class="num">9</span>
+    <div class="eyebrow">How we read the results</div>
+    <h2>A number without its denominator is not a result</h2>
+    <div class="body">
+      <p class="sub" style="margin-top:0">
+        Until recently, each hospital's results had to be collected by logging into that
+        hospital by hand. They now come back to the coordinator automatically — and the
+        first thing they showed was a trap worth explaining to everyone.
+      </p>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Hospital</th><th>Cases</th><th>No lesion</th><th>Benign</th><th>Malignant</th><th>Accuracy</th><th>Actually useful?</th></tr>
+          </thead>
+          <tbody>
+            <tr style="background:var(--bad-bg)"><td class="id">Nijmegen</td><td class="n">896</td><td class="n">888</td><td class="n">0</td><td class="n">8</td><td class="n">99.1&#8239;%</td><td class="n">0.417 — worse than guessing</td></tr>
+            <tr><td class="id">Utrecht</td><td class="n">1,557</td><td class="n">1,361</td><td class="n">186</td><td class="n">10</td><td class="n">87.4&#8239;%</td><td class="n">0.698</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="two">
+        <div class="panel">
+          <h3>Why 99&#8239;% means nothing here</h3>
+          <p>Of Nijmegen's 896 cases, 888 have no lesion. A model that simply answers
+          "no lesion" every single time scores 99&#8239;% — and finds no cancer at all.
+          Reported on its own, that figure would make Nijmegen look like the strongest
+          centre in the consortium.</p>
+        </div>
+        <div class="panel">
+          <h3>This has already misled us once</h3>
+          <p>Utrecht was described as performing materially worse than other centres. That
+          came from an average across three classes in which one class had just
+          <strong>two</strong> cases. Set that class aside and Utrecht moves
+          0.602&nbsp;→&nbsp;0.717, Cambridge 0.710&nbsp;→&nbsp;0.908.</p>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>None of this reflects on any hospital's data.</strong> It reflects on how we
+        were summarising it. Every figure now travels with the counts behind it, and we no
+        longer rank centres on an average where a class has only a handful of cases.
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide">
+    <span class="num">10</span>
+    <div class="eyebrow">New this quarter</div>
+    <h2>Two new capabilities — and one useful negative result</h2>
+    <div class="body">
+      <div class="two">
+        <div class="panel">
+          <h3>Choosing what to label next</h3>
+          <p>Labelling breast MRI is expensive, so we tested whether the model can point
+          at the cases worth a radiologist's time.</p>
+          <p style="margin-top:.5rem"><strong>It cannot — yet.</strong> Asking the model
+          for the cases it is least sure about found <em>fewer</em> malignant cases than
+          picking at random: 19 against 22 out of a 100-case budget.</p>
+          <p style="margin-top:.5rem">The diagnostic explains why, and it is worth
+          knowing: the model is <strong>most confident on benign cases</strong>, which are
+          the rarest. Its confidence does not track whether it is right, so asking it what
+          it is unsure about points in the wrong direction. Confidence has to be fixed
+          before this technique can help.</p>
+        </div>
+        <div class="panel">
+          <h3>Putting a number on privacy</h3>
+          <p>Until now we could say the design protects data. We can now say <em>by how
+          much</em>, on the standard scale used by regulators.</p>
+          <p style="margin-top:.5rem">Adding measured statistical noise to each
+          hospital's contribution buys a formal guarantee. Over a twenty-round run:</p>
+          <ul style="margin-top:.5rem">
+            <li>a moderate guarantee needs a noise level of 2.4</li>
+            <li>a strong one needs 6.7</li>
+            <li>the strictest commonly cited standard needs 18.1</li>
+          </ul>
+          <p style="margin-top:.5rem">More noise costs accuracy, so this is now a
+          decision the consortium can take deliberately instead of by accident.</p>
+        </div>
+      </div>
+      <div class="callout plain">
+        <strong>What the privacy guarantee covers.</strong> It hides whether a
+        <em>hospital</em> took part in a round. Hiding whether an individual
+        <em>patient</em> was in a hospital's data is a further step, and we are not
+        claiming it yet.
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 -->
+  <section class="slide">
+    <span class="num">11</span>
+    <div class="eyebrow">Where we stand</div>
+    <h2>Three deliverables due in three months</h2>
+    <div class="body">
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Deliverable</th><th>Due</th><th>Status</th><th>What it still needs</th></tr></thead>
+          <tbody>
+            <tr><td class="id">Regional fine-tuning</td><td class="n">M48</td><td><span class="chip warn">In progress</span></td><td>Per-case predictions — slide 4</td></tr>
+            <tr><td class="id">Active learning</td><td class="n">M48</td><td><span class="chip good">First result in</span></td><td>Fix model confidence, then re-test</td></tr>
+            <tr><td class="id">Adversarial robustness</td><td class="n">M48</td><td><span class="chip warn">Starting</span></td><td>—</td></tr>
+            <tr><td class="id">Regulatory testing node</td><td class="n">M54</td><td><span class="chip good">Unblocked</span></td><td>Builds on the per-site reporting now working</td></tr>
+            <tr><td class="id">Differential privacy</td><td class="n">M54</td><td><span class="chip good">Measurable</span></td><td>Consortium decision on the noise level</td></tr>
+            <tr><td class="id">White-hat attack exercise</td><td class="n">M54</td><td><span class="chip bad">Needs partners</span></td><td><strong>Cambridge and Nijmegen</strong> — scheduling now</td></tr>
+            <tr><td class="id">Full demonstration</td><td class="n">M60</td><td><span class="chip info">Part-evidenced</span></td><td>Re-run on the released version</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 -->
+  <section class="slide">
+    <span class="num">12</span>
+    <div class="eyebrow">What we need from partners</div>
+    <h2>Two things, and neither is technical</h2>
     <div class="body">
       <div class="ask">
-        <div class="ask-h">What we would send back</div>
+        <div class="ask-h">1 · Let sites return per-case predictions, not just summaries</div>
         <div class="ask-b">
-          A <strong>row number</strong>, the ground-truth label, and the model's class
-          probabilities. <strong>No case identifier and no patient identifier</strong> — the row
-          number is a position within your own validation split and means nothing outside it. No
-          images. Nothing new is computed; this is what your site already writes to its own disk
-          during a normal training run.
+          What would be sent back: a <strong>row number</strong>, the correct answer, and
+          the model's three probabilities. <strong>No case identifier and no patient
+          identifier</strong> — the row number is a position within your own validation
+          list and means nothing outside it. No images. Nothing new is computed: this is
+          what your site already writes to its own disk during a normal training run.
         </div>
       </div>
       <div class="two">
         <div class="panel">
           <h3>Why we need it</h3>
           <ul>
-            <li>Regional fine-tuning (D2.5) is currently blocked on moving a 722&nbsp;MB model out of two hospitals — this removes that need entirely</li>
-            <li>Proper statistical comparison needs case-level pairing; summaries cannot provide it</li>
-            <li>The regulatory testing node due at M54 requires it regardless</li>
+            <li>Regional fine-tuning is currently blocked on physically moving a 722&#8239;MB model out of two hospitals. This removes that need entirely.</li>
+            <li>A fair statistical comparison between hospitals needs case-by-case pairing. Summary figures cannot provide it.</li>
+            <li>The regulatory testing node due next year requires it regardless.</li>
           </ul>
         </div>
         <div class="panel">
-          <h3>What we need from you</h3>
+          <h3>What we are asking of you</h3>
           <ul>
             <li>Confirmation that this is acceptable under your local data agreement</li>
             <li>It stays off unless your site switches it on — the decision is yours, per site</li>
-            <li>Nothing technical — no new kit, no reconfiguration</li>
-            <li>Please keep clients online for the active-learning tests</li>
+            <li>Nothing technical: no new software, no reconfiguration</li>
+            <li>Please keep your client online so active-learning tests can run</li>
           </ul>
+        </div>
+      </div>
+      <div class="ask">
+        <div class="ask-h">2 · A slot with Cambridge and Nijmegen</div>
+        <div class="ask-b">
+          For the security testing exercise due at M54, where we deliberately attack our
+          own system to show what it withstands. We are scheduling this now.
         </div>
       </div>
     </div>
   </section>
 
-  <!-- 7 ------------------------------------------------------------- -->
-  <section class="slide">
-    <span class="num">8</span>
-    <div class="eyebrow">Where we stand</div>
-    <h2>Three deliverables due in three months</h2>
-    <div class="body">
-      <div class="scroll">
-        <table>
-          <thead><tr><th>Deliverable</th><th>Due</th><th>Status</th><th>What it needs</th></tr></thead>
-          <tbody>
-            <tr><td class="id">D2.5 · regional fine-tuning</td><td class="n">M48</td><td><span class="chip warn">In progress</span></td><td>Per-case predictions (slide 6)</td></tr>
-            <tr><td class="id">D3.2 · active learning</td><td class="n">M48</td><td><span class="chip warn">Starting</span></td><td>Clients online; runs fit the round budget</td></tr>
-            <tr><td class="id">D3.4 · adversarial robustness</td><td class="n">M48</td><td><span class="chip warn">Starting</span></td><td>—</td></tr>
-            <tr><td class="id">D3.3 · testing node</td><td class="n">M54</td><td><span class="chip good">Unblocked</span></td><td>Builds on this week's fix</td></tr>
-            <tr><td class="id">T3.3 · differential privacy</td><td class="n">M54</td><td><span class="chip warn">Phase 1 done</span></td><td>Assessment written; calibrated noise and a privacy budget still to build</td></tr>
-            <tr><td class="id">MS6 · white-hat attack</td><td class="n">M54</td><td><span class="chip bad">Needs partners</span></td><td><strong>Cambridge and Radboud</strong> — scheduling now</td></tr>
-            <tr><td class="id">D3.5 · TRL7 demonstration</td><td class="n">M60</td><td><span class="chip info">Part-evidenced</span></td><td>Re-run on the released version</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="callout">
-        <strong>One request today:</strong> agreement in principle on returning per-case predictions,
-        and a slot with Cambridge and Radboud for the MS6 testing.
-      </div>
-    </div>
-  </section>
-
-  <footer>ODELIA WP2 / WP3 · 9 September 2026 · figures read from the coordination server and site logs</footer>
+  <footer>ODELIA WP2 / WP3 · 10 September 2026 · every figure read from the coordination server, the sites' own training logs, or CI</footer>
 </div>

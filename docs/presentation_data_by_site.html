@@ -104,7 +104,7 @@
 <div class="viz-root">
 
   <header>
-    <div class="eyebrow">ODELIA · breast-MRI swarm learning · 9 September 2026</div>
+    <div class="eyebrow">ODELIA · breast-MRI swarm learning · 10 September 2026</div>
     <h1>Training data by site</h1>
     <p class="sub">
       How much data each hospital brought when it joined, how the consortium total accumulated,
@@ -117,8 +117,8 @@
     <figure>
       <h2>What each site contributes today</h2>
       <figcaption>
-        Training samples per site (unilateral breast volumes), from each site's
-        <code>Weighted epochs</code> log line — <code>len(ds_train)</code> at batch size 1.
+        Training samples per site — one breast, one volume. Counted by each site's own
+        trainer as it loaded its dataset, and read back from that site's run log.
       </figcaption>
       <svg viewBox="0 0 720 300" role="img" aria-label="Training samples per site: UKA 17834, UMCU 6133, RUMC 3608, USZ 3448, CAM 1778, MHA 1120, RSH 351, VHIO 190">
         <g id="sizeBars"></g>
@@ -179,9 +179,9 @@
     <figure>
       <h2>Class distribution as shares</h2>
       <figcaption>
-        Composition of each site's <strong>training set</strong>, logged by the trainer at dataset
-        setup (<code>Class counts</code>). Bars show each site's own class mix; the label gives its
-        size and benign count.
+        Composition of each site's <strong>training set</strong>, counted by that site's own
+        trainer as it loaded the data. Bars show each site's class mix; the label gives its size
+        and benign count.
       </figcaption>
       <div class="legend" aria-hidden="true">
         <span><i class="swatch" style="background:var(--series-1)"></i> No lesion</span>
@@ -260,8 +260,8 @@
 
   <section class="card">
     <div class="note">
-      <strong>Provenance.</strong> Class counts are the trainer's own <code>Class counts</code> line,
-      emitted at dataset setup; each site's three classes sum exactly to its training size, and the
+      <strong>Provenance.</strong> Every count here was emitted by the site's own trainer as it
+      loaded its dataset — not transcribed from a spreadsheet or a planning note. Each site's three classes sum exactly to its training size, and the
       eight sites sum to 34,462. Figures are the most recent run whose training size matches the
       site's production configuration — 7 Sep for five sites, 4 Sep for UKA, 6 Jul for USZ and
       21 Jun for RUMC, those two having not run since. Records written by the two-node deploy test,
