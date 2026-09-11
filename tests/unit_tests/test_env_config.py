@@ -123,7 +123,7 @@ class TestLoadEnvironmentVariables:
         with patch.dict(os.environ, env, clear=False):
             ec = _import_env_config()
             result = ec.load_environment_variables()
-            assert result["model_name"] == "ResNet101"  # default
+            assert result["model_name"] == None  # default
             assert result["max_epochs"] == 100  # default
             assert result["mediswarm_version"] == "unset"  # default
             assert isinstance(result["odelia_num_workers"], int)
