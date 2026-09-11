@@ -454,13 +454,23 @@ start_clients() {
     fi
 
     for site in "${CLIENT_SITES[@]}"; do
-        local site_name host deploy_dir datadir scratchdir gpu
+        local site_name host deploy_dir datadir scratchdir gpu institution docker_opts
         site_name=$(site_var "$site" SITE_NAME)
         host=$(site_var "$site" HOST)
         deploy_dir=$(site_var "$site" DEPLOY_DIR)
         datadir=$(site_var "$site" DATADIR)
         scratchdir=$(site_var "$site" SCRATCHDIR)
         gpu=$(site_var "$site" GPU)
+        # The loader reads /data/$INSTITUTION/..., and INSTITUTION defaults to
+        # SITE_NAME. Test clients are named TEST_A_1.. (not hospital names, see
+        # the project YAML), so the data folder must be named explicitly.
+        # Optional per site: <SITE>_INSTITUTION=<folder under DATADIR>.
+        institution=$(site_var "$site" INSTITUTION)
+        # Optional per site: <SITE>_DOCKER_OPTIONS, passed to docker run via
+        # MEDISWARM_DOCKER_OPTIONS -- e.g. "--env ODELIA_RETURN_PER_CASE=1".
+        docker_opts=$(site_var "$site" DOCKER_OPTIONS)
+        local inst_flag=""
+        [[ -n "$institution" ]] && inst_flag="--institution '$institution'"
 
         info "Starting client: $site_name @ $host"
 
@@ -476,7 +486,8 @@ start_clients() {
              export SITE_NAME='$site_name' && \
              export DATADIR='$datadir' && \
              export SCRATCHDIR='$scratchdir' && \
-             ./docker.sh --no_pull --image '$DOCKER_IMAGE' --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
+             export MEDISWARM_DOCKER_OPTIONS='$docker_opts' && \
+             ./docker.sh --no_pull --image '$DOCKER_IMAGE' --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $inst_flag $model_flag --start_client"
 
         ok "  Client started: $site_name"
     done

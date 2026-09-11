@@ -19,6 +19,11 @@ DL0_HOST=100.100.100.101
 DL0_USER=swarm
 DL0_PASS='CHANGEME'
 DL0_SITE_NAME=TEST_A_1
+# Data folder under DL0_DATADIR; the FL identity above is deliberately
+# NOT a hospital name, so the loader needs this told explicitly.
+DL0_INSTITUTION=RUMC_1
+# Extra docker run options for this client (e.g. --env ODELIA_RETURN_PER_CASE=1)
+DL0_DOCKER_OPTIONS=""
 DL0_DATADIR=/mnt/dlhd0/odelia_data
 DL0_SCRATCHDIR=/mnt/dlhd0/odelia_data/tmp
 DL0_DEPLOY_DIR=/home/swarm/MediSwarm
@@ -29,6 +34,11 @@ DL2_HOST=100.100.100.102
 DL2_USER=swarm
 DL2_PASS='CHANGEME'
 DL2_SITE_NAME=TEST_B_1
+# Data folder under DL2_DATADIR; the FL identity above is deliberately
+# NOT a hospital name, so the loader needs this told explicitly.
+DL2_INSTITUTION=MHA_1
+# Extra docker run options for this client (e.g. --env ODELIA_RETURN_PER_CASE=1)
+DL2_DOCKER_OPTIONS=""
 DL2_DATADIR=/mnt/sda1/odelia_data
 DL2_SCRATCHDIR=/mnt/sda1/odelia_data/tmp
 DL2_DEPLOY_DIR=/home/swarm/MediSwarm
