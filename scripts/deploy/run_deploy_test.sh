@@ -102,7 +102,11 @@ fi
 source "$CONF_FILE"
 
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
-GIT_SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD)
+# Recorded in the result JSON only. Must not kill the run when the harness is
+# executed from an exported tree (no .git) -- it did exactly that once, one line
+# after MEDISWARM_IMAGE_VERSION had been honoured, and the whole run died before
+# stop_all with nothing but "fatal: not a git repository" in the log.
+GIT_SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DOCKER_IMAGE="jefftud/odelia:$VERSION"
 NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-'
 
