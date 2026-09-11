@@ -603,7 +603,16 @@ submit_job() {
         exit 1
     fi
 
-    local job_path="MediSwarm/application/jobs/$job_name"
+    # A job name is resolved under the image's job tree. An ABSOLUTE path is
+    # submitted as given, so a job staged with prepare_odelia_job.sh into the
+    # admin kit (mounted at /fl_admin/local/) can be run through this harness
+    # -- that is how the warm-start provenance guard (#545) gets exercised.
+    local job_path
+    if [[ "$job_name" == /* ]]; then
+        job_path="$job_name"
+    else
+        job_path="MediSwarm/application/jobs/$job_name"
+    fi
     info "Submitting job: $job_name (path: $job_path)"
 
     # Generate expect script
