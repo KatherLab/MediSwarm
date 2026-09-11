@@ -1091,7 +1091,7 @@ _verify_ODELIA_ternary_preflight_check() {
 
 run_all_models_preflight_check () {
     # requires having built a startup kit and synthetic dataset
-    echo "[Run] 3DCNN local training..."
+    echo "[Run] Preflight checks for all models ..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
 
