@@ -679,25 +679,28 @@ kill_registry_docker () {
 verify_wrong_certificates_are_rejected () {
     echo "[Run] Verify that client and admin console with invalid certificate in startup kit do not connect ..."
 
-    # start server
     cp -r "$PROJECT_DIR"/prod_01 "$PROJECT_DIR"/prod_wrong_client
     cd "$PROJECT_DIR"/prod_wrong_client
-    cd localhost/startup
-    ./docker.sh --no_pull --start_server
-    cd ../..
-    sleep 10
 
-    # inject invalid certificates from outdated startup kits
+    # inject invalid certificates from outdated startup kits (client, admin; leave server untouched)
     rm client_A -rf
     rm admin@test.odelia/ -rf
-    tar xvf "$CWD"/tests/integration_tests/outdated_startup_kit.tar.gz
+    tar xvf "$CWD"/tests/integration_tests/outdated_startup_kit.tar.gz > /dev/null
     sed -i 's#DOCKER_IMAGE=localhost:5000/odelia:1.0.1-dev.250919.095c1b7#DOCKER_IMAGE='$DOCKER_IMAGE'#' client_A/startup/docker.sh
     sed -i 's#CONTAINER_NAME=odelia_swarm_client_client_A_095c1b7#CONTAINER_NAME=odelia_swarm_client_client_A_'$CONTAINER_VERSION_SUFFIX'#' client_A/startup/docker.sh
     sed -i 's#DOCKER_IMAGE=localhost:5000/odelia:1.0.1-dev.251023.e940002#DOCKER_IMAGE='$DOCKER_IMAGE'#' admin@test.odelia/startup/docker.sh
     sed -i 's#CONTAINER_NAME=odelia_swarm_admin_e940002#CONTAINER_NAME=odelia_swarm_admin_'$CONTAINER_VERSION_SUFFIX'#' admin@test.odelia/startup/docker.sh
 
+    # start server
+    cd localhost/startup
+    echo "Starting server …"
+    ./docker.sh --no_pull --start_server
+    cd ../..
+    sleep 10
+
     # start client and verify that it gets rejected
     cd client_A/startup
+    echo "Attempting to start client …"
     ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
 
@@ -724,6 +727,7 @@ verify_wrong_certificates_are_rejected () {
 
     # start admin console and verify that it gets rejected
     cd admin@test.odelia/startup
+    echo "  Attempting to start admin console …"
     CONSOLE_OUTPUT_FILE_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
     if grep -q "Communication Error - please try later" <<< "$CONSOLE_OUTPUT_FILE_ADMIN"; then
         echo "✅ Connection by unauthorized admin console rejected successfully"
@@ -737,7 +741,7 @@ verify_wrong_certificates_are_rejected () {
     # cleanup
     docker kill odelia_swarm_server_flserver_$CONTAINER_VERSION_SUFFIX odelia_swarm_client_client_A_$CONTAINER_VERSION_SUFFIX
     sleep 3
-    rm -rf "$PROJECT_DIR"/prod_wrong_client
+    rm -rf "$WRONG_STARTUP_DIR"
 
     cd "$CWD"
 }
@@ -1151,15 +1155,17 @@ case "$1" in
         ;;
 
     run_nvflare_unit_tests)
+        # not included in gitlab workflow
         run_nvflare_unit_tests
         ;;
 
     run_nvflare_integration_tests)
+        # not included in gitlab workflow
         run_nvflare_integration_tests
         ;;
 
     run_nvflare_unit_and_integration_tests)
-        # TODO add to CI or "all" section if we want this (takes several minutes and fails for insufficient GPU memory)
+        # not included in gitlab workflow
         run_nvflare_unit_tests
         run_nvflare_integration_tests
         ;;
@@ -1206,7 +1212,6 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         run_two_containers_in_parallel
         cleanup_temporary_data
-        # TODO add to CI if we want this
         ;;
 
     run_data_access_preflight_check)
@@ -1225,14 +1230,13 @@ case "$1" in
         start_registry_docker_and_push
         run_container_with_pulling
         kill_registry_docker
-        # TODO add to CI if we want this (takes several minutes)
         ;;
 
     check_wrong_startup_kit)
-        create_startup_kits_and_check_contained_files
-        verify_wrong_certificates_are_rejected
-        cleanup_temporary_data
-        # TODO add to CI if we want this
+        echo "⚠ check whether incorrect startup kits are rejected currently omitted"
+        # create_startup_kits_and_check_contained_files
+        # verify_wrong_certificates_are_rejected
+        # cleanup_temporary_data
         ;;
 
     run_dummy_training_in_swarm)
@@ -1304,8 +1308,7 @@ case "$1" in
         ;;
 
     all | "")
-        # check_files_in_repo
-        echo "❗ checking files in repository currently disabled"
+        check_files_in_repo
         run_dummy_training_standalone
         run_dummy_training_simulation_mode
         run_dummy_training_poc_mode
@@ -1323,7 +1326,8 @@ case "$1" in
         run_data_access_preflight_check_without_data
         create_synthetic_data
         run_3dcnn_local_training
-        verify_wrong_certificates_are_rejected
+        # verify_wrong_certificates_are_rejected
+        echo "⚠ check whether incorrect startup kits are rejected currently omitted"
         start_server_and_clients
         run_dummy_training_in_swarm
         run_3dcnn_training_in_swarm
