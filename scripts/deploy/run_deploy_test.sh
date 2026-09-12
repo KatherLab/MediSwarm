@@ -823,17 +823,34 @@ clear_stale_mirrors() {
 # and the per-site metrics (cross_site_val/cross_val_results.json) land, so a
 # per-case deploy test would "pass" and leave nothing to inspect. Copy each
 # run's cross_site_val/ into RESULTS_DIR first. Runs that wrote none are skipped.
+#
+# Use the directory the server actually ran from, not $DEPLOY_BASE: every
+# attempt's stop_all() deletes the deployed server kit BEFORE start_server(),
+# which then falls back to the kit under workspace/.../prod_00. In practice the
+# server always runs there, and its run dirs pile up across models and days.
+# Copy only the run this model produced (LAST_JOB_ID) when we know it.
 save_server_artifacts() {
     local model_name="$1"
-    local server_name="${SERVER_NAME:-dl3.tud.de}"
-    local server_root="$DEPLOY_BASE/$server_name"
+    resolve_server_startup_dir
+    [[ -n "$_server_startup_dir" ]] || return 0
+    local server_root
+    server_root=$(dirname "$_server_startup_dir")
     [[ -d "$server_root" ]] || return 0
+
+    # collect_checkpoints() has not run yet, so find this run's job id the same
+    # way it does: the last "Server runner finished." line in the server log.
+    local want_job="$LAST_JOB_ID"
+    if [[ -z "$want_job" && -f "$_server_startup_dir/nohup.out" ]]; then
+        want_job=$(grep 'Server runner finished\.' "$_server_startup_dir/nohup.out" \
+            | tail -1 | grep -oP 'run=\K[0-9a-f-]+' || true)
+    fi
 
     local dest_root="$RESULTS_DIR/${model_name}_server_artifacts"
     local run_dir job_id src
     for run_dir in "$server_root"/*/; do
         [[ -d "$run_dir" ]] || continue
         job_id=$(basename "$run_dir")
+        [[ -z "$want_job" || "$job_id" == "$want_job" ]] || continue
         src="$run_dir/cross_site_val"
         [[ -d "$src" ]] || continue
         mkdir -p "$dest_root/$job_id"
