@@ -804,6 +804,13 @@ wait_for_completion() {
 # from the last good round is exactly what warm-continue is for.
 clear_stale_mirrors() {
     local mirror="mediswarm_latest_global.pt"
+    # A test that exercises warm-start itself plants a mirror on purpose -- e.g.
+    # the provenance guard's refuse path plants a wrong-architecture one and
+    # expects WARM_START_MODEL_MISMATCH. Let it opt out of the wipe explicitly.
+    if [[ -n "${DEPLOY_TEST_KEEP_MIRROR:-}" ]]; then
+        warn "DEPLOY_TEST_KEEP_MIRROR set: leaving every client's $mirror in place"
+        return 0
+    fi
     for site in "${CLIENT_SITES[@]}"; do
         local site_name host scratchdir
         site_name=$(site_var "$site" SITE_NAME)
