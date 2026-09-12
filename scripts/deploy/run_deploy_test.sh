@@ -789,6 +789,65 @@ wait_for_completion() {
     return 1
 }
 
+# ── Warm-start mirror hygiene (#347, #545) ───────────────────────────────
+# Every client mirrors its latest global to /scratch/mediswarm_latest_global.pt
+# and, with warm_start_mode=auto, warm-starts from whatever it finds there. The
+# deploy test reuses one SCRATCHDIR per site across models and across days, so
+# model N inherits model N-1's weights. Before #545 that loaded silently and the
+# run died at the first gather -- "None of the 187 incoming model parameter(s)
+# matched the local model's 450" was MST aggregating into a 1DivideAndConquer
+# mirror left by a failed run three days earlier (2026-09-11). Since #545 the
+# provenance guard panics instead. Either way the model is lost and --all can
+# never get past its first model. A deploy test must start every model from
+# scratch, so drop the mirror and its sidecar on every client before the first
+# attempt. Retries within one model keep it: same architecture, and resuming
+# from the last good round is exactly what warm-continue is for.
+clear_stale_mirrors() {
+    local mirror="mediswarm_latest_global.pt"
+    for site in "${CLIENT_SITES[@]}"; do
+        local site_name host scratchdir
+        site_name=$(site_var "$site" SITE_NAME)
+        host=$(site_var "$site" HOST)
+        scratchdir=$(site_var "$site" SCRATCHDIR)
+        [[ -n "$scratchdir" ]] || continue
+        info "Clearing warm-start mirror on $site_name @ $host: $scratchdir/$mirror"
+        remote_exec "$site" "rm -f '$scratchdir/$mirror' '$scratchdir/$mirror.provenance.json'" 2>/dev/null \
+            || warn "  Could not clear $scratchdir/$mirror on $host -- this model may warm-start from a stale one"
+    done
+}
+
+# ── Save server-side job outputs before stop_all deletes the server dir ───
+# The only server file the harness keeps is nohup.out; stop_all() then rm -rf's
+# $DEPLOY_BASE/<server>/ and every <job_id>/ run dir with it. That is where the
+# opt-in per-case predictions (#557: cross_site_val/per_case_predictions/<site>.csv)
+# and the per-site metrics (cross_site_val/cross_val_results.json) land, so a
+# per-case deploy test would "pass" and leave nothing to inspect. Copy each
+# run's cross_site_val/ into RESULTS_DIR first. Runs that wrote none are skipped.
+save_server_artifacts() {
+    local model_name="$1"
+    local server_name="${SERVER_NAME:-dl3.tud.de}"
+    local server_root="$DEPLOY_BASE/$server_name"
+    [[ -d "$server_root" ]] || return 0
+
+    local dest_root="$RESULTS_DIR/${model_name}_server_artifacts"
+    local run_dir job_id src
+    for run_dir in "$server_root"/*/; do
+        [[ -d "$run_dir" ]] || continue
+        job_id=$(basename "$run_dir")
+        src="$run_dir/cross_site_val"
+        [[ -d "$src" ]] || continue
+        mkdir -p "$dest_root/$job_id"
+        if cp -r "$src" "$dest_root/$job_id/" 2>/dev/null; then
+            info "Saved server artifacts: $dest_root/$job_id/cross_site_val"
+            find "$dest_root/$job_id/cross_site_val" -type f 2>/dev/null | while read -r f; do
+                info "  $(basename "$f") ($(wc -l < "$f" 2>/dev/null || echo '?') lines)"
+            done
+        else
+            warn "Could not copy $src (root-owned files?)"
+        fi
+    done
+}
+
 # ── Collect checkpoints from client machines ─────────────────────────────
 # After swarm training, FL_global_model.pt lives inside each client's Docker
 # workspace on the remote machine at:
@@ -1065,6 +1124,9 @@ run_single_model() {
     local checkpoint_status="skipped"
     LAST_JOB_ID=""
 
+    # Start this model from scratch on every client (see clear_stale_mirrors).
+    clear_stale_mirrors
+
     # Retry loop: transient failures (e.g. worker process race on dl3
     # when two NVFlare clients share the same machine) resolve on restart.
     local attempt=1
@@ -1086,6 +1148,9 @@ run_single_model() {
     if [[ -n "$_server_startup_dir" && -f "$_server_startup_dir/nohup.out" ]]; then
         cp "$_server_startup_dir/nohup.out" "$saved_server_log" 2>/dev/null || true
     fi
+    # Same reason: the per-case CSVs and per-site metrics live in the server's
+    # run dir, which stop_all is about to delete.
+    save_server_artifacts "$model_name"
 
     # Stop containers after training (pass or final failure)
     stop_all
