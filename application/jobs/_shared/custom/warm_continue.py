@@ -154,6 +154,65 @@ def resolve_source_checkpoint(
     return source_ckpt
 
 
+
+_LAST_CHECKPOINT_READ_ERROR = None
+
+
+def checkpoint_keys(ckpt_path: str):
+    """Parameter names stored in a checkpoint, and the model label it carries, if any.
+
+    Returns ``(keys, label)``. ``keys`` is a set of state-dict names or ``None``
+    when the file cannot be read as a torch checkpoint; ``label`` is the model
+    name recorded in the checkpoint's own ``train_conf`` (E2's prescription:
+    read it out of the file) or ``None``. The label is advisory only -- it is a
+    class name, not a MODEL_NAME, so it must not be compared as one.
+
+    Reads with ``mmap=True`` where torch supports it so a multi-hundred-MB
+    mirror is not pulled into memory just to list its keys.
+    """
+    global _LAST_CHECKPOINT_READ_ERROR
+    _LAST_CHECKPOINT_READ_ERROR = None
+    try:
+        import torch
+    except Exception as e:
+        _LAST_CHECKPOINT_READ_ERROR = f"torch unavailable: {e}"
+        return None, None
+    data = None
+    last = None
+    for kwargs in ({"mmap": True}, {}):
+        try:
+            data = torch.load(ckpt_path, map_location="cpu", weights_only=False, **kwargs)
+            break
+        except TypeError as e:
+            last = e          # torch without the mmap keyword: try again without it
+            continue
+        except Exception as e:
+            last = e
+            break
+    if data is None:
+        _LAST_CHECKPOINT_READ_ERROR = f"{type(last).__name__}: {str(last)[:160]}" if last else "unreadable"
+        return None, None
+
+    label = None
+    if isinstance(data, dict):
+        tc = data.get("train_conf")
+        if isinstance(tc, str):
+            try:
+                import ast
+                tc = ast.literal_eval(tc)
+            except Exception:
+                tc = None
+        if isinstance(tc, dict) and isinstance(tc.get("train"), dict):
+            label = tc["train"].get("model")
+        sd = data.get("model", data.get("state_dict", data))
+    else:
+        sd = getattr(data, "state_dict", lambda: None)()
+    try:
+        return set(sd.keys()), label
+    except Exception:
+        return None, label
+
+
 class WarmStartablePTFileModelPersistor(PTFileModelPersistor):
     def __init__(
         self,
@@ -206,7 +265,8 @@ class WarmStartablePTFileModelPersistor(PTFileModelPersistor):
                 )
                 return None
 
-        self._check_provenance(fl_ctx)
+        if not self._check_provenance(fl_ctx):
+            return None                     # refused: system_panic already raised
         return super().load_model(fl_ctx)
 
     def _check_provenance(self, fl_ctx: FLContext):
@@ -218,13 +278,23 @@ class WarmStartablePTFileModelPersistor(PTFileModelPersistor):
         "wrong architecture loads silently" -- and shape compatibility is not a
         safe proxy for correctness.
 
-        Unlabelled checkpoints are accepted with a warning rather than refused:
-        every mirror written before this change has no sidecar, and failing
-        those would break warm-continue for existing sites for no safety gain.
+        Two checks, in order. The provenance sidecar names the model that wrote
+        the mirror and is refused on a mismatch. Then, whether or not a sidecar
+        exists, the checkpoint's parameter names are intersected with this run's
+        model: an empty intersection is another architecture, and is refused.
+
+        The structural check is what closes the gap an unlabelled mirror leaves.
+        Every mirror written before provenance existed has no sidecar, so those
+        used to be accepted with only a warning -- and on 2026-09-11 a 722 MB
+        1DivideAndConquer mirror left on a test host by a failed run was loaded
+        into an MST client that way. It trained, and then failed as aggregator
+        with "none of the 187 incoming parameters matched the local model's 450":
+        E2, one round late. The names were disjoint from the first byte; nothing
+        needed to be trained to know it.
         """
         ckpt_path = self._runtime_source_checkpoint_path(fl_ctx)
         if not ckpt_path or not os.path.exists(ckpt_path):
-            return
+            return True
 
         recorded = read_provenance(ckpt_path)
         expected = current_model_name()
@@ -234,24 +304,79 @@ class WarmStartablePTFileModelPersistor(PTFileModelPersistor):
                 fl_ctx,
                 f"WarmStart: {ckpt_path} carries no provenance; cannot confirm it was "
                 f"produced by '{expected}'. Written before provenance was recorded, or by "
-                "another job. Proceeding.",
+                "another job. Checking its parameter names against this model instead.",
             )
-            return
+        else:
+            found = recorded.get("model_name", "unknown")
+            if expected != "unknown" and found != "unknown" and found != expected:
+                self.system_panic(
+                    reason=(
+                        f"{WARM_START_MODEL_MISMATCH}: {ckpt_path} was written by model "
+                        f"'{found}' but this run trains '{expected}'. Refusing to warm-start "
+                        "from another architecture's weights. Use warm_start_mode=fresh, or "
+                        "point source_ckpt_file_full_name at that model's own mirror."
+                    ),
+                    fl_ctx=fl_ctx,
+                )
+                return False
+            self.log_info(fl_ctx, f"WarmStart: provenance OK -- checkpoint was written by '{found}'")
 
-        found = recorded.get("model_name", "unknown")
-        if expected != "unknown" and found != "unknown" and found != expected:
+        return self._check_structure(ckpt_path, fl_ctx, expected)
+
+    def _check_structure(self, ckpt_path: str, fl_ctx: FLContext, expected: str):
+        """Refuse a checkpoint whose parameter names share nothing with the model.
+
+        Independent of the sidecar on purpose: a sidecar can be absent (every
+        pre-provenance mirror) or wrong (copied, hand-edited). Parameter names
+        cannot be. A partial overlap is normal -- the Lightning wrapper adds a
+        few buffers the persistor's model lacks -- so only a total miss refuses.
+        """
+        model = getattr(self, "model", None)
+        try:
+            import torch
+            if not isinstance(model, torch.nn.Module):
+                # Not built yet, or not a torch model: nothing to compare against.
+                # Say so, so a skipped check is visible in the log rather than
+                # indistinguishable from a passed one.
+                self.log_info(fl_ctx, "WarmStart: no torch model to compare against; structural check skipped.")
+                return True
+            model_keys = set(model.state_dict().keys())
+        except Exception as e:
+            self.log_warning(fl_ctx, f"WarmStart: could not read this model's parameter names ({e}); structural check skipped.")
+            return True
+
+        ckpt_keys, ckpt_label = checkpoint_keys(ckpt_path)
+        if ckpt_keys is None:
+            self.log_warning(
+                fl_ctx,
+                f"WarmStart: could not read parameter names from {ckpt_path} "
+                f"({_LAST_CHECKPOINT_READ_ERROR or 'not a torch checkpoint'}); structural check skipped.",
+            )
+            return True
+
+        shared = model_keys & ckpt_keys
+        if not shared:
+            labelled = f" and names its own model '{ckpt_label}'" if ckpt_label else ""
             self.system_panic(
                 reason=(
-                    f"{WARM_START_MODEL_MISMATCH}: {ckpt_path} was written by model "
-                    f"'{found}' but this run trains '{expected}'. Refusing to warm-start "
-                    "from another architecture's weights. Use warm_start_mode=fresh, or "
-                    "point source_ckpt_file_full_name at that model's own mirror."
+                    f"{WARM_START_MODEL_MISMATCH}: {ckpt_path} shares no parameter names "
+                    f"with this run's model '{expected}'. The checkpoint holds "
+                    f"{len(ckpt_keys)} parameters (e.g. {sorted(ckpt_keys)[:2]}){labelled}; "
+                    f"the model has {len(model_keys)} (e.g. {sorted(model_keys)[:2]}). "
+                    "Refusing to warm-start from another architecture's weights. Use "
+                    "warm_start_mode=fresh, or point source_ckpt_file_full_name at this "
+                    "model's own mirror."
                 ),
                 fl_ctx=fl_ctx,
             )
-            return
+            return False
 
-        self.log_info(fl_ctx, f"WarmStart: provenance OK -- checkpoint was written by '{found}'")
+        self.log_info(
+            fl_ctx,
+            f"WarmStart: structure OK -- {len(shared)}/{len(model_keys)} parameter names "
+            f"shared with {ckpt_path}",
+        )
+        return True
 
     def _mirror_checkpoint(self, src: str, fl_ctx: FLContext, label: str):
         try:
