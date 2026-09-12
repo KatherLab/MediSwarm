@@ -102,7 +102,11 @@ fi
 source "$CONF_FILE"
 
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
-GIT_SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD)
+# Recorded in the result JSON only. Must not kill the run when the harness is
+# executed from an exported tree (no .git) -- it did exactly that once, one line
+# after MEDISWARM_IMAGE_VERSION had been honoured, and the whole run died before
+# stop_all with nothing but "fatal: not a git repository" in the log.
+GIT_SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DOCKER_IMAGE="jefftud/odelia:$VERSION"
 NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-'
 
@@ -454,13 +458,23 @@ start_clients() {
     fi
 
     for site in "${CLIENT_SITES[@]}"; do
-        local site_name host deploy_dir datadir scratchdir gpu
+        local site_name host deploy_dir datadir scratchdir gpu institution docker_opts
         site_name=$(site_var "$site" SITE_NAME)
         host=$(site_var "$site" HOST)
         deploy_dir=$(site_var "$site" DEPLOY_DIR)
         datadir=$(site_var "$site" DATADIR)
         scratchdir=$(site_var "$site" SCRATCHDIR)
         gpu=$(site_var "$site" GPU)
+        # The loader reads /data/$INSTITUTION/..., and INSTITUTION defaults to
+        # SITE_NAME. Test clients are named TEST_A_1.. (not hospital names, see
+        # the project YAML), so the data folder must be named explicitly.
+        # Optional per site: <SITE>_INSTITUTION=<folder under DATADIR>.
+        institution=$(site_var "$site" INSTITUTION)
+        # Optional per site: <SITE>_DOCKER_OPTIONS, passed to docker run via
+        # MEDISWARM_DOCKER_OPTIONS -- e.g. "--env ODELIA_RETURN_PER_CASE=1".
+        docker_opts=$(site_var "$site" DOCKER_OPTIONS)
+        local inst_flag=""
+        [[ -n "$institution" ]] && inst_flag="--institution '$institution'"
 
         info "Starting client: $site_name @ $host"
 
@@ -476,7 +490,8 @@ start_clients() {
              export SITE_NAME='$site_name' && \
              export DATADIR='$datadir' && \
              export SCRATCHDIR='$scratchdir' && \
-             ./docker.sh --no_pull --image '$DOCKER_IMAGE' --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
+             export MEDISWARM_DOCKER_OPTIONS='$docker_opts' && \
+             ./docker.sh --no_pull --image '$DOCKER_IMAGE' --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $inst_flag $model_flag --start_client"
 
         ok "  Client started: $site_name"
     done
@@ -588,7 +603,16 @@ submit_job() {
         exit 1
     fi
 
-    local job_path="MediSwarm/application/jobs/$job_name"
+    # A job name is resolved under the image's job tree. An ABSOLUTE path is
+    # submitted as given, so a job staged with prepare_odelia_job.sh into the
+    # admin kit (mounted at /fl_admin/local/) can be run through this harness
+    # -- that is how the warm-start provenance guard (#545) gets exercised.
+    local job_path
+    if [[ "$job_name" == /* ]]; then
+        job_path="$job_name"
+    else
+        job_path="MediSwarm/application/jobs/$job_name"
+    fi
     info "Submitting job: $job_name (path: $job_path)"
 
     # Generate expect script
@@ -763,6 +787,82 @@ wait_for_completion() {
 
     err "Timeout after ${timeout_minutes}min waiting for $model_name training to complete"
     return 1
+}
+
+# ── Warm-start mirror hygiene (#347, #545) ───────────────────────────────
+# Every client mirrors its latest global to /scratch/mediswarm_latest_global.pt
+# and, with warm_start_mode=auto, warm-starts from whatever it finds there. The
+# deploy test reuses one SCRATCHDIR per site across models and across days, so
+# model N inherits model N-1's weights. Before #545 that loaded silently and the
+# run died at the first gather -- "None of the 187 incoming model parameter(s)
+# matched the local model's 450" was MST aggregating into a 1DivideAndConquer
+# mirror left by a failed run three days earlier (2026-09-11). Since #545 the
+# provenance guard panics instead. Either way the model is lost and --all can
+# never get past its first model. A deploy test must start every model from
+# scratch, so drop the mirror and its sidecar on every client before the first
+# attempt. Retries within one model keep it: same architecture, and resuming
+# from the last good round is exactly what warm-continue is for.
+clear_stale_mirrors() {
+    local mirror="mediswarm_latest_global.pt"
+    for site in "${CLIENT_SITES[@]}"; do
+        local site_name host scratchdir
+        site_name=$(site_var "$site" SITE_NAME)
+        host=$(site_var "$site" HOST)
+        scratchdir=$(site_var "$site" SCRATCHDIR)
+        [[ -n "$scratchdir" ]] || continue
+        info "Clearing warm-start mirror on $site_name @ $host: $scratchdir/$mirror"
+        remote_exec "$site" "rm -f '$scratchdir/$mirror' '$scratchdir/$mirror.provenance.json'" 2>/dev/null \
+            || warn "  Could not clear $scratchdir/$mirror on $host -- this model may warm-start from a stale one"
+    done
+}
+
+# ── Save server-side job outputs before stop_all deletes the server dir ───
+# The only server file the harness keeps is nohup.out; stop_all() then rm -rf's
+# $DEPLOY_BASE/<server>/ and every <job_id>/ run dir with it. That is where the
+# opt-in per-case predictions (#557: cross_site_val/per_case_predictions/<site>.csv)
+# and the per-site metrics (cross_site_val/cross_val_results.json) land, so a
+# per-case deploy test would "pass" and leave nothing to inspect. Copy each
+# run's cross_site_val/ into RESULTS_DIR first. Runs that wrote none are skipped.
+#
+# Use the directory the server actually ran from, not $DEPLOY_BASE: every
+# attempt's stop_all() deletes the deployed server kit BEFORE start_server(),
+# which then falls back to the kit under workspace/.../prod_00. In practice the
+# server always runs there, and its run dirs pile up across models and days.
+# Copy only the run this model produced (LAST_JOB_ID) when we know it.
+save_server_artifacts() {
+    local model_name="$1"
+    resolve_server_startup_dir
+    [[ -n "$_server_startup_dir" ]] || return 0
+    local server_root
+    server_root=$(dirname "$_server_startup_dir")
+    [[ -d "$server_root" ]] || return 0
+
+    # collect_checkpoints() has not run yet, so find this run's job id the same
+    # way it does: the last "Server runner finished." line in the server log.
+    local want_job="$LAST_JOB_ID"
+    if [[ -z "$want_job" && -f "$_server_startup_dir/nohup.out" ]]; then
+        want_job=$(grep 'Server runner finished\.' "$_server_startup_dir/nohup.out" \
+            | tail -1 | grep -oP 'run=\K[0-9a-f-]+' || true)
+    fi
+
+    local dest_root="$RESULTS_DIR/${model_name}_server_artifacts"
+    local run_dir job_id src
+    for run_dir in "$server_root"/*/; do
+        [[ -d "$run_dir" ]] || continue
+        job_id=$(basename "$run_dir")
+        [[ -z "$want_job" || "$job_id" == "$want_job" ]] || continue
+        src="$run_dir/cross_site_val"
+        [[ -d "$src" ]] || continue
+        mkdir -p "$dest_root/$job_id"
+        if cp -r "$src" "$dest_root/$job_id/" 2>/dev/null; then
+            info "Saved server artifacts: $dest_root/$job_id/cross_site_val"
+            find "$dest_root/$job_id/cross_site_val" -type f 2>/dev/null | while read -r f; do
+                info "  $(basename "$f") ($(wc -l < "$f" 2>/dev/null || echo '?') lines)"
+            done
+        else
+            warn "Could not copy $src (root-owned files?)"
+        fi
+    done
 }
 
 # ── Collect checkpoints from client machines ─────────────────────────────
@@ -1041,6 +1141,9 @@ run_single_model() {
     local checkpoint_status="skipped"
     LAST_JOB_ID=""
 
+    # Start this model from scratch on every client (see clear_stale_mirrors).
+    clear_stale_mirrors
+
     # Retry loop: transient failures (e.g. worker process race on dl3
     # when two NVFlare clients share the same machine) resolve on restart.
     local attempt=1
@@ -1062,6 +1165,9 @@ run_single_model() {
     if [[ -n "$_server_startup_dir" && -f "$_server_startup_dir/nohup.out" ]]; then
         cp "$_server_startup_dir/nohup.out" "$saved_server_log" 2>/dev/null || true
     fi
+    # Same reason: the per-case CSVs and per-site metrics live in the server's
+    # run dir, which stop_all is about to delete.
+    save_server_artifacts "$model_name"
 
     # Stop containers after training (pass or final failure)
     stop_all
