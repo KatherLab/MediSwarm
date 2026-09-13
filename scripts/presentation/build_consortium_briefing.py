@@ -686,7 +686,7 @@ slide(11, "Where we stand",
         <table>
           <thead><tr><th>Deliverable</th><th>Due</th><th>Status</th><th>What it still needs</th></tr></thead>
           <tbody>
-            <tr><td class="id">Regional fine-tuning</td><td class="n">M48</td><td><span class="chip warn">In progress</span></td><td>Per-case predictions — slide 4</td></tr>
+            <tr><td class="id">Regional fine-tuning</td><td class="n">M48</td><td><span class="chip warn">In progress</span></td><td>Per-case predictions shipped in 1.8.0 (13 Sep); one run at Nijmegen and Utrecht</td></tr>
             <tr><td class="id">Active learning</td><td class="n">M48</td><td><span class="chip good">First result in</span></td><td>Budget curve with retraining; per-case predictions — slide 4</td></tr>
             <tr><td class="id">Adversarial robustness</td><td class="n">M48</td><td><span class="chip warn">Starting</span></td><td>—</td></tr>
             <tr><td class="id">Regulatory testing node</td><td class="n">M54</td><td><span class="chip good">Unblocked</span></td><td>Builds on the per-site reporting now working</td></tr>
