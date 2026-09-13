@@ -636,7 +636,10 @@ EXPECT_EOF
 
     # Capture the admin session: `expect` exits 0 even when the admin never
     # reached the server, so its exit status must not be trusted.
-    local submit_log="$RESULTS_DIR/submit_${job_name}.log"
+    # An absolute --job path contains slashes; keep the log name flat.
+    local job_tag
+    job_tag=$(basename "$job_name")
+    local submit_log="$RESULTS_DIR/submit_${job_tag}.log"
     cd "$admin_startup"
     expect -f "$expect_script" > "$submit_log" 2>&1 || true
     cd "$REPO_ROOT"
@@ -870,6 +873,46 @@ save_server_artifacts() {
             warn "Could not copy $src (root-owned files?)"
         fi
     done
+
+    # A job that COMPLETED has no run dir any more: NVFlare packs the server
+    # workspace into its job store -- inside the container, as the zip
+    # /tmp/nvflare/jobs-storage/<job_id>/workspace -- and deletes the run dir.
+    # Only aborted runs leave a run dir behind, which is why the copy above
+    # worked on 12 Sep (aborted) and found nothing on 13 Sep (20 rounds, clean).
+    # The server role runs on this host, so read the store with docker cp.
+    if [[ -n "$want_job" && ! -d "$dest_root/$want_job/cross_site_val" ]]; then
+        resolve_kit_container_suffix
+        local server_ctr
+        if [[ -n "$KIT_CONTAINER_SUFFIX" ]]; then
+            server_ctr=$(docker ps --format '{{.Names}}' | grep -E "^odelia_swarm_server_.*_${KIT_CONTAINER_SUFFIX}$" | head -1 || true)
+        else
+            server_ctr=$(docker ps --format '{{.Names}}' | grep -E '^odelia_swarm_server_' | head -1 || true)
+        fi
+        if [[ -z "$server_ctr" ]]; then
+            warn "No cross_site_val for job $want_job and no running server container to read the job store from"
+            return 0
+        fi
+        local tmp tries=0
+        tmp=$(mktemp -d)
+        # The store is written a few seconds after "Server runner finished."
+        while [[ $tries -lt 6 ]]; do
+            docker cp "$server_ctr:/tmp/nvflare/jobs-storage/$want_job/workspace" "$tmp/workspace.zip" 2>/dev/null && break
+            tries=$((tries + 1)); sleep 10
+        done
+        if [[ -f "$tmp/workspace.zip" ]] \
+            && python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$tmp/workspace.zip" "$tmp/ws" 2>/dev/null \
+            && [[ -d "$tmp/ws/cross_site_val" ]]; then
+            mkdir -p "$dest_root/$want_job"
+            cp -r "$tmp/ws/cross_site_val" "$dest_root/$want_job/"
+            info "Saved server artifacts from the job store: $dest_root/$want_job/cross_site_val"
+            find "$dest_root/$want_job/cross_site_val" -type f 2>/dev/null | while read -r f; do
+                info "  $(basename "$f") ($(wc -l < "$f" 2>/dev/null || echo '?') lines)"
+            done
+        else
+            warn "No cross_site_val for job $want_job: no run dir, and the job store in $server_ctr had no workspace zip with one"
+        fi
+        rm -rf "$tmp"
+    fi
 }
 
 # ── Collect checkpoints from client machines ─────────────────────────────
