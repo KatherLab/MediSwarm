@@ -896,3 +896,90 @@ def test_production_swarm_client_configs_keep_result_refs_and_control_retries_al
     assert "max_concurrent_submissions = 1" in client_config
     # Reusable templates must not bake in the current ODELIA deployment's site count.
     assert "min_responses_required = 5" in client_config
+
+
+# --- structural guard (#545 follow-up): parameter names, independent of the sidecar ---
+
+def _two_disjoint_models():
+    import torch
+    a = torch.nn.Module(); a.enc = torch.nn.Linear(3, 2)
+    b = torch.nn.Module(); b.head = torch.nn.Linear(3, 2)
+    return a, b
+
+
+def test_unlabelled_checkpoint_of_another_architecture_is_refused(warm_continue, tmp_path, monkeypatch):
+    """The 2026-09-11 case: no sidecar, disjoint parameter names -> refuse."""
+    import torch
+    written_by, running = _two_disjoint_models()
+    ckpt = tmp_path / "mediswarm_latest_global.pt"
+    torch.save({"model": written_by.state_dict(),
+                "train_conf": {"train": {"model": "ResidualEncoderClsLightning"}}}, ckpt)
+    monkeypatch.setenv("MODEL_NAME", "MST")
+
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(
+        warm_start_mode="auto", source_ckpt_file_full_name=str(ckpt))
+    persistor.model = running
+
+    assert persistor.load_model(SimpleNamespace(get_prop=lambda key: None)) is None
+    assert len(persistor.panics) == 1
+    msg = persistor.panics[0]
+    assert "WARM_START_MODEL_MISMATCH" in msg
+    assert "shares no parameter names" in msg
+    assert "ResidualEncoderClsLightning" in msg      # the label read out of the file (E2)
+    assert "enc.weight" in msg and "head.weight" in msg
+
+
+def test_unlabelled_checkpoint_of_the_same_architecture_still_loads(warm_continue, tmp_path, monkeypatch):
+    """Pre-provenance mirrors of the right model must keep working -- with a warning."""
+    import torch
+    written_by, _ = _two_disjoint_models()
+    running = torch.nn.Module(); running.enc = torch.nn.Linear(3, 2)   # same names
+    ckpt = tmp_path / "latest.pt"
+    torch.save({"model": written_by.state_dict()}, ckpt)
+    monkeypatch.setenv("MODEL_NAME", "MST")
+
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(
+        warm_start_mode="auto", source_ckpt_file_full_name=str(ckpt))
+    persistor.model = running
+
+    assert persistor.load_model(SimpleNamespace(get_prop=lambda key: None)) == "loaded"
+    assert persistor.panics == []
+    kinds = [k for k, _ in persistor.logger.messages]
+    assert "warning" in kinds                                     # "carries no provenance"
+    assert any("structure OK" in m for _, m in persistor.logger.messages)
+
+
+def test_structural_check_catches_a_sidecar_that_lies(warm_continue, tmp_path, monkeypatch):
+    """A sidecar naming the right model does not excuse disjoint parameters."""
+    import torch
+    written_by, running = _two_disjoint_models()
+    ckpt = tmp_path / "latest.pt"
+    torch.save({"model": written_by.state_dict()}, ckpt)
+    warm_continue.write_provenance(str(ckpt), "MST", "job-1", "deadbeef")
+    monkeypatch.setenv("MODEL_NAME", "MST")
+
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(
+        warm_start_mode="auto", source_ckpt_file_full_name=str(ckpt))
+    persistor.model = running
+
+    assert persistor.load_model(SimpleNamespace(get_prop=lambda key: None)) is None
+    assert len(persistor.panics) == 1 and "shares no parameter names" in persistor.panics[0]
+
+
+def test_structural_check_is_skipped_when_no_model_is_built(warm_continue, tmp_path):
+    """Not a torch file and no model attribute: old behaviour, nothing crashes."""
+    ckpt = tmp_path / "latest.pt"
+    ckpt.write_bytes(b"not a checkpoint")
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(
+        warm_start_mode="auto", source_ckpt_file_full_name=str(ckpt))
+    assert persistor.load_model(SimpleNamespace(get_prop=lambda key: None)) == "loaded"
+    assert persistor.panics == []
+
+
+def test_checkpoint_keys_reads_a_string_train_conf(warm_continue, tmp_path):
+    import torch
+    m = torch.nn.Module(); m.x = torch.nn.Linear(2, 1)
+    ckpt = tmp_path / "c.pt"
+    torch.save({"model": m.state_dict(), "train_conf": "{'train': {'model': 'MST'}}"}, ckpt)
+    keys, label = warm_continue.checkpoint_keys(str(ckpt))
+    assert keys == {"x.weight", "x.bias"} and label == "MST"
