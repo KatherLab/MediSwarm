@@ -39,7 +39,16 @@ from collections import defaultdict
 
 # Machines that belong to the coordinating team, not to a hospital. A record
 # from one of these is test infrastructure regardless of the site name it wears.
+# Deploy tests run on our own machines. Records from them must not be counted as
+# hospital runs -- doing so put four site join dates ~6 weeks early in a published
+# chart, because April records from dl0/dl3 carried hospital site names.
+#
+# From 1.8.0 the deploy-test projects use TEST_A_1..TEST_D_1 instead of real site
+# names (see application/provision/project_deploy_test_*site.yml), so new records
+# are unambiguous by name alone. This hostname heuristic stays because the
+# historical records it was written for do not change.
 TEST_HOSTS = {"dl0.tud.de", "dl2.tud.de", "dl3.tud.de", "cosmos", "agh1"}
+TEST_SITE_NAMES = {"TEST_A_1", "TEST_B_1", "TEST_C_1", "TEST_D_1"}
 
 SITES = ["CAM_1", "MHA_1", "RSH_1", "RUMC_1", "UKA_1", "UMCU_1", "USZ_1", "VHIO_1"]
 
@@ -92,13 +101,20 @@ TEST_PATH_MARK = re.compile(r"deploy_test|/fl_admin/local/mediswarm_jobs")
 PROD_PATH_MARK = re.compile(r"Documents/MediSwarm/workspace|/startupkit/[0-9a-f]{8}-")
 
 
-def classify_host(host, text=""):
-    """real | test | unknown -- the distinction the site *label* cannot make.
+def classify_host(host, text="", site=""):
+    """real | test | unknown -- the distinction the site *label* used to be unable to make.
+
+    From 1.8.0 a TEST_* site name is decisive on its own; that is the whole point
+    of renaming the deploy-test participants. Everything below is for the archive
+    written before the rename, where the label was a real hospital name whatever
+    machine produced it.
 
     heartbeat.json's hostname is authoritative when present. Roughly a third of
     the archive predates it, so fall back to the kit path in the console log:
     a deploy test installs under .../deploy_test/<SITE>, production does not.
     """
+    if site in TEST_SITE_NAMES:
+        return "test"
     if host and host != "?":
         return "test" if host in TEST_HOSTS else "real"
     if text:
@@ -134,7 +150,7 @@ def parse_job_dir(job_dir, site):
         "hb_status":  hb.get("status", ""),
     }
 
-    rec["host_class"] = classify_host(hb.get("hostname", ""), text)
+    rec["host_class"] = classify_host(hb.get("hostname", ""), text, site)
 
     dates = sorted(set(re.findall(r"(20\d\d-\d\d-\d\d) \d\d:\d\d:\d\d", text)))
     rec["date_first"] = dates[0] if dates else ""
