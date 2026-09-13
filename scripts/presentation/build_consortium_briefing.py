@@ -637,21 +637,23 @@ slide(9, "How we read the results",
 
 # ---- 10 ------------------------------------------------------------------
 slide(10, "New this quarter",
-      "Two new capabilities — and one useful negative result",
+      "Two new capabilities — and a first positive result",
       '''    <div class="body">
       <div class="two">
         <div class="panel">
           <h3>Choosing what to label next</h3>
           <p>Labelling breast MRI is expensive, so we tested whether the model can point
           at the cases worth a radiologist's time.</p>
-          <p style="margin-top:.5rem"><strong>It cannot — yet.</strong> Asking the model
-          for the cases it is least sure about found <em>fewer</em> malignant cases than
-          picking at random: 19 against 22 out of a 100-case budget.</p>
-          <p style="margin-top:.5rem">The diagnostic explains why, and it is worth
-          knowing: the model is <strong>most confident on benign cases</strong>, which are
-          the rarest. Its confidence does not track whether it is right, so asking it what
-          it is unsure about points in the wrong direction. Confidence has to be fixed
-          before this technique can help.</p>
+          <p style="margin-top:.5rem"><strong>It can.</strong> Asking the model for the
+          cases it is least sure about found about <strong>twice as many cancers as picking
+          at random</strong> while the labelling budget is small: 5 against 2.4 in the first
+          10 cases, 9 against 4.6 in the first 20, 14 against 8.9 in the first 40. It beat
+          random at five of eight budgets and lost at none.</p>
+          <p style="margin-top:.5rem">The advantage fades once most of the 165-case pool
+          has been taken, as it must. Two honest caveats: this measures which cases get
+          picked, not yet how much a model trained on them improves; and a first version of
+          this figure said the opposite — it had been computed on the wrong model's
+          predictions and was withdrawn on 10 September.</p>
         </div>
         <div class="panel">
           <h3>Putting a number on privacy</h3>
@@ -685,7 +687,7 @@ slide(11, "Where we stand",
           <thead><tr><th>Deliverable</th><th>Due</th><th>Status</th><th>What it still needs</th></tr></thead>
           <tbody>
             <tr><td class="id">Regional fine-tuning</td><td class="n">M48</td><td><span class="chip warn">In progress</span></td><td>Per-case predictions — slide 4</td></tr>
-            <tr><td class="id">Active learning</td><td class="n">M48</td><td><span class="chip good">First result in</span></td><td>Fix model confidence, then re-test</td></tr>
+            <tr><td class="id">Active learning</td><td class="n">M48</td><td><span class="chip good">First result in</span></td><td>Budget curve with retraining; per-case predictions — slide 4</td></tr>
             <tr><td class="id">Adversarial robustness</td><td class="n">M48</td><td><span class="chip warn">Starting</span></td><td>—</td></tr>
             <tr><td class="id">Regulatory testing node</td><td class="n">M54</td><td><span class="chip good">Unblocked</span></td><td>Builds on the per-site reporting now working</td></tr>
             <tr><td class="id">Differential privacy</td><td class="n">M54</td><td><span class="chip good">Measurable</span></td><td>Consortium decision on the noise level</td></tr>

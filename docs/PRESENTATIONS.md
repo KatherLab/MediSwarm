@@ -6,6 +6,20 @@ verified, the page says so rather than omitting the gap.
 
 ## Current
 
+### `presentation_consortium_45min.html` — consortium briefing, 45-minute version
+**17 slides · 10 September 2026 · for the 45-minute consortium slot**
+
+The long form of the briefing, for an audience that has run the consortium for three
+years — no basics. Data (slides 2–6) reuses all five charts of the data-by-site page
+verbatim, plus the per-site table with join dates, so the two cannot drift. Results
+(7–10): the model comparison, the same numbers with bootstrap confidence intervals, the
+Duke external validation (malignant-vs-no-lesion AUROC 0.887 on 260 US cases against
+0.903 on the 148 European challenge cases, intervals overlapping), and the
+operating-point caveat with the evaluation-validity lesson. Deliverables (11–14): D3.2
+active learning (the corrected, positive result), T3.3 differential privacy, D3.4
+adversarial robustness, MS6 white-hat site-inference probe. Then status and the ask.
+This is the file behind the published "ODELIA Consortium Briefing" artifact.
+
 ### `presentation_consortium_briefing.html` — consortium briefing
 **12 slides · 10 September 2026 · built for a meeting, prints one slide per page**
 
@@ -22,7 +36,7 @@ config paths, no code identifiers. It explains the *design* first and the
 | 6–7 | The model comparison, and why the smallest sites gain most |
 | 8 | **Prevention-loop diagram** — how one site's incident becomes a permanent fix for all eight, beside the recent failure timeline |
 | 9 | Radboud's 99.1 % accuracy against an AUROC of 0.417, as the plain-language case for reporting support counts |
-| 10 | The active-learning negative result and the privacy budget |
+| 10 | The active-learning result — entropy sampling beats random at small budgets (corrected 10 Sep) — and the privacy budget |
 | 12 | The ask: per-case predictions, and a slot with Cambridge and Nijmegen |
 
 The diagrams are **inline SVG, not mermaid**. Mermaid only auto-renders inside the
@@ -58,11 +72,11 @@ is verified and what is not, and the recommended next task.
 
 Updated 10 September with the section **"Two tasks produced their first result"**:
 
-- **D3.2** — uncertainty sampling *lost* to random at every labelling budget
-  (19 / 21 / 22.2 ± 2.8 malignant at a 100-label budget). The calibration diagnostic
-  explains it: the model is most confident on benign cases, the rarest class, so an
-  uncertainty rule deprioritises exactly what you want it to find. Reported as a
-  finding about calibration, not a verdict on active learning.
+- **D3.2** — entropy sampling *beats* random at 5 of 8 labelling budgets and loses at
+  none: 5 vs 2.4 ± 1.3 malignant in the first 10 cases, 9 vs 4.6 ± 1.8 at 20, 14 vs
+  8.9 ± 2.3 at 40; the methods converge by 100 of 165. A first version said the
+  opposite — computed on wrong-architecture predictions (pitfall E2) and withdrawn in
+  #568. Acquisition quality only; the retraining curve is still open.
 - **T3.3 Phase 2** — the privacy guarantee is now a number. Over 20 rounds at
   δ = 10⁻⁵: ε ≤ 10 needs σ ≥ 2.4, ε ≤ 3 needs σ ≥ 6.7, ε ≤ 1 needs σ ≥ 18.1. The
   guarantee is client-level, not record-level, and the report says so.
