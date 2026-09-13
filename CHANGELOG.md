@@ -2,7 +2,7 @@
 
 All notable changes to MediSwarm are documented in this file.
 
-## [1.8.1] - UNRELEASED
+## [1.8.1] - 2026-09-13
 
 Controller fix: a swarm can no longer start on a site that has not finished configuring.
 
