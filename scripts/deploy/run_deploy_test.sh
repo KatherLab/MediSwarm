@@ -406,9 +406,23 @@ deploy_kits() {
     fi
     if [[ -n "$admin_zip" && -f "$admin_zip" ]]; then
         cp "$admin_zip" "$DEPLOY_BASE/"
+        # Jobs staged into the deployed admin kit with prepare_odelia_job.sh
+        # (local/mediswarm_jobs/, submitted by absolute --job path) must survive
+        # the redeploy: the clean below rm -rf's the whole kit, and an absolute
+        # --job then fails with "is not a valid folder" (13 Sep, guard test).
+        local staged="$DEPLOY_BASE/$ADMIN_USER/local/mediswarm_jobs"
+        local staged_keep="$DEPLOY_BASE/.staged_jobs.$$"
+        if [[ -d "$staged" ]]; then
+            mv "$staged" "$staged_keep"
+        fi
         clean_local_deploy_dir "$ADMIN_USER"
         cd "$DEPLOY_BASE" && unzip -qo "$(basename "$admin_zip")"
         cd "$REPO_ROOT"
+        if [[ -d "$staged_keep" ]]; then
+            mkdir -p "$DEPLOY_BASE/$ADMIN_USER/local"
+            mv "$staged_keep" "$staged"
+            info "  Preserved staged jobs in the admin kit: $(ls "$staged" | tr '\n' ' ')"
+        fi
         ok "  Deployed admin kit ($ADMIN_USER) locally on Cosmos"
     fi
 }
