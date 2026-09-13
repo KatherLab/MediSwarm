@@ -2,7 +2,34 @@
 
 All notable changes to MediSwarm are documented in this file.
 
-## [1.8.0] - UNRELEASED
+## [1.8.1] - UNRELEASED
+
+Controller fix: a swarm can no longer start on a site that has not finished configuring.
+
+### Fixed
+
+- **Configure phase requires the starting client (NVFlare fork PR #8; #576)** — with
+  `min_clients` below the number of participating sites, the server left the configure
+  phase as soon as the quorum answered. If the starting site was not among them, the start
+  task reached a client whose persistor did not exist yet and the run died with
+  `invalid model learnable: expect Model type but got NoneType`, or stalled ten minutes on
+  `TOPIC_UNKNOWN` replies and hung. The starting client is now configured first and on its
+  own, a failure is a clear `system_panic` naming it, and the remaining sites are configured
+  with the quorum applied to the whole set — without blocking when the starting client
+  already satisfies it. Found by the weekly CI run on 13 Sep; consortium runs were shielded
+  only because `configure_min_clients` is set to the site count at submission.
+- **CI deploy test on the runners (#580)** — the workflow now bakes `min_clients` into the
+  test kits (default 2) and the runner-local configs were brought in line with the renamed
+  test sites; the release-triggered deploy test passes again for the first time since the
+  runners moved in July.
+
+### Changed
+
+- The fork's `TestConfigurePhase` and `TestPrunedStartingClient` re-implemented the
+  controller's condition inside the test and asserted on the copy; replaced by tests that
+  drive the real `_configure_clients()`.
+
+## [1.8.0] - 2026-09-13
 
 Per-site evaluation and deploy-test release. A completed swarm run now reports what
 every site measured, can return per-case predictions from sites that opt in, and
