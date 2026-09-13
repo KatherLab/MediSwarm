@@ -176,6 +176,13 @@ anything fails. The server log simply stops advancing.
   green throughout: `pytest.importorskip("nvflare")` skipped the collector's tests entirely because
   the workflow never installed NVFlare (cf. #416/#423). A skipped test file is not a passing one.
 - **Observed 2026-09-04:** job `7c6e72c6` reported all eight sites and still wrote `{}`.
+- **Where the file is after a run:** for a *completed* job the server keeps nothing under
+  `<server kit>/<job_id>/` — NVFlare packs the server workspace into its job store
+  (`/tmp/nvflare/jobs-storage/<job_id>/workspace`, a zip **inside the server container**) and
+  deletes the run dir. Retrieve it with `download_job <job_id>` from the admin console; it lands in
+  the admin kit's `transfer/<job_id>/workspace/cross_site_val/`. Only an *aborted* run leaves a run
+  dir behind — which is how the deploy test read the file on 12 Sep and found nothing after the
+  clean 20-round run on 13 Sep (harness fixed to read the store).
 
 ## F11 — A wrong-architecture warm-start mirror that nobody labelled
 
