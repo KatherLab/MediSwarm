@@ -78,16 +78,23 @@ dl0/dl2.
 
 ## 5. Move the coordinator server
 
-The production server's kit also has `image.conf → :current`, so a restart pulls the new
-image. Do this between runs, with the owner's go-ahead — clients reconnect on their own
-using their stored tokens, but a running job would be lost.
+The production server kit is a **1.6.0 kit whose `docker.sh` pins `jefftud/odelia:1.6.0`
+and does not read `image.conf`** (that template only reached the client kits), so a plain
+restart would keep the old image. Point it at the release explicitly. Do this between runs,
+with the owner's go-ahead — clients re-register on their own, but a running job would be lost.
+Check the job store first (`docker exec … ls /tmp/nvflare/jobs-storage`, every `meta` should
+say `FINISHED:*`).
 
 ```bash
 cd /home/jeff/deploy_odelia_allsites/dl3.tud.de/startup
+cp docker.sh docker.sh.bak-1.6.0
+sed -i 's#^DOCKER_IMAGE=jefftud/odelia:.*#DOCKER_IMAGE=jefftud/odelia:1.8.0#' docker.sh
 docker stop odelia_swarm_server_flserver_a19be57 && docker rm odelia_swarm_server_flserver_a19be57
-rm -f ../daemon_pid.fl            # a stale lock makes start.sh refuse to launch
-./docker.sh --start_server
+./docker.sh --start_server        # removes ../pid.fl and ../daemon_pid.fl itself
 ```
+
+Verify: `docker inspect odelia_swarm_server_flserver_a19be57 --format '{{.Config.Image}}'`
+and, within a few minutes, `registered client` lines for the sites in `startup/nohup.out`.
 
 ## 6. Kits and the announcement
 
