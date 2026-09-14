@@ -640,7 +640,7 @@ start_clients_for_model () {
 start_server_and_clients_for_model () {
     MODEL_NAME=$1
     start_server
-    start_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
+    start_clients_for_model "$MODEL_NAME"
 }
 
 start_registry_docker_and_push () {
