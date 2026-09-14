@@ -28,23 +28,35 @@ the new kit works with the running coordinator straight away.
 4. Robustness fixes from our test bed, and the groundwork for the active-learning, robustness
    and privacy deliverables — nothing needed from you for those yet.
 
-**What to do (about 10 minutes, at a convenient moment, not during a run)**
+**What to do (the same five steps for every site, about 10 minutes, at a convenient moment,
+not during a run)**
 
-1. Download `<SITE>_1.8.1.zip` from the shared folder *ODELIA Startup Kits / v1.8.1* and check
-   it: `sha256sum <SITE>_1.8.1.zip` must match the row for your site in the board's *Kit
-   registry* tab.
-2. Stop your running client container.
-3. Unzip the kit into a **new, empty** folder. If your old kit has a `startup/sync.conf`
-   (the log-upload key), copy it into the new kit's `startup/`.
-4. From the new kit's `startup/` folder, run the usual preflight and start:
+1. Download `<SITE>_1.8.1.zip` from the kits folder
+   https://drive.google.com/drive/folders/1c3-HaicxgCXukpf5hIlEXWnR4B2N06yS
+   and check it: `sha256sum <SITE>_1.8.1.zip` must match your site's row in the *Kit registry*
+   tab of the run board
+   https://docs.google.com/spreadsheets/d/10_RdWyUulIS7u5Ia5HzC_IiusfIuzhkEd1_c_YU6ml0/edit?gid=1106108057#gid=1106108057
+2. Stop your running client container:
+   ```
+   docker ps --format '{{.Names}}' | grep odelia_swarm_client   # shows the name
+   docker stop <that name>
+   ```
+3. Unzip the kit into a **new, empty** folder. If your current kit has a `startup/sync.conf`
+   (the log-upload key), copy it into the new kit's `startup/`. Everything else, including
+   your certificates, is already in the new kit.
+4. From the new kit's `startup/` folder, run the usual preflight and start, with the same
+   data and scratch paths you use today:
    ```
    ./docker.sh --data_dir "$DATADIR" --scratch_dir "$SCRATCHDIR" --GPU device=0 --preflight_check
    ./docker.sh --data_dir "$DATADIR" --scratch_dir "$SCRATCHDIR" --GPU device=0 --start_client
    ```
-5. Tick your row in the board's *Site checklist* tab.
+5. Tick your row in the *Site checklist* tab of the run board (link above).
 
-That is all. The updated handbook is linked from the board. As before, a full twenty-round run
-takes about two days across the eight sites and I will announce each one before it starts.
+That is all. The updated partner handbook is here:
+https://docs.google.com/document/d/158XgZuXVnYsilfak9IFhELTLb2FBVxKgfuCQDlR_0Aw/edit?tab=t.0
+Sections 1.0 and 1.1 are these same steps; section 4 says what to check if the client does
+not reconnect. As before, a full twenty-round run takes about two days across the
+eight sites and I will announce each one before it starts.
 
 Best regards,
 Jeff
@@ -62,6 +74,10 @@ Jeff
   publishing: PR validation, a 20-round real-kit run on dl3 + dl0 + dl2, the weekly
   all-models validation on `main`, and the runner-side release check that trained all six
   models.
-- Sites that cannot install immediately keep working: 1.6.0 kits follow `:current` and are
-  already on 1.8.1 after a restart; only RSH and USZ (1.5.0 kits) are stuck on an old image
-  until they install.
+- Instructions are identical for all eight sites on purpose (decision 14 Sep): no site is
+  singled out in the email. Internally, the two 1.5.0-kit sites (RSH, USZ) are the ones that
+  cannot follow `:current` and so are the only ones actually stuck on an old image until they
+  install; the 1.6.0-kit sites are already on 1.8.1 after any restart.
+- Kits were uploaded to the v1.8.1 Drive folder and the 1.8.1 checksums are in the run
+  board's *Kit registry* tab (14 Sep). The handbook link points at the new 1.8.1 handbook
+  document.
