@@ -269,7 +269,7 @@ run_nvflare_integration_tests(){
            "$DOCKER_IMAGE"
 }
 
-create_startup_kits_and_check_contained_files () {
+_create_startup_kits () {
     echo "[Prepare] Startup kits for test project ..."
 
     if [ ! -d "$PROJECT_DIR"/prod_00 ]; then
@@ -280,7 +280,9 @@ create_startup_kits_and_check_contained_files () {
         exit 1
     fi
     ./scripts/build/_buildStartupKits.sh $PROJECT_FILE $VERSION $DOCKER_IMAGE
+}
 
+_check_contained_files_in_startup_kits () {
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
         if [ -f "$PROJECT_DIR/prod_01/client_A/startup/$FILE" ] ; then
@@ -325,6 +327,11 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
     echo "✅ kit archive contains the expected startup files"
+}
+
+create_startup_kits_and_check_contained_files () {
+    _create_startup_kits
+    _check_contained_files_in_startup_kits
 }
 
 
