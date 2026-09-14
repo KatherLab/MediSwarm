@@ -2,6 +2,18 @@
 
 All notable changes to MediSwarm are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`MST_SAMMed2D` model** — the MST slice-fusion classifier on the SAM-Med2D ViT-B image
+  encoder (adapter layers, 256-pixel slices), contributed by Zhongying Deng (University of
+  Cambridge) on branch `custom_cam_ZD` and ported onto `main`. Select with
+  `MODEL_NAME=MST_SAMMed2D`. The SAM-Med2D weights (`sam-med2d_b.pth`) are not in the repo:
+  place them in the build cache to ship them in the image, or set `SAM_MED2D_CHECKPOINT`;
+  without them the encoder starts from random weights and says so. Slices are resized from
+  the dataset's 224 to 256 inside the model rather than by changing the shared data pipeline.
+
 ## [1.8.1] - 2026-09-13
 
 Controller fix: a swarm can no longer start on a site that has not finished configuring.

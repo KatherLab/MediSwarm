@@ -1102,6 +1102,7 @@ run_all_models_preflight_check () {
     _verify_challenge_preflight_check "challenge_5pimed"              "backbone *| Resnet"
 
     _verify_ODELIA_ternary_preflight_check "MST"                      "mst *| _MST *| 23"
+    _verify_ODELIA_ternary_preflight_check "MST_SAMMed2D"             "mst *| _MST *| 267"  # random init unless sam-med2d_b.pth is in the image
     _verify_ODELIA_ternary_preflight_check "ResNet10"                 "model *| _ResNet *| 14"
     _verify_ODELIA_ternary_preflight_check "ResNet18"                 "model *| _ResNet *| 33"
     _verify_ODELIA_ternary_preflight_check "ResNet34"                 "model *| _ResNet *| 63"
