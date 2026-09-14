@@ -76,6 +76,23 @@ args {
     }
 }
 ```
+* MedicalNet:
+```conf
+args {
+    model {
+    path = "models.medicalnet.MedicalNet"
+    args {
+        n_input_channels = 1
+        num_classes = 3
+        spatial_dims = 3
+    }
+    }
+}
+```
+Set `MEDICALNET_PRETRAINED_PATH` on every client to use a MedicalNet checkpoint;
+when unset, the model trains from scratch. The supplied `resnet_34_23dataset.pth`
+checkpoint is approximately 253 MB and should be distributed through the node
+startup kit or another artifact store rather than committed to Git.
 *BMC_AIM:
 ```conf
 args {

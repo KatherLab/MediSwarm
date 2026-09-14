@@ -6,7 +6,7 @@ from env_config import load_environment_variables
 from pathlib import Path
 import importlib.util
 import logging
-from models import ResNet, MST, Swin3D
+from models import ResNet, MST, MedicalNet, Swin3D
 
 """
 Shared configuration for challenge models.
@@ -156,6 +156,14 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
                     num_classes=num_classes,
                     spatial_dims=3,
                     loss_kwargs=loss_kwargs)
+    elif model_name == 'MedicalNet':
+        model = MedicalNet(
+            n_input_channels=1,
+            num_classes=num_classes,
+            spatial_dims=3,
+            pretrained_path=os.environ.get('MEDICALNET_PRETRAINED_PATH'),
+            loss_kwargs=loss_kwargs,
+        )
     elif model_name == "Swin3D":
         print(f"Using Swin3D model:\nShould we include {loss_kwargs} here?")
         model = Swin3D(n_input_channels=1,
