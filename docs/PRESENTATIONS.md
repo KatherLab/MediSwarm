@@ -7,18 +7,33 @@ verified, the page says so rather than omitting the gap.
 ## Current
 
 ### `presentation_consortium_45min.html` — consortium briefing, 45-minute version
-**17 slides · 10 September 2026 · for the 45-minute consortium slot**
+**21 slides · 14 September 2026 · for the 45-minute consortium slot · ODELIA deck style**
 
-The long form of the briefing, for an audience that has run the consortium for three
-years — no basics. Data (slides 2–6) reuses all five charts of the data-by-site page
-verbatim, plus the per-site table with join dates, so the two cannot drift. Results
-(7–10): the model comparison, the same numbers with bootstrap confidence intervals, the
-Duke external validation (malignant-vs-no-lesion AUROC 0.887 on 260 US cases against
-0.903 on the 148 European challenge cases, intervals overlapping), and the
-operating-point caveat with the evaluation-validity lesson. Deliverables (11–14): D3.2
-active learning (the corrected, positive result), T3.3 differential privacy, D3.4
-adversarial robustness, MS6 white-hat site-inference probe. Then status and the ask.
-This is the file behind the published "ODELIA Consortium Briefing" artifact.
+Rebuilt on 14 September in the visual identity of the ODELIA EAB deck
+(`odelia_EAB_meeting_opensource_jeff.pptx`): white slides, magenta titles, Open Sans, the
+pink-to-coral gradient title slide, the numbered agenda blocks, and the TUD / UKD / EKFZ /
+Kather Lab / ODELIA logo strip in header and footer. Logos are in `docs/assets/logos/` and
+inlined by the build. The deck is deliberately light-only, like its source.
+
+Slides 3–16 carry the 10 September content unchanged (data, results, external validation,
+the four deliverables). New on 14 September:
+
+| Slide | What it does |
+|---|---|
+| 2 | Agenda — the five numbered blocks of the source deck |
+| 17 | **Milestone timeline** — one bar per deliverable from its grant-month window to its due date (M48 / M54 / M60), filled to the share of its "done when" checklist that is complete; today (M45) and 31 Dec 2026 (M48) as vertical lines |
+| 18 | **What concludes by 31 December 2026** — the checklists behind every percentage on slide 17, split into "due M48, on track" (D2.5, D3.2, D3.4) and "continues into 2027" (T3.3, MS6, D3.3, D3.5), plus the month-by-month plan to year end |
+| 19 | Status table, updated for 1.8.1 |
+| 20 | **To-do list by site** — coordinator registration after the 1.8.1 restart, kit version each node reports, last log upload from the hospital's own machine, and the concrete actions per site |
+
+The site table is read from the coordinator log (`Re-activate the client` after the
+13 Sep 23:08 UTC restart), the live-sync heartbeats under `/srv/mediswarm/live/<SITE>/`
+(records whose hostname is one of our test machines are excluded — Nijmegen's latest real
+upload is 30 Aug, not the 10 Sep record from dl0), and the board's site checklist.
+
+Rebuild with `scripts/presentation/build_consortium_45min.py`; the carried-over slide
+content lives in `scripts/presentation/consortium_45min_slides.html` next to it. This is
+the file behind the published "ODELIA Consortium Briefing" artifact.
 
 ### `presentation_consortium_briefing.html` — consortium briefing
 **12 slides · 10 September 2026 · built for a meeting, prints one slide per page**

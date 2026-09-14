@@ -101,7 +101,7 @@ and, within a few minutes, `registered client` lines for the sites in `startup/n
 - Upload `prod_NN/*.zip` + `SHA256SUMS.txt` the way 1.6.0 was delivered
   (`workspace/UPLOAD_odelia_kits_v1.6.0/` is the template).
 - Sites on a 1.6.0 kit: restart once, nothing else. Sites on a 1.5.0 kit: new kit or
-  `--image`. The email template for 1.8.0 is `docs/EMAIL_release_1.8.0.md`.
+  `--image`. Announcement emails are drafted locally as `docs/EMAIL_release_<version>.md` (gitignored, never committed).
 - Update the kit registry / run schedule with the exact tag.
 
 ## 7. After the release
