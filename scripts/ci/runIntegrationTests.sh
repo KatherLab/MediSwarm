@@ -1169,18 +1169,25 @@ _verify_ODELIA_ternary_swarm_training_output() {
 _verify_ODELIA_ternary_swarm_training() {
     MODEL_NAME=$1
     EXPECTED_OUTPUT_ABOUT_MODEL=$2
-    echo TEMPORARY_OUTPUT $MODEL_NAME
+
+    mkdir -p "$SCRATCH_DIR"
+    _create_startup_kits
+
     start_server_and_clients_for_odelia_model "$MODEL_NAME"
     run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
     _verify_3dcnn_training_in_swarm_for_odelia_model_output
     _verify_ODELIA_ternary_swarm_training_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$MODEL_NAME"
+
     kill_server_and_clients
+    _rm_rf "$PROJECT_DIR"
+    sleep 10  # TODO necessary?
 }
 
-_verify_ODELIA_ternary_swarm_training() {
+_verify_ODELIA_challenge_swarm_training() {
     # TODO consider refactoring (duplicate code with method above)
     JOB_NAME=$1
     EXPECTED_OUTPUT_ABOUT_MODEL=$2
+
     start_server_and_clients_for_challenge_model "$JOB_NAME"
     run_3dcnn_training_in_swarm_for_odelia_model "$JOB_NAME"
     _verify_3dcnn_training_in_swarm_for_odelia_model_output
@@ -1189,6 +1196,8 @@ _verify_ODELIA_ternary_swarm_training() {
 }
 
 run_all_models_training_in_swarm () {
+    create_synthetic_data
+
     _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
     _verify_ODELIA_ternary_swarm_training "ResNet10"                 "model *| _ResNet *| 14"
     _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
@@ -1201,6 +1210,8 @@ run_all_models_training_in_swarm () {
 
     # challenge models (same order as for preflight checks?)
     echo "Challenge models TODO"
+
+    cleanup_temporary_data
 }
 
 
@@ -1365,10 +1376,8 @@ case "$1" in
 
     run_all_models_training_in_swarm)
         # TODO add to weekly/manual workflow
-        create_startup_kits_and_check_contained_files
-        create_synthetic_data
+        # preparation and cleanup happens for each model separately
         run_all_models_training_in_swarm
-        cleanup_temporary_data
         ;;
 
     run_stamp_preflight_check)
