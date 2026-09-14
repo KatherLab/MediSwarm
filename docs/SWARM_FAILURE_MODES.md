@@ -22,6 +22,8 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 | F8 | Run trains on a **subset**: `clients [...] did not configure within timeout but min_clients=N allows proceeding` | Controller stops waiting once `configure_min_clients` answer; slower sites lose the key exchange | Set `configure_min_clients` **= number of participating sites** |
 | F9 | Site never appears in `check_status server`, container reports `(healthy)` for weeks | Startup kit older than the server's provisioning generation → `ClientConnectorCertificateError` | Re-issue the current startup kit to that site |
 | F10 | `cross_val_results.json` is `{}` although the server logged `Published metrics for N site(s)` | Two components act on the same `END_RUN`; `ValidationJsonGenerator` writes the file before the later-listed collector publishes into it | Publish on `ABOUT_TO_END_RUN`, which is fired strictly earlier (already fixed in `per_site_metrics.py`) |
+| F11 | Aggregator fails with `None of the N incoming model parameter(s) matched the local model's M`; a client logged `missing keys` when loading the global | An **unlabelled** warm-start mirror from another architecture was auto-loaded (`warm_start_mode=auto`, no provenance sidecar) | Guard now intersects parameter names and refuses on zero overlap (#575); deploy test wipes mirrors first (#573) |
+| F12 | `Pin memory thread exited unexpectedly` / `unable to open shared memory object </torch_…>` at an epoch end — **not** F7 | `file_system` sharing-strategy cleanup race, aggravated by many DataLoader workers on a tiny training set | `cap_loader_workers` (#575, #574): ≥4 samples per worker; never binds on a real site |
 
 ---
 
@@ -174,6 +176,40 @@ anything fails. The server log simply stops advancing.
   green throughout: `pytest.importorskip("nvflare")` skipped the collector's tests entirely because
   the workflow never installed NVFlare (cf. #416/#423). A skipped test file is not a passing one.
 - **Observed 2026-09-04:** job `7c6e72c6` reported all eight sites and still wrote `{}`.
+- **Where the file is after a run:** for a *completed* job the server keeps nothing under
+  `<server kit>/<job_id>/` — NVFlare packs the server workspace into its job store
+  (`/tmp/nvflare/jobs-storage/<job_id>/workspace`, a zip **inside the server container**) and
+  deletes the run dir. Retrieve it with `download_job <job_id>` from the admin console; it lands in
+  the admin kit's `transfer/<job_id>/workspace/cross_site_val/`. Only an *aborted* run leaves a run
+  dir behind — which is how the deploy test read the file on 12 Sep and found nothing after the
+  clean 20-round run on 13 Sep (harness fixed to read the store).
+
+## F11 — A wrong-architecture warm-start mirror that nobody labelled
+
+- **Symptom (aggregating client, `startup/nohup.out`):**
+  ```
+  FaultTolerantSwarmClientController - ERROR - exception ending gatherer:
+  ValueError: None of the 187 incoming model parameter(s) matched the local model's 450 parameter(s).
+  ```
+  Earlier on the same client: `WarmStart: /scratch/mediswarm_latest_global.pt carries no provenance; cannot confirm it was produced by 'MST'. … Proceeding.` and then
+  `FLCallback - WARNING - There were missing keys when loading the global state_dict`.
+- **Root cause:** every ODELIA job mirrors its latest global to one path, `/scratch/mediswarm_latest_global.pt`, and `warm_start_mode = "auto"` loads whatever is there. The #545 guard refused a mirror whose *sidecar* named another model, but a mirror **without** a sidecar — every one written before provenance existed, and anything copied by hand — was accepted with a warning. On 2026-09-11 a 722 MB 1DivideAndConquer mirror left by a failed run warm-started an MST client. The two key sets were disjoint from the first byte.
+- **Detection:** the `carries no provenance` warning followed by `missing keys` on load is the tell. `checkpoint_keys()` in `warm_continue.py` lists a mirror's parameter names (and the model its own `train_conf` records) without loading it.
+- **Fix:** #575 — the guard intersects the checkpoint's parameter names with the model's whether or not a sidecar exists; an empty intersection is refused with `WARM_START_MODEL_MISMATCH`, and a refusal now returns `None` from `load_model` instead of loading anyway. The deploy test wipes mirrors before each model (#573, `clear_stale_mirrors`; `DEPLOY_TEST_KEEP_MIRROR=1` to opt out).
+- **Prevention:** never leave a mirror beside a run that did not write it. This is E2 (`docs/EVALUATION_PITFALLS.md`) arriving through the training path instead of the evaluation path — same lesson: the file's contents, not its name or location, say what model it is.
+
+## F12 — Pin-memory thread dies at an epoch boundary (reads as F7; is not)
+
+- **Symptom (client `startup/nohup.out`):**
+  ```
+  Epoch 8: 100%|██████████| 38/38 … Exception in thread Thread-10 (_pin_memory_loop):
+  RuntimeError: unable to open shared memory object </torch_310_3681426278_102> in read-write mode: No such file or directory (2)
+  threedcnn_ptl - ERROR - Error in main function: Pin memory thread exited unexpectedly
+  ```
+  No OOM in the kernel log; `/dev/shm` large; `--shm-size=16g --ipc=host` set. That rules out F7.
+- **Root cause:** the `file_system` sharing strategy (chosen in `8ac8f85` to stop file-descriptor exhaustion — do not switch it back) hands tensors between DataLoader workers and the pin-memory thread by shm *filename*, and the segment can be cleaned before the reader opens it. Sixteen workers on a 38-volume set is close to the worst case: with batch size 1 the whole epoch is in shm at once.
+- **Fix:** `cap_loader_workers` (#575, #574) — each worker gets at least four samples per epoch, so 16 → 9 on 38 volumes; on a real site the cap never binds. The fault-tolerant controller retries the round, but on a two-client test with `min_clients=2` a retry is a whole round.
+- **Observed 2026-09-11:** `TEST_A_1` (dl0), 77 s into round 0; trained normally on the retry.
 
 ## Operator diagnostic playbook
 

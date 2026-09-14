@@ -283,7 +283,8 @@
     <p class="standfirst">
       The capability that blocked all four outstanding grant tasks is fixed, verified on real
       hospital data, and now merged along with the eight PRs behind it. Two of the four tasks have
-      produced their first result — one of them negative and informative. Three deliverables are
+      produced their first result; the active-learning one is positive, after a first
+      computation on the wrong model's predictions was withdrawn. Three deliverables are
       due in three months. The obstacle is no longer the software; it is that the consortium fleet
       cannot currently hold a run together.
     </p>
@@ -394,12 +395,12 @@
           <tr>
             <td class="id">D2.5</td><td class="id">T2.4</td><td class="id">M48</td><td class="num">3 mo</td>
             <td><span class="chip flight">In progress</span></td>
-            <td>Fine-tuning ran; paired analysis built. The checkpoint-retrieval blocker is gone — #556 and #557 are merged. Needs one run with per-case return enabled at RUMC and UMCU.</td>
+            <td>Fine-tuning ran; paired analysis built. The checkpoint-retrieval blocker is gone — #556 and #557 are merged. Needs one run with per-case return enabled at RUMC and UMCU. <strong>Update 13 Sep:</strong> per-case return verified on real startup kits at two test sites and shipped in 1.8.0; sites pick it up on their next client restart.</td>
           </tr>
           <tr>
             <td class="id">D3.2</td><td class="id">T3.2</td><td class="id">M48</td><td class="num">3 mo</td>
             <td><span class="chip flight">First result</span></td>
-            <td>Strategies merged (#555); acquisition experiment run (#563). <strong>Negative result</strong> — uncertainty sampling underperforms random on this pool. Cause identified and reported below.</td>
+            <td>Strategies merged (#555); acquisition experiment run (#563), corrected in #568. <strong>Positive result</strong> — entropy sampling beats random at 5 of 8 budgets and loses at none, about 2&times; the malignant yield at small budgets. Acquisition quality only; the retraining curve is still open.</td>
           </tr>
           <tr>
             <td class="id">D3.4</td><td class="id">WP3</td><td class="id">M48</td><td class="num">3 mo</td>
@@ -424,7 +425,7 @@
           <tr>
             <td class="id">D3.5</td><td class="id">T3.4</td><td class="id">M60</td><td class="num">15 mo</td>
             <td><span class="chip flight">Part-evidenced</span></td>
-            <td>The 8-site run is the demonstration. Needs a re-run on the released version.</td>
+            <td>The 8-site run is the demonstration. Needs a re-run on the released version — <strong>1.8.0 was released on 13 Sep</strong> and the coordinator already runs it, so that re-run is now possible.</td>
           </tr>
         </tbody>
       </table>
@@ -526,13 +527,15 @@
     <div class="prose">
       <p>
         Both were built as minimum viable versions against the M48 clock rather than the full
-        experiment in the proposal, and both are open as <strong>#563</strong>. One of them
-        returned a negative result, which is reported here as a finding rather than buried.
+        experiment in the proposal, and both are merged as <strong>#563</strong>. The
+        active-learning result was first reported as negative. That computation used
+        predictions from the wrong architecture and was withdrawn in <strong>#568</strong>;
+        the corrected result is below, together with what went wrong.
       </p>
     </div>
 
     <div class="card">
-      <h3>D3.2 — uncertainty sampling is worse than random on this pool</h3>
+      <h3>D3.2 — uncertainty sampling beats random on this pool (corrected 10 September)</h3>
       <p>
         The full deliverable is a labelling-budget curve of model performance, which needs a
         retraining run per acquisition round per arm — roughly 110&nbsp;h of consortium GPU at the
@@ -541,23 +544,32 @@
         uncertainty rule surface the cases worth labelling sooner than random?
       </p>
       <p>
-        It does not. Over a pool of 165 cases (111 no-lesion, 17 benign, 37 malignant), at a
-        100-label budget: <strong>entropy 19 malignant, margin 21, random 22.2&nbsp;±&nbsp;2.8</strong>.
-        Entropy loses at <em>every</em> budget.
+        It does. Over a pool of 165 cases (111 no-lesion, 17 benign, 37 malignant), entropy
+        sampling finds <strong>5 malignant in the first 10 cases against 2.4&nbsp;±&nbsp;1.3 for
+        random, 9 against 4.6&nbsp;±&nbsp;1.8 at 20, 11 against 6.8&nbsp;±&nbsp;2.1 at 30 and
+        14 against 8.9&nbsp;±&nbsp;2.3 at 40</strong>. It beats random at 5 of 8 budgets and loses
+        at none; by 100 of 165 cases every method has taken most of the pool and converges
+        (21 against 22.2&nbsp;±&nbsp;2.8). Margin sampling sits between the two.
       </p>
       <p>
-        The calibration diagnostic shipped alongside it explains why, and this is the part worth
-        carrying forward. Mean predictive entropy is near-identical across the three classes —
-        0.987 / 0.878 / 0.981 — and the model is <strong>most confident on benign cases</strong>,
-        the rarest class: <strong>12 of 17 benign fall in the 30 lowest-entropy cases</strong>.
-        The model's confidence does not track whether it is right, so a rule that asks for the
-        cases it is least sure about actively deprioritises the rare ones.
+        The calibration diagnostic run alongside it shows a well-calibrated model: expected
+        calibration error 0.053, fitted temperature 0.954, and no reliability inversion
+        (z&nbsp;=&nbsp;0.12, p&nbsp;=&nbsp;0.90). Mean predictive entropy is similar across the
+        three classes (0.63 / 0.68 / 0.63), so the rule is not being steered by class.
       </p>
       <p>
-        <strong>This is a property of the model's calibration, not a verdict on active learning.</strong>
-        It says calibration has to be addressed before an uncertainty-based acquisition rule can be
-        expected to help, and that is a more useful thing to write in D3.2 than a curve produced by
-        a rule nobody checked.
+        <strong>What was wrong the first time.</strong> The previous version of this report said
+        entropy lost at every budget and that the model was most confident on benign cases. Both
+        statements were computed on <code>results/best/</code> — an evaluation of the eight-site
+        checkpoint under the wrong architecture (malignant AUROC 0.476, chance) that had been left
+        beside the corrected <code>results/fixed/</code> run. That is pitfall E2 in our own
+        catalogue. #568 withdraws the claim, quarantines the directory, makes the analyses refuse
+        chance-level predictions, and computes the verdict instead of stating it.
+      </p>
+      <p>
+        <strong>This measures acquisition quality, not yet the deliverable.</strong> Rare-class
+        yield above random is what uncertainty sampling should give on an imbalanced pool; whether
+        a model trained on those selections is better is the retraining curve D3.2 still needs.
       </p>
     </div>
 
@@ -649,9 +661,10 @@
         pan-European baseline three separate times.
       </p>
       <p>
-        Two items also need owning rather than waiting: <strong>calibration</strong>, which the
-        D3.2 negative result puts on the critical path for both active learning and any
-        confidence-based clinical claim; and the <strong>utility cost of privacy noise</strong>,
+        Two items also need owning rather than waiting: the <strong>D3.2 retraining curve</strong>
+        — the acquisition result is in, but the deliverable asks what a model trained on those
+        selections gains, roughly 110&nbsp;h of consortium GPU; and the
+        <strong>utility cost of privacy noise</strong>,
         which cannot be argued from the accountant alone and needs one training run at
         σ&nbsp;=&nbsp;2.4 to become a real trade-off rather than a table.
       </p>
@@ -671,13 +684,14 @@
           <tr><td class="id">Merged 9–10 Sep</td><td>#534 per-site metrics · #545 warm-start guard · #552 weekly preflight · #555 AL strategies · #558 deck index</td><td><span class="chip done">5 merged</span></td></tr>
           <tr><td class="id">Merged 10 Sep</td><td>#556 + #557 per-case predictions, wired end to end · #560 run history frozen</td><td><span class="chip done">D2.5 unblocked</span></td></tr>
           <tr><td class="id">Merged 10 Sep</td><td>#559 all-models preflight (Ole's, reviewed against his cited green run) · #548 · #549 · #551 dependabot</td><td><span class="chip done">Critical trivy alert closed — 0 open</span></td></tr>
-          <tr><td class="id">PR #563</td><td>Active-learning and privacy-accounting MVPs</td><td><span class="chip flight">5/6 green, swarm check running</span></td></tr>
+          <tr><td class="id">PR #563</td><td>Active-learning and privacy-accounting MVPs</td><td><span class="chip done">Merged; AL result corrected in #568</span></td></tr>
+          <tr><td class="id">13 Sep</td><td><strong>1.8.0 released</strong> — #573 deploy test on real kits · #575 structural warm-start guard + loader-worker cap · #577 release · #578 CI race fix (#576). Four real-kit tests green (baseline 20/20 rounds, warm-start accept and refuse, per-case return); weekly validation green on main; coordinator on 1.8.0; <code>:current</code> re-tagged</td><td><span class="chip done">Released</span></td></tr>
           <tr><td class="id">PR #550</td><td>Dependabot upload-artifact 4 → 7</td><td><span class="chip blocked">Failed 4×, rerun queued</span></td></tr>
           <tr><td class="id">PR #547</td><td>Ole's — clarify run_3dcnn_training_in_swarm</td><td><span class="chip blocked">Real failure: test expects ResNet101, actual is MST</span></td></tr>
           <tr><td class="id">#525 · #441</td><td>Per-site metrics and metric alignment</td><td><span class="chip done">Verified on real data</span></td></tr>
           <tr><td class="id">Run history</td><td>101 jobs, 231 site-rows, Mar–Sep 2026, committed to the repo</td><td><span class="chip done">Frozen — 59 real-site jobs</span></td></tr>
           <tr><td class="id">#541–#543 · #562</td><td>Model mismatch · run never publishes · deploy not scoped · Swin3D cannot train</td><td><span class="chip blocked">Open</span></td></tr>
-          <tr><td class="id">#553 · #554</td><td>Frankfurt relay · nothing validates main after a merge</td><td><span class="chip blocked">Open</span></td></tr>
+          <tr><td class="id">#553 · #554</td><td>Frankfurt relay · nothing validates main after a merge (weekly validation green again on 13 Sep)</td><td><span class="chip blocked">#553 open</span></td></tr>
           <tr><td class="id">M48</td><td>D2.5, D3.2, D3.4 — three months out</td><td>4 open</td></tr>
           <tr><td class="id">M54</td><td>D3.3, MS6, differential privacy phase 2</td><td>3 open</td></tr>
           <tr><td class="id">M60</td><td>D3.5 operational demonstration</td><td>1 open</td></tr>
