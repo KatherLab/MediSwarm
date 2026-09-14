@@ -223,3 +223,6 @@ kit_passwords.txt
 
 # Staged swarm jobs, hand-edited per run and regenerated each time
 run_staging/
+
+# Partner announcement emails are drafted locally and never committed (decision 2026-09-14)
+docs/EMAIL_*.md
