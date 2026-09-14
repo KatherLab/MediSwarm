@@ -148,10 +148,16 @@ ALL_MODELS=(
 )
 
 # ── Evaluation configuration ──────────────────────────────────────────────
-# UKA_1 is the held-out test site — data is on Cosmos
-EVAL_SITE_NAME="UKA_1"
-EVAL_DATA_DIR="/mnt/sda1/ODELIA_Challenge_unilateral"
-EVAL_SCRATCH_DIR="/mnt/scratch/deploy_test_eval"
+# The post-training evaluation runs predict.py on THIS host against a held-out
+# site's test split. The defaults are the historical Cosmos layout (UKA_1 on
+# /mnt/sda1); a conf may override all three, which is how the CI runners point
+# at the data they actually hold (dl0: RUMC_1 under /mnt/dlhd0/medswarmdata,
+# dl2: MHA_1 under the challenge tree). Without an override the release-triggered
+# run trained all six models and then failed every evaluation on a missing
+# annotation.csv (v1.8.1, 13 Sep 2026).
+EVAL_SITE_NAME="${EVAL_SITE_NAME:-UKA_1}"
+EVAL_DATA_DIR="${EVAL_DATA_DIR:-/mnt/sda1/ODELIA_Challenge_unilateral}"
+EVAL_SCRATCH_DIR="${EVAL_SCRATCH_DIR:-/mnt/scratch/deploy_test_eval}"
 
 # site_var / remote_exec / remote_copy / find_latest_prod /
 # resolve_server_startup_dir are provided by deploy_common.sh (#276).
@@ -1083,6 +1089,13 @@ evaluate_model() {
     info "  SCRATCH_DIR:   $EVAL_SCRATCH_DIR → /scratch"
     info "  Checkpoints:   $checkpoint_dir → /workspace"
     info "  Output:        $eval_output_dir → /output"
+
+    if [[ ! -f "$EVAL_DATA_DIR/$EVAL_SITE_NAME/metadata_unilateral/annotation.csv" ]]; then
+        err "Evaluation data for $EVAL_SITE_NAME not found under $EVAL_DATA_DIR on this host"
+        err "  (set EVAL_SITE_NAME / EVAL_DATA_DIR / EVAL_SCRATCH_DIR in the conf, or use --skip-eval)"
+        return 1
+    fi
+    mkdir -p "$EVAL_SCRATCH_DIR" 2>/dev/null || true
 
     local eval_result=0
     docker run --rm \
