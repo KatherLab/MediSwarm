@@ -621,26 +621,50 @@ start_server () {
 }
 
 
-start_clients_for_model () {
+start_clients_for_odelia_model () {
     MODEL_NAME=$1
-    echo "[Run] Start client Docker containers ..."
+    echo "[Run] Start client Docker containers for ODELIA_ternary_classification with model "$MODEL_NAME" ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --model_name "$MODEL_NAME" --GPU "$GPU_FOR_TESTING" --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --job ODELIA_ternary_classification --model_name "$MODEL_NAME" --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
     sleep "${CI_SWARM_CLIENT_STAGGER:-15}"  # avoid simultaneous-init collision
     cd client_B/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --model_name "$MODEL_NAME" --GPU "$GPU_FOR_TESTING" --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --job ODELIA_ternary_classification --model_name "$MODEL_NAME" --GPU "$GPU_FOR_TESTING" --start_client
     sleep 8
 
     cd "$CWD"
 }
 
-start_server_and_clients_for_model () {
+start_clients_for_challenge_model () {
+    # TODO consider refactoring (duplicate code with method above)
+
+    JOB_NAME=$1
+    echo "[Run] Start client Docker containers for model "$JOB_NAME" ..."
+
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --job "$JOB_NAME" --GPU "$GPU_FOR_TESTING" --start_client
+    cd ../..
+    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"  # avoid simultaneous-init collision
+    cd client_B/startup
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --job "$JOB_NAME" --GPU "$GPU_FOR_TESTING" --start_client
+    sleep 8
+
+    cd "$CWD"
+}
+
+start_server_and_clients_for_odelia_model () {
     MODEL_NAME=$1
     start_server
-    start_clients_for_model "$MODEL_NAME"
+    start_clients_for_odelia_model "$MODEL_NAME"
+}
+
+start_server_and_clients_for_challenge_model () {
+    JOB_NAME=$1
+    start_server
+    start_clients_for_challenge_model "$JOB_NAME"
 }
 
 start_registry_docker_and_push () {
@@ -1138,23 +1162,35 @@ _verify_ODELIA_ternary_swarm_training_output() {
 _verify_ODELIA_ternary_swarm_training() {
     MODEL_NAME=$1
     EXPECTED_OUTPUT_ABOUT_MODEL=$2
-    start_server_and_clients_for_model "$MODEL_NAME"
+    echo TEMPORARY_OUTPUT $MODEL_NAME
+    start_server_and_clients_for_odelia_model "$MODEL_NAME"
     run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
     _verify_3dcnn_training_in_swarm_for_odelia_model_output
     _verify_ODELIA_ternary_swarm_training_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$MODEL_NAME"
     kill_server_and_clients
 }
 
+_verify_ODELIA_ternary_swarm_training() {
+    # TODO consider refactoring (duplicate code with method above)
+    JOB_NAME=$1
+    EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    start_server_and_clients_for_challenge_model "$JOB_NAME"
+    run_3dcnn_training_in_swarm_for_odelia_model "$JOB_NAME"
+    _verify_3dcnn_training_in_swarm_for_odelia_model_output
+    _verify_ODELIA_ternary_swarm_training_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$JOB_NAME"
+    kill_server_and_clients
+}
+
 run_all_models_training_in_swarm () {
+    _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
     _verify_ODELIA_ternary_swarm_training "ResNet10"                 "model *| _ResNet *| 14"
-    # _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
-    # _verify_ODELIA_ternary_swarm_training "ResNet34"                 "model *| _ResNet *| 63"
-    # _verify_ODELIA_ternary_swarm_training "ResNet50"                 "model *| _ResNet *| 46"
-    # _verify_ODELIA_ternary_swarm_training "ResNet101"                "model *| _ResNet *| 85"
-    # _verify_ODELIA_ternary_swarm_training "ResNet152"                "model *| _ResNet *| 117"
-    # _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
-    # # _verify_ODELIA_ternary_swarm_training "Swin3D"                   "model *| TODO"  # currently does not work
-    # echo "❗ Swin3D currently does not work, swarm training check not executed"
+    _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
+    _verify_ODELIA_ternary_swarm_training "ResNet34"                 "model *| _ResNet *| 63"
+    _verify_ODELIA_ternary_swarm_training "ResNet50"                 "model *| _ResNet *| 46"
+    _verify_ODELIA_ternary_swarm_training "ResNet101"                "model *| _ResNet *| 85"
+    _verify_ODELIA_ternary_swarm_training "ResNet152"                "model *| _ResNet *| 117"
+    # _verify_ODELIA_ternary_swarm_training "Swin3D"                   "model *| TODO"  # currently does not work
+    echo "❗ Swin3D currently does not work, swarm training check not executed"
 
     # challenge models (same order as for preflight checks?)
     echo "Challenge models TODO"
@@ -1283,7 +1319,7 @@ case "$1" in
 
     run_dummy_training_in_swarm)
         create_startup_kits_and_check_contained_files
-        start_server_and_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
+        start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
@@ -1300,7 +1336,7 @@ case "$1" in
         # TODO rename, also in workflow(s)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
-        start_server_and_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
+        start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         kill_server_and_clients
         cleanup_temporary_data
@@ -1379,7 +1415,7 @@ case "$1" in
         create_synthetic_data
         run_3dcnn_local_training
         verify_wrong_certificates_are_rejected
-        start_server_and_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
+        start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         run_dummy_training_in_swarm
         run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         run_all_models_preflight_check
