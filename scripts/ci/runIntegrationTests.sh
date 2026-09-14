@@ -950,10 +950,7 @@ run_3dcnn_local_training () {
 }
 
 
-run_3dcnn_training_in_swarm_for_odelia_model () {
-    MODEL_NAME=$1
-    echo "[Run] 3DCNN training in swarm (polling for completion, up to 10 minutes) ..."
-
+_run_3dcnn_training_in_swarm_for_odelia_model () {
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
     # only require 2 clients in test
@@ -983,7 +980,9 @@ run_3dcnn_training_in_swarm_for_odelia_model () {
     if [ $attempt -eq $max_attempts ]; then
         echo "  ⚠️  Timed out after 10min waiting for 3DCNN swarm completion — proceeding to assertions"
     fi
+}
 
+_verify_3dcnn_training_in_swarm_for_odelia_model_output() {
     # check for expected output in server log (clients joined, job ID assigned, 1 round)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT_FILE=nohup.out
@@ -1045,6 +1044,13 @@ run_3dcnn_training_in_swarm_for_odelia_model () {
     done
 }
 
+run_3dcnn_training_in_swarm_for_odelia_model () {
+    MODEL_NAME=$1
+    echo "[Run] 3DCNN training in swarm (polling for completion, up to 10 minutes) ..."
+    _run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
+    _verify_3dcnn_training_in_swarm_for_odelia_model_output
+}
+
 
 _verify_all_model_preflight_check_output () {
     EXPECTED_OUTPUT_ABOUT_MODEL=$1
@@ -1061,7 +1067,6 @@ _verify_all_model_preflight_check_output () {
             exit 1
         fi
     done
-
 }
 
 _verify_challenge_preflight_check() {
@@ -1112,11 +1117,47 @@ run_all_models_preflight_check () {
 }
 
 
+_verify_ODELIA_ternary_swarm_training_output() {
+    EXPECTED_OUTPUT_ABOUT_MODEL=$1
+    WHICH_MODEL=$2
+
+    CONSOLE_OUTPUT_FILE="$PROJECT_DIR"/prod_00/client_A/startup/nohup.out
+
+    for EXPECTED_OUTPUT in "$EXPECTED_OUTPUT_ABOUT_MODEL";
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+            echo "✅ Expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" swarm training found"
+        else
+            cat "$CONSOLE_OUTPUT_FILE"
+            echo "❌ Missing expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" swarm training"
+            exit 1
+        fi
+    done
+}
+
+_verify_ODELIA_ternary_swarm_training() {
+    MODEL_NAME=$1
+    EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    start_server_and_clients_for_model "$MODEL_NAME"
+    run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
+    _verify_3dcnn_training_in_swarm_for_odelia_model_output
+    _verify_ODELIA_ternary_swarm_training_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$MODEL_NAME"
+    kill_server_and_clients
+}
+
 run_all_models_training_in_swarm () {
-    # TODO implement
-    # start_server_and_clients_for_model "$DEFAULT_MODEL_FOR_TESTS"
-    # run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
-    echo "TODO implement"
+    _verify_ODELIA_ternary_swarm_training "ResNet10"                 "model *| _ResNet *| 14"
+    # _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
+    # _verify_ODELIA_ternary_swarm_training "ResNet34"                 "model *| _ResNet *| 63"
+    # _verify_ODELIA_ternary_swarm_training "ResNet50"                 "model *| _ResNet *| 46"
+    # _verify_ODELIA_ternary_swarm_training "ResNet101"                "model *| _ResNet *| 85"
+    # _verify_ODELIA_ternary_swarm_training "ResNet152"                "model *| _ResNet *| 117"
+    # _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
+    # # _verify_ODELIA_ternary_swarm_training "Swin3D"                   "model *| TODO"  # currently does not work
+    # echo "❗ Swin3D currently does not work, swarm training check not executed"
+
+    # challenge models (same order as for preflight checks?)
+    echo "Challenge models TODO"
 }
 
 
@@ -1284,7 +1325,6 @@ case "$1" in
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         run_all_models_training_in_swarm
-        kill_server_and_clients
         cleanup_temporary_data
         ;;
 
