@@ -4,6 +4,15 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Client worker no longer dies at job launch with `OMP: Error #15` (#596)** — the image
+  carries three OpenMP runtimes (numpy/MKL, torch, scikit-learn) and LLVM's aborted the
+  worker when it found another one initialised first. Intermittent; hit CAM_1 in production on
+  8 April and two of twelve launches on the dl3 test bed. `KMP_DUPLICATE_LIB_OK=TRUE` is now set
+  in the image, and the deploy-test harness names a site whose worker died instead of reporting
+  it as "not configured".
+
 ### Added
 
 - **`MST_SAMMed2D` model** — the MST slice-fusion classifier on the SAM-Med2D ViT-B image
