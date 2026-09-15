@@ -1171,12 +1171,10 @@ def build() -> str:
     assert charts.endswith("})();"), "unexpected chart script tail"
     out.append("<script>\n" + charts[:-len("})();")] + GANTT_JS + "})();\n</script>")
     html = "\n".join(out)
-    # house style: no dashes in visible prose (the owner's rule); attribute values and script are exempt
-    import re
-    body_text = re.sub(r"<script>.*?</script>", "", html, flags=re.S)
-    body_text = re.sub(r"<style>.*?</style>", "", body_text, flags=re.S)
-    body_text = re.sub(r"<[^>]+>", " ", body_text)
-    bad = [m.group(0) for m in re.finditer(r".{0,30}[—–].{0,30}", body_text)]
+    # House style: no dashes in visible prose (the owner's rule). Checked on the slide
+    # bodies and the notes, which is all the visible text; styles and scripts never enter.
+    visible = " ".join(_re.sub(r"<[^>]*>", " ", body) for body in slides) + " " + " ".join(NOTES)
+    bad = [m.group(0) for m in _re.finditer(r".{0,30}[\u2014\u2013].{0,30}", visible)]
     if bad:
         raise SystemExit("dash in visible text:\n  " + "\n  ".join(bad[:10]))
     return html
