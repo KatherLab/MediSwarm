@@ -29,6 +29,11 @@ The build enforces the dash rule and fails if one appears in visible text.
 | 23–25 | Milestone timeline, what concludes by 31 December 2026, deliverable status |
 | 26–27 | Site status and to-do list, three requests |
 
+Every slide carries **speaker notes** (spoken, informal) behind a "Speaker notes" toggle,
+hidden when printing; the same text is exported to
+`presentation_consortium_45min_notes.md` for reading while presenting. The house style is
+codified in the project skill `.claude/skills/odelia-slides/SKILL.md`.
+
 The four concept diagrams are inline SVG in the build script. Site status is read from the
 coordinator's client registry and the live-sync heartbeats (hospital hosts only). Rebuild
 with `scripts/presentation/build_consortium_45min.py`; charts live in
