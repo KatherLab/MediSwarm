@@ -1,0 +1,5 @@
+/buildDockerImageAndStartupKits.sh text eol=lf
+/getVersionNumber.sh text eol=lf
+/_cacheAndCopyPretrainedModelWeights.sh text eol=lf
+/_buildStartupKits.sh text eol=lf
+/_injectLiveSyncIntoStartupKits.sh text eol=lf
