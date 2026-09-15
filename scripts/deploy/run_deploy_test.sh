@@ -784,6 +784,12 @@ wait_for_completion() {
                 last_line=$(sshpass -p "$client_pass" ssh $SSH_OPTS "$client_user@$client_host" \
                     "tail -1 '$client_nohup' 2>/dev/null || echo '(no nohup.out yet)'" 2>/dev/null || echo "(SSH failed)")
                 info "  Client $site_name last log: $last_line"
+                # A worker that dies at launch leaves the client "healthy" and the
+                # coordinator waiting for a site that never configures. Name it (#596).
+                local worker_death
+                worker_death=$(sshpass -p "$client_pass" ssh $SSH_OPTS "$client_user@$client_host" \
+                    "grep -hoE 'OMP: Error #[0-9]+.{0,60}|child worker process finished with RC [1-9][0-9]*' '$client_nohup' 2>/dev/null | tail -1" 2>/dev/null || true)
+                [[ -n "$worker_death" ]] && warn "  Client $site_name WORKER DIED: $worker_death"
             done
         fi
 

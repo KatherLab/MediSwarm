@@ -9,6 +9,17 @@ FROM ${PYTORCH_IMAGE}
 ARG NVF_VERSION=2.8.0
 ENV NVF_BRANCH=${NVF_VERSION}
 
+# Three OpenMP runtimes end up in this image: numpy (conda/MKL) loads LLVM's
+# libomp, torch (pip) loads GNU libgomp, scikit-learn bundles its own libgomp.
+# LLVM's runtime aborts the process when it finds another one already
+# initialised ("OMP: Error #15") -- intermittently, depending on which library
+# initialises first. That kills a client's worker within a second of job
+# launch, and the coordinator then only sees a site that "had not configured"
+# (#596; hit CAM_1 in production on 2026-04-08). This is the documented
+# escape hatch: the error becomes a warning. The proper fix is a single
+# runtime (numpy without MKL); until then this line must stay.
+ENV KMP_DUPLICATE_LIB_OK=TRUE
+
 # ===========================================================================
 # Layer ordering strategy for Docker build cache efficiency:
 #
