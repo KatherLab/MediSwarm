@@ -40,12 +40,22 @@ per round, and a worker that crashed at launch hung the start task for an hour.
 Now the server sends a ``swarm_ft.prune.<workflow>`` aux notice to the survivors
 whenever it prunes, and they drop the client from their lists and from a
 gatherer that is still waiting on it. A pruned client does not rejoin.
+
+If the pruned client was the *aggregator of the current round*, the round would
+otherwise be lost: every trainer keeps asking it for permission to submit (the
+stock loop retries a timed-out permission request forever). The survivors
+therefore elect a replacement deterministically (the first remaining aggregator
+candidate, the same on every client), the replacement sets up the round's
+gatherer from the learn task it already holds, pending permission requests and
+result sends are redirected to it, and a trainer whose result had already been
+accepted by the dead aggregator submits it again.
 """
 
 import threading
 import time
 from datetime import datetime
 
+from nvflare.apis.controller_spec import Task
 from nvflare.apis.event_type import EventType
 from nvflare.apis.fl_constant import FLContextKey, ReservedKey, ReservedTopic
 from nvflare.apis.fl_context import FLContext
@@ -99,19 +109,44 @@ class _PermissionReplyRetryEngine:
         return getattr(self._engine, name)
 
     def send_aux_request(self, *args, **kwargs):
-        responses = self._engine.send_aux_request(*args, **kwargs)
+        is_permission = kwargs.get("topic") == self._controller.request_to_submit_learn_result_task_name
+        targets = kwargs.get("targets")
+        single = isinstance(targets, (list, tuple)) and len(targets) == 1
+        redirected_from = None
+        if is_permission and single:
+            replacement = self._controller.aggregator_replacement(targets[0])
+            if replacement and replacement != targets[0]:
+                # The round's aggregator was pruned (#595): ask its replacement instead,
+                # and answer under the name the stock loop is waiting for.
+                redirected_from = targets[0]
+                if replacement == self._controller.me:
+                    reply = self._controller.local_permission(kwargs.get("request"), kwargs.get("fl_ctx"))
+                    responses = {redirected_from: reply}
+                else:
+                    kwargs = dict(kwargs)
+                    kwargs["targets"] = [replacement]
+                    responses = self._engine.send_aux_request(*args, **kwargs)
+                    if isinstance(responses, dict):
+                        responses = dict(responses)
+                        responses[redirected_from] = responses.pop(replacement, None)
+                if isinstance(responses, dict) and self._return_code(responses.get(redirected_from)) == ReturnCode.OK:
+                    self._controller.note_permission_granted_by(replacement)
+            else:
+                responses = self._engine.send_aux_request(*args, **kwargs)
+        else:
+            responses = self._engine.send_aux_request(*args, **kwargs)
 
-        if kwargs.get("topic") != self._controller.request_to_submit_learn_result_task_name:
+        if not is_permission:
             return responses
         if not isinstance(responses, dict):
             # Preserve the stock failure path for malformed engine responses.
             return responses
-
-        targets = kwargs.get("targets")
-        if not isinstance(targets, (list, tuple)) or len(targets) != 1:
+        if not single:
             return responses
 
         target = targets[0]
+        if redirected_from is None and self._return_code(responses.get(target)) == ReturnCode.OK:
+            self._controller.note_permission_granted_by(target)
         # Shareable is dict-like and an explicit header-only reply can be
         # falsey. Presence, not truthiness, distinguishes it from a miss.
         if target in responses and responses[target] is not None:
@@ -130,6 +165,17 @@ class _PermissionReplyRetryEngine:
         retryable = dict(responses)
         retryable[target] = make_reply(ReturnCode.SERVICE_UNAVAILABLE)
         return retryable
+
+    @staticmethod
+    def _return_code(reply):
+        if reply is None:
+            return None
+        getter = getattr(reply, "get_return_code", None)
+        if callable(getter):
+            return getter(ReturnCode.OK)
+        if isinstance(reply, dict):
+            return reply.get("return_code", reply.get(ReservedKey.RC, ReturnCode.OK))
+        return ReturnCode.OK
 
 
 class _LearnScatterRetryEngine:
@@ -450,6 +496,14 @@ class FaultTolerantSwarmClientController(SwarmClientController):
         self.learn_task_scatter_retry_interval = learn_task_scatter_retry_interval
         self._learn_request_dedupe_lock = threading.Lock()
         self._last_accepted_learn_round = None
+        # Current-round bookkeeping for aggregator take-over (#595).
+        self._round_lock = threading.Lock()
+        self._round = {}
+        self._aggr_replacement = {}
+        # How long a failed result send waits for the server to prune the aggregator it was
+        # sent to before giving up: the server needs the heartbeat timeout (600 s) plus the
+        # dead-client grace (60 s) to deem a site disconnected.
+        self.aggregator_death_grace = 900.0
 
     def process_config(self, fl_ctx: FLContext):
         reply = super().process_config(fl_ctx)
@@ -459,6 +513,197 @@ class FaultTolerantSwarmClientController(SwarmClientController):
             message_handle_func=self._process_prune_notice,
         )
         return reply
+
+    # ---- aggregator take-over ------------------------------------------------------
+
+    def aggregator_replacement(self, name):
+        """The client that took over the current round from pruned aggregator ``name``, or None."""
+        with self._round_lock:
+            return self._aggr_replacement.get(name)
+
+    def note_permission_granted_by(self, aggr):
+        with self._round_lock:
+            self._round["granted_by"] = aggr
+
+    def local_permission(self, request, fl_ctx: FLContext):
+        """Answer a submission-permission request addressed to this client without a self-message."""
+        engine = fl_ctx.get_engine()
+        local_fl_ctx = fl_ctx.clone()
+        local_fl_ctx.set_peer_context(engine.new_context())
+        return self._process_submission_request(self.request_to_submit_learn_result_task_name, request, local_fl_ctx)
+
+    def _gather_locally(self, result, fl_ctx: FLContext):
+        """Hand a result to this client's own gatherer, as the stock aggr == self path does."""
+        result = self._resolve_lazy_refs(result, fl_ctx)
+        engine = fl_ctx.get_engine()
+        local_fl_ctx = fl_ctx.clone()
+        local_fl_ctx.set_peer_context(engine.new_context())
+        return self._process_learn_result(result, local_fl_ctx, fl_ctx.get_run_abort_signal())
+
+    def _handle_pruned_aggregator(self, removed, fl_ctx: FLContext):
+        with self._round_lock:
+            rd = dict(self._round)
+        old_aggr = rd.get("aggr")
+        if not rd or old_aggr not in removed:
+            return
+        candidates = self.get_config_prop(Constant.AGGR_CLIENTS) or self.get_config_prop(Constant.CLIENTS) or []
+        if not candidates:
+            self.log_error(fl_ctx, f"aggregator {old_aggr} of round {rd.get('num')} was pruned and no candidate remains")
+            return
+        new_aggr = candidates[0]  # the same choice on every surviving client
+        with self._round_lock:
+            self._aggr_replacement[old_aggr] = new_aggr
+            for k, v in list(self._aggr_replacement.items()):
+                if v == old_aggr:
+                    self._aggr_replacement[k] = new_aggr
+            self._round["aggr"] = new_aggr
+        self.log_warning(
+            fl_ctx,
+            f"FaultTolerant: aggregator {old_aggr} of round {rd.get('num')} was pruned; {new_aggr} takes over the round",
+        )
+        if new_aggr == self.me:
+            self._take_over_round(rd, fl_ctx)
+        if rd.get("done") and rd.get("submitted_to") == old_aggr and rd.get("result") is not None:
+            # My result was accepted by the dead aggregator and is gone with it.
+            threading.Thread(
+                target=self._resubmit_round_result,
+                args=(rd["result"], rd.get("num"), new_aggr, rd.get("fl_ctx") or fl_ctx),
+                name=f"resubmit-round-{rd.get('num')}",
+                daemon=True,
+            ).start()
+
+    def _take_over_round(self, rd, fl_ctx: FLContext):
+        round_num = rd.get("num")
+        gatherer = self.gatherer
+        if gatherer is not None and getattr(gatherer, "for_round", None) == round_num:
+            return
+        if gatherer is not None:
+            self.log_error(fl_ctx, f"cannot take over round {round_num}: still gathering round {gatherer.for_round}")
+            return
+        task_data = rd.get("task_data")
+        round_fl_ctx = rd.get("fl_ctx") or fl_ctx
+        self.log_warning(fl_ctx, f"FaultTolerant: setting up the gatherer for round {round_num} as replacement aggregator")
+        self.gatherer = FaultTolerantGatherer(
+            fl_ctx=round_fl_ctx,
+            all_clients=self.get_config_prop(Constant.CLIENTS),
+            metric_comparator=self.metric_comparator,
+            trainers=list(self.trainers),
+            for_round=round_num,
+            timeout=self.learn_task_timeout,
+            min_responses_required=self.min_responses_required,
+            wait_time_after_min_resps_received=self.wait_time_after_min_resps_received,
+            aggregator=self.aggregator,
+            executor=self,
+            task_data=task_data,
+            max_concurrent_submissions=self.max_concurrent_submissions,
+        )
+        self.gatherer_waiter.set()
+
+    def _resubmit_round_result(self, result, round_num, aggr, fl_ctx: FLContext):
+        self.log_warning(fl_ctx, f"FaultTolerant: re-submitting my round {round_num} result to {aggr}")
+        reply = self._submit_result_to(aggr, round_num, result, fl_ctx, need_permission=True)
+        rc = _PermissionReplyRetryEngine._return_code(reply)
+        if rc == ReturnCode.OK:
+            with self._round_lock:
+                self._round["submitted_to"] = aggr
+            self.log_info(fl_ctx, f"round {round_num} result accepted by replacement aggregator {aggr}")
+        else:
+            self.log_error(fl_ctx, f"re-submission of round {round_num} result to {aggr} failed: {rc}")
+
+    def _submit_result_to(self, aggr, round_num, result, fl_ctx: FLContext, need_permission: bool):
+        """Permission loop plus result send to ``aggr`` (local when that is this client)."""
+        if need_permission:
+            req = Shareable()
+            req.set_header(AppConstants.CURRENT_ROUND, round_num)
+            max_wait = self.request_to_submit_result_max_wait or 0
+            start = time.time()
+            abort = fl_ctx.get_run_abort_signal()
+            while True:
+                if abort is not None and getattr(abort, "triggered", False):
+                    return None
+                if aggr == self.me:
+                    reply = self.local_permission(req, fl_ctx)
+                else:
+                    resp = fl_ctx.get_engine().send_aux_request(
+                        targets=[aggr],
+                        topic=self.request_to_submit_learn_result_task_name,
+                        request=req,
+                        timeout=self.request_to_submit_result_msg_timeout,
+                        fl_ctx=fl_ctx,
+                        secure=False,
+                    )
+                    reply = resp.get(aggr) if isinstance(resp, dict) else None
+                rc = _PermissionReplyRetryEngine._return_code(reply)
+                if rc == ReturnCode.OK:
+                    break
+                if rc == ReturnCode.MODEL_UNRECOGNIZED:
+                    return reply
+                if max_wait and time.time() - start > max_wait:
+                    return reply
+                later = self.aggregator_replacement(aggr)
+                if later and later != aggr:
+                    aggr = later  # the replacement died too; follow the next election
+                time.sleep(self.request_to_submit_result_interval)
+        if aggr == self.me:
+            return self._gather_locally(result, fl_ctx)
+        task = Task(
+            name=self.report_learn_result_task_name,
+            data=result,
+            timeout=int(self.learn_task_ack_timeout),
+            secure=self.is_task_secure(fl_ctx),
+        )
+        resp = SwarmClientController.broadcast_and_wait(self, task, fl_ctx, [aggr], 1)
+        return resp.get(aggr) if isinstance(resp, dict) else None
+
+    def _wait_for_replacement(self, orig, fl_ctx: FLContext):
+        """A result send to ``orig`` failed. Give the server time to prune it; return its replacement or None."""
+        deadline = time.time() + self.aggregator_death_grace
+        abort = fl_ctx.get_run_abort_signal()
+        self.log_warning(
+            fl_ctx,
+            f"result send to aggregator {orig} failed; waiting up to {self.aggregator_death_grace:.0f}s for the server "
+            f"to prune it before giving up",
+        )
+        while time.time() < deadline:
+            if abort is not None and getattr(abort, "triggered", False):
+                return None
+            repl = self.aggregator_replacement(orig)
+            if repl and repl != orig:
+                return repl
+            time.sleep(5)
+        return None
+
+    def broadcast_and_wait(self, task, fl_ctx: FLContext, targets=None, min_responses=1,
+                           wait_time_after_min_received=0, abort_signal=None):
+        """Redirect the learn-result send when the round's aggregator has been pruned (#595)."""
+        if getattr(task, "name", None) != self.report_learn_result_task_name or not targets or len(targets) != 1:
+            return super().broadcast_and_wait(task, fl_ctx, targets, min_responses, wait_time_after_min_received, abort_signal)
+        orig = targets[0]
+        with self._round_lock:
+            self._round["result"] = task.data
+            self._round["submitted_to"] = orig
+            round_num = self._round.get("num")
+            granted_by = self._round.get("granted_by")
+        repl = self.aggregator_replacement(orig)
+        if repl and repl != orig:
+            reply = self._submit_result_to(repl, round_num, task.data, fl_ctx, need_permission=(granted_by != repl))
+            return self._finish_send(orig, repl, reply)
+        resp = super().broadcast_and_wait(task, fl_ctx, targets, min_responses, wait_time_after_min_received, abort_signal)
+        reply = resp.get(orig) if isinstance(resp, dict) else None
+        if _PermissionReplyRetryEngine._return_code(reply) == ReturnCode.OK:
+            return self._finish_send(orig, orig, reply)
+        repl = self._wait_for_replacement(orig, fl_ctx)
+        if not repl:
+            return resp
+        reply = self._submit_result_to(repl, round_num, task.data, fl_ctx, need_permission=True)
+        return self._finish_send(orig, repl, reply)
+
+    def _finish_send(self, orig, actual, reply):
+        if _PermissionReplyRetryEngine._return_code(reply) == ReturnCode.OK:
+            with self._round_lock:
+                self._round["submitted_to"] = actual
+                self._round["done"] = True
+        return {orig: reply}
 
     def _process_prune_notice(self, topic: str, request: Shareable, fl_ctx: FLContext) -> Shareable:
         pruned = list(request.get(PRUNE_KEY_PRUNED) or [])
@@ -500,6 +745,7 @@ class FaultTolerantSwarmClientController(SwarmClientController):
             f"{self.get_config_prop(Constant.TRAIN_CLIENTS)} and aggregates on "
             f"{self.get_config_prop(Constant.AGGR_CLIENTS)}",
         )
+        self._handle_pruned_aggregator(removed, fl_ctx)
 
     def start_run(self, fl_ctx: FLContext):
         # do_learn_task() instantiates the module-global ``Gatherer``; patch that
@@ -602,6 +848,18 @@ class FaultTolerantSwarmClientController(SwarmClientController):
             private=True,
             sticky=False,
         )
+        with self._round_lock:
+            self._round = {
+                "num": task_data.get_header(AppConstants.CURRENT_ROUND),
+                "aggr": task_data.get_header(Constant.AGGREGATOR),
+                "task_data": task_data,
+                "fl_ctx": retry_fl_ctx,
+                "result": None,
+                "submitted_to": None,
+                "granted_by": None,
+                "done": False,
+            }
+            self._aggr_replacement = {}
         return super().do_learn_task(name, task_data, retry_fl_ctx, abort_signal)
 
     def _distribute_final_results(self, aggr_result, fl_ctx: FLContext):
