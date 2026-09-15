@@ -7,33 +7,34 @@ verified, the page says so rather than omitting the gap.
 ## Current
 
 ### `presentation_consortium_45min.html` — consortium briefing, 45-minute version
-**21 slides · 14 September 2026 · for the 45-minute consortium slot · ODELIA deck style**
+**27 slides · for the consortium meeting in Bremen, 17 September 2026 · ODELIA deck style**
 
-Rebuilt on 14 September in the visual identity of the ODELIA EAB deck
-(`odelia_EAB_meeting_opensource_jeff.pptx`): white slides, magenta titles, Open Sans, the
-pink-to-coral gradient title slide, the numbered agenda blocks, and the TUD / UKD / EKFZ /
-Kather Lab / ODELIA logo strip in header and footer. Logos are in `docs/assets/logos/` and
-inlined by the build. The deck is deliberately light-only, like its source.
+Visual identity of the ODELIA EAB deck (white slides, magenta titles, Open Sans, gradient
+title slide, numbered agenda blocks, TUD / UKD / EKFZ / Kather Lab / NCT Heidelberg / ODELIA
+logo strip). House style set by the owner on 15 September: descriptive titles, no dashes in
+prose, no aphorisms, site abbreviations (UKA, UMCU, RUMC, USZ, CAM, MHA, RSH, VHIO), concise.
+The build enforces the dash rule and fails if one appears in visible text.
 
-Slides 3–16 carry the 10 September content unchanged (data, results, external validation,
-the four deliverables). New on 14 September:
-
-| Slide | What it does |
+| Slides | Section |
 |---|---|
-| 2 | Agenda — the five numbered blocks of the source deck |
-| 17 | **Milestone timeline** — one bar per deliverable from its grant-month window to its due date (M48 / M54 / M60), filled to the share of its "done when" checklist that is complete; today (M45) and 31 Dec 2026 (M48) as vertical lines |
-| 18 | **What concludes by 31 December 2026** — the checklists behind every percentage on slide 17, split into "due M48, on track" (D2.5, D3.2, D3.4) and "continues into 2027" (T3.3, MS6, D3.3, D3.5), plus the month-by-month plan to year end |
-| 19 | Status table, updated for 1.8.1 |
-| 20 | **To-do list by site** — coordinator registration after the 1.8.1 restart, kit version each node reports, last log upload from the hospital's own machine, and the concrete actions per site |
+| 1–2 | Title (Month 45), agenda |
+| 3–7 | Data: volumes per site, growth, class counts, class shares, site table |
+| 8–12 | Model results: swarm vs single-site, confidence intervals, Duke external validation, operating point, accuracy vs AUROC per site |
+| 13 | Divider: the remaining WP2/WP3 deliverables, what the proposal asks, which sites are needed |
+| 14 | D2.5 regional fine-tuning: the per-case return figure, what exists, what is needed |
+| 15–16 | D3.2 active learning: concept diagram (the acquisition loop with the random control arm), then the acquisition result |
+| 17–18 | T3.3 differential privacy: where the noise enters the round (clip, noise, accountant), then ε/σ and the cost |
+| 19–20 | D3.4 adversarial robustness: one poisoned update through two aggregation rules, then the five-rule table |
+| 21–22 | MS6 white-hat attack: the plan from the proposal and the roles of CAM and RUMC, then the interim outputs-only probe |
+| 23–25 | Milestone timeline, what concludes by 31 December 2026, deliverable status |
+| 26–27 | Site status and to-do list, three requests |
 
-The site table is read from the coordinator log (`Re-activate the client` after the
-13 Sep 23:08 UTC restart), the live-sync heartbeats under `/srv/mediswarm/live/<SITE>/`
-(records whose hostname is one of our test machines are excluded — Nijmegen's latest real
-upload is 30 Aug, not the 10 Sep record from dl0), and the board's site checklist.
-
-Rebuild with `scripts/presentation/build_consortium_45min.py`; the carried-over slide
-content lives in `scripts/presentation/consortium_45min_slides.html` next to it. This is
-the file behind the published "ODELIA Consortium Briefing" artifact.
+The four concept diagrams are inline SVG in the build script. Site status is read from the
+coordinator's client registry and the live-sync heartbeats (hospital hosts only). Rebuild
+with `scripts/presentation/build_consortium_45min.py`; charts live in
+`consortium_45min_charts.js` next to it; an NCT logo at `docs/assets/logos/nct.png` is
+picked up automatically (a text mark stands in until then). This is the file behind the
+published "ODELIA Consortium Briefing" artifact.
 
 ### `presentation_consortium_briefing.html` — consortium briefing
 **12 slides · 10 September 2026 · built for a meeting, prints one slide per page**
