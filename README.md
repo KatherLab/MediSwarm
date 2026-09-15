@@ -22,6 +22,10 @@ MediSwarm enables:
 - **Decentralized collaboration** between institutions
 - **Dockerized, reproducible** experiments built on NVFlare
 
+## QA Documentation
+
+- [QA Documentation](assets/QADocuments/README.md)
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
