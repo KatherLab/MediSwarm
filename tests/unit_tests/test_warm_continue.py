@@ -1,5 +1,6 @@
 import importlib.util
 import sys
+import threading
 import types
 from pathlib import Path
 from types import SimpleNamespace
@@ -162,8 +163,27 @@ def _install_controller_nvflare_mocks(monkeypatch):
             self.base_seen_fl_ctx = fl_ctx
             return fl_ctx.get_engine()
 
+        def process_config(self, fl_ctx):
+            self.base_process_config_called = True
+            return None
+
+        def get_config_prop(self, name, default=None):
+            if not getattr(self, "config", None):
+                return default
+            return self.config.get(name, default)
+
     class FakeSwarmServerController:
-        pass
+        def __init__(self, *args, **kwargs):
+            self.init_kwargs = kwargs
+
+        def handle_event(self, event_type, fl_ctx):
+            self.base_events = getattr(self, "base_events", []) + [event_type]
+
+        def _configure_clients(self, learn_config, fl_ctx, abort_signal):
+            return getattr(self, "base_configure_result", True)
+
+        def _is_configured(self, client_name):
+            return client_name in getattr(self, "configured", set(self.client_statuses))
 
     def status_report_from_dict(report):
         return SimpleNamespace(
@@ -177,6 +197,7 @@ def _install_controller_nvflare_mocks(monkeypatch):
     modules = {
         "nvflare": types.ModuleType("nvflare"),
         "nvflare.apis": types.ModuleType("nvflare.apis"),
+        "nvflare.apis.event_type": types.ModuleType("nvflare.apis.event_type"),
         "nvflare.apis.fl_constant": types.ModuleType("nvflare.apis.fl_constant"),
         "nvflare.apis.fl_context": types.ModuleType("nvflare.apis.fl_context"),
         "nvflare.apis.shareable": types.ModuleType("nvflare.apis.shareable"),
@@ -197,7 +218,17 @@ def _install_controller_nvflare_mocks(monkeypatch):
         TASK_NAME="__task_name__",
     )
     modules["nvflare.apis.fl_constant"].ReservedTopic = SimpleNamespace(DO_TASK="__do_task__")
+    modules["nvflare.apis.fl_constant"].FLContextKey = SimpleNamespace(
+        DISCONNECTED_CLIENT_NAME="__disconnected_client__",
+        RECONNECTED_CLIENT_NAME="__reconnected_client__",
+        WORKFLOW="__workflow__",
+    )
+    modules["nvflare.apis.event_type"].EventType = SimpleNamespace(
+        CLIENT_DISCONNECTED="_client_disconnected",
+        CLIENT_RECONNECTED="_client_reconnected",
+    )
     modules["nvflare.apis.fl_context"].FLContext = FakeFLContext
+    modules["nvflare.apis.shareable"].Shareable = FakeShareable
     modules["nvflare.apis.shareable"].ReturnCode = SimpleNamespace(
         OK="OK",
         ERROR="ERROR",
@@ -222,7 +253,13 @@ def _install_controller_nvflare_mocks(monkeypatch):
         BEFORE_CONTRIBUTION_ACCEPT="before_contribution_accept",
         AFTER_CONTRIBUTION_ACCEPT="after_contribution_accept",
     )
-    modules["nvflare.app_common.ccwf.common"].Constant = SimpleNamespace(STATUS_REPORTS="status_reports")
+    modules["nvflare.app_common.ccwf.common"].Constant = SimpleNamespace(
+        STATUS_REPORTS="status_reports",
+        CLIENTS="clients",
+        TRAIN_CLIENTS="train_clients",
+        AGGR_CLIENTS="aggr_clients",
+        RESULT_CLIENTS="result_clients",
+    )
     modules["nvflare.app_common.ccwf.common"].ResultType = SimpleNamespace(BEST="best", LAST="last")
     modules["nvflare.app_common.ccwf.common"].status_report_from_dict = status_report_from_dict
     modules["nvflare.security.logging"].secure_format_traceback = lambda *args, **kwargs: ""
@@ -392,6 +429,9 @@ def _make_controller_with_report(module, fl_context_cls, error):
     controller.log_debug = lambda *args, **kwargs: None
     controller.log_info = lambda *args, **kwargs: None
     controller.log_warning = lambda *args, **kwargs: None
+    controller.log_error = lambda *args, **kwargs: None
+    controller.prune_notify_timeout = 5.0
+    controller.pruned_clients = []
     panics = []
     controller.system_panic = lambda message, ctx: panics.append(message)
     return controller, fl_ctx, panics
@@ -983,3 +1023,285 @@ def test_checkpoint_keys_reads_a_string_train_conf(warm_continue, tmp_path):
     torch.save({"model": m.state_dict(), "train_conf": "{'train': {'model': 'MST'}}"}, ckpt)
     keys, label = warm_continue.checkpoint_keys(str(ckpt))
     assert keys == {"x.weight", "x.bias"} and label == "MST"
+
+
+# ---------------------------------------------------------------------------
+# #595: pruning is announced to the surviving clients, who act on it
+# ---------------------------------------------------------------------------
+
+
+class _RecordingEngine:
+    """Records send_aux_request calls; answers OK for every target unless told otherwise."""
+
+    def __init__(self, silent=()):
+        self.calls = []
+        self.silent = set(silent)
+
+    def send_aux_request(self, targets, topic, request, timeout, fl_ctx, secure=False):
+        self.calls.append({"targets": list(targets), "topic": topic, "request": dict(request), "timeout": timeout})
+        replies = {}
+        for t in targets:
+            if t in self.silent:
+                continue
+            reply = type(request)()
+            reply["return_code"] = "OK"
+            replies[t] = reply
+        return replies
+
+
+def _make_server(module, fl_context_cls, active=("site1", "site2", "site3", "site4"), min_clients=3, silent=()):
+    engine = _RecordingEngine(silent=silent)
+    fl_ctx = fl_context_cls(engine=engine)
+    controller = module.FaultTolerantSwarmServerController.__new__(module.FaultTolerantSwarmServerController)
+    controller.workflow_id = "wf"
+    controller.min_clients = min_clients
+    controller.asked_to_stop = False
+    controller.prune_notify_timeout = 5.0
+    controller.pruned_clients = []
+    controller.client_statuses = {name: module.ClientStatus() for name in active}
+    logs = []
+    controller.log_debug = lambda ctx, msg: None
+    controller.log_info = lambda ctx, msg: logs.append(("info", msg))
+    controller.log_warning = lambda ctx, msg: logs.append(("warning", msg))
+    controller.log_error = lambda ctx, msg: logs.append(("error", msg))
+    panics = []
+    controller.system_panic = lambda message, ctx: panics.append(message)
+    return controller, fl_ctx, engine, logs, panics
+
+
+def test_error_report_prune_notifies_survivors(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, panics = _make_controller_with_report(module, fl_context_cls, "MODEL_UNRECOGNIZED")
+    engine = _RecordingEngine()
+    fl_ctx.engine = engine
+
+    controller._update_client_status(fl_ctx)
+
+    assert panics == []
+    assert "site1" not in controller.client_statuses
+    assert controller.pruned_clients == ["site1"]
+    assert len(engine.calls) == 1
+    call = engine.calls[0]
+    assert call["topic"] == module.prune_topic("wf")
+    assert sorted(call["targets"]) == ["site2", "site3"]
+    assert call["request"][module.PRUNE_KEY_PRUNED] == ["site1"]
+    assert sorted(call["request"][module.PRUNE_KEY_ACTIVE]) == ["site2", "site3"]
+    assert "MODEL_UNRECOGNIZED" in call["request"][module.PRUNE_KEY_REASON]
+
+
+def test_disconnect_prunes_and_notifies_when_min_clients_remain(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    fl_ctx.set_prop(module.FLContextKey.DISCONNECTED_CLIENT_NAME, "site4", private=True, sticky=False)
+
+    controller.handle_event(module.EventType.CLIENT_DISCONNECTED, fl_ctx)
+
+    assert controller.base_events == [module.EventType.CLIENT_DISCONNECTED]  # stock handling still ran
+    assert sorted(controller.client_statuses) == ["site1", "site2", "site3"]
+    assert panics == []
+    assert engine.calls[0]["request"][module.PRUNE_KEY_PRUNED] == ["site4"]
+    assert sorted(engine.calls[0]["targets"]) == ["site1", "site2", "site3"]
+    assert any("acknowledged by all active clients" in msg for level, msg in logs if level == "info")
+
+
+def test_disconnect_in_strict_mode_is_logged_not_pruned(fault_tolerant_ccwf):
+    """A strict run waits for a site that lost its VPN: it keeps training and submits later."""
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls, min_clients=4)
+    fl_ctx.set_prop(module.FLContextKey.DISCONNECTED_CLIENT_NAME, "site4", private=True, sticky=False)
+
+    controller.handle_event(module.EventType.CLIENT_DISCONNECTED, fl_ctx)
+
+    assert sorted(controller.client_statuses) == ["site1", "site2", "site3", "site4"]
+    assert engine.calls == []
+    assert panics == []
+    assert any("not pruned" in msg for level, msg in logs if level == "warning")
+
+
+def test_disconnect_of_already_pruned_or_unknown_client_is_ignored(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    fl_ctx.set_prop(module.FLContextKey.DISCONNECTED_CLIENT_NAME, "nobody", private=True, sticky=False)
+
+    controller.handle_event(module.EventType.CLIENT_DISCONNECTED, fl_ctx)
+
+    assert len(controller.client_statuses) == 4
+    assert engine.calls == []
+
+
+def test_unconfigured_clients_are_pruned_before_the_start_task(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    controller.configured = {"site1", "site2", "site4"}  # site3's worker died at launch
+
+    assert controller._configure_clients({}, fl_ctx, None) is True
+
+    assert sorted(controller.client_statuses) == ["site1", "site2", "site4"]
+    assert controller.pruned_clients == ["site3"]
+    assert engine.calls[0]["request"][module.PRUNE_KEY_PRUNED] == ["site3"]
+    assert "not configured" in engine.calls[0]["request"][module.PRUNE_KEY_REASON]
+    assert sorted(engine.calls[0]["targets"]) == ["site1", "site2", "site4"]
+
+
+def test_configure_failure_is_passed_through(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    controller.base_configure_result = False
+
+    assert controller._configure_clients({}, fl_ctx, None) is False
+    assert engine.calls == []
+
+
+def test_prune_notice_names_clients_that_did_not_acknowledge(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls, silent=("site2",))
+
+    controller._prune(["site4"], "test", fl_ctx)
+
+    warnings = [msg for level, msg in logs if level == "warning"]
+    assert any("no acknowledgement from ['site2']" in msg for msg in warnings)
+
+
+def test_reconnected_pruned_client_stays_pruned(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    controller._prune(["site4"], "test", fl_ctx)
+    fl_ctx.set_prop(module.FLContextKey.RECONNECTED_CLIENT_NAME, "site4", private=True, sticky=False)
+
+    controller.handle_event(module.EventType.CLIENT_RECONNECTED, fl_ctx)
+
+    assert "site4" not in controller.client_statuses
+    assert any("stays pruned" in msg for level, msg in logs if level == "warning")
+
+
+class _FakeTrainerStatus:
+    def __init__(self):
+        self.reply_time = None
+
+
+def _make_gatherer(module, trainers, min_responses_required):
+    g = module.FaultTolerantGatherer.__new__(module.FaultTolerantGatherer)
+    g.trainers = list(trainers)
+    g.trainer_statuses = {t: _FakeTrainerStatus() for t in trainers}
+    g.min_responses_required = min_responses_required
+    g.for_round = 2
+    g.lock = threading.Lock()
+    g.logs = []
+    g.log_warning = lambda ctx, msg: g.logs.append(msg)
+    return g
+
+
+def test_gatherer_drops_pruned_trainers_that_have_not_replied(fault_tolerant_ccwf):
+    module, _ = fault_tolerant_ccwf
+    g = _make_gatherer(module, ["a", "b", "c", "d"], min_responses_required=3)
+    g.trainer_statuses["a"].reply_time = 1.0
+
+    dropped = g.drop_trainers({"d", "zzz"}, None)
+
+    assert dropped == ["d"]
+    assert sorted(g.trainer_statuses) == ["a", "b", "c"]
+    assert g.trainers == ["a", "b", "c"]
+    assert g.min_responses_required == 3
+    assert g._all_responses_required() is True  # 3 of 3: strict among the survivors
+
+
+def test_gatherer_keeps_a_pruned_trainer_whose_result_arrived(fault_tolerant_ccwf):
+    module, _ = fault_tolerant_ccwf
+    g = _make_gatherer(module, ["a", "b", "c"], min_responses_required=2)
+    g.trainer_statuses["c"].reply_time = 1.0
+
+    assert g.drop_trainers({"c"}, None) == []
+    assert sorted(g.trainer_statuses) == ["a", "b", "c"]
+
+
+def test_gatherer_lowers_min_responses_when_trainers_shrink_below_it(fault_tolerant_ccwf):
+    module, _ = fault_tolerant_ccwf
+    g = _make_gatherer(module, ["a", "b", "c", "d"], min_responses_required=4)
+
+    g.drop_trainers({"d"}, None)
+
+    assert g.min_responses_required == 3
+
+
+def _make_client(module, fl_context_cls, me="site1"):
+    controller = module.FaultTolerantSwarmClientController.__new__(module.FaultTolerantSwarmClientController)
+    controller.me = me
+    controller.workflow_id = "wf"
+    controller.config = {
+        module.Constant.CLIENTS: ["site1", "site2", "site3", "site4"],
+        module.Constant.TRAIN_CLIENTS: ["site1", "site2", "site3", "site4"],
+        module.Constant.AGGR_CLIENTS: ["site1", "site4"],
+        module.Constant.RESULT_CLIENTS: ["site1", "site2", "site3", "site4"],
+    }
+    controller.trainers = ["site1", "site2", "site3", "site4"]
+    controller.aggrs = ["site1", "site4"]
+    controller.gatherer = None
+    logs = []
+    controller.log_info = lambda ctx, msg: logs.append(("info", msg))
+    controller.log_warning = lambda ctx, msg: logs.append(("warning", msg))
+    controller.log_error = lambda ctx, msg: logs.append(("error", msg))
+    return controller, fl_context_cls(identity=me), logs
+
+
+def test_client_applies_prune_to_every_list_and_the_live_gatherer(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls)
+    gatherer = _make_gatherer(module, ["site1", "site2", "site3", "site4"], min_responses_required=3)
+    controller.gatherer = gatherer
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+    request[module.PRUNE_KEY_ACTIVE] = ["site1", "site2", "site3"]
+    request[module.PRUNE_KEY_REASON] = "deemed disconnected by the server"
+
+    reply = controller._process_prune_notice(module.prune_topic("wf"), request, fl_ctx)
+
+    assert reply["return_code"] == "OK"
+    assert controller.get_config_prop(module.Constant.TRAIN_CLIENTS) == ["site1", "site2", "site3"]
+    assert controller.get_config_prop(module.Constant.AGGR_CLIENTS) == ["site1"]
+    assert controller.get_config_prop(module.Constant.RESULT_CLIENTS) == ["site1", "site2", "site3"]
+    assert controller.get_config_prop(module.Constant.CLIENTS) == ["site1", "site2", "site3"]
+    assert controller.trainers == ["site1", "site2", "site3"]
+    assert controller.aggrs == ["site1"]
+    assert sorted(gatherer.trainer_statuses) == ["site1", "site2", "site3"]
+    assert any("server pruned ['site4']" in msg for level, msg in logs if level == "warning")
+
+
+def test_client_ignores_prune_before_configuration_but_still_acks(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls)
+    controller.config = None
+    controller.trainers = None
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+
+    reply = controller._process_prune_notice("t", request, fl_ctx)
+
+    assert reply["return_code"] == "OK"
+    assert any("before configuration" in msg for level, msg in logs if level == "warning")
+
+
+def test_client_pruned_itself_only_logs(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site4")
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+    request[module.PRUNE_KEY_ACTIVE] = ["site1", "site2", "site3"]
+
+    controller._process_prune_notice("t", request, fl_ctx)
+
+    assert controller.trainers == ["site1", "site2", "site3", "site4"]  # untouched
+    assert any("pruned THIS client" in msg for level, msg in logs if level == "error")
+
+
+def test_client_registers_prune_handler_after_configuration(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls)
+    registered = []
+    controller.engine = SimpleNamespace(
+        register_aux_message_handler=lambda topic, message_handle_func: registered.append((topic, message_handle_func))
+    )
+
+    controller.process_config(fl_ctx)
+
+    assert controller.base_process_config_called is True
+    assert registered == [(module.prune_topic("wf"), controller._process_prune_notice)]

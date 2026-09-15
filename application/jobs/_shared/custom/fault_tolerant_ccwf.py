@@ -27,15 +27,29 @@ In tolerant mode this changes wait-for-all semantics from #345 into "wait for
 at least min_responses". In strict mode the controller retains every named
 client and retries only unacknowledged learn-task deliveries; duplicate delivery
 of an already accepted round is idempotent.
+
+Pruning is *announced* (#595). The server is the only party that knows a client
+is gone -- an error report, a ``CLIENT_DISCONNECTED`` event, or a client that
+never answered the configure task -- but until now it kept that to itself. The
+clients' trainer / aggregator / result lists are fixed at configure time, so
+every later round still scattered to the dead site (retried for up to a day)
+and every aggregator still waited ``wait_time_after_min_resps_received`` (an
+hour) for its result. The first fault-injection test (four clients, one stopped
+in round 2) therefore ran six minutes of training and sixty minutes of waiting
+per round, and a worker that crashed at launch hung the start task for an hour.
+Now the server sends a ``swarm_ft.prune.<workflow>`` aux notice to the survivors
+whenever it prunes, and they drop the client from their lists and from a
+gatherer that is still waiting on it. A pruned client does not rejoin.
 """
 
 import threading
 import time
 from datetime import datetime
 
-from nvflare.apis.fl_constant import ReservedKey, ReservedTopic
+from nvflare.apis.event_type import EventType
+from nvflare.apis.fl_constant import FLContextKey, ReservedKey, ReservedTopic
 from nvflare.apis.fl_context import FLContext
-from nvflare.apis.shareable import ReturnCode, make_reply
+from nvflare.apis.shareable import ReturnCode, Shareable, make_reply
 from nvflare.app_common.app_constant import AppConstants
 from nvflare.app_common.app_event_type import AppEventType
 from nvflare.app_common.ccwf.common import Constant, ResultType, status_report_from_dict
@@ -45,6 +59,16 @@ from nvflare.app_common.ccwf.swarm_server_ctl import SwarmServerController
 from nvflare.security.logging import secure_format_traceback
 
 WARM_START_REQUIRED_MISSING = "WARM_START_REQUIRED_MISSING"
+
+# Server -> surviving clients: "these clients are out of the swarm" (#595).
+PRUNE_TOPIC_PREFIX = "swarm_ft.prune"
+PRUNE_KEY_PRUNED = "pruned_clients"
+PRUNE_KEY_ACTIVE = "active_clients"
+PRUNE_KEY_REASON = "reason"
+
+
+def prune_topic(workflow_id) -> str:
+    return f"{PRUNE_TOPIC_PREFIX}.{workflow_id}"
 
 
 def is_non_tolerable_client_error(error) -> bool:
@@ -352,6 +376,28 @@ class FaultTolerantGatherer(Gatherer):
                     self.min_resps_received_time = now
         return make_reply(ReturnCode.OK)
 
+    def drop_trainers(self, names, fl_ctx: FLContext):
+        """Stop waiting for trainers the server has pruned; they cannot reply (#595).
+
+        A pruned trainer whose result already arrived this round is kept: the
+        aggregator has accepted it and it counts. The status dict is replaced,
+        not mutated, because ``is_done`` iterates it from the monitor thread.
+        """
+        with self.lock:
+            dropped = [n for n in names if n in self.trainer_statuses and not self.trainer_statuses[n].reply_time]
+            if not dropped:
+                return []
+            self.trainer_statuses = {k: v for k, v in self.trainer_statuses.items() if k not in dropped}
+            self.trainers = [t for t in self.trainers if t not in dropped]
+            if self.min_responses_required > len(self.trainer_statuses):
+                self.min_responses_required = len(self.trainer_statuses)
+        self.log_warning(
+            fl_ctx,
+            f"gatherer for round {self.for_round} no longer waits for pruned trainers {dropped}; "
+            f"still expecting {[n for n, t in self.trainer_statuses.items() if not t.reply_time]}",
+        )
+        return dropped
+
     def is_done(self):
         if not self._all_responses_required():
             return super().is_done()
@@ -404,6 +450,56 @@ class FaultTolerantSwarmClientController(SwarmClientController):
         self.learn_task_scatter_retry_interval = learn_task_scatter_retry_interval
         self._learn_request_dedupe_lock = threading.Lock()
         self._last_accepted_learn_round = None
+
+    def process_config(self, fl_ctx: FLContext):
+        reply = super().process_config(fl_ctx)
+        # The workflow id is known only once the configure task has arrived.
+        self.engine.register_aux_message_handler(
+            topic=prune_topic(self.workflow_id),
+            message_handle_func=self._process_prune_notice,
+        )
+        return reply
+
+    def _process_prune_notice(self, topic: str, request: Shareable, fl_ctx: FLContext) -> Shareable:
+        pruned = list(request.get(PRUNE_KEY_PRUNED) or [])
+        active = list(request.get(PRUNE_KEY_ACTIVE) or [])
+        reason = request.get(PRUNE_KEY_REASON, "?")
+        self.apply_prune(pruned, active, reason, fl_ctx)
+        return make_reply(ReturnCode.OK)
+
+    def apply_prune(self, pruned, active, reason, fl_ctx: FLContext):
+        """Forget pruned clients everywhere a later round would still use them (#595):
+        the scatter targets (TRAIN_CLIENTS), the aggregator draw (AGGR_CLIENTS), the
+        final-result recipients (RESULT_CLIENTS), and a gatherer waiting on them now."""
+        removed = set(pruned)
+        if not removed:
+            return
+        if self.me in removed:
+            # The server thinks we are gone (e.g. a long disconnect). Nothing sensible
+            # to do here but say so; the server ignores our reports from now on.
+            self.log_error(fl_ctx, f"server pruned THIS client ({reason}); remaining active clients {active}")
+            return
+        if not self.config:
+            self.log_warning(fl_ctx, f"prune notice for {pruned} arrived before configuration; ignored")
+            return
+        for key in (Constant.CLIENTS, Constant.TRAIN_CLIENTS, Constant.AGGR_CLIENTS, Constant.RESULT_CLIENTS):
+            names = self.config.get(key)
+            if names:
+                self.config[key] = [c for c in names if c not in removed]
+        if self.trainers:
+            self.trainers = [c for c in self.trainers if c not in removed]
+        aggrs = getattr(self, "aggrs", None)
+        if aggrs:
+            self.aggrs = [c for c in aggrs if c not in removed]
+        gatherer = self.gatherer
+        if gatherer is not None and hasattr(gatherer, "drop_trainers"):
+            gatherer.drop_trainers(removed, fl_ctx)
+        self.log_warning(
+            fl_ctx,
+            f"FaultTolerant: server pruned {sorted(removed)} ({reason}); this swarm now trains on "
+            f"{self.get_config_prop(Constant.TRAIN_CLIENTS)} and aggregates on "
+            f"{self.get_config_prop(Constant.AGGR_CLIENTS)}",
+        )
 
     def start_run(self, fl_ctx: FLContext):
         # do_learn_task() instantiates the module-global ``Gatherer``; patch that
@@ -545,11 +641,117 @@ class FaultTolerantSwarmClientController(SwarmClientController):
 
 
 class FaultTolerantSwarmServerController(SwarmServerController):
-    """SwarmServerController that prunes a single failed client and continues,
-    instead of panicking the whole run, as long as ``min_clients`` remains.
+    """SwarmServerController that prunes a failed client and continues, instead of
+    panicking the whole run, as long as ``min_clients`` remains -- and tells the
+    surviving clients about it (#595).
 
-    Faithful copy of ``ServerSideController._update_client_status`` with only the
-    ``report.error`` branch changed."""
+    Three things prune a client: an error report (``_update_client_status``, a
+    faithful copy of the stock method with only that branch changed), the server
+    deeming it disconnected (heartbeat timeout plus grace; a reconnect within that
+    window never reaches here), and not answering the configure task before the
+    quorum was reached (the task completes at quorum, so it never will).
+
+    In strict mode (``min_clients`` = 0 or = site count) nothing is pruned: a site
+    that loses its VPN keeps training locally and submits when the tunnel returns,
+    and the strict gatherer waits for it. Pruning there would turn a survivable
+    outage into a failed benchmark, so a disconnect is only logged."""
+
+    def __init__(self, *args, prune_notify_timeout: float = 30.0, **kwargs):
+        if prune_notify_timeout <= 0:
+            raise ValueError("prune_notify_timeout must be positive")
+        super().__init__(*args, **kwargs)
+        self.prune_notify_timeout = prune_notify_timeout
+        self.pruned_clients = []
+
+    def _active_clients(self):
+        return list(self.client_statuses.keys())
+
+    def _can_prune_one(self) -> bool:
+        remaining = len(self.client_statuses) - 1
+        return bool(self.min_clients and self.min_clients > 0 and remaining >= self.min_clients)
+
+    def _prune(self, names, reason: str, fl_ctx: FLContext):
+        """Drop ``names`` from the active set and notify the survivors. Callers check min_clients."""
+        names = [n for n in names if n in self.client_statuses]
+        if not names:
+            return
+        for n in names:
+            del self.client_statuses[n]
+            self.pruned_clients.append(n)
+        self.log_warning(
+            fl_ctx,
+            f"FaultTolerant: pruned {names} ({reason}); {len(self.client_statuses)} active clients remain "
+            f"(min_clients={self.min_clients}): {self._active_clients()}",
+        )
+        self._notify_prune(names, reason, fl_ctx)
+
+    def _notify_prune(self, pruned, reason: str, fl_ctx: FLContext):
+        active = self._active_clients()
+        if not active:
+            return
+        engine = fl_ctx.get_engine()
+        if not engine:
+            self.log_error(fl_ctx, f"no engine: cannot tell {active} that {pruned} were pruned")
+            return
+        request = Shareable()
+        request[PRUNE_KEY_PRUNED] = list(pruned)
+        request[PRUNE_KEY_ACTIVE] = active
+        request[PRUNE_KEY_REASON] = reason
+        try:
+            replies = engine.send_aux_request(
+                targets=active,
+                topic=prune_topic(self.workflow_id),
+                request=request,
+                timeout=self.prune_notify_timeout,
+                fl_ctx=fl_ctx,
+                secure=False,
+            )
+        except Exception:
+            self.log_error(fl_ctx, f"error notifying {active} of pruned clients {pruned}: {secure_format_traceback()}")
+            return
+        replies = replies or {}
+        acked = [c for c in active if _LearnScatterRetryEngine._return_code(replies.get(c)) == ReturnCode.OK]
+        missing = [c for c in active if c not in acked]
+        if missing:
+            self.log_warning(
+                fl_ctx,
+                f"prune notice for {pruned} acknowledged by {acked}; no acknowledgement from {missing} "
+                f"within {self.prune_notify_timeout}s -- they may still scatter to or wait for {pruned}",
+            )
+        else:
+            self.log_info(fl_ctx, f"prune notice for {pruned} acknowledged by all active clients {acked}")
+
+    def _configure_clients(self, learn_config, fl_ctx: FLContext, abort_signal) -> bool:
+        if not super()._configure_clients(learn_config, fl_ctx, abort_signal):
+            return False
+        unconfigured = [c for c in self._active_clients() if not self._is_configured(c)]
+        if unconfigured:
+            # The quorum proceeded without them and the configure task is complete, so
+            # they will never be configured. Before the start task goes out, make the
+            # roster the starting client will scatter to match reality (#595 B).
+            self._prune(unconfigured, "not configured when the quorum was reached", fl_ctx)
+        return True
+
+    def handle_event(self, event_type: str, fl_ctx: FLContext):
+        super().handle_event(event_type, fl_ctx)
+        if event_type == EventType.CLIENT_DISCONNECTED:
+            self._on_client_disconnected(fl_ctx.get_prop(FLContextKey.DISCONNECTED_CLIENT_NAME), fl_ctx)
+        elif event_type == EventType.CLIENT_RECONNECTED:
+            name = fl_ctx.get_prop(FLContextKey.RECONNECTED_CLIENT_NAME)
+            if name in self.pruned_clients:
+                self.log_warning(fl_ctx, f"client {name} reconnected but stays pruned for this run (rejoin is not supported)")
+
+    def _on_client_disconnected(self, client_name, fl_ctx: FLContext):
+        if not client_name or client_name not in self.client_statuses:
+            return
+        if self._can_prune_one():
+            self._prune([client_name], "deemed disconnected by the server", fl_ctx)
+            return
+        self.log_warning(
+            fl_ctx,
+            f"client {client_name} is deemed disconnected; not pruned (min_clients={self.min_clients}, "
+            f"active={len(self.client_statuses)}) -- the run waits for it to reconnect and submit",
+        )
 
     def _update_client_status(self, fl_ctx: FLContext):
         peer_ctx = fl_ctx.get_peer_context()
@@ -592,12 +794,7 @@ class FaultTolerantSwarmServerController(SwarmServerController):
                 # (peer ERROR / MODEL_UNRECOGNIZED desync / drop) -- prune it and
                 # continue; the rest still satisfy min_clients. A pruned client's
                 # later reports are ignored (the "not in active set" branch above).
-                self.log_warning(
-                    fl_ctx,
-                    f"FaultTolerant: client {client_name} reported error '{report.error}'; pruning and "
-                    f"continuing with {remaining} active clients (min_clients={self.min_clients})",
-                )
-                del self.client_statuses[client_name]
+                self._prune([client_name], f"error report '{report.error}'", fl_ctx)
                 return
             self.asked_to_stop = True
             self.system_panic(
