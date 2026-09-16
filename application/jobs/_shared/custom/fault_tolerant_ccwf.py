@@ -504,6 +504,7 @@ class FaultTolerantSwarmClientController(SwarmClientController):
         # sent to before giving up: the server needs the heartbeat timeout (600 s) plus the
         # dead-client grace (60 s) to deem a site disconnected.
         self.aggregator_death_grace = 900.0
+        self.aggregator_death_poll = 5.0
 
     def process_config(self, fl_ctx: FLContext):
         reply = super().process_config(fl_ctx)
@@ -670,7 +671,7 @@ class FaultTolerantSwarmClientController(SwarmClientController):
             repl = self.aggregator_replacement(orig)
             if repl and repl != orig:
                 return repl
-            time.sleep(5)
+            time.sleep(min(self.aggregator_death_poll, max(0.0, deadline - time.time())))
         return None
 
     def broadcast_and_wait(self, task, fl_ctx: FLContext, targets=None, min_responses=1,

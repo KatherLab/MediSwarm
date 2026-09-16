@@ -123,6 +123,9 @@ def _install_controller_nvflare_mocks(monkeypatch):
         def get_peer_context(self):
             return self.peer_context
 
+        def set_peer_context(self, ctx):
+            self.peer_context = ctx
+
         def get_identity_name(self):
             return self.identity
 
@@ -139,7 +142,21 @@ def _install_controller_nvflare_mocks(monkeypatch):
             self.status = None
             self.last_progress_time = None
 
+    class FakeTrainerStatus:
+        def __init__(self, name):
+            self.name = name
+            self.reply_time = None
+            self.busy = False
+
     class FakeGatherer:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+            self.trainers = list(kwargs.get("trainers", []))
+            self.trainer_statuses = {t: FakeTrainerStatus(t) for t in self.trainers}
+            self.min_responses_required = kwargs.get("min_responses_required", len(self.trainers))
+            self.for_round = kwargs.get("for_round")
+            self.lock = threading.Lock()
+
         def is_done(self):
             return "base-is-done"
 
@@ -166,6 +183,16 @@ def _install_controller_nvflare_mocks(monkeypatch):
         def process_config(self, fl_ctx):
             self.base_process_config_called = True
             return None
+
+        def broadcast_and_wait(self, task, fl_ctx, targets=None, min_responses=1,
+                               wait_time_after_min_received=0, abort_signal=None):
+            self.base_sends = getattr(self, "base_sends", []) + [(task, list(targets or []))]
+            reply = FakeShareable()
+            reply["return_code"] = getattr(self, "base_send_rc", "OK")
+            return {t: reply for t in (targets or [])}
+
+        def is_task_secure(self, fl_ctx):
+            return False
 
         def get_config_prop(self, name, default=None):
             if not getattr(self, "config", None):
@@ -211,7 +238,17 @@ def _install_controller_nvflare_mocks(monkeypatch):
         "nvflare.app_common.ccwf.swarm_server_ctl": types.ModuleType("nvflare.app_common.ccwf.swarm_server_ctl"),
         "nvflare.security": types.ModuleType("nvflare.security"),
         "nvflare.security.logging": types.ModuleType("nvflare.security.logging"),
+        "nvflare.apis.controller_spec": types.ModuleType("nvflare.apis.controller_spec"),
     }
+
+    class FakeTask:
+        def __init__(self, name, data, timeout=0, secure=False, **kwargs):
+            self.name = name
+            self.data = data
+            self.timeout = timeout
+            self.secure = secure
+
+    modules["nvflare.apis.controller_spec"].Task = FakeTask
     modules["nvflare.apis.fl_constant"].ReservedKey = SimpleNamespace(
         ENGINE=engine_key,
         RC="__rc__",
@@ -259,6 +296,7 @@ def _install_controller_nvflare_mocks(monkeypatch):
         TRAIN_CLIENTS="train_clients",
         AGGR_CLIENTS="aggr_clients",
         RESULT_CLIENTS="result_clients",
+        AGGREGATOR="aggregator",
     )
     modules["nvflare.app_common.ccwf.common"].ResultType = SimpleNamespace(BEST="best", LAST="last")
     modules["nvflare.app_common.ccwf.common"].status_report_from_dict = status_report_from_dict
@@ -480,6 +518,9 @@ def _make_permission_retry_adapter(module, responses):
     controller = SimpleNamespace(
         request_to_submit_learn_result_task_name="request_submit",
         log_warning=lambda fl_ctx, message: warnings.append((fl_ctx, message)),
+        aggregator_replacement=lambda name: None,
+        note_permission_granted_by=lambda aggr: None,
+        me="me",
     )
     engine = _SequenceEngine(responses)
     return module._PermissionReplyRetryEngine(engine, controller), engine, warnings
@@ -575,10 +616,16 @@ def test_retry_adapter_is_context_local_for_learning_task(fault_tolerant_ccwf):
     )
     controller.request_to_submit_learn_result_task_name = "request_submit"
     controller.log_warning = lambda *args, **kwargs: None
+    controller._round_lock = threading.Lock()
+    controller._round = {}
+    controller._aggr_replacement = {}
+    task_data = module.Shareable()
+    task_data.set_header(module.AppConstants.CURRENT_ROUND, 0)
+    task_data.set_header(module.Constant.AGGREGATOR, "site9")
 
     seen_engine = controller.do_learn_task(
         name="train",
-        task_data={},
+        task_data=task_data,
         fl_ctx=original_fl_ctx,
         abort_signal=SimpleNamespace(triggered=False),
     )
@@ -587,6 +634,8 @@ def test_retry_adapter_is_context_local_for_learning_task(fault_tolerant_ccwf):
     assert seen_engine._engine is delegate
     assert controller.base_seen_fl_ctx is not original_fl_ctx
     assert original_fl_ctx.get_engine() is delegate
+    assert controller._round["num"] == 0 and controller._round["aggr"] == "site9"
+    assert controller._round["task_data"] is task_data and controller._round["done"] is False
 
 
 def test_start_run_installs_fault_tolerant_gatherer_used_by_inherited_controller(fault_tolerant_ccwf):
@@ -1236,6 +1285,26 @@ def _make_client(module, fl_context_cls, me="site1"):
     controller.trainers = ["site1", "site2", "site3", "site4"]
     controller.aggrs = ["site1", "site4"]
     controller.gatherer = None
+    controller._round_lock = threading.Lock()
+    controller._round = {}
+    controller._aggr_replacement = {}
+    controller.aggregator_death_grace = 0.3
+    controller.aggregator_death_poll = 0.02
+    controller.request_to_submit_learn_result_task_name = "request_submit"
+    controller.report_learn_result_task_name = "report_result"
+    controller.request_to_submit_result_max_wait = 0
+    controller.request_to_submit_result_msg_timeout = 1
+    controller.request_to_submit_result_interval = 0.01
+    controller.learn_task_ack_timeout = 30
+    controller.learn_task_timeout = 60
+    controller.min_responses_required = 3
+    controller.wait_time_after_min_resps_received = 5
+    controller.max_concurrent_submissions = 1
+    controller.metric_comparator = object()
+    controller.aggregator = object()
+    waiter_calls = []
+    controller.gatherer_waiter = SimpleNamespace(set=lambda: waiter_calls.append(True))
+    controller.waiter_calls = waiter_calls
     logs = []
     controller.log_info = lambda ctx, msg: logs.append(("info", msg))
     controller.log_warning = lambda ctx, msg: logs.append(("warning", msg))
@@ -1305,3 +1374,232 @@ def test_client_registers_prune_handler_after_configuration(fault_tolerant_ccwf)
 
     assert controller.base_process_config_called is True
     assert registered == [(module.prune_topic("wf"), controller._process_prune_notice)]
+
+
+# ---------------------------------------------------------------------------
+# #595: the pruned client was the round's aggregator
+# ---------------------------------------------------------------------------
+
+
+def _round_state(num=2, aggr="site4", **extra):
+    rd = {"num": num, "aggr": aggr, "task_data": "task-data", "fl_ctx": None, "result": None,
+          "submitted_to": None, "granted_by": None, "done": False}
+    rd.update(extra)
+    return rd
+
+
+def _perm_request(module, round_num=2):
+    req = module.Shareable()
+    req.set_header(module.AppConstants.CURRENT_ROUND, round_num)
+    return req
+
+
+def test_permission_adapter_redirects_to_the_replacement_and_rekeys(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller._round = _round_state()
+    controller._aggr_replacement = {"site4": "site2"}
+    engine = _RecordingEngine()
+    adapter = module._PermissionReplyRetryEngine(engine, controller)
+
+    resp = adapter.send_aux_request(targets=["site4"], topic="request_submit", request=_perm_request(module),
+                                    timeout=1, fl_ctx=fl_ctx, secure=False)
+
+    assert engine.calls[0]["targets"] == ["site2"]
+    assert "site4" in resp and resp["site4"]["return_code"] == "OK"
+    assert "site2" not in resp
+    assert controller._round["granted_by"] == "site2"
+
+
+def test_permission_adapter_answers_locally_when_this_client_took_over(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller._round = _round_state()
+    controller._aggr_replacement = {"site4": "site1"}
+    engine = _RecordingEngine()
+    fl_ctx.engine = SimpleNamespace(new_context=lambda: fl_context_cls(identity="site1"))
+    seen = []
+
+    def fake_submission_request(topic, request, ctx):
+        seen.append((topic, ctx.get_peer_context().get_identity_name()))
+        reply = module.Shareable()
+        reply["return_code"] = "OK"
+        return reply
+
+    controller._process_submission_request = fake_submission_request
+    adapter = module._PermissionReplyRetryEngine(engine, controller)
+
+    resp = adapter.send_aux_request(targets=["site4"], topic="request_submit", request=_perm_request(module),
+                                    timeout=1, fl_ctx=fl_ctx, secure=False)
+
+    assert engine.calls == []
+    assert seen == [("request_submit", "site1")]
+    assert resp["site4"]["return_code"] == "OK"
+    assert controller._round["granted_by"] == "site1"
+
+
+def test_permission_adapter_records_who_granted_without_redirect(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller._round = _round_state()
+    adapter = module._PermissionReplyRetryEngine(_RecordingEngine(), controller)
+
+    adapter.send_aux_request(targets=["site4"], topic="request_submit", request=_perm_request(module),
+                             timeout=1, fl_ctx=fl_ctx, secure=False)
+
+    assert controller._round["granted_by"] == "site4"
+
+
+def test_pruned_aggregator_is_replaced_by_the_first_remaining_candidate(fault_tolerant_ccwf):
+    """Every survivor computes the same replacement; only the elected one sets up a gatherer."""
+    module, fl_context_cls = fault_tolerant_ccwf
+    elected, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    elected._round = _round_state()
+    other, fl_ctx2, logs2 = _make_client(module, fl_context_cls, me="site2")
+    other._round = _round_state()
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+    request[module.PRUNE_KEY_ACTIVE] = ["site1", "site2", "site3"]
+    request[module.PRUNE_KEY_REASON] = "deemed disconnected by the server"
+
+    elected._process_prune_notice("t", request, fl_ctx)
+    other._process_prune_notice("t", request, fl_ctx2)
+
+    assert elected.aggregator_replacement("site4") == "site1"
+    assert other.aggregator_replacement("site4") == "site1"
+    g = elected.gatherer
+    assert isinstance(g, module.FaultTolerantGatherer)
+    assert g.for_round == 2 and g.trainers == ["site1", "site2", "site3"] and g.task_data == "task-data"
+    assert elected.waiter_calls == [True]
+    assert other.gatherer is None and other.waiter_calls == []
+    assert any("takes over the round" in msg for level, msg in logs if level == "warning")
+
+
+def test_prune_of_a_non_aggregator_does_not_touch_the_round(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller._round = _round_state(aggr="site2")
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+
+    controller._process_prune_notice("t", request, fl_ctx)
+
+    assert controller._aggr_replacement == {}
+    assert controller.gatherer is None
+
+
+def test_accepted_result_is_resubmitted_when_its_aggregator_dies(fault_tolerant_ccwf, monkeypatch):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    controller._round = _round_state(done=True, submitted_to="site4", result="my-result")
+    calls = []
+    controller._submit_result_to = lambda aggr, rnd, result, ctx, need_permission: (
+        calls.append((aggr, rnd, result, need_permission)) or {"return_code": "OK"})
+
+    class SyncThread:
+        def __init__(self, target, args=(), name=None, daemon=None):
+            self._t, self._a = target, args
+
+        def start(self):
+            self._t(*self._a)
+
+    monkeypatch.setattr(module.threading, "Thread", SyncThread)
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+
+    controller._process_prune_notice("t", request, fl_ctx)
+
+    assert calls == [("site1", 2, "my-result", True)]
+    assert controller._round["submitted_to"] == "site1"
+
+
+def test_result_send_is_redirected_when_the_aggregator_was_replaced(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    controller._round = _round_state(granted_by="site1")
+    controller._aggr_replacement = {"site4": "site1"}
+    calls = []
+    ok = module.Shareable(); ok["return_code"] = "OK"
+    controller._submit_result_to = lambda aggr, rnd, result, ctx, need_permission: (
+        calls.append((aggr, rnd, result, need_permission)) or ok)
+    task = module.Task(name="report_result", data="my-result", timeout=30)
+
+    resp = controller.broadcast_and_wait(task, fl_ctx, ["site4"], 1)
+
+    assert calls == [("site1", 2, "my-result", False)]  # permission already came from site1 via the adapter
+    assert resp == {"site4": ok}
+    assert controller._round["done"] is True and controller._round["submitted_to"] == "site1"
+
+
+def test_failed_result_send_waits_for_the_prune_then_redirects(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    controller._round = _round_state()
+    controller.base_send_rc = "ERROR"  # the stock send to the dying aggregator fails
+    ok = module.Shareable(); ok["return_code"] = "OK"
+    calls = []
+    controller._submit_result_to = lambda aggr, rnd, result, ctx, need_permission: (
+        calls.append((aggr, need_permission)) or ok)
+    # the server prunes the aggregator shortly after the failed send
+    threading.Timer(0.05, lambda: controller._aggr_replacement.update({"site4": "site3"})).start()
+    task = module.Task(name="report_result", data="my-result", timeout=30)
+
+    resp = controller.broadcast_and_wait(task, fl_ctx, ["site4"], 1)
+
+    assert controller.base_sends[0][1] == ["site4"]
+    assert calls == [("site3", True)]
+    assert resp == {"site4": ok}
+
+
+def test_failed_result_send_without_a_prune_keeps_the_stock_error(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    controller._round = _round_state()
+    controller.base_send_rc = "ERROR"
+    task = module.Task(name="report_result", data="my-result", timeout=30)
+
+    resp = controller.broadcast_and_wait(task, fl_ctx, ["site4"], 1)
+
+    assert resp["site4"]["return_code"] == "ERROR"
+    assert controller._round["done"] is False
+
+
+def test_other_tasks_pass_through_broadcast_and_wait(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    task = module.Task(name="something_else", data="x")
+
+    resp = controller.broadcast_and_wait(task, fl_ctx, ["site4"], 1)
+
+    assert controller.base_sends[0] == (task, ["site4"])
+    assert resp["site4"]["return_code"] == "OK"
+
+
+def test_submit_result_to_self_asks_and_gathers_locally(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    fl_ctx.engine = SimpleNamespace(new_context=lambda: fl_context_cls(identity="site1"))
+    ok = module.Shareable(); ok["return_code"] = "OK"
+    perms, gathers = [], []
+    controller._process_submission_request = lambda topic, req, ctx: perms.append(topic) or ok
+    controller._resolve_lazy_refs = lambda result, ctx: result
+    controller._process_learn_result = lambda result, ctx, abort: gathers.append(result) or ok
+
+    reply = controller._submit_result_to("site1", 2, "my-result", fl_ctx, need_permission=True)
+
+    assert perms == ["request_submit"] and gathers == ["my-result"]
+    assert reply is ok
+    assert controller.base_sends == [] if hasattr(controller, "base_sends") else True
+
+
+def test_submit_result_to_remote_asks_then_sends(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    engine = _RecordingEngine()
+    fl_ctx.engine = engine
+
+    reply = controller._submit_result_to("site3", 2, "my-result", fl_ctx, need_permission=True)
+
+    assert engine.calls[0]["targets"] == ["site3"] and engine.calls[0]["topic"] == "request_submit"
+    assert controller.base_sends[0][1] == ["site3"] and controller.base_sends[0][0].data == "my-result"
+    assert reply["return_code"] == "OK"
