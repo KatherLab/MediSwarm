@@ -27,7 +27,7 @@ CHARTS_JS = pathlib.Path(__file__).with_name("consortium_45min_charts.js")
 
 DATE = "17.09.2026"
 VENUE = "Bremen"
-STATUS_DATE = "15 September 2026"
+STATUS_DATE = "16 September 2026"
 
 
 def data_uri(name: str) -> str:
@@ -178,8 +178,14 @@ STYLE = """
   @media print { .notes, .notes-bar { display:none; } }
   @media (prefers-reduced-motion: reduce){ *{ animation:none!important; transition:none!important; } }
   @media print {
+    @page { size: 13.33in 7.5in; margin: 0; }
+    html { font-size: 12.5px; }
     body{background:#fff;} .deck{gap:0;padding:0;max-width:none;}
-    .slide{page-break-after:always;border:none;border-radius:0;min-height:100vh;}
+    .slide{break-before:page; break-inside:avoid; border:none; border-radius:0; min-height:0; height:7.2in; box-sizing:border-box; overflow:hidden; padding-bottom:2.6rem;}
+    .slide:first-of-type{break-before:auto;}
+    .foot{padding-top:.3rem;padding-bottom:.3rem;}
+    .title{flex:0 0 auto; padding:1.6rem 2rem;}
+    footer, .notes-bar{display:none;}
   }
 </style>
 <style>
@@ -895,8 +901,9 @@ S_STATUS = eyebrow_h2("04 · Milestones and timeline", "Deliverable status, " + 
       <div class="callout">
         <strong>Software since 13 September.</strong> 1.8.0 and 1.8.1 released; per-site metrics, per-case return and the warm-start guard verified on real kits on 14 September.
         1.8.1 kits distributed to all sites on 14 September; MHA installed the same day. Cambridge's SAM-Med2D model is merged as <code>MST_SAMMed2D</code>.
-        A four-client fault-injection test on 14 September found two defects: a site whose worker crashed at launch (a duplicate OpenMP runtime in the image, seen once at CAM in April)
-        and the tolerant mode not telling surviving sites about a pruned one. Both fixes are in review; the second one passed the same injection test on 15 September.
+        Four-client fault-injection tests on 14 to 16 September found three defects: a site whose worker crashed at launch (a duplicate OpenMP runtime in the image, seen once at CAM in April; fixed and merged),
+        the tolerant mode not telling surviving sites about a pruned one (fixed; the injection test passed on 16 September with the stopped site as the round's aggregator; in review),
+        and a configure quorum that proceeds the instant the minimum is reached (filed). Production benchmarks run strict and are affected only by the first.
       </div>
     </div>"""
 
@@ -908,16 +915,16 @@ S_SITES = eyebrow_h2("05 · Sites", "Site status and to-do list, " + STATUS_DATE
           <tbody>
             <tr><td class="id"><strong>CAM_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n">today</td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Keep only the mediswarm-vpn tunnel; two OpenVPN processes were seen (F10)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
             <tr><td class="id"><strong>MHA_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">re-registered 14 Sep 20:50 UTC</span></td><td class="n"><span class="chip good">1.8.1</span></td><td class="n">today</td><td><ul class="todo"><li>Done: 1.8.1 installed, first site</li><li>Turn on per-case return for the October run (Greek cohort, D2.5)</li></ul></td></tr>
-            <tr><td class="id"><strong>RSH_1</strong></td><td><span class="chip good">connected</span></td><td class="n"><span class="chip warn">1.5.0</span></td><td class="n">today</td><td><ul class="todo"><li>Install the 1.8.1 kit; the 1.5.0 kit is pinned to an old image</li><li>Complete the site checklist on the board</li></ul></td></tr>
+            <tr><td class="id"><strong>RSH_1</strong></td><td><span class="chip good">connected</span></td><td class="n"><span class="chip warn">3 kits alive</span></td><td class="n">today</td><td><ul class="todo"><li>Three kits are still sending logs (one 1.6.0, two 1.5.0); stop the leftover containers and daemons, keep one kit</li><li>Install the 1.8.1 kit into a new folder and run only that one</li><li>Complete the site checklist on the board</li></ul></td></tr>
             <tr><td class="id"><strong>RUMC_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n"><span class="chip warn">30 Aug</span></td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Log upload silent since 30 Aug: check the upload key</li><li>VPN as a service; a hand-started tunnel is in use (F11); TUD owes a debug session</li><li>Turn on per-case return for the October run (Dutch cohort, D2.5)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
             <tr><td class="id"><strong>UKA_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">back 14 Sep 07:57 UTC</span></td><td class="n">1.6.0</td><td class="n">4 Sep</td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Confirm stability after the 4 Sep kernel crashes; stay online through October</li></ul></td></tr>
-            <tr><td class="id"><strong>UMCU_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">re-registered 14 Sep 18:33 UTC</span></td><td class="n"><span class="chip warn">unconfirmed</span></td><td class="n">14 Sep</td><td><ul class="todo"><li>Confirm the 1.8.1 install; copy sync.conf into the new kit so the log feed resumes</li><li>Complete the site checklist on the board</li><li>Turn on per-case return for the October run (Dutch cohort, D2.5)</li></ul></td></tr>
-            <tr><td class="id"><strong>USZ_1</strong></td><td><span class="chip good">connected</span></td><td class="n"><span class="chip warn">1.5.0</span></td><td class="n"><span class="chip warn">22 Jul</span></td><td><ul class="todo"><li>Install the 1.8.1 kit; the 1.5.0 kit is pinned to an old image</li><li>Log upload silent since 22 Jul: set up the upload key</li><li>VPN as a service instead of the hand-started tunnel (F11)</li></ul></td></tr>
+            <tr><td class="id"><strong>UMCU_1</strong></td><td><span class="chip warn">two clients</span><br><span class="cap">a second client re-registers every few seconds and is rejected</span></td><td class="n"><span class="chip warn">unconfirmed</span></td><td class="n">14 Sep</td><td><ul class="todo"><li>Two clients are running under the same identity; stop the old one and keep the 1.8.1 kit</li><li>Copy sync.conf into the new kit so the log feed resumes</li><li>Complete the site checklist on the board</li><li>Turn on per-case return for the October run (Dutch cohort, D2.5)</li></ul></td></tr>
+            <tr><td class="id"><strong>USZ_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">restarted 16 Sep 08:26 UTC</span></td><td class="n"><span class="chip warn">unconfirmed</span></td><td class="n"><span class="chip warn">22 Jul</span></td><td><ul class="todo"><li>Confirm the 1.8.1 install (the client was restarted on 16 Sep; without a log feed the kit version is unknown)</li><li>Log upload silent since 22 Jul: set up the upload key</li><li>VPN as a service instead of the hand-started tunnel (F11)</li></ul></td></tr>
             <tr><td class="id"><strong>VHIO_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n">today</td><td><ul class="todo"><li>Install the 1.8.1 kit</li></ul></td></tr>
           </tbody>
         </table>
       </div>
-      <p class="cap">Coordinator: the coordination server's client registry. Kit: the version each site's node reports about itself. Log feed: the last upload received from the hospital's own machine. F10 and F11 are entries in the board's Known issues tab.</p>
+      <p class="cap">Coordinator: the coordination server's client registry, evening of 16 September. Kit: the version each site's node reports about itself. Log feed: the last upload received from the hospital's own machine. F10 and F11 are entries in the board's Known issues tab.</p>
     </div>"""
 
 S_NEEDS = eyebrow_h2("05 · Sites", "Three requests to the consortium") + """
@@ -949,7 +956,7 @@ NOTES = [
     "Hi everyone. I'm Jeff, I run the swarm platform for the consortium from Dresden, and this is where we stand at month 45. "
     "Four numbers to start: 34 thousand training volumes across eight hospitals, none of which ever left its site. "
     "A shared model at 0.887 malignant AUROC on the external challenge set, and the same number on an American cohort it has never seen. "
-    "And software version 1.8.1, which went out to all of you this week.",
+    "And software version 1.8.1, which went out to all of you on Monday.",
     # 2 agenda
     "Five parts. First the data, what each of you brought. Then what the model does with it, including the external validation. "
     "Then the other deliverables, and I'll explain each one before I show numbers, because some of them are new to most of you. "
@@ -1034,12 +1041,14 @@ NOTES = [
     "The one thing that decides the year is the October run: all eight sites online for two days.",
     # 25 status
     "Status in one table. And a short note on what happened since the software went out: 1.8.1 is verified on real kits, MHA already installed it, "
-    "Cambridge's SAM-Med2D model is merged into the platform, and a four-site fault-injection test last weekend found two defects that are already fixed and in review. "
-    "One of them, a worker crash at start-up, had actually hit Cambridge once in April, so that one matters for the October run.",
+    "Cambridge's SAM-Med2D model is merged into the platform, and fault-injection tests over the last three days found three defects. "
+    "One, a worker crash at start-up, had actually hit Cambridge once in April; that fix is merged and matters for the October run. "
+    "The second, the tolerant mode not telling the other sites when one is dropped, is fixed and passed its test yesterday. The third is a small timing race that I've filed.",
     # 26 sites
-    "Where each site stands as of Monday. Everyone is connected to the coordinator. MHA is on 1.8.1, thank you. The others still need to install the kit, it's ten minutes and the certificates don't change. "
-    "RSH and USZ are on the old 1.5 kit that cannot follow releases, so for you the kit is the only way. RUMC and USZ, your log feed has been silent for a while, please check the upload key. "
-    "UMCU, you re-registered on Sunday but the feed stopped, which usually means the sync file wasn't copied into the new kit.",
+    "Where each site stands as of last night. Everyone is connected to the coordinator. MHA is on 1.8.1, thank you. The others still need to install the kit, it's ten minutes and the certificates don't change. "
+    "Two things I only saw yesterday evening: UMCU has two clients running with the same identity, so a second one keeps re-registering every few seconds and gets rejected; and RSH still has three old kits alive and sending logs, one 1.6 and two 1.5 ones. "
+    "In both cases: stop everything, keep one client, and make it the 1.8.1 kit. RUMC and USZ, your log feed has been silent for a while, please check the upload key. "
+    "USZ, you restarted something yesterday morning; without the feed I can't see which kit it is, so please confirm.",
     # 27 requests
     "Three requests. One: RUMC, UMCU and MHA, switch on per-case return before the October run. You saw on slide 22 that those rows carry some site information, so decide with that in mind. "
     "Two: Cambridge and Nijmegen, a slot for the white-hat exercise in the first quarter. "
