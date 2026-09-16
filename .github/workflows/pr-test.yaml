@@ -246,7 +246,7 @@ jobs:
       - name: Run 3DCNN training swarm with synthetic dataset and two clients for one ODELIA model
         continue-on-error: false
         run: |
-          ./scripts/ci/runIntegrationTests.sh run_3dcnn_training_in_swarm_for_odelia_model
+          ./scripts/ci/runIntegrationTests.sh run_3dcnn_training_in_swarm
 
       - name: Run 3DCNN training swarm with synthetic dataset and two clients for all productive models (weekly / manual)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
