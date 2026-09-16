@@ -38,9 +38,12 @@ All notable changes to MediSwarm are documented in this file.
   drop it from their trainer, aggregator-candidate and result-recipient lists and from a
   gatherer still waiting on it. Before, a site stopped mid-run cost every later round an
   extra hour (`wait_time_after_min_resps_received`), and a site whose worker crashed at
-  launch hung the start task until `start_task_timeout` and failed the run. Strict profiles
-  (quorum = site count) are unchanged: a disconnected site is logged, not pruned, so a VPN
-  outage remains survivable. Failure modes F13 and F14 document both.
+  launch hung the start task until `start_task_timeout` and failed the run. If the pruned
+  site was the round's aggregator, the survivors elect a replacement (the first remaining
+  candidate), which sets up the round's gatherer; pending submissions are redirected to it
+  and already-accepted results are re-submitted. Strict profiles (quorum = site count) are
+  unchanged: a disconnected site is logged, not pruned, so a VPN outage remains survivable.
+  Failure modes F13 and F14 document all of it.
 
 ## [1.8.1] - 2026-09-13
 
