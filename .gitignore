@@ -226,3 +226,6 @@ run_staging/
 
 # Partner announcement emails are drafted locally and never committed (decision 2026-09-14)
 docs/EMAIL_*.md
+
+# Rendered deck for offline presenting; regenerate with headless Chromium --print-to-pdf
+docs/presentation_consortium_45min.pdf
