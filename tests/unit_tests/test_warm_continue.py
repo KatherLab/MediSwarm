@@ -470,6 +470,7 @@ def _make_controller_with_report(module, fl_context_cls, error):
     controller.log_error = lambda *args, **kwargs: None
     controller.prune_notify_timeout = 5.0
     controller.pruned_clients = []
+    controller.participating_clients = ["site1", "site2", "site3"]
     panics = []
     controller.system_panic = lambda message, ctx: panics.append(message)
     return controller, fl_ctx, panics
@@ -1108,6 +1109,7 @@ def _make_server(module, fl_context_cls, active=("site1", "site2", "site3", "sit
     controller.prune_notify_timeout = 5.0
     controller.pruned_clients = []
     controller.client_statuses = {name: module.ClientStatus() for name in active}
+    controller.participating_clients = list(active)
     logs = []
     controller.log_debug = lambda ctx, msg: None
     controller.log_info = lambda ctx, msg: logs.append(("info", msg))
@@ -1147,6 +1149,7 @@ def test_disconnect_prunes_and_notifies_when_min_clients_remain(fault_tolerant_c
 
     assert controller.base_events == [module.EventType.CLIENT_DISCONNECTED]  # stock handling still ran
     assert sorted(controller.client_statuses) == ["site1", "site2", "site3"]
+    assert controller.participating_clients == ["site1", "site2", "site3"]  # end-of-workflow no longer waits on site4
     assert panics == []
     assert engine.calls[0]["request"][module.PRUNE_KEY_PRUNED] == ["site4"]
     assert sorted(engine.calls[0]["targets"]) == ["site1", "site2", "site3"]

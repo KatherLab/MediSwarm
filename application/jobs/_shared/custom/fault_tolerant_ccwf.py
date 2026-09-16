@@ -945,6 +945,11 @@ class FaultTolerantSwarmServerController(SwarmServerController):
         for n in names:
             del self.client_statuses[n]
             self.pruned_clients.append(n)
+        # The stock control_flow addresses the end-of-workflow request to
+        # participating_clients and waits end_workflow_timeout (100 h in this fork) for
+        # every one of them. A pruned client cannot answer, so take it out of that list.
+        # Nothing before the end of the workflow reads the list after this point.
+        self.participating_clients = [c for c in self.participating_clients if c not in names]
         self.log_warning(
             fl_ctx,
             f"FaultTolerant: pruned {names} ({reason}); {len(self.client_statuses)} active clients remain "
