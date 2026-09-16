@@ -1603,3 +1603,22 @@ def test_submit_result_to_remote_asks_then_sends(fault_tolerant_ccwf):
     assert engine.calls[0]["targets"] == ["site3"] and engine.calls[0]["topic"] == "request_submit"
     assert controller.base_sends[0][1] == ["site3"] and controller.base_sends[0][0].data == "my-result"
     assert reply["return_code"] == "OK"
+
+
+def test_emptied_role_list_falls_back_to_the_survivors(fault_tolerant_ccwf):
+    """A config that named one aggregator, and that site dies: the next scatter must still have candidates."""
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller.config[module.Constant.AGGR_CLIENTS] = ["site4"]
+    controller.aggrs = ["site4"]
+    controller._round = _round_state(aggr="site4")
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+
+    controller._process_prune_notice("t", request, fl_ctx)
+
+    assert controller.get_config_prop(module.Constant.AGGR_CLIENTS) == ["site1", "site2", "site3"]
+    assert controller.aggrs == ["site1", "site2", "site3"]
+    assert controller.aggregator_replacement("site4") == "site1"
+    assert isinstance(controller.gatherer, module.FaultTolerantGatherer)
+    assert any("emptied by the prune" in msg for level, msg in logs if level == "warning")

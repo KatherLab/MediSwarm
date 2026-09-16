@@ -732,11 +732,19 @@ class FaultTolerantSwarmClientController(SwarmClientController):
             names = self.config.get(key)
             if names:
                 self.config[key] = [c for c in names if c not in removed]
+        survivors = list(self.config.get(Constant.CLIENTS) or [])
+        # A named role list can empty out (a config that named one aggregator, and it died).
+        # The stock configure step treats an empty list as "all clients"; keep that meaning
+        # after a prune too, or the next scatter draws from an empty list.
+        for key in (Constant.TRAIN_CLIENTS, Constant.AGGR_CLIENTS, Constant.RESULT_CLIENTS):
+            if not self.config.get(key) and survivors:
+                self.config[key] = list(survivors)
+                self.log_warning(fl_ctx, f"{key} emptied by the prune; every surviving client now fills that role")
         if self.trainers:
-            self.trainers = [c for c in self.trainers if c not in removed]
+            self.trainers = [c for c in self.trainers if c not in removed] or list(survivors)
         aggrs = getattr(self, "aggrs", None)
         if aggrs:
-            self.aggrs = [c for c in aggrs if c not in removed]
+            self.aggrs = [c for c in aggrs if c not in removed] or list(survivors)
         gatherer = self.gatherer
         if gatherer is not None and hasattr(gatherer, "drop_trainers"):
             gatherer.drop_trainers(removed, fl_ctx)
