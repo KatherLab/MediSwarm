@@ -6,6 +6,13 @@ All notable changes to MediSwarm are documented in this file.
 
 ### Fixed
 
+- **Live-sync daemon: one SSH connection per kit instead of one per upload (#602)** — every
+  rsync and ssh call was a separate login, three to five per 30-second cycle per kit, about
+  two logins per second across the consortium at the upload host, each a logind session
+  there. On 16 September the host hit logind's session cap and refused all SSH logins. The
+  daemon now multiplexes (`ControlMaster=auto`, `ControlPersist=600`): seven calls, one login,
+  measured from the dl3 test kit. Reaches the sites with their next kit.
+
 - **Client worker no longer dies at job launch with `OMP: Error #15` (#596)** — the image
   carries three OpenMP runtimes (numpy/MKL, torch, scikit-learn) and LLVM's aborted the
   worker when it found another one initialised first. Intermittent; hit CAM_1 in production on

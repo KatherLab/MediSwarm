@@ -25,7 +25,25 @@ if [ ! -f "$SYNC_CONF" ]; then
 fi
 
 # shellcheck source=/dev/null
+# One SSH connection per kit instead of one per upload (#602).
+#
+# Every rsync/ssh call in this daemon is a separate SSH login: three to five per
+# 30-second cycle per kit, about two logins per second across the consortium at
+# the upload host. Each login is a logind session there; on 16 Sep 2026 the host
+# hit logind's session cap and refused every SSH login, the operators' included.
+# With connection multiplexing the first call opens a master connection and the
+# later ones ride on it; the master lingers ControlPersist seconds after the last
+# use, so a kit logs in once per ten minutes at most. Appended here rather than in
+# sync.conf because sites carry their sync.conf across kit upgrades.
+add_ssh_multiplexing() {
+  case " ${SSH_OPTS:-} " in *" -o ControlMaster="*) return 0 ;; esac
+  local mux_dir="${TMPDIR:-/tmp}/mediswarm_ssh_mux"
+  { mkdir -p "$mux_dir" && chmod 700 "$mux_dir"; } 2>/dev/null || return 0
+  SSH_OPTS="${SSH_OPTS:-} -o ControlMaster=auto -o ControlPath=${mux_dir}/%C -o ControlPersist=600"
+}
+
 source "$SYNC_CONF"
+add_ssh_multiplexing
 
 MODE=""
 SITE_NAME=""
@@ -100,7 +118,7 @@ export_sync_env() {
 # loop.  With BatchMode=yes the connection will fail immediately if
 # key-based auth is not set up instead of prompting for a password.
 echo "Testing SSH connectivity to ${REMOTE_USER}@${REMOTE_HOST}..."
-if ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" 'echo ok' >/dev/null 2>&1; then
+if ssh -n ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" 'echo ok' >/dev/null 2>&1; then
     echo "SSH OK — live sync enabled."
 else
     record_sync_error "Live-sync cannot connect to ${REMOTE_USER}@${REMOTE_HOST}"
@@ -128,7 +146,9 @@ touch "$LAST_CKPT_SYNC_FILE" 2>/dev/null || true
 CURRENT_LOCAL_RUN=""
 
 ssh_cmd() {
-  ssh ${SSH_OPTS} "$@" || {
+  # -n: never read the daemon's stdin. With multiplexing the first call forks a
+  # background master that would otherwise inherit and hold that descriptor.
+  ssh -n ${SSH_OPTS} "$@" || {
     record_sync_error "ssh failed: $*"
     return 1
   }
