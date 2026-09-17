@@ -177,3 +177,26 @@ class BasicClassifier(BasicModel):
 
     def logits2probabilities(self, logits):
         return F.softmax(logits, dim=1)
+
+
+### Wrapper class for wrapping any model into BasicModel ###
+class ModelWrapper(BasicClassifier):
+    def __init__(
+        self,
+        backbone: nn.Module,
+        in_ch: int,
+        num_classes: int,
+        spatial_dims: int = 3,
+        **kwargs
+    ):
+        super().__init__(
+            in_ch=in_ch,
+            out_ch=num_classes,
+            spatial_dims=spatial_dims,
+            **kwargs
+        )
+        self.save_hyperparameters(ignore=['backbone'])
+        self.backbone = backbone
+
+    def forward(self, x):
+        return self.backbone(x)
