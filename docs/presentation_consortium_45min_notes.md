@@ -4,7 +4,7 @@ Spoken, informal. About one to two minutes per slide, 27 slides in 45 minutes.
 
 ## 1. Month 45
 
-Hi everyone. I'm Jeff, I run the swarm platform for the consortium from Dresden, and this is where we stand at month 45. Four numbers to start: 34 thousand training volumes across eight hospitals, none of which ever left its site. A shared model at 0.887 malignant AUROC on the external challenge set, and the same number on an American cohort it has never seen. And software version 1.8.1, which went out to all of you on Monday.
+Hi everyone. I'm Jeff, I run the swarm platform for the consortium at TUD, and this is where we stand at month 45. Four numbers to start: 34 thousand training volumes across eight hospitals, none of which ever left its site. A shared model at 0.887 malignant AUROC on the external challenge set, and the same number on an American cohort it has never seen. And software version 1.8.1, which went out to all of you on Monday.
 
 ## 2. Agenda
 
@@ -12,19 +12,19 @@ Five parts. First the data, what each of you brought. Then what the model does w
 
 ## 3. Training data per site
 
-This is the training data per site, counted by each site's own trainer when it loads the data set, so these are the real numbers, not what was promised. Aachen alone is half of the consortium. The smallest site has 190 volumes. That 94-fold range shapes almost every technical decision I'll show you today.
+This is the training data per site, counted by each site's own trainer when it loads the data set, so these are the real numbers, not what was promised. UKA alone is half of the consortium. The smallest site has 190 volumes. That 94-fold range shapes almost every technical decision I'll show you today.
 
 ## 4. How the data set grew
 
-How we got there. Two sites in April, and then two big jumps: Aachen and Cambridge together on the eleventh of June, Utrecht in July. The eighth site came online at the end of July, and since then the data set has been stable.
+How we got there. Two sites in April, and then two big jumps: UKA and CAM together on the eleventh of June, UMCU in July. The eighth site came online at the end of July, and since then the data set has been stable.
 
 ## 5. Class counts per site
 
-Same sites, now split by class at true scale. The thing to notice is the light blue: the benign cases. Aachen holds 84 percent of all benign cases in the consortium. VHIO has none. Keep that in mind for the robustness slides later, it comes back.
+Same sites, now split by class at true scale. The thing to notice is the light blue: the benign cases. UKA holds 84 percent of all benign cases in the consortium. VHIO has none. Keep that in mind for the robustness slides later, it comes back.
 
 ## 6. Class distribution per site
 
-And the same thing normalised, so you can see each site's own mix. RSH looks very malignant-heavy at 63 percent, but that is 221 volumes. Aachen's 7 percent malignant is 1,251 volumes. So please read this slide together with the previous one, not on its own.
+And the same thing normalised, so you can see each site's own mix. RSH looks very malignant-heavy at 63 percent, but that is 221 volumes. UKA's 7 percent malignant is 1,251 volumes. So please read this slide together with the previous one, not on its own.
 
 ## 7. Site data detailed view
 
@@ -32,7 +32,7 @@ All the numbers in one place, for reference. The classes add up per site and the
 
 ## 8. Swarm model versus single-site models
 
-Now the result. The eight-site swarm model on the external challenge set, against the previous six-site swarm and against single-site models. The swarm beats every single-site model, including Aachen's, and Aachen trains on half the data. For a typical site, joining is worth about 0.23 AUROC.
+Now the result. The eight-site swarm model on the external challenge set, against the previous six-site swarm and against single-site models. The swarm beats every single-site model, including UKA's, and UKA trains on half the data. For a typical site, joining is worth about 0.23 AUROC.
 
 ## 9. Results with confidence intervals
 
@@ -56,7 +56,7 @@ Now the other deliverables. This table is the map: what the proposal asks for, w
 
 ## 14. Regional fine-tuning: what is needed and what exists
 
-Regional fine-tuning. The proposal wants the pan-European model compared with versions fine-tuned to the Dutch and the Greek cohorts. What I need for that is per-case predictions coming back from RUMC, UMCU and MHA: a row number, the label and three probabilities. No identifiers, no images. That feature is in 1.8, verified on real kits, and it is off by default: each site switches it on. The comparison itself happens in the October run.
+Regional fine-tuning. The proposal wants the consortium model compared with versions fine-tuned to the RUMC and UMCU cohort and to the MHA cohort. What I need for that is per-case predictions coming back from RUMC, UMCU and MHA: a row number, the label and three probabilities. No identifiers, no images. That feature is in 1.8, verified on real kits, and it is off by default: each site switches it on. The comparison itself happens in the October run.
 
 ## 15. Active learning: how it works
 
@@ -80,15 +80,15 @@ Adversarial robustness. In a swarm every site sends weights, so every site is a 
 
 ## 20. Adversarial robustness: measured effect of five rules
 
-We tried five rules. The textbook robust ones, trimmed mean, coordinate median, Krum, cost a lot even with no attacker at all, 0.47 to 0.64 error. That's because they throw away contributions and ignore data-set weights, so with Aachen holding 84 percent of benign cases they aim at the average site instead of the pooled data. The norm-bounded mean costs almost nothing and holds the attack. That's the recommendation. It does not limit the largest contributor, and capping any site's share is a governance decision, not mine.
+We tried five rules. The textbook robust ones, trimmed mean, coordinate median, Krum, cost a lot even with no attacker at all, 0.47 to 0.64 error. That's because they throw away contributions and ignore data-set weights, so with UKA holding 84 percent of benign cases they aim at the average site instead of the pooled data. The norm-bounded mean costs almost nothing and holds the attack. That's the recommendation. It does not limit the largest contributor, and capping any site's share is a governance decision, not mine.
 
 ## 21. White-hat attack: plan and interim work
 
-The white-hat attack, milestone 6. In the proposal, Cambridge and Nijmegen attack the trained model to expose vulnerabilities, and the deliverable is a preprint. Top row is that plan: we give you the model weights and a protocol, you try to reconstruct data or infer membership, we write up the findings and the fix together. What I need from Cambridge and Nijmegen is a slot in the first quarter of next year, and I'd like to fix the date this autumn.
+The white-hat attack, milestone 6. In the proposal, CAM and RUMC attack the trained model to expose vulnerabilities, and the deliverable is a preprint. Top row is that plan: we give you the model weights and a protocol, you try to reconstruct data or infer membership, we write up the findings and the fix together. What I need from CAM and RUMC is a slot in the first quarter of next year, and I'd like to fix the date this autumn.
 
 ## 22. White-hat attack: result of the interim probe
 
-In the meantime we ran the part that needs nobody else. The question: from a case's three output probabilities alone, can you tell which hospital it came from? On no-lesion cases, no. On malignant cases, yes: 60 percent correct against 33 percent chance. So the model behaves differently per site exactly on the clinically relevant cases. This is a lower bound, the real attacker has the weights. But it tells Cambridge and Nijmegen where to look first, and it is relevant for the per-case predictions I'm asking for.
+In the meantime we ran the part that needs nobody else. The question: from a case's three output probabilities alone, can you tell which hospital it came from? On no-lesion cases, no. On malignant cases, yes: 60 percent correct against 33 percent chance. So the model behaves differently per site exactly on the clinically relevant cases. This is a lower bound, the real attacker has the weights. But it tells CAM and RUMC where to look first, and it is relevant for the per-case predictions I'm asking for.
 
 ## 23. Grant tasks against the calendar
 
@@ -98,14 +98,14 @@ The timeline. One bar per deliverable, from the grant's task window to the due d
 
 The checklists behind those percentages, so you can hold me to them. On the left, the three that must close this year: regional fine-tuning, active learning, robustness. On the right, what continues into 2027. And the plan: kits this month, the big benchmark run in October, the extra experiments in October and November, drafts in November, submission in December. The one thing that decides the year is the October run: all eight sites online for two days.
 
-## 25. Deliverable status, 16 September 2026
+## 25. Deliverable status, 17 September 2026
 
-Status in one table. And a short note on what happened since the software went out: 1.8.1 is verified on real kits, MHA already installed it, Cambridge's SAM-Med2D model is merged into the platform, and fault-injection tests over the last three days found three defects. One, a worker crash at start-up, had actually hit Cambridge once in April; that fix is merged and matters for the October run. The second, the tolerant mode not telling the other sites when one is dropped, is fixed and passed its test yesterday. The third is a small timing race that I've filed.
+Status in one table. And a short note on what happened since the software went out: 1.8.1 is verified on real kits, MHA, CAM and USZ have their kits ready, CAM's SAM-Med2D model is merged into the platform, and fault-injection tests over the last three days found three defects. One, a worker crash at start-up, had actually hit CAM once in April; that fix is merged and matters for the October run. The second, the tolerant mode not telling the other sites when one is dropped, is fixed and passed its test yesterday. The third is a small timing race that I've filed.
 
-## 26. Site status and to-do list, 16 September 2026
+## 26. Site status and to-do list, 17 September 2026
 
-Where each site stands as of last night. Everyone is connected to the coordinator. MHA is on 1.8.1, thank you. The others still need to install the kit, it's ten minutes and the certificates don't change. Two things I only saw yesterday evening: UMCU has two clients running with the same identity, so a second one keeps re-registering every few seconds and gets rejected; and RSH still has three old kits alive and sending logs, one 1.6 and two 1.5 ones. In both cases: stop everything, keep one client, and make it the 1.8.1 kit. RUMC and USZ, your log feed has been silent for a while, please check the upload key. USZ, you restarted something yesterday morning; without the feed I can't see which kit it is, so please confirm.
+Where each site stands as of this morning. Everyone is connected to the coordinator. MHA, CAM and USZ, thank you, your emails came in this morning: the 1.8.1 kits are ready at all three, and CAM's log feed already comes from the new kit. RSH asked for a hand with the setup, so we'll do it together in a shared session this week and stop the three old kits at the same time. UKA, RUMC and VHIO still need to install the kit; it's ten minutes and the certificates don't change. One thing I saw on Tuesday evening: UMCU has two clients running under the same identity, so the second one keeps re-registering every few seconds and gets rejected; stop the old one and keep the 1.8.1 kit. RUMC and USZ, your log feed has been silent for a while, please check the upload key. USZ, once the feed is back I can confirm the kit from here.
 
 ## 27. Three requests to the consortium
 
-Three requests. One: RUMC, UMCU and MHA, switch on per-case return before the October run. You saw on slide 22 that those rows carry some site information, so decide with that in mind. Two: Cambridge and Nijmegen, a slot for the white-hat exercise in the first quarter. Three: a clinical view on the operating point. The model misses half the cancers at a 1 percent false-alarm rate. Moving the threshold is free; deciding where it goes is yours. Thank you.
+Three requests. One: RUMC, UMCU and MHA, switch on per-case return before the October run. You saw on slide 22 that those rows carry some site information, so decide with that in mind. Two: CAM and RUMC, a slot for the white-hat exercise in the first quarter. Three: a clinical view on the operating point. The model misses half the cancers at a 1 percent false-alarm rate. Moving the threshold is free; deciding where it goes is yours. Thank you.
