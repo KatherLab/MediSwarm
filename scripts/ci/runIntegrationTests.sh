@@ -1173,6 +1173,7 @@ _verify_ODELIA_ternary_swarm_training() {
 
     mkdir -p "$SCRATCH_DIR"
     _create_startup_kits
+    create_synthetic_data
 
     start_server_and_clients_for_odelia_model "$MODEL_NAME"
     run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
@@ -1196,15 +1197,13 @@ _verify_ODELIA_challenge_swarm_training() {
 }
 
 run_all_models_training_in_swarm () {
-    create_synthetic_data
-
     _verify_ODELIA_ternary_swarm_training "ResNet10"                 "model *| _ResNet *| 14"
     _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
-    # _verify_ODELIA_ternary_swarm_training "ResNet34"                 "model *| _ResNet *| 63"
-    # _verify_ODELIA_ternary_swarm_training "ResNet50"                 "model *| _ResNet *| 46"
-    # _verify_ODELIA_ternary_swarm_training "ResNet101"                "model *| _ResNet *| 85"
-    # _verify_ODELIA_ternary_swarm_training "ResNet152"                "model *| _ResNet *| 117"
-    # _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
+    _verify_ODELIA_ternary_swarm_training "ResNet34"                 "model *| _ResNet *| 63"
+    _verify_ODELIA_ternary_swarm_training "ResNet50"                 "model *| _ResNet *| 46"
+    _verify_ODELIA_ternary_swarm_training "ResNet101"                "model *| _ResNet *| 85"
+    _verify_ODELIA_ternary_swarm_training "ResNet152"                "model *| _ResNet *| 117"
+    _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
     # _verify_ODELIA_ternary_swarm_training "Swin3D"                   "model *| TODO"  # currently does not work
     echo "❗ Swin3D currently does not work, swarm training check not executed"
 
