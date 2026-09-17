@@ -69,16 +69,16 @@ def main():
                 )
                 threedcnn_ptl.validate_and_train(
                     logger, data_module, model, trainer, path_run_dir,
-                    output_GT_and_classprob=export_predictions,
+                    output_GT_and_classprob_aggregated_model=export_predictions,
                 )
 
                 if threedcnn_ptl.is_final_round(current_round, total_rounds):
-                    threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)
+                    threedcnn_ptl.finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir)
 
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
-            threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=False)
+            threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=False)
             if TRAINING_MODE == TM_LOCAL_TRAINING:
-                threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)
+                threedcnn_ptl.finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=False)
 
     except Exception as e:
         logger.error(f"Error in main function: {e}")
