@@ -27,7 +27,7 @@ CHARTS_JS = pathlib.Path(__file__).with_name("consortium_45min_charts.js")
 
 DATE = "17.09.2026"
 VENUE = "Bremen"
-STATUS_DATE = "16 September 2026"
+STATUS_DATE = "17 September 2026"
 
 
 def data_uri(name: str) -> str:
@@ -176,6 +176,20 @@ STYLE = """
   .notes-bar button { font:inherit; font-size:.78rem; padding:.35rem .8rem; border:1px solid var(--indigo); color:var(--indigo); background:#fff; border-radius:3px; cursor:pointer; }
   .notes-bar button:hover { background:#EEF0FB; }
   @media print { .notes, .notes-bar { display:none; } }
+  /* present mode: one slide at a time, 16:9, scaled to the window */
+  .present-hint { font-size:.74rem; color:var(--muted); align-self:center; margin-right:auto; }
+  .pres-inner { display:flex; flex-direction:column; flex:1 1 auto; min-height:0; transform-origin:top left; }
+  body.presenting { overflow:hidden; background:#111; }
+  body.presenting .deck { max-width:none; margin:0; padding:0; gap:0; display:block; }
+  body.presenting .notes-bar, body.presenting footer, body.presenting .slide, body.presenting .notes { display:none; }
+  body.presenting .slide.current { display:flex; position:fixed; left:50%; top:50%; width:1280px; height:720px; min-height:0; margin:0; border:0; border-radius:0;
+                                   overflow:hidden; box-sizing:border-box; transform:translate(-50%,-50%) scale(var(--pk,1)); transform-origin:center center; cursor:pointer; }
+  body.presenting .slide.current.measuring { height:auto; }
+  .pres-hud, .pres-notes { display:none; }
+  body.presenting .pres-hud { display:block; position:fixed; right:1rem; top:.6rem; z-index:5; color:#9a9a9a; font-size:.74rem; letter-spacing:.02em; }
+  body.presenting.with-notes .pres-notes { display:block; position:fixed; left:0; right:0; bottom:0; max-height:34vh; overflow:auto; z-index:4;
+                                           background:#1c1c1c; color:#eee; border-top:1px solid #444; padding:.9rem 1.4rem 1.2rem; font-size:1.02rem; line-height:1.5; }
+  .pres-notes b { color:var(--sky); }
   @media (prefers-reduced-motion: reduce){ *{ animation:none!important; transition:none!important; } }
   @media print {
     @page { size: 13.33in 7.5in; margin: 0; }
@@ -518,6 +532,10 @@ S_RES_MODEL = eyebrow_h2("02 · Model results", "Swarm model versus single-site 
     <div class="viz-root chartwrap">
       <svg viewBox="0 0 720 300" role="img" aria-label="External challenge AUROC: the eight-site swarm reaches 0.887 malignant and 0.820 macro, above the six-site swarm at 0.847 and 0.764, the best single site at 0.858 and 0.709, and the median single site at 0.658 and 0.601"><g id="modelBars"></g></svg>
     </div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--s1)"></i> Malignant vs rest AUROC</span>
+      <span><i class="sw" style="background:var(--s2)"></i> Macro AUROC (three classes)</span>
+    </div>
     <p class="cap">External challenge set. The eight-site swarm compared with the previous six-site swarm and with single-site models.</p>
       <div class="callout">
         <strong>The swarm model scores higher than every single-site model</strong>, including UKA's, which trains on half the data.
@@ -626,7 +644,7 @@ S_DELIV_OVERVIEW = """    <div class="eyebrow">03 · Other deliverables</div>
         <table>
           <thead><tr><th>Deliverable</th><th>Task</th><th>Due</th><th>What the proposal asks</th><th>Sites needed</th></tr></thead>
           <tbody>
-            <tr><td class="id"><strong>D2.5</strong> Regional fine-tuning</td><td>T2.4</td><td class="n">M48 · Dec 2026</td><td>Compare the pan-European model with models fine-tuned to the Dutch and Greek cohorts</td><td>RUMC, UMCU, MHA with per-case return on</td></tr>
+            <tr><td class="id"><strong>D2.5</strong> Regional fine-tuning</td><td>T2.4</td><td class="n">M48 · Dec 2026</td><td>Compare the consortium model with models fine-tuned to the RUMC and UMCU cohort and to the MHA cohort</td><td>RUMC, UMCU, MHA with per-case return on</td></tr>
             <tr><td class="id"><strong>D3.2</strong> Active learning</td><td>T3.2</td><td class="n">M48 · Dec 2026</td><td>Show that the model can request the cases worth labelling next</td><td>The fleet, for one reduced retraining run</td></tr>
             <tr><td class="id"><strong>D3.4</strong> Adversarial robustness</td><td>WP3</td><td class="n">M48 · Dec 2026</td><td>Report on attacks against a swarm and the measures against them</td><td>None (simulation at TUD)</td></tr>
             <tr><td class="id"><strong>T3.3</strong> Differential privacy</td><td>T3.3</td><td class="n">M54 · Jun 2027</td><td>Optional noise in training with a privacy budget by design</td><td>One 20-round run to measure the accuracy cost</td></tr>
@@ -644,7 +662,7 @@ S_D25 = eyebrow_h2("03 · Other deliverables · D2.5 · M48", "Regional fine-tun
       <div class="two">
         <div class="panel">
           <h3>Exists</h3>
-          <p>Baselines of the pan-European model on the challenge split per region. Fine-tuning code and the paired analysis.
+          <p>Baselines of the consortium model on the challenge split for the RUMC and UMCU cohort and for the MHA cohort. Fine-tuning code and the paired analysis.
           Per-case return in the software, verified on real kits.</p>
         </div>
         <div class="panel alt">
@@ -871,7 +889,7 @@ S_EOY = eyebrow_h2("04 · Milestones and timeline", "What concludes by 31 Decemb
         <table>
           <thead><tr><th>When</th><th>What happens</th><th>Serves</th></tr></thead>
           <tbody>
-            <tr><td class="id">Sep 2026</td><td>1.8.1 kit at all eight sites (MHA done); one-round metrics check across the fleet</td><td class="n">everything below</td></tr>
+            <tr><td class="id">Sep 2026</td><td>1.8.1 kit at all eight sites (MHA, CAM and USZ done); one-round metrics check across the fleet</td><td class="n">everything below</td></tr>
             <tr><td class="id">Oct 2026</td><td><strong>20-round consortium benchmark on the released version</strong>, per-case return on at RUMC, UMCU, MHA (about two days)</td><td class="n">D2.5 · D3.5</td></tr>
             <tr><td class="id">Oct to Nov</td><td>Reduced retraining curve for active learning; malicious-aggregator simulation; noise-cost run if the fleet has slack</td><td class="n">D3.2 · D3.4 · T3.3</td></tr>
             <tr><td class="id">Nov 2026</td><td>Three report drafts to the consortium for review</td><td class="n">D2.5 · D3.2 · D3.4</td></tr>
@@ -900,7 +918,7 @@ S_STATUS = eyebrow_h2("04 · Milestones and timeline", "Deliverable status, " + 
       </div>
       <div class="callout">
         <strong>Software since 13 September.</strong> 1.8.0 and 1.8.1 released; per-site metrics, per-case return and the warm-start guard verified on real kits on 14 September.
-        1.8.1 kits distributed to all sites on 14 September; MHA installed the same day. Cambridge's SAM-Med2D model is merged as <code>MST_SAMMed2D</code>.
+        1.8.1 kits distributed to all sites on 14 September; MHA installed the same day, CAM and USZ reported their kits ready on 17 September. CAM's SAM-Med2D model is merged as <code>MST_SAMMed2D</code>.
         Four-client fault-injection tests on 14 to 16 September found three defects: a site whose worker crashed at launch (a duplicate OpenMP runtime in the image, seen once at CAM in April; fixed and merged),
         the tolerant mode not telling surviving sites about a pruned one (fixed; the injection test passed on 16 September with the stopped site as the round's aggregator; in review),
         and a configure quorum that proceeds the instant the minimum is reached (filed). Production benchmarks run strict and are affected only by the first.
@@ -913,18 +931,18 @@ S_SITES = eyebrow_h2("05 · Sites", "Site status and to-do list, " + STATUS_DATE
         <table>
           <thead><tr><th>Site</th><th>Coordinator</th><th>Kit</th><th>Log feed</th><th>To do</th></tr></thead>
           <tbody>
-            <tr><td class="id"><strong>CAM_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n">today</td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Keep only the mediswarm-vpn tunnel; two OpenVPN processes were seen (F10)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
-            <tr><td class="id"><strong>MHA_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">re-registered 14 Sep 20:50 UTC</span></td><td class="n"><span class="chip good">1.8.1</span></td><td class="n">today</td><td><ul class="todo"><li>Done: 1.8.1 installed, first site</li><li>Turn on per-case return for the October run (Greek cohort, D2.5)</li></ul></td></tr>
-            <tr><td class="id"><strong>RSH_1</strong></td><td><span class="chip good">connected</span></td><td class="n"><span class="chip warn">3 kits alive</span></td><td class="n">today</td><td><ul class="todo"><li>Three kits are still sending logs (one 1.6.0, two 1.5.0); stop the leftover containers and daemons, keep one kit</li><li>Install the 1.8.1 kit into a new folder and run only that one</li><li>Complete the site checklist on the board</li></ul></td></tr>
-            <tr><td class="id"><strong>RUMC_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n"><span class="chip warn">30 Aug</span></td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Log upload silent since 30 Aug: check the upload key</li><li>VPN as a service; a hand-started tunnel is in use (F11); TUD owes a debug session</li><li>Turn on per-case return for the October run (Dutch cohort, D2.5)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
+            <tr><td class="id"><strong>CAM_1</strong></td><td><span class="chip good">connected</span></td><td class="n"><span class="chip good">1.8.1</span></td><td class="n">today</td><td><ul class="todo"><li>Done: 1.8.1 kit ready (email of 17 Sep); the log feed already comes from the new kit</li><li>Keep only the mediswarm-vpn tunnel; two OpenVPN processes were seen (F10)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
+            <tr><td class="id"><strong>MHA_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">re-registered 14 Sep 20:50 UTC</span></td><td class="n"><span class="chip good">1.8.1</span></td><td class="n">today</td><td><ul class="todo"><li>Done: 1.8.1 installed on 14 Sep, first site; kit confirmed ready by email on 17 Sep</li><li>Turn on per-case return for the October run (D2.5)</li></ul></td></tr>
+            <tr><td class="id"><strong>RSH_1</strong></td><td><span class="chip good">connected</span></td><td class="n"><span class="chip warn">3 old kits alive</span></td><td class="n">today</td><td><ul class="todo"><li>Asked for help with the 1.8.1 setup (email of 17 Sep): TUD and RSH do it together in a shared session this week</li><li>Three old kits are still sending logs (one 1.6.0, two 1.5.0); stop the leftover containers and daemons in that session, keep one kit</li><li>Complete the site checklist on the board</li></ul></td></tr>
+            <tr><td class="id"><strong>RUMC_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n"><span class="chip warn">30 Aug</span></td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Log upload silent since 30 Aug: check the upload key</li><li>VPN as a service; a hand-started tunnel is in use (F11); TUD owes a debug session</li><li>Turn on per-case return for the October run (D2.5)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
             <tr><td class="id"><strong>UKA_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">back 14 Sep 07:57 UTC</span></td><td class="n">1.6.0</td><td class="n">4 Sep</td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Confirm stability after the 4 Sep kernel crashes; stay online through October</li></ul></td></tr>
-            <tr><td class="id"><strong>UMCU_1</strong></td><td><span class="chip warn">two clients</span><br><span class="cap">a second client re-registers every few seconds and is rejected</span></td><td class="n"><span class="chip warn">unconfirmed</span></td><td class="n">14 Sep</td><td><ul class="todo"><li>Two clients are running under the same identity; stop the old one and keep the 1.8.1 kit</li><li>Copy sync.conf into the new kit so the log feed resumes</li><li>Complete the site checklist on the board</li><li>Turn on per-case return for the October run (Dutch cohort, D2.5)</li></ul></td></tr>
-            <tr><td class="id"><strong>USZ_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">restarted 16 Sep 08:26 UTC</span></td><td class="n"><span class="chip warn">unconfirmed</span></td><td class="n"><span class="chip warn">22 Jul</span></td><td><ul class="todo"><li>Confirm the 1.8.1 install (the client was restarted on 16 Sep; without a log feed the kit version is unknown)</li><li>Log upload silent since 22 Jul: set up the upload key</li><li>VPN as a service instead of the hand-started tunnel (F11)</li></ul></td></tr>
+            <tr><td class="id"><strong>UMCU_1</strong></td><td><span class="chip warn">two clients</span><br><span class="cap">a second client re-registers every few seconds and is rejected</span></td><td class="n"><span class="chip warn">unconfirmed</span></td><td class="n">today</td><td><ul class="todo"><li>Two clients are running under the same identity; stop the old one and keep the 1.8.1 kit</li><li>Confirm the kit version once a single client is left</li><li>Complete the site checklist on the board</li><li>Turn on per-case return for the October run (D2.5)</li></ul></td></tr>
+            <tr><td class="id"><strong>USZ_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">restarted 16 Sep 08:26 UTC</span></td><td class="n"><span class="chip good">1.8.1</span><br><span class="cap">by email, 17 Sep</span></td><td class="n"><span class="chip warn">22 Jul</span></td><td><ul class="todo"><li>Done: 1.8.1 kit prepared (email of 17 Sep)</li><li>Log upload silent since 22 Jul: set up the upload key so the kit shows up at the coordinator</li><li>VPN as a service instead of the hand-started tunnel (F11)</li></ul></td></tr>
             <tr><td class="id"><strong>VHIO_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n">today</td><td><ul class="todo"><li>Install the 1.8.1 kit</li></ul></td></tr>
           </tbody>
         </table>
       </div>
-      <p class="cap">Coordinator: the coordination server's client registry, evening of 16 September. Kit: the version each site's node reports about itself. Log feed: the last upload received from the hospital's own machine. F10 and F11 are entries in the board's Known issues tab.</p>
+      <p class="cap">Coordinator: the coordination server's client registry, evening of 16 September. Kit: the version each site's node reports about itself, or the site's email of 17 September where marked. Log feed: the last upload received from the hospital's own machine. F10 and F11 are entries in the board's Known issues tab.</p>
     </div>"""
 
 S_NEEDS = eyebrow_h2("05 · Sites", "Three requests to the consortium") + """
@@ -953,7 +971,7 @@ S_NEEDS = eyebrow_h2("05 · Sites", "Three requests to the consortium") + """
 # --------------------------------------------------------------------------------------
 NOTES = [
     # 1 title
-    "Hi everyone. I'm Jeff, I run the swarm platform for the consortium from Dresden, and this is where we stand at month 45. "
+    "Hi everyone. I'm Jeff, I run the swarm platform for the consortium at TUD, and this is where we stand at month 45. "
     "Four numbers to start: 34 thousand training volumes across eight hospitals, none of which ever left its site. "
     "A shared model at 0.887 malignant AUROC on the external challenge set, and the same number on an American cohort it has never seen. "
     "And software version 1.8.1, which went out to all of you on Monday.",
@@ -963,22 +981,22 @@ NOTES = [
     "Then the milestone timeline and what we can close this year. And at the end, where each site stands and three things I need from you.",
     # 3 data bars
     "This is the training data per site, counted by each site's own trainer when it loads the data set, so these are the real numbers, not what was promised. "
-    "Aachen alone is half of the consortium. The smallest site has 190 volumes. That 94-fold range shapes almost every technical decision I'll show you today.",
+    "UKA alone is half of the consortium. The smallest site has 190 volumes. That 94-fold range shapes almost every technical decision I'll show you today.",
     # 4 growth
-    "How we got there. Two sites in April, and then two big jumps: Aachen and Cambridge together on the eleventh of June, Utrecht in July. "
+    "How we got there. Two sites in April, and then two big jumps: UKA and CAM together on the eleventh of June, UMCU in July. "
     "The eighth site came online at the end of July, and since then the data set has been stable.",
     # 5 class counts
     "Same sites, now split by class at true scale. The thing to notice is the light blue: the benign cases. "
-    "Aachen holds 84 percent of all benign cases in the consortium. VHIO has none. Keep that in mind for the robustness slides later, it comes back.",
+    "UKA holds 84 percent of all benign cases in the consortium. VHIO has none. Keep that in mind for the robustness slides later, it comes back.",
     # 6 class shares
     "And the same thing normalised, so you can see each site's own mix. RSH looks very malignant-heavy at 63 percent, but that is 221 volumes. "
-    "Aachen's 7 percent malignant is 1,251 volumes. So please read this slide together with the previous one, not on its own.",
+    "UKA's 7 percent malignant is 1,251 volumes. So please read this slide together with the previous one, not on its own.",
     # 7 table
     "All the numbers in one place, for reference. The classes add up per site and the sites add up to 34,462. "
     "One correction from an earlier version: four join dates were about six weeks too early, because our own test machines had reported under hospital names. Test sites have their own names now.",
     # 8 model comparison
     "Now the result. The eight-site swarm model on the external challenge set, against the previous six-site swarm and against single-site models. "
-    "The swarm beats every single-site model, including Aachen's, and Aachen trains on half the data. For a typical site, joining is worth about 0.23 AUROC.",
+    "The swarm beats every single-site model, including UKA's, and UKA trains on half the data. For a typical site, joining is worth about 0.23 AUROC.",
     # 9 CIs
     "Same numbers with their uncertainty. The challenge set has only 37 malignant cases, so an AUROC on it is known to about plus or minus 0.06. "
     "That means 0.887 and 0.903 are within one interval of each other, and I would not argue about the third decimal.",
@@ -997,7 +1015,7 @@ NOTES = [
     "Now the other deliverables. This table is the map: what the proposal asks for, when it is due, and which of you I need for it. "
     "Three are due in December, three in June next year, one at the end of the project. I'll take them one by one, and for each I first explain what it is, then show what exists.",
     # 14 D2.5
-    "Regional fine-tuning. The proposal wants the pan-European model compared with versions fine-tuned to the Dutch and the Greek cohorts. "
+    "Regional fine-tuning. The proposal wants the consortium model compared with versions fine-tuned to the RUMC and UMCU cohort and to the MHA cohort. "
     "What I need for that is per-case predictions coming back from RUMC, UMCU and MHA: a row number, the label and three probabilities. No identifiers, no images. "
     "That feature is in 1.8, verified on real kits, and it is off by default: each site switches it on. The comparison itself happens in the October run.",
     # 15 AL concept
@@ -1022,16 +1040,16 @@ NOTES = [
     "With a norm-bounded mean, each contribution is capped, every site stays in, and the same attack moves the model by 0.04.",
     # 20 robustness numbers
     "We tried five rules. The textbook robust ones, trimmed mean, coordinate median, Krum, cost a lot even with no attacker at all, 0.47 to 0.64 error. "
-    "That's because they throw away contributions and ignore data-set weights, so with Aachen holding 84 percent of benign cases they aim at the average site instead of the pooled data. "
+    "That's because they throw away contributions and ignore data-set weights, so with UKA holding 84 percent of benign cases they aim at the average site instead of the pooled data. "
     "The norm-bounded mean costs almost nothing and holds the attack. That's the recommendation. It does not limit the largest contributor, and capping any site's share is a governance decision, not mine.",
     # 21 white-hat plan
-    "The white-hat attack, milestone 6. In the proposal, Cambridge and Nijmegen attack the trained model to expose vulnerabilities, and the deliverable is a preprint. "
+    "The white-hat attack, milestone 6. In the proposal, CAM and RUMC attack the trained model to expose vulnerabilities, and the deliverable is a preprint. "
     "Top row is that plan: we give you the model weights and a protocol, you try to reconstruct data or infer membership, we write up the findings and the fix together. "
-    "What I need from Cambridge and Nijmegen is a slot in the first quarter of next year, and I'd like to fix the date this autumn.",
+    "What I need from CAM and RUMC is a slot in the first quarter of next year, and I'd like to fix the date this autumn.",
     # 22 white-hat probe
     "In the meantime we ran the part that needs nobody else. The question: from a case's three output probabilities alone, can you tell which hospital it came from? "
     "On no-lesion cases, no. On malignant cases, yes: 60 percent correct against 33 percent chance. So the model behaves differently per site exactly on the clinically relevant cases. "
-    "This is a lower bound, the real attacker has the weights. But it tells Cambridge and Nijmegen where to look first, and it is relevant for the per-case predictions I'm asking for.",
+    "This is a lower bound, the real attacker has the weights. But it tells CAM and RUMC where to look first, and it is relevant for the per-case predictions I'm asking for.",
     # 23 gantt
     "The timeline. One bar per deliverable, from the grant's task window to the due date, filled to how much of its checklist is done. The orange line is today, the dashed one is the end of the year. "
     "The three December items are between 50 and 60 percent. The June items are earlier, which is fine, they have nine months.",
@@ -1040,22 +1058,104 @@ NOTES = [
     "On the right, what continues into 2027. And the plan: kits this month, the big benchmark run in October, the extra experiments in October and November, drafts in November, submission in December. "
     "The one thing that decides the year is the October run: all eight sites online for two days.",
     # 25 status
-    "Status in one table. And a short note on what happened since the software went out: 1.8.1 is verified on real kits, MHA already installed it, "
-    "Cambridge's SAM-Med2D model is merged into the platform, and fault-injection tests over the last three days found three defects. "
-    "One, a worker crash at start-up, had actually hit Cambridge once in April; that fix is merged and matters for the October run. "
+    "Status in one table. And a short note on what happened since the software went out: 1.8.1 is verified on real kits, MHA, CAM and USZ have their kits ready, "
+    "CAM's SAM-Med2D model is merged into the platform, and fault-injection tests over the last three days found three defects. "
+    "One, a worker crash at start-up, had actually hit CAM once in April; that fix is merged and matters for the October run. "
     "The second, the tolerant mode not telling the other sites when one is dropped, is fixed and passed its test yesterday. The third is a small timing race that I've filed.",
     # 26 sites
-    "Where each site stands as of last night. Everyone is connected to the coordinator. MHA is on 1.8.1, thank you. The others still need to install the kit, it's ten minutes and the certificates don't change. "
-    "Two things I only saw yesterday evening: UMCU has two clients running with the same identity, so a second one keeps re-registering every few seconds and gets rejected; and RSH still has three old kits alive and sending logs, one 1.6 and two 1.5 ones. "
-    "In both cases: stop everything, keep one client, and make it the 1.8.1 kit. RUMC and USZ, your log feed has been silent for a while, please check the upload key. "
-    "USZ, you restarted something yesterday morning; without the feed I can't see which kit it is, so please confirm.",
+    "Where each site stands as of this morning. Everyone is connected to the coordinator. MHA, CAM and USZ, thank you, your emails came in this morning: the 1.8.1 kits are ready at all three, and CAM's log feed already comes from the new kit. "
+    "RSH asked for a hand with the setup, so we'll do it together in a shared session this week and stop the three old kits at the same time. UKA, RUMC and VHIO still need to install the kit; it's ten minutes and the certificates don't change. "
+    "One thing I saw on Tuesday evening: UMCU has two clients running under the same identity, so the second one keeps re-registering every few seconds and gets rejected; stop the old one and keep the 1.8.1 kit. "
+    "RUMC and USZ, your log feed has been silent for a while, please check the upload key. USZ, once the feed is back I can confirm the kit from here.",
     # 27 requests
     "Three requests. One: RUMC, UMCU and MHA, switch on per-case return before the October run. You saw on slide 22 that those rows carry some site information, so decide with that in mind. "
-    "Two: Cambridge and Nijmegen, a slot for the white-hat exercise in the first quarter. "
+    "Two: CAM and RUMC, a slot for the white-hat exercise in the first quarter. "
     "Three: a clinical view on the operating point. The model misses half the cancers at a 1 percent false-alarm rate. Moving the threshold is free; deciding where it goes is yours. Thank you.",
 ]
 
 NOTES_MD = ROOT / "docs" / "presentation_consortium_45min_notes.md"
+
+# Present mode. The Present button shows one slide at a time in a 1280 x 720 box scaled to the
+# window; a slide taller than the box is scaled down uniformly (same rule as render_slides.py).
+# Keys: arrows, space, PageUp/PageDown move; Home/End; N toggles the speaker notes; F full
+# screen; Esc leaves. The URL hash (#s8) remembers the slide, so a reload resumes there.
+PRESENT_JS = r"""<script>
+(function(){
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const bar = document.querySelector('.notes-bar');
+  if (!slides.length || !bar) return;
+  const W = 1280, H = 720;
+  const hint = document.createElement('span'); hint.className = 'present-hint';
+  hint.textContent = 'Present shows one slide at a time: arrow keys move, N shows the speaker notes, F is full screen, Esc leaves.';
+  const btn = document.createElement('button'); btn.type = 'button'; btn.id = 'present-btn'; btn.textContent = 'Present';
+  bar.insertBefore(hint, bar.firstChild); bar.appendChild(btn);
+  const hud = document.createElement('div'); hud.className = 'pres-hud'; document.body.appendChild(hud);
+  const notes = document.createElement('div'); notes.className = 'pres-notes'; document.body.appendChild(notes);
+  let cur = 0, on = false;
+  function prep(s){
+    if (s.querySelector(':scope > .pres-inner')) return;
+    const inner = document.createElement('div'); inner.className = 'pres-inner';
+    Array.from(s.children).forEach(c => { if (!c.classList.contains('foot') && !c.classList.contains('notes')) inner.appendChild(c); });
+    s.insertBefore(inner, s.firstChild);
+  }
+  function fit(){
+    const s = slides[cur]; prep(s);
+    const nh = document.body.classList.contains('with-notes') ? notes.offsetHeight : 0;
+    const avH = innerHeight - nh;
+    const k = Math.min(innerWidth / W, avH / H);
+    s.style.setProperty('--pk', k); s.style.top = (avH / 2) + 'px';
+    const inner = s.querySelector(':scope > .pres-inner'); inner.style.transform = ''; inner.style.minHeight = '';
+    s.classList.add('measuring'); const need = inner.offsetHeight; s.classList.remove('measuring');
+    const foot = s.querySelector('.foot');
+    const avail = H - parseFloat(getComputedStyle(s).paddingTop) - (foot ? foot.offsetHeight : 0) - 8;
+    if (need > avail) { inner.style.minHeight = need + 'px'; inner.style.transform = 'scale(' + (avail / need) + ')'; }
+  }
+  function show(i){
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle('current', j === cur));
+    const p = slides[cur].querySelector('.notes p');
+    notes.innerHTML = '<b>Slide ' + (cur + 1) + '</b> ' + (p ? p.innerHTML : '');
+    hud.textContent = (cur + 1) + ' / ' + slides.length + '   arrows: next and back   N: notes   F: full screen   Esc: leave';
+    history.replaceState(null, '', '#s' + (cur + 1));
+    fit();
+  }
+  function enter(){
+    on = true; document.body.classList.add('presenting');
+    let start = 0; const m = /^#s(\d+)$/.exec(location.hash);
+    if (m) start = parseInt(m[1], 10) - 1;
+    else { const y = scrollY + 40; start = slides.findIndex(s => s.offsetTop + s.offsetHeight > y); if (start < 0) start = 0; }
+    show(start);
+  }
+  function leave(){
+    on = false; document.body.classList.remove('presenting', 'with-notes');
+    slides.forEach(s => { s.classList.remove('current'); s.style.top = ''; const i = s.querySelector(':scope > .pres-inner'); if (i) { i.style.transform = ''; i.style.minHeight = ''; } });
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    history.replaceState(null, '', location.pathname + location.search);
+    slides[cur].scrollIntoView({ block: 'start' });
+  }
+  btn.addEventListener('click', enter);
+  addEventListener('resize', () => { if (on) fit(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (on) fit(); });   /* re-measure once the web font is in */
+  addEventListener('keydown', e => {
+    if (!on) return;
+    const k = e.key;
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); show(cur + 1); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); show(cur - 1); }
+    else if (k === 'Home') { e.preventDefault(); show(0); }
+    else if (k === 'End') { e.preventDefault(); show(slides.length - 1); }
+    else if (k === 'n' || k === 'N') { document.body.classList.toggle('with-notes'); fit(); }
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }
+      else if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen().catch(() => {}); }
+    }
+    else if (k === 'Escape') { e.preventDefault(); leave(); }
+  });
+  document.addEventListener('click', e => {
+    if (on && e.target.closest('.slide.current') && !e.target.closest('a, button, summary, details')) show(cur + 1);
+  });
+  if (/^#s\d+$/.test(location.hash)) enter();
+})();
+</script>"""
 
 # --------------------------------------------------------------------------------------
 # milestone timeline (Gantt) JS
@@ -1179,6 +1279,7 @@ def build() -> str:
     charts = CHARTS_JS.read_text().rstrip()
     assert charts.endswith("})();"), "unexpected chart script tail"
     out.append("<script>\n" + charts[:-len("})();")] + GANTT_JS + "})();\n</script>")
+    out.append(PRESENT_JS)
     html = "\n".join(out)
     # House style: no dashes in visible prose (the owner's rule). Checked on the slide
     # bodies and the notes, which is all the visible text; styles and scripts never enter.

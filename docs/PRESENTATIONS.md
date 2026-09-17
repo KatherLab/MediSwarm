@@ -34,6 +34,17 @@ hidden when printing; the same text is exported to
 `presentation_consortium_45min_notes.md` for reading while presenting. The house style is
 codified in the project skill `.claude/skills/odelia-slides/SKILL.md`.
 
+**Presenting.** The page has a *Present* button (top right of the deck): one slide at a time
+in a 16:9 box scaled to the window, arrow keys or a click to move, N shows the speaker notes
+under the slide, F is full screen, Esc leaves. The URL hash (`#s8`) remembers the slide.
+A slide taller than the box is scaled down uniformly so nothing overlaps the footer.
+
+**PDF and PowerPoint.** `scripts/presentation/render_slides.py` renders every slide with
+headless Chromium exactly as the web page lays it out (1280 x 720, real fonts) and writes
+`presentation_consortium_45min.pdf` and `presentation_consortium_45min.pptx` (one image per
+slide, the speaker notes in the notes pane). Both files are untracked; regenerate them after
+a rebuild. Needs the Playwright Chromium binary, Pillow and python-pptx.
+
 The four concept diagrams are inline SVG in the build script. Site status is read from the
 coordinator's client registry and the live-sync heartbeats (hospital hosts only). Rebuild
 with `scripts/presentation/build_consortium_45min.py`; charts live in

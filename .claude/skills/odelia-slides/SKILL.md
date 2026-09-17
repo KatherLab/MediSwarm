@@ -33,7 +33,10 @@ screenshot, publish to the same artifact URL, open a docs PR.
 4. **Concise.** One idea per callout; cut any sentence that only comments on the previous
    one ("nothing on this slide was typed by hand", "we started without waiting").
 5. **Site abbreviations only:** UKA, UMCU, RUMC, USZ, CAM, MHA, RSH, VHIO. In tables the
-   site ID form (`RUMC_1`) as on the board. Never city names.
+   site ID form (`RUMC_1`) as on the board. Never city names, and no country names or
+   nationalities either ("Dutch cohort" is "the RUMC and UMCU cohort", "Greek" is MHA), in
+   the speaker notes as much as on the slides. If a cohort has no site pair (Duke is a
+   public US data set, not a site), say so to Jeff instead of inventing one.
 6. **Title slide:** presenter only (JieFu Zhu, M.Sc.), "Else Kröner Fresenius Center for
    Digital Health, TU Dresden · NCT Heidelberg", "Work Package 2 / 3", title "Month N",
    venue and date as `ODELIA · Bremen · 17.09.2026`. No subtitle paragraph.
@@ -71,9 +74,10 @@ labels in the drawing; the explanation in the `<figcaption>`. Follow the
 1. Edit `scripts/presentation/build_consortium_45min.py` (slide strings, `FIG_*` diagrams,
    `NOTES`). Charts are in `consortium_45min_charts.js`.
 2. `python3 scripts/presentation/build_consortium_45min.py` (fails on a dash).
-3. Screenshot with the Playwright Chromium binary
-   (`~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome --headless=new --screenshot`)
-   and look at every slide; check diagram text does not overflow its box.
+3. `scripts/presentation/render_slides.py --out <scratch dir>` renders every slide as the web
+   page lays it out and writes the PDF and the PowerPoint (notes in the notes pane); look at
+   every PNG, check diagram text does not overflow its box and nothing touches the footer.
+   The page's own *Present* button is the way to present the HTML (arrows, N notes, Esc).
 4. Publish with the Artifact tool to the existing URL (read it first if the session did not
    publish it). Update `docs/PRESENTATIONS.md`. Open a docs PR; Jeff merges.
 5. Speaker notes: `docs/presentation_consortium_45min_notes.md` is generated from the same
