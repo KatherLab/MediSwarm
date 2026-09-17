@@ -211,6 +211,28 @@ anything fails. The server log simply stops advancing.
 - **Fix:** `cap_loader_workers` (#575, #574) — each worker gets at least four samples per epoch, so 16 → 9 on 38 volumes; on a real site the cap never binds. The fault-tolerant controller retries the round, but on a two-client test with `min_clients=2` a retry is a whole round.
 - **Observed 2026-09-11:** `TEST_A_1` (dl0), 77 s into round 0; trained normally on the retry.
 
+## F13 — Tolerant mode kept waiting for a site the server had already written off
+
+- **Symptom (aggregating client's log, tolerant job profile only):** after one site is stopped, every later round ends with `gatherer for round N exit after 3600 seconds since received minimum responses` and the next scatter still lists the dead site: `broadcasting learn task of round N+1 to [..., 'TEST_D_1']` → `no connection to TEST_D_1 … cannot forward req: no path`. Six minutes of training, sixty minutes of waiting, per round. A second shape: `clients ['X'] had not configured when the quorum … was reached … proceeding without them`, then an hour later `Aborting current RUN due to FATAL_SYSTEM_ERROR received: failed to start workflow swarm_controller on client <starting client>` — the starting client's scatter was retrying delivery to X for `learn_task_ack_timeout` (a day) and never returned from the start task.
+- **Root cause:** pruning happened on the server only. The clients' trainer, aggregator-candidate and result-recipient lists are fixed at configure time, so a site the server had deemed disconnected (or that never configured because its worker died at launch — F14) stayed in every round's roster (#595).
+- **Fix:** the server announces every prune on the aux topic `swarm_ft.prune.<workflow>`; the surviving clients drop the site from all three lists and from a gatherer that is still waiting on it. Unconfigured sites are pruned before the start task goes out. A pruned site does not rejoin. Strict profiles (quorum = site count, the consortium benchmarks) are untouched: there a disconnected site keeps training locally and submits when its tunnel returns, and the strict gatherer waits for it.
+- **Third shape, the dead site was the round's aggregator:** the survivors' logs fill with `got unexpected RC TIMEOUT for submission request from TEST_D_1` once a minute, forever. The aggregator is fixed in the learn task, so a list update alone cannot help. On the prune notice the survivors elect the first remaining aggregator candidate (the same choice everywhere), the elected client sets up the round's gatherer from the learn task it holds, pending permission requests and result sends are redirected to it, and a result the dead aggregator had already accepted is submitted again.
+- **Fourth shape, at the very end:** the swarm completes, the server logs `Workflow … finished on all clients`, then addresses the end-of-workflow request to every original participant and waits `end_workflow_timeout` (100 h in this fork) for the pruned one. Pruning now also removes the client from the participant list the request is sent to.
+- **Observed 2026-09-14/15:** four clients on dl3, one stopped in round 2; runs `mvp4_local_260914_1429` (trainer) and `mvp4_prune_260915_0817` (aggregator, by the random draw). Acceptance tests for the fix: the same injection with the stopped site forced to be the aggregator, and again as a plain trainer; six rounds complete with the three survivors in both.
+- **Acceptance runs (fix on branch, 16 and 17 Sep):** `mvp4_aggrdie4_260916_0929` (the stopped site was the round's aggregator; take-over at 10:11, six rounds on three sites) and `mvp4_traindie2_260917_1251` (the stopped site was a trainer; pruned at 13:33, one minute after the server removed it, round-2 aggregation finished one second later, six rounds on three sites, workflow closed three seconds after the last result). Both passed the deploy-test harness.
+
+## F14 — Client worker dies at job launch: `OMP: Error #15`
+
+- **Symptom (client `startup/nohup.out`):**
+  ```
+  worker_process - INFO - Worker_process started.
+  OMP: Error #15: Initializing libomp.so, but found unknown library already initialized.
+  JobExecutor - INFO - run (…): child worker process finished with RC 1
+  ```
+  `log_error.txt` is empty. The coordinator sees a site that never configured; in a strict run the configure phase times out after 30 min and the run fails; in a tolerant run see F13.
+- **Root cause:** three OpenMP runtimes in the image — numpy (conda/MKL) loads LLVM `libomp`, torch loads GNU `libgomp`, scikit-learn bundles its own `libgomp`. LLVM's aborts the process when another runtime initialised first; which one wins is a race, so it is intermittent (2 of 12 launches on dl3; once at CAM_1 on 2026-04-08).
+- **Fix:** `KMP_DUPLICATE_LIB_OK=TRUE` in the image (#596, #597) turns the abort into a warning. The deploy-test harness now prints `WORKER DIED: …` for a client whose worker exited. Proper fix: one runtime (numpy without MKL).
+
 ## F15 — Upload host refuses every SSH login: logind session cap
 
 - **Symptom (upload host, cosmos):** new SSH logins get no session (`XDG_RUNTIME_DIR` unset, VS Code Remote-SSH connects and drops); `loginctl list-sessions` is near 8192; the site uploads keep arriving right up to the cap. Seen 16 Sep 2026.
