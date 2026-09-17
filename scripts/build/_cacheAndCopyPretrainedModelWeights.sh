@@ -31,11 +31,18 @@ MODEL_WEIGHTS_FILE_ODAC_HASH=ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec
 # Drop the file into the build cache and it is shipped at /MediSwarm/pretrained_weights/.
 MODEL_WEIGHTS_FILE_SAMMED2D=$CACHE_DIR'/pretrained_weights/sam-med2d_b.pth'
 
-MODEL_WEIGHTS_FILE_RESNETEIGHTEEN=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/blobs/61224f9317fcce873366deb3703183e92cc47325b726b69691b33536244e10f4'
-MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/snapshots/758fe285bc8ab565eb4f9f965810f1d1a3f79491/resnet_18_23dataset.pth'
-MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_URL=https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet10/resolve/9d7c4c66c77bff89b79631369426612f09d0fe9b/resnet_18_23dataset.pth
+MODEL_WEIGHTS_FILE_RESNETTEN_HASH=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+MODEL_WEIGHTS_FILE_RESNETTEN_MAIN_CONTENTS=deeeaa1e2a342b63e28b61e9d993b63e79c4b437
+MODEL_WEIGHTS_FILE_RESNETTEN=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet10/blobs/afa8055f3e47f4a18239495d92a7abc587902c69c31c743de2b2784653b72605'
+MODEL_WEIGHTS_FILE_RESNETTEN_SYMLINK=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet10/snapshots/'$MODEL_WEIGHTS_FILE_RESNETTEN_MAIN_CONTENTS'/resnet_10_23dataset.pth'
+MODEL_WEIGHTS_FILE_RESNETTEN_URL='https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet10/resolve/'$MODEL_WEIGHTS_FILE_RESNETTEN_MAIN_CONTENTS'/resnet_10_23dataset.pth'
+MODEL_WEIGHTS_FILE_RESNETTEN_MAIN_FILE=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet10/refs/main'
+
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH=61224f9317fcce873366deb3703183e92cc47325b726b69691b33536244e10f4
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_CONTENTS=758fe285bc8ab565eb4f9f965810f1d1a3f79491
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/blobs/'$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH                 # this is different from ResNet10
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/snapshots/'$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_CONTENTS'/resnet_18_23dataset.pth'
+MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_URL=https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet10/resolve/9d7c4c66c77bff89b79631369426612f09d0fe9b/resnet_18_23dataset.pth   # this is different from ResNet10
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_FILE=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/refs/main'
 
 _cache_file_wget () {
@@ -95,6 +102,17 @@ cache_files () {
 
     _cache_file_wget "$MODEL_WEIGHTS_FILE_MVIT_URL" "$MODEL_WEIGHTS_FILE_MVIT"
 
+    _cache_file_wget "$MODEL_WEIGHTS_FILE_RESNETTEN_URL" "$MODEL_WEIGHTS_FILE_RESNETTEN"
+    if [[ ! -f "$MODEL_WEIGHTS_FILE_RESNETTEN_SYMLINK" ]]; then
+        mkdir -p $(dirname $MODEL_WEIGHTS_FILE_RESNETTEN_SYMLINK)
+        cd $(dirname $MODEL_WEIGHTS_FILE_RESNETTEN_SYMLINK)
+        ln -s -f ../../blobs/$(basename $MODEL_WEIGHTS_FILE_RESNETTEN) $(basename $MODEL_WEIGHTS_FILE_RESNETTEN_SYMLINK)
+    fi
+    if [[ ! -f "$MODEL_WEIGHTS_FILE_RESNETTEN_MAIN_FILE" ]]; then
+        mkdir -p $(dirname $MODEL_WEIGHTS_FILE_RESNETTEN_MAIN_FILE)
+        echo $MODEL_WEIGHTS_FILE_RESNETTEN_MAIN_CONTENTS > $MODEL_WEIGHTS_FILE_RESNETTEN_MAIN_FILE
+    fi
+
     _cache_file_wget "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_URL" "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN"
     if [[ ! -f "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK" ]]; then
         mkdir -p $(dirname $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK)
@@ -127,6 +145,7 @@ verify_files () {
     _verify_hash $MODEL_LICENSE_FILE_DINO_HASH $MODEL_LICENSE_FILE_DINO
     _verify_hash $MODEL_WEIGHTS_FILE_MVIT_HASH $MODEL_WEIGHTS_FILE_MVIT
     _verify_hash $MODEL_WEIGHTS_FILE_ODAC_HASH $MODEL_WEIGHTS_FILE_ODAC
+    _verify_hash $MODEL_WEIGHTS_FILE_RESNETTEN_HASH $MODEL_WEIGHTS_FILE_RESNETTEN
     _verify_hash $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN
 }
 
