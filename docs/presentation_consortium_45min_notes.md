@@ -4,7 +4,7 @@ Spoken, informal. About one to two minutes per slide, 27 slides in 45 minutes.
 
 ## 1. Month 45
 
-Hi everyone. I'm Jeff, I run the swarm platform for the consortium from Dresden, and this is where we stand at month 45. Four numbers to start: 34 thousand training volumes across eight hospitals, none of which ever left its site. A shared model at 0.887 malignant AUROC on the external challenge set, and the same number on an American cohort it has never seen. And software version 1.8.1, which went out to all of you this week.
+Hi everyone. I'm Jeff, I run the swarm platform for the consortium from Dresden, and this is where we stand at month 45. Four numbers to start: 34 thousand training volumes across eight hospitals, none of which ever left its site. A shared model at 0.887 malignant AUROC on the external challenge set, and the same number on an American cohort it has never seen. And software version 1.8.1, which went out to all of you on Monday.
 
 ## 2. Agenda
 
@@ -98,13 +98,13 @@ The timeline. One bar per deliverable, from the grant's task window to the due d
 
 The checklists behind those percentages, so you can hold me to them. On the left, the three that must close this year: regional fine-tuning, active learning, robustness. On the right, what continues into 2027. And the plan: kits this month, the big benchmark run in October, the extra experiments in October and November, drafts in November, submission in December. The one thing that decides the year is the October run: all eight sites online for two days.
 
-## 25. Deliverable status, 15 September 2026
+## 25. Deliverable status, 16 September 2026
 
-Status in one table. And a short note on what happened since the software went out: 1.8.1 is verified on real kits, MHA already installed it, Cambridge's SAM-Med2D model is merged into the platform, and a four-site fault-injection test last weekend found two defects that are already fixed and in review. One of them, a worker crash at start-up, had actually hit Cambridge once in April, so that one matters for the October run.
+Status in one table. And a short note on what happened since the software went out: 1.8.1 is verified on real kits, MHA already installed it, Cambridge's SAM-Med2D model is merged into the platform, and fault-injection tests over the last three days found three defects. One, a worker crash at start-up, had actually hit Cambridge once in April; that fix is merged and matters for the October run. The second, the tolerant mode not telling the other sites when one is dropped, is fixed and passed its test yesterday. The third is a small timing race that I've filed.
 
-## 26. Site status and to-do list, 15 September 2026
+## 26. Site status and to-do list, 16 September 2026
 
-Where each site stands as of Monday. Everyone is connected to the coordinator. MHA is on 1.8.1, thank you. The others still need to install the kit, it's ten minutes and the certificates don't change. RSH and USZ are on the old 1.5 kit that cannot follow releases, so for you the kit is the only way. RUMC and USZ, your log feed has been silent for a while, please check the upload key. UMCU, you re-registered on Sunday but the feed stopped, which usually means the sync file wasn't copied into the new kit.
+Where each site stands as of last night. Everyone is connected to the coordinator. MHA is on 1.8.1, thank you. The others still need to install the kit, it's ten minutes and the certificates don't change. Two things I only saw yesterday evening: UMCU has two clients running with the same identity, so a second one keeps re-registering every few seconds and gets rejected; and RSH still has three old kits alive and sending logs, one 1.6 and two 1.5 ones. In both cases: stop everything, keep one client, and make it the 1.8.1 kit. RUMC and USZ, your log feed has been silent for a while, please check the upload key. USZ, you restarted something yesterday morning; without the feed I can't see which kit it is, so please confirm.
 
 ## 27. Three requests to the consortium
 

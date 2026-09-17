@@ -211,6 +211,13 @@ anything fails. The server log simply stops advancing.
 - **Fix:** `cap_loader_workers` (#575, #574) — each worker gets at least four samples per epoch, so 16 → 9 on 38 volumes; on a real site the cap never binds. The fault-tolerant controller retries the round, but on a two-client test with `min_clients=2` a retry is a whole round.
 - **Observed 2026-09-11:** `TEST_A_1` (dl0), 77 s into round 0; trained normally on the retry.
 
+## F15 — Upload host refuses every SSH login: logind session cap
+
+- **Symptom (upload host, cosmos):** new SSH logins get no session (`XDG_RUNTIME_DIR` unset, VS Code Remote-SSH connects and drops); `loginctl list-sessions` is near 8192; the site uploads keep arriving right up to the cap. Seen 16 Sep 2026.
+- **Root cause:** two things stacked. The live-sync daemon in every kit made every upload a separate SSH login (three to five per 30 s per kit, about two per second in total, 1,183 in ten minutes measured), and logind on the host leaked sessions in `closing` state, so the churn filled the cap.
+- **Fix:** `kit_live_sync/live_sync.sh` multiplexes one connection per kit (#602); duplicate clients and leftover kits at a site multiply the load, so keep one kit per site. Host side: restart `systemd-logind` to recover; an alert on the session count is worth having.
+- **Detection:** `journalctl -u ssh --since -10min | grep -c 'Accepted publickey for mediswarm-upload'` should be about the number of kits once they run the multiplexing daemon, not a thousand.
+
 ## Operator diagnostic playbook
 
 **Drive the live server** via the admin startup kit (run `./fl_admin.sh` in the odelia image with `--net=host`, username line first):
