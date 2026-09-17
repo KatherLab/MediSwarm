@@ -179,6 +179,14 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
                     spatial_dims=3,
                     loss_kwargs=loss_kwargs,
                     **scheduler_kwargs)
+    elif model_name == 'MST_SAMMed2D':
+        # MST slice fusion on the SAM-Med2D ViT-B encoder (Cambridge, branch custom_cam_ZD)
+        model = MST(n_input_channels=1,
+                    num_classes=num_classes,
+                    spatial_dims=3,
+                    backbone_type="sammed2d",
+                    loss_kwargs=loss_kwargs,
+                    **scheduler_kwargs)
     elif model_name == "Swin3D":
         model = Swin3D(n_input_channels=1,
                         num_classes=num_classes,

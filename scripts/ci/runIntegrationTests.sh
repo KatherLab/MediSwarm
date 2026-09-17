@@ -1114,7 +1114,7 @@ _verify_ODELIA_ternary_preflight_check() {
 
 run_all_models_preflight_check () {
     # requires having built a startup kit and synthetic dataset
-    echo "[Run] 3DCNN local training..."
+    echo "[Run] Preflight checks for all models ..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
 
@@ -1125,6 +1125,7 @@ run_all_models_preflight_check () {
     _verify_challenge_preflight_check "challenge_5pimed"              "backbone *| Resnet"
 
     _verify_ODELIA_ternary_preflight_check "MST"                      "mst *| _MST *| 23"
+    _verify_ODELIA_ternary_preflight_check "MST_SAMMed2D"             "mst *| _MST *| 267"  # random init unless sam-med2d_b.pth is in the image
     _verify_ODELIA_ternary_preflight_check "ResNet10"                 "model *| _ResNet *| 14"
     _verify_ODELIA_ternary_preflight_check "ResNet18"                 "model *| _ResNet *| 33"
     _verify_ODELIA_ternary_preflight_check "ResNet34"                 "model *| _ResNet *| 63"

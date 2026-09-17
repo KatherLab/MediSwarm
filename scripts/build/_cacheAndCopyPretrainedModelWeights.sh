@@ -26,6 +26,11 @@ MODEL_WEIGHTS_FILE_MVIT_HASH=ae3be16733081f6d1cd40e4ab980ca23d6df6dc6486d15ada05
 MODEL_WEIGHTS_FILE_ODAC=$CACHE_DIR'/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth'
 MODEL_WEIGHTS_FILE_ODAC_HASH=ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758
 
+# SAM-Med2D ViT-B (MST_SAMMed2D backbone). Optional: the release is distributed via Google
+# Drive / Baidu (https://github.com/OpenGVLab/SAM-Med2D), so it is not fetched automatically.
+# Drop the file into the build cache and it is shipped at /MediSwarm/pretrained_weights/.
+MODEL_WEIGHTS_FILE_SAMMED2D=$CACHE_DIR'/pretrained_weights/sam-med2d_b.pth'
+
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/blobs/61224f9317fcce873366deb3703183e92cc47325b726b69691b33536244e10f4'
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/snapshots/758fe285bc8ab565eb4f9f965810f1d1a3f79491/resnet_18_23dataset.pth'
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_URL=https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet10/resolve/9d7c4c66c77bff89b79631369426612f09d0fe9b/resnet_18_23dataset.pth
@@ -173,6 +178,14 @@ copy_files() {
     # challenge_3agaldran: mvit_v2_s-ae3be167.pth (PyTorch pretrained weights)
     echo "3agaldran: copying mvit_v2_s-ae3be167.pth"
     cp "$MODEL_WEIGHTS_FILE_MVIT"  "$WEIGHTS_DIR/"
+
+    # MST_SAMMed2D: sam-med2d_b.pth, only if the operator placed it in the cache
+    if [[ -f "$MODEL_WEIGHTS_FILE_SAMMED2D" ]]; then
+        echo "SAM-Med2D: copying sam-med2d_b.pth"
+        cp "$MODEL_WEIGHTS_FILE_SAMMED2D" "$WEIGHTS_DIR/"
+    else
+        echo "SAM-Med2D: $MODEL_WEIGHTS_FILE_SAMMED2D not in the build cache — MST_SAMMed2D will start from random weights in this image"
+    fi
 
     chmod a+rX "$WEIGHTS_DIR" -R
 }

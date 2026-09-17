@@ -20,6 +20,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 from data.datasets import ODELIA_Dataset3D
 from data.datamodules import DataModule
+from loader_workers import cap_loader_workers
 from env_config import (
     build_odelia_manifests,
     generate_run_directory,
@@ -427,6 +428,12 @@ def set_up_data_module(logger, env_vars: dict, log_dataset_details: bool = False
         logger.warning(f"Could not compute class weights: {e}. Using uniform weights.")
         class_weights = None
 
+    loader_workers = cap_loader_workers(env_vars['odelia_num_workers'], len(ds_train))
+    if loader_workers != env_vars['odelia_num_workers']:
+        logger.info(
+            f"ODELIA loader workers capped {env_vars['odelia_num_workers']} -> {loader_workers} "
+            f"for {len(ds_train)} training samples (#574)"
+        )
     dm = DataModule(
         ds_train=ds_train,
         ds_val=ds_val,
@@ -434,7 +441,7 @@ def set_up_data_module(logger, env_vars: dict, log_dataset_details: bool = False
         batch_size=1,
         pin_memory=True,
         weights=None,
-        num_workers=env_vars['odelia_num_workers'],
+        num_workers=loader_workers,
     )
 
     loss_kwargs = {}

@@ -15,10 +15,23 @@ participants:
     # way; project_MEVIS_test.yml uses 8032/8033 for the same reason.
     fed_learn_port: 8102
     admin_port: 8103
-  - name: RUMC_1
+  # Client names are TEST_A_1..TEST_D_1 and MUST NOT be real hospital site names.
+  # They used to be RUMC_1 / MHA_1 / CAM_1 / UMCU_1, which collides with the
+  # productive sites in two places that are read by humans and by analysis code:
+  #   * the live monitor (/srv/mediswarm/live/<SITE>/) -- a deploy test on dl0
+  #     publishes heartbeats under the hospital's name, so the monitor shows a
+  #     hospital "running" a job it never saw;
+  #   * the run-history dataset -- test runs land in the hospital's rows and can
+  #     only be separated by a hostname heuristic (TEST_HOSTS in
+  #     scripts/analysis/extract_run_history.py).
+  # That collision has produced two wrong conclusions: four site join dates were
+  # published ~6 weeks early because April records came from dl0/dl3 wearing
+  # hospital names, and a fleet-status check read a dead test client as a live
+  # hospital. The names below cost nothing and remove the ambiguity at source.
+  - name: TEST_A_1
     type: client
     org: TUD
-  - name: MHA_1
+  - name: TEST_B_1
     type: client
     org: TUD
   - name: jiefu.zhu@tu-dresden.de

@@ -2,6 +2,147 @@
 
 All notable changes to MediSwarm are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **Live-sync daemon: one SSH connection per kit instead of one per upload (#602)** — every
+  rsync and ssh call was a separate login, three to five per 30-second cycle per kit, about
+  two logins per second across the consortium at the upload host, each a logind session
+  there. On 16 September the host hit logind's session cap and refused all SSH logins. The
+  daemon now multiplexes (`ControlMaster=auto`, `ControlPersist=600`): seven calls, one login,
+  measured from the dl3 test kit. Reaches the sites with their next kit.
+
+- **Client worker no longer dies at job launch with `OMP: Error #15` (#596)** — the image
+  carries three OpenMP runtimes (numpy/MKL, torch, scikit-learn) and LLVM's aborted the
+  worker when it found another one initialised first. Intermittent; hit CAM_1 in production on
+  8 April and two of twelve launches on the dl3 test bed. `KMP_DUPLICATE_LIB_OK=TRUE` is now set
+  in the image, and the deploy-test harness names a site whose worker died instead of reporting
+  it as "not configured".
+
+### Added
+
+- **`MST_SAMMed2D` model** — the MST slice-fusion classifier on the SAM-Med2D ViT-B image
+  encoder (adapter layers, 256-pixel slices), contributed by Zhongying Deng (University of
+  Cambridge) on branch `custom_cam_ZD` and ported onto `main`. Select with
+  `MODEL_NAME=MST_SAMMed2D`. The SAM-Med2D weights (`sam-med2d_b.pth`) are not in the repo:
+  place them in the build cache to ship them in the image, or set `SAM_MED2D_CHECKPOINT`;
+  without them the encoder starts from random weights and says so. Slices are resized from
+  the dataset's 224 to 256 inside the model rather than by changing the shared data pipeline.
+
+## [1.8.1] - 2026-09-13
+
+Controller fix: a swarm can no longer start on a site that has not finished configuring.
+
+### Fixed
+
+- **Configure phase requires the starting client (NVFlare fork PR #8; #576)** — with
+  `min_clients` below the number of participating sites, the server left the configure
+  phase as soon as the quorum answered. If the starting site was not among them, the start
+  task reached a client whose persistor did not exist yet and the run died with
+  `invalid model learnable: expect Model type but got NoneType`, or stalled ten minutes on
+  `TOPIC_UNKNOWN` replies and hung. The starting client is now configured first and on its
+  own, a failure is a clear `system_panic` naming it, and the remaining sites are configured
+  with the quorum applied to the whole set — without blocking when the starting client
+  already satisfies it. Found by the weekly CI run on 13 Sep; consortium runs were shielded
+  only because `configure_min_clients` is set to the site count at submission.
+- **CI deploy test on the runners (#580)** — the workflow now bakes `min_clients` into the
+  test kits (default 2) and the runner-local configs were brought in line with the renamed
+  test sites; the release-triggered deploy test passes again for the first time since the
+  runners moved in July.
+
+### Changed
+
+- The fork's `TestConfigurePhase` and `TestPrunedStartingClient` re-implemented the
+  controller's condition inside the test and asserted on the copy; replaced by tests that
+  drive the real `_configure_clients()`.
+
+## [1.8.0] - 2026-09-13
+
+Per-site evaluation and deploy-test release. A completed swarm run now reports what
+every site measured, can return per-case predictions from sites that opt in, and
+refuses to warm-start from another architecture's weights. The two-node deploy test
+runs end to end on real startup kits again, and it is where most of the fixes below
+were found. Every training-path change was confirmed on a real 2-node run (dl0 + dl2,
+server on dl3), not by unit tests alone.
+
+### Added
+
+- **Per-site metrics reach the coordinator (#534; #525, #441)** — each site's validation
+  metrics, including per-class support counts, are published to the server and returned
+  in `cross_val_results.json`. Previously the file was `{}` although the server logged
+  `Published metrics for N site(s)` (F10). Verified on real kits: both test sites present
+  with per-class support.
+- **Per-case predictions, opt-in per site (#556, #557; #526, #527, #528)** — a site that
+  starts its client with `ODELIA_RETURN_PER_CASE=1` returns per-case class probabilities
+  (no identifiers) with its metrics. Off by default; nothing changes for a site that does
+  not set it. Needed for regional fine-tuning comparison (D2.5), active learning (D3.2)
+  and the testing node (D3.3).
+- **Warm-start provenance and a structural guard (#545, #575; #535)** — the mirrored
+  global checkpoint carries a `.provenance.json` sidecar naming the model that wrote it.
+  A mirror from another architecture is refused by label and, since #575, also by
+  comparing parameter names, so an unlabelled mirror is caught too. A refusal now returns
+  no model instead of falling through and loading the file anyway (F11).
+- **DataLoader worker cap (#575; #574)** — a client never runs more loader workers than its
+  training set can feed (at least four samples per worker). Removes the pin-memory
+  shared-memory race on tiny sets (F12); no effect at consortium data sizes.
+- **Strict swarm runs are exact-client by default (#514)** — large-model result references
+  stay alive for the whole run budget, only missing deliveries are retried, repeated
+  delivery of a round is idempotent, and strict mode rejects timeout-driven partial
+  aggregation.
+- **Active learning (D3.2): sample-selection strategies (#555) and the acquisition
+  experiment (#563, corrected in #568)** — entropy and margin sampling against a random
+  control over the real per-case predictions of the eight-site run. The first result was
+  computed on predictions from the wrong architecture and was retracted; the analysis now
+  refuses predictions whose malignant AUROC is below 0.60 (E2 guard) and computes its
+  verdict instead of stating it.
+- **Robust aggregation and a poisoning simulation (#566; D3.4 #529)** — norm-clipped
+  aggregation measured against a scaled-update attacker. The size-weighted mean every job
+  uses has breakdown point zero; the smallest site can move it arbitrarily.
+- **White-hat site-inference probe (#571; MS6 #531)** — the part of the white-hat attack
+  TUD can run without partner scheduling: whether the three class probabilities of a case
+  reveal which hospital it came from.
+- **Privacy accounting MVP (#563; T3.3 phase 2)**.
+- **Frozen run history (#560, #573)** — `scripts/analysis/extract_run_history.py` and the
+  committed dataset under `workspace/run_history/`. Records are attributed by the
+  heartbeat's hostname, not the site directory name, so TU Dresden test machines no
+  longer masquerade as hospitals.
+- **Supply chain (#446; #395)** — base image pinned by digest, apt left unpinned on purpose,
+  CVE scan in CI.
+- **Docs** — consortium briefing rewritten for a non-technical audience (#564); deck index
+  (#558); evaluation pitfalls E1–E4 (#533, #568); failure modes F11 and F12; manuscript
+  evidence matrix with a mechanically enforced anonymisation rule (#569).
+
+### Fixed
+
+- **`finalize_training` in swarm mode now runs through a callback (#502; #480)** — the
+  post-loop call could not execute because the launcher terminates the training
+  subprocess at job end.
+- **STAMP scheduler horizon follows the job's `num_rounds` (#520; #503)** — the client read
+  `STAMP_NUM_ROUNDS` from its environment while the server ran the job's `num_rounds`;
+  when they disagreed training died with `Tried to step 9 times`.
+- **STAMP installs from a release tarball (#523)** — the git clone in the Dockerfile failed
+  under rate limiting and looked like a permissions error.
+- **The 2-node deploy test can run at all (#544)** — its project sat on the productive
+  server's ports and name, so test clients reached the production server and died on
+  certificates from another provisioning generation; `min_clients` and the gitignore for
+  site configs fixed alongside.
+- **The 2-node deploy test runs on real kits (#573)** — clients are `TEST_A_1`/`TEST_B_1`
+  instead of hospital names (which polluted the live monitor and a published chart), the
+  data folder is decoupled from the FL identity, stale warm-start mirrors are wiped before
+  each model, staged jobs can be submitted by absolute path, and server-side artifacts are
+  saved before cleanup deletes them.
+- **Weekly all-models preflight (#552, #559, #572)** — builds the kits it needs first, covers
+  the ResNet variants, verifies that preflight succeeded rather than started, and prints
+  readable output.
+
+### Changed
+
+- **`jefftud/odelia:current` is re-tagged to 1.8.0 with this release.** (It was not
+  re-tagged for 1.7.0, so sites have been running the 1.6.0-era image since July.)
+- Dependencies: actions/checkout 7, actions/setup-python 7, trivy-action 0.36 (#548, #551,
+  #549).
+
 ## [1.7.0] - 2026-07-29
 
 Swarm evaluation release: a completed swarm run is now scientifically usable.
