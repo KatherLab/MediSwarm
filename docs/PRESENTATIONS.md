@@ -7,7 +7,13 @@ verified, the page says so rather than omitting the gap.
 ## Current
 
 ### `presentation_consortium_45min.html` — consortium briefing, 45-minute version
-**27 slides · for the consortium meeting in Bremen, 17 September 2026 · ODELIA deck style**
+**27 slides · presented at the consortium meeting in Bremen on 17 September 2026 · ODELIA deck style**
+
+Delivered on 17 September 2026 with a good reception; the speaker notes for slides 15 to 20 were
+extended after the talk with the fuller explanations used in the room (active learning budget and
+the two columns of the acquisition table, where the noise enters a round and what epsilon costs,
+the poisoned update and the five aggregation rules). The rendered PDF and PowerPoint of the
+delivered version are archived outside the repository (see the archive README next to them).
 
 Visual identity of the ODELIA EAB deck (white slides, magenta titles, Open Sans, gradient
 title slide, numbered agenda blocks, TUD / UKD / EKFZ / Kather Lab / NCT Heidelberg / ODELIA
