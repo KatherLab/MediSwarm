@@ -1,0 +1,41 @@
+api_version: 3
+name: odelia_warm_continue_3site___REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS___test
+description: ODELIA 3-site validation (Cosmos server/admin; RSH_1 + MHA_1 + USZ_1 clients)
+
+participants:
+  - name: dl3.tud.de
+    type: server
+    org: TUD
+    fed_learn_port: 8002
+    admin_port: 8003
+  - name: RSH_1
+    type: client
+    org: RSH
+  - name: MHA_1
+    type: client
+    org: MHA
+  - name: USZ_1
+    type: client
+    org: USZ
+  - name: jiefu.zhu@tu-dresden.de
+    type: admin
+    org: TUD
+    role: project_admin
+
+builders:
+  - path: nvflare.lighter.impl.workspace.WorkspaceBuilder
+    args:
+      template_file: master_template.yml
+  - path: nvflare.lighter.impl.template.TemplateBuilder
+  - path: nvflare.lighter.impl.static_file.StaticFileBuilder
+    args:
+      config_folder: config
+      scheme: http
+      docker_image: jefftud/odelia:__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__-warm-continue
+      overseer_agent:
+        path: nvflare.ha.dummy_overseer_agent.DummyOverseerAgent
+        overseer_exists: false
+        args:
+          sp_end_point: dl3.tud.de:8002:8003
+  - path: nvflare.lighter.impl.cert.CertBuilder
+  - path: nvflare.lighter.impl.signature.SignatureBuilder

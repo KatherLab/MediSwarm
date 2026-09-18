@@ -11,7 +11,7 @@ import minimal_training
 TRAINING_MODE = os.getenv("TRAINING_MODE")
 
 if TRAINING_MODE == "swarm":
-    flare_util.init()
+    flare_util.init(rank="0")
     SITE_NAME=flare.get_site_name()
 elif TRAINING_MODE == "local_training":
     SITE_NAME="site_name_unset"
@@ -42,7 +42,9 @@ def main():
         elif TRAINING_MODE == "preflight_check" or TRAINING_MODE == "local_training":
             minimal_training.validate_and_train(logger, data_module, model, trainer)
 
-        minimal_training.finalize_training(logger, model, checkpointing, trainer)
+        if TRAINING_MODE == "swarm" or TRAINING_MODE == "local_training":
+            minimal_training.finalize_training(logger, model, checkpointing, trainer)
+
     except Exception as e:
         logger.error(f"Error in main function: {e}")
         raise

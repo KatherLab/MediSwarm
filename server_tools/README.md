@@ -11,7 +11,7 @@ cp server_tools/app.py /srv/mediswarm/app.py
 /srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080
 
 Then open:
-http://172.24.4.65:8080/
+http://<SERVER_IP>:8080/
 
 # Detailed version: MediSwarm Live Monitor: installation and usage
 
@@ -29,6 +29,27 @@ and that the application code is saved as:
 /srv/mediswarm/app.py
 ```
 
+To show collaborators that have not uploaded any heartbeat yet, create an
+expected-site roster:
+
+```bash
+sudo cp server_tools/monitor_sites.example.json /srv/mediswarm/live/monitor_sites.json
+sudo nano /srv/mediswarm/live/monitor_sites.json
+```
+
+Roster entries use this schema:
+
+```json
+{
+  "site_name": "node_A",
+  "display_name": "dl0 / node_A",
+  "ip_address": "100.x.x.x",
+  "institution": "optional",
+  "expected_version": "optional",
+  "enabled": true
+}
+```
+
 ---
 
 ## 1) What this monitor does
@@ -39,24 +60,41 @@ The monitor scans the uploaded artifact tree:
 /srv/mediswarm/live/<SITE_NAME>/<MODE>/<RUN_OR_JOB_ID>/
 ```
 
-and shows:
+### Overview page (`/`)
 
-- site name
-- mode (`local` or `swarm`)
-- run or job ID
-- latest heartbeat status
-- heartbeat age
-- whether console/log files exist
-- whether key artifacts exist:
-    - `last.ckpt`
-    - `epoch=*.ckpt`
-    - `FL_global_model.pt`
+The main dashboard shows a styled table with auto-refresh (every 30 s):
 
-It also provides links to view:
+- site name, hostname, IP address, mode (`local` or `swarm`), run name and run/job ID
+- status badge (`waiting`, `running`, `stale`, `missing`, `finished`, `error`, `unknown`)
+- heartbeat age (color-coded: green < 2 min, orange < 10 min, red > 10 min)
+- kit version filter and quick filters for errors, missing sites, and stale sites
+- expected-vs-seen collaborator counts when a roster is configured
+- artifact indicators: `last.ckpt`, `epoch.ckpt`, `FL_global_model.pt`, `best_FL_global_model.pt`, CSV count, TFEvents
+- links to detail page, raw heartbeat, console output, and log
 
-- `heartbeat.json`
-- `nohup.out` or `local_training_console_output.txt`
-- `log.txt`
+### Detail page (`/detail/{site}/{mode}/{run_id}`)
+
+- all heartbeat fields (run name, job ID, timestamps, artifact paths)
+- live-sync status, IP address, and structured error evidence when available
+- **training metric charts** (ACC and AUC_ROC per epoch, parsed from console output, rendered with Chart.js)
+- links to CSV result files (rendered as HTML tables)
+- last 200 lines of console output
+- TensorBoard metrics (if `tbparse` is installed)
+
+### API endpoints
+
+- `GET /api/runs` — all runs as JSON
+- `GET /api/metrics/{site}/{mode}/{run_id}` — parsed training metrics as JSON
+- `GET /api/heartbeat/{site}/{mode}/{run_id}` — heartbeat data as JSON
+- `GET /metrics/{site}/{mode}/{run_id}` — same as `/api/metrics`
+- `GET /tb_metrics/{site}/{mode}/{run_id}` — TensorBoard scalars as JSON (requires `tbparse`)
+- `GET /csv/{site}/{mode}/{run_id}/{filename}` — CSV file rendered as HTML table
+
+### Raw file endpoints (unchanged)
+
+- `GET /heartbeat/{site}/{mode}/{run_id}` — raw heartbeat JSON
+- `GET /console/{site}/{mode}/{run_id}` — `nohup.out` or `local_training_console_output.txt`
+- `GET /log/{site}/{mode}/{run_id}` — `log.txt`
 
 ---
 
@@ -130,7 +168,7 @@ Start the FastAPI server with:
 If it starts successfully, open:
 
 ```text
-http://172.24.4.65:8080/
+http://<SERVER_IP>:8080/
 ```
 
 If you are testing on the server itself, you can also open:
@@ -143,31 +181,25 @@ http://localhost:8080/
 
 ## 6) What you should see
 
-The main page shows a table with columns:
+The main page shows a styled table (auto-refreshes every 30 seconds) with columns:
 
-- Site
-- Mode
-- Run
-- Status
-- Timestamp
-- Age
-- Artifacts
-- Links
+- **Site** — e.g. `MHA_1`
+- **Mode** — `local` or `swarm`
+- **Run** — run name (e.g. `MST_unilateral_2026_04_03_120000`) and run/job ID
+- **Status** — color-coded badge: green (running), blue (finished), gray (unknown)
+- **Age** — time since last heartbeat, color-coded orange/red when stale
+- **Artifacts** — which artifacts are present (checkpoints, models, CSVs, TFEvents)
+- **Links** — Detail page, heartbeat, console, log
 
-Typical entries look like:
-
-- `MHA_1`
-- `swarm`
-- `db98789c-746b-4be3-a1b6-c50473b42ed8`
-
-The links open:
-- heartbeat JSON
-- console output
-- log output
+Click **Details** on any run to see training metric charts, heartbeat info, CSV results, and console output.
 
 ---
 
 ## 7) Uploaded directory layout expected by the monitor
+
+The `live_sync` daemon on each training site uploads artifacts here via rsync.
+All training jobs (ODELIA and challenge models) write results to `$SCRATCHDIR/runs/$SITE_NAME/<RUN_NAME>/` on the host,
+and `live_sync` uploads them to the `run_dir/` subdirectory below.
 
 The monitor expects uploads in this structure:
 
@@ -302,7 +334,7 @@ sudo ufw allow 8080/tcp
 Then verify from another machine:
 
 ```bash
-curl http://172.24.4.65:8080/
+curl http://<SERVER_IP>:8080/
 ```
 
 ---
@@ -378,5 +410,5 @@ pip install fastapi uvicorn
 Then open:
 
 ```text
-http://172.24.4.65:8080/
+http://<SERVER_IP>:8080/
 ```

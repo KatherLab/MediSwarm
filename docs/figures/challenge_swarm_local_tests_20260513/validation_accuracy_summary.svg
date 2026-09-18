@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="560" viewBox="0 0 1120 560">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.cell{stroke:#ffffff;stroke-width:2}
+</style>
+<text x="84" y="36" class="title">Validation accuracy from available aggregated CSVs</text>
+<text x="22" y="253.0" class="axis" transform="rotate(-90 22 253.0)">Accuracy</text>
+<line x1="84" x2="1088" y1="442.0" y2="442.0" class="grid"/>
+<text x="74" y="446.0" text-anchor="end" class="axis">0.0</text>
+<line x1="84" x2="1088" y1="366.4" y2="366.4" class="grid"/>
+<text x="74" y="370.4" text-anchor="end" class="axis">0.2</text>
+<line x1="84" x2="1088" y1="290.8" y2="290.8" class="grid"/>
+<text x="74" y="294.8" text-anchor="end" class="axis">0.4</text>
+<line x1="84" x2="1088" y1="215.2" y2="215.2" class="grid"/>
+<text x="74" y="219.2" text-anchor="end" class="axis">0.6</text>
+<line x1="84" x2="1088" y1="139.6" y2="139.6" class="grid"/>
+<text x="74" y="143.6" text-anchor="end" class="axis">0.8</text>
+<line x1="84" x2="1088" y1="64.0" y2="64.0" class="grid"/>
+<text x="74" y="68.0" text-anchor="end" class="axis">1.0</text>
+<rect x="102.4" y="120.7" width="63.3" height="321.3" fill="#59a14f" rx="2"/>
+<rect x="169.7" y="120.7" width="63.3" height="321.3" fill="#f28e2b" rx="2"/>
+<text x="167.7" y="468" text-anchor="middle" class="axis">MST</text>
+<rect x="269.7" y="101.8" width="63.3" height="340.2" fill="#59a14f" rx="2"/>
+<rect x="337.0" y="111.2" width="63.3" height="330.8" fill="#f28e2b" rx="2"/>
+<text x="335.0" y="468" text-anchor="middle" class="axis">1DivideAndConquer</text>
+<rect x="437.1" y="120.7" width="63.3" height="321.3" fill="#59a14f" rx="2"/>
+<rect x="504.3" y="120.7" width="63.3" height="321.3" fill="#f28e2b" rx="2"/>
+<text x="502.3" y="468" text-anchor="middle" class="axis">2BCN_AIM</text>
+<rect x="604.4" y="106.5" width="63.3" height="335.5" fill="#59a14f" rx="2"/>
+<rect x="671.7" y="106.5" width="63.3" height="335.5" fill="#f28e2b" rx="2"/>
+<text x="669.7" y="468" text-anchor="middle" class="axis">3agaldran</text>
+<rect x="771.7" y="97.1" width="63.3" height="344.9" fill="#59a14f" rx="2"/>
+<rect x="839.0" y="106.5" width="63.3" height="335.5" fill="#f28e2b" rx="2"/>
+<text x="837.0" y="468" text-anchor="middle" class="axis">4LME_ABMIL</text>
+<rect x="939.1" y="158.5" width="63.3" height="283.5" fill="#59a14f" rx="2"/>
+<rect x="1006.3" y="182.1" width="63.3" height="259.9" fill="#f28e2b" rx="2"/>
+<text x="1004.3" y="468" text-anchor="middle" class="axis">5Pimed</text>
+<rect x="84" y="506" width="14" height="14" fill="#59a14f" rx="2"/>
+<text x="104" y="518" class="axis">best aggregated</text>
+<rect x="237" y="506" width="14" height="14" fill="#f28e2b" rx="2"/>
+<text x="257" y="518" class="axis">last aggregated</text>
+</svg>

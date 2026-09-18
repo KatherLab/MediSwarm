@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" viewBox="0 0 1100 560">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.legend{font-size:13px;fill:#263241}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.axisline{stroke:#2e3a48;stroke-width:1.2}
+</style>
+<text x="82" y="34" class="title">Challenge-style evaluation: macro AUROC by site</text>
+<text x="20" y="255.0" class="axis" transform="rotate(-90 20 255.0)">Macro AUROC</text>
+<line x1="82" x2="1072" y1="448.0" y2="448.0" class="grid"/>
+<text x="72" y="452.0" text-anchor="end" class="axis">0.0</text>
+<line x1="82" x2="1072" y1="370.8" y2="370.8" class="grid"/>
+<text x="72" y="374.8" text-anchor="end" class="axis">0.2</text>
+<line x1="82" x2="1072" y1="293.6" y2="293.6" class="grid"/>
+<text x="72" y="297.6" text-anchor="end" class="axis">0.4</text>
+<line x1="82" x2="1072" y1="216.4" y2="216.4" class="grid"/>
+<text x="72" y="220.4" text-anchor="end" class="axis">0.6</text>
+<line x1="82" x2="1072" y1="139.2" y2="139.2" class="grid"/>
+<text x="72" y="143.2" text-anchor="end" class="axis">0.8</text>
+<line x1="82" x2="1072" y1="62.0" y2="62.0" class="grid"/>
+<text x="72" y="66.0" text-anchor="end" class="axis">1.0</text>
+<line x1="82" x2="1072" y1="448" y2="448" class="axisline"/>
+<line x1="82" x2="82" y1="62" y2="448" class="axisline"/>
+<rect x="101.8" y="154.5" width="29.1" height="293.5" fill="#4e79a7" rx="2"/>
+<rect x="133.9" y="142.2" width="29.1" height="305.8" fill="#f28e2b" rx="2"/>
+<rect x="166.0" y="207.4" width="29.1" height="240.6" fill="#59a14f" rx="2"/>
+<rect x="198.1" y="219.4" width="29.1" height="228.6" fill="#e15759" rx="2"/>
+<text x="164.5" y="472" text-anchor="middle" class="axis">CAM</text>
+<rect x="266.8" y="260.9" width="29.1" height="187.1" fill="#4e79a7" rx="2"/>
+<rect x="298.9" y="211.0" width="29.1" height="237.0" fill="#f28e2b" rx="2"/>
+<rect x="331.0" y="179.0" width="29.1" height="269.0" fill="#59a14f" rx="2"/>
+<rect x="363.1" y="205.5" width="29.1" height="242.5" fill="#e15759" rx="2"/>
+<text x="329.5" y="472" text-anchor="middle" class="axis">MHA</text>
+<rect x="431.8" y="177.1" width="29.1" height="270.9" fill="#4e79a7" rx="2"/>
+<rect x="463.9" y="218.9" width="29.1" height="229.1" fill="#f28e2b" rx="2"/>
+<rect x="496.0" y="212.7" width="29.1" height="235.3" fill="#59a14f" rx="2"/>
+<rect x="528.1" y="171.4" width="29.1" height="276.6" fill="#e15759" rx="2"/>
+<text x="494.5" y="472" text-anchor="middle" class="axis">RSH</text>
+<text x="611.3" y="440.0" text-anchor="middle" class="label">NA</text>
+<text x="643.4" y="440.0" text-anchor="middle" class="label">NA</text>
+<text x="675.5" y="440.0" text-anchor="middle" class="label">NA</text>
+<text x="707.6" y="440.0" text-anchor="middle" class="label">NA</text>
+<text x="659.5" y="472" text-anchor="middle" class="axis">RUMC</text>
+<rect x="761.8" y="186.1" width="29.1" height="261.9" fill="#4e79a7" rx="2"/>
+<rect x="793.9" y="236.3" width="29.1" height="211.7" fill="#f28e2b" rx="2"/>
+<rect x="826.0" y="205.6" width="29.1" height="242.4" fill="#59a14f" rx="2"/>
+<rect x="858.1" y="244.7" width="29.1" height="203.3" fill="#e15759" rx="2"/>
+<text x="824.5" y="472" text-anchor="middle" class="axis">UKA</text>
+<rect x="926.8" y="200.7" width="29.1" height="247.3" fill="#4e79a7" rx="2"/>
+<rect x="958.9" y="250.1" width="29.1" height="197.9" fill="#f28e2b" rx="2"/>
+<rect x="991.0" y="241.6" width="29.1" height="206.4" fill="#59a14f" rx="2"/>
+<rect x="1023.1" y="239.9" width="29.1" height="208.1" fill="#e15759" rx="2"/>
+<text x="989.5" y="472" text-anchor="middle" class="axis">UMCU</text>
+<rect x="82" y="506" width="14" height="14" fill="#4e79a7" rx="2"/>
+<text x="102" y="518" class="legend">1DC epoch14 best</text>
+<rect x="234" y="506" width="14" height="14" fill="#f28e2b" rx="2"/>
+<text x="254" y="518" class="legend">1DC last</text>
+<rect x="374" y="506" width="14" height="14" fill="#59a14f" rx="2"/>
+<text x="394" y="518" class="legend">MST best</text>
+<rect x="514" y="506" width="14" height="14" fill="#e15759" rx="2"/>
+<text x="534" y="518" class="legend">MST last</text>
+</svg>

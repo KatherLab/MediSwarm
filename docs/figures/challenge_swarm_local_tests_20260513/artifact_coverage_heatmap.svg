@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="414" viewBox="0 0 1120 414">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.cell{stroke:#ffffff;stroke-width:2}
+</style>
+<text x="180" y="36" class="title">Artifact coverage by final run</text>
+<text x="239.0" y="64" text-anchor="middle" class="axis">job dirs</text>
+<text x="357.0" y="64" text-anchor="middle" class="axis">models</text>
+<text x="475.0" y="64" text-anchor="middle" class="axis">run dirs</text>
+<text x="593.0" y="64" text-anchor="middle" class="axis">CSVs</text>
+<text x="711.0" y="64" text-anchor="middle" class="axis">TFEvents</text>
+<text x="829.0" y="64" text-anchor="middle" class="axis">ckpts</text>
+<text x="168" y="105" text-anchor="end" class="axis">MST</text>
+<rect x="180" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="105" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="147" text-anchor="end" class="axis">1DivideAndConquer</text>
+<rect x="180" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="147" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="189" text-anchor="end" class="axis">2BCN_AIM</text>
+<rect x="180" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="189" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="231" text-anchor="end" class="axis">3agaldran</text>
+<rect x="180" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="231" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="273" text-anchor="end" class="axis">4LME_ABMIL</text>
+<rect x="180" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="273" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="315" text-anchor="end" class="axis">5Pimed</text>
+<rect x="180" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="315" text-anchor="middle" class="value">6/6</text>
+</svg>

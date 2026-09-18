@@ -8,9 +8,9 @@ readme_am: |
   client.crt
   client.key
   fl_admin.sh
-  docker.sh
 
-  Use the docker.sh script to start the admin console in the intended docker container.
+  Please install the nvflare package by 'python3 -m pip nvflare.'  This will install a set of Python codes
+  in your environment.  After installation, you can run the fl_admin.sh file to start communicating to the admin server.
 
   The rootCA.pem file is pointed by "ca_cert" in fl_admin.sh.  If you plan to move/copy it to a different place,
   you will need to modify fl_admin.sh.  The same applies to the other two files, client.crt and client.key.
@@ -31,9 +31,8 @@ readme_fc: |
   start.sh
   sub_start.sh
   stop_fl.sh
-  docker.sh
 
-  Use the docker.sh script with appropriate options to run preflight checks or to start the client in the intended docker container.
+  Run start.sh to start the client.
 
   The rootCA.pem file is pointed by "ssl_root_cert" in fed_client.json.  If you plan to move/copy it to a different place,
   you will need to modify fed_client.json.  The same applies to the other two files, client.crt and client.key.
@@ -56,31 +55,19 @@ readme_fs: |
   sub_start.sh
   stop_fl.sh
   signature.json
-  docker.sh
 
-  Use the docker.sh script to start the server in the intended docker container.
+  Run start.sh to start the server.
 
   The rootCA.pem file is pointed by "ssl_root_cert" in fed_server.json.  If you plan to move/copy it to a different place,
   you will need to modify fed_server.json.  The same applies to the other two files, server.crt and server.key.
 
   Please always safeguard the server.key.
 
-gunicorn_conf_py: |
-  bind="0.0.0.0:{~~port~~}"
-  cert_reqs=2
-  do_handshake_on_connect=True
-  timeout=30
-  worker_class="nvflare.ha.overseer.worker.ClientAuthWorker"
-  workers=1
-  wsgi_app="nvflare.ha.overseer.overseer:app"
-
 local_client_resources: |
   {
     "format_version": 2,
     "client": {
       "retry_timeout": 30,
-      "communication_timeout": 600,
-      "maint_msg_timeout": 600,
       "compression": "Gzip"
     },
     "components": [
@@ -88,14 +75,26 @@ local_client_resources: |
         "id": "resource_manager",
         "path": "nvflare.app_common.resource_managers.gpu_resource_manager.GPUResourceManager",
         "args": {
-          "num_of_gpus": 0,
-          "mem_per_gpu_in_GiB": 0
+          "num_of_gpus": {~~num_gpus~~},
+          "mem_per_gpu_in_GiB": {~~gpu_mem~~}
         }
       },
       {
         "id": "resource_consumer",
         "path": "nvflare.app_common.resource_consumers.gpu_resource_consumer.GPUResourceConsumer",
         "args": {}
+      },
+      {
+        "id": "process_launcher",
+        "path": "nvflare.app_common.job_launcher.client_process_launcher.ClientProcessJobLauncher",
+        "args": {}
+      },
+      {
+          "id": "site_log_streamer",
+          "path": "nvflare.app_common.logging.site_log_streamer.SiteLogStreamer",
+          "args": {
+              "log_file_name": "error_log.txt"
+          }
       }
     ]
   }
@@ -105,15 +104,21 @@ fed_client: |
     "format_version": 2,
     "servers": [
       {
-        "name": "spleen_segmentation",
+        "name": "{~~name~~}",
         "service": {
-        }
+          "target": "{~~target~~}",
+          "scheme": "{~~scheme~~}"
+        },
+        "identity": "{~~server_identity~~}"
       }
     ],
     "client": {
       "ssl_private_key": "client.key",
       "ssl_cert": "client.crt",
-      "ssl_root_cert": "rootCA.pem"
+      "ssl_root_cert": "rootCA.pem",
+      "fqsn": "{~~fqsn~~}",
+      "is_leaf": {~~is_leaf~~},
+      "connection_security": "{~~conn_sec~~}"
     }
   }
 
@@ -183,9 +188,8 @@ local_server_resources: |
               "admin_storage": "transfer",
               "max_num_clients": 100,
               "heart_beat_timeout": 600,
-              "num_server_workers": 4,
               "download_job_url": "http://download.server.com/",
-              "compression": "Gzip"
+              "admin_timeout": 10.0
           }
       ],
       "snapshot_persistor": {
@@ -220,8 +224,32 @@ local_server_resources: |
           {
               "id": "job_store",
               "path": "nvflare.app_common.storages.filesystem_storage.FilesystemStorage"
+          },
+          {
+              "id": "process_launcher",
+              "path": "nvflare.app_common.job_launcher.server_process_launcher.ServerProcessJobLauncher",
+              "args": {}
+          },
+          {
+              "id": "log_receiver",
+              "path": "nvflare.app_common.logging.job_log_receiver.JobLogReceiver",
+              "args": {}
           }
       ]
+  }
+
+comm_config: |
+  {
+    "allow_adhoc_conns": false,
+    "backbone_conn_gen": {~~conn_gen~~},
+    "internal": {
+      "scheme": "{~~scheme~~}",
+      "resources": {
+        "host": "{~~host~~}",
+        "port": {~~port~~},
+        "connection_security": "{~~conn_sec~~}"
+      }
+    }
   }
 
 fed_server: |
@@ -229,15 +257,17 @@ fed_server: |
     "format_version": 2,
     "servers": [
         {
-            "name": "spleen_segmentation",
+            "name": "{~~name~~}",
             "service": {
-                "target": "localhost:8002"
+                "target": "{~~target~~}",
+                "scheme": "{~~scheme~~}"
             },
-            "admin_host": "localhost",
-            "admin_port": 5005,
+            "admin_server": "{~~admin_server~~}",
+            "admin_port": {~~admin_port~~},
             "ssl_private_key": "server.key",
             "ssl_cert": "server.crt",
-            "ssl_root_cert": "rootCA.pem"
+            "ssl_root_cert": "rootCA.pem",
+            "connection_security": "{~~conn_sec~~}"
         }
     ]
   }
@@ -246,15 +276,31 @@ fed_admin: |
   {
     "format_version": 1,
     "admin": {
+      "project_name": "{~~project_name~~}",
+      "username": "{~~username~~}",
+      "server_identity": "{~~server_identity~~}",
+      "scheme": "{~~scheme~~}",
+      "host": "{~~host~~}",
+      "port": {~~port~~},
+      "connection_security": "{~~conn_sec~~}",
+      "uid_source": "{~~uid_source~~}",
       "with_file_transfer": true,
       "upload_dir": "transfer",
       "download_dir": "transfer",
-      "with_login": true,
-      "with_ssl": true,
-      "cred_type": "cert",
       "client_key": "client.key",
       "client_cert": "client.crt",
-      "ca_cert": "rootCA.pem",
+      "ca_cert": "rootCA.pem"
+    }
+  }
+
+default_admin_resources: |
+  {
+    "format_version": 1,
+    "admin": {
+      "idle_timeout": 900.0,
+      "login_timeout": 10.0,
+      "with_debug": false,
+      "authenticate_msg_timeout": 2.0,
       "prompt": "> "
     }
   }
@@ -290,82 +336,122 @@ default_authz: |
     }
   }
 
-authz_def: |
+cc_authz: |
   {
-    "rules": {
-      "allow_byoc": {
-        "desc": "allow BYOC in APP",
-        "type": "bool",
-        "default": false
+    "format_version": "1.0",
+    "permissions": {
+      "project_admin": "any",
+      "org_admin": {
+        "submit_job": "none",
+        "clone_job": "none",
+        "manage_job": "o:submitter",
+        "download_job": "none",
+        "view": "any",
+        "operate": "none",
+        "shell_commands": "none",
+        "byoc": "none"
       },
-      "allow_custom_datalist": {
-        "desc": "allow custom datalist",
-        "default": true
-      }
-    },
-    "rights": {
-      "train_self": {
-        "desc": "do training operations on own site",
-        "default": false,
-        "precond": "selfOrg"
+      "lead": {
+        "submit_job": "any",
+        "clone_job": "n:submitter",
+        "manage_job": "n:submitter",
+        "download_job": "none",
+        "view": "any",
+        "operate": "none",
+        "shell_commands": "none",
+        "byoc": "none"
       },
-      "train_all": {
-        "desc": "do training ops on all sites",
-        "default": false
-      },
-      "view_self": {
-        "desc": "view log files of own org",
-        "default": true,
-        "precond": "selfOrg"
-      },
-      "view_all": {
-        "desc": "view log files of all sites",
-        "default": false
-      },
-      "operate_all": {
-        "desc": "start/stop all sites",
-        "default": false
-      },
-      "operate_self": {
-        "desc": "start/stop own site",
-        "default": false,
-        "precond": "selfOrg"
+      "member": {
+        "view": "any"
       }
     }
   }
 
+
 fl_admin_sh: |
   #!/usr/bin/env bash
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+  mkdir -p $DIR/../transfer
   python3 -m nvflare.fuel.hci.tools.admin -m $DIR/.. -s fed_admin.json
 
 log_config: |
-  [loggers]
-  keys=root
-
-  [handlers]
-  keys=consoleHandler
-
-  [formatters]
-  keys=fullFormatter
-
-  [logger_root]
-  level=INFO
-  handlers=consoleHandler
-
-  [handler_consoleHandler]
-  class=StreamHandler
-  level=DEBUG
-  formatter=fullFormatter
-  args=(sys.stdout,)
-
-  [formatter_fullFormatter]
-  format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
-
-start_ovsr_sh: |
-  #!/usr/bin/env bash
-  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  NVFL_OVERSEER_HEARTBEAT_TIMEOUT=10 AUTHZ_FILE=$DIR/privilege.yml gunicorn -c $DIR/gunicorn.conf.py --keyfile $DIR/overseer.key --certfile $DIR/overseer.crt --ca-certs $DIR/rootCA.pem
+  {
+      "version": 1,
+      "disable_existing_loggers": false,
+      "formatters": {
+          "baseFormatter": {
+              "()": "nvflare.fuel.utils.log_utils.BaseFormatter",
+              "fmt": "%(asctime)s - %(name)s - %(levelname)s - %(fl_ctx)s - %(message)s"
+          },
+          "consoleFormatter": {
+              "()": "nvflare.fuel.utils.log_utils.ColorFormatter",
+              "fmt": "%(asctime)s - %(name)s - %(levelname)s - %(fl_ctx)s - %(message)s"
+          },
+          "jsonFormatter": {
+              "()": "nvflare.fuel.utils.log_utils.JsonFormatter",
+              "fmt": "%(asctime)s - %(name)s - %(fullName)s - %(levelname)s - %(fl_ctx)s - %(message)s"
+          }
+      },
+      "filters": {
+          "FLFilter": {
+              "()": "nvflare.fuel.utils.log_utils.LoggerNameFilter",
+              "logger_names": ["custom", "nvflare.app_common", "nvflare.app_opt"]
+          }
+      },
+      "handlers": {
+          "consoleHandler": {
+              "class": "logging.StreamHandler",
+              "level": "DEBUG",
+              "formatter": "consoleFormatter",
+              "filters": [],
+              "stream": "ext://sys.stdout"
+          },
+          "logFileHandler": {
+              "class": "logging.handlers.RotatingFileHandler",
+              "level": "DEBUG",
+              "formatter": "baseFormatter",
+              "filename": "log.txt",
+              "mode": "a",
+              "maxBytes": 20971520,
+              "backupCount": 10
+          },
+          "errorFileHandler": {
+              "class": "logging.handlers.RotatingFileHandler",
+              "level": "ERROR",
+              "formatter": "baseFormatter",
+              "filename": "log_error.txt",
+              "mode": "a",
+              "maxBytes": 20971520,
+              "backupCount": 10
+          },
+          "jsonFileHandler": {
+              "class": "logging.handlers.RotatingFileHandler",
+              "level": "DEBUG",
+              "formatter": "jsonFormatter",
+              "filename": "log.json",
+              "mode": "a",
+              "maxBytes": 20971520,
+              "backupCount": 10
+          },
+          "FLFileHandler": {
+              "class": "logging.handlers.RotatingFileHandler",
+              "level": "DEBUG",
+              "formatter": "baseFormatter",
+              "filters": ["FLFilter"],
+              "filename": "log_fl.txt",
+              "mode": "a",
+              "maxBytes": 20971520,
+              "backupCount": 10,
+              "delay": true
+          }
+      },
+      "loggers": {
+          "root": {
+              "level": "INFO",
+              "handlers": ["consoleHandler", "logFileHandler", "errorFileHandler", "jsonFileHandler", "FLFileHandler"]
+          }
+      }
+  }
 
 start_cln_sh: |
   #!/usr/bin/env bash
@@ -379,15 +465,25 @@ start_cln_sh: |
       case $key in
         --cloud)
           doCloud=true
+          csp=$2
           shift
         ;;
       esac
       shift
   done
 
-  if [ $doCloud = true ]
+  if [ $doCloud == true ]
   then
-    echo "Only on-prem is currently supported."
+    case $csp in
+      azure)
+        $DIR/azure_start.sh ${all_arguments}
+        ;;
+      aws)
+        $DIR/aws_start.sh ${all_arguments}
+        ;;
+      *)
+        echo "Only on-prem or azure or aws is currently supported."
+    esac
   else
     $DIR/sub_start.sh &
   fi
@@ -404,9 +500,10 @@ start_svr_sh: |
     key="$1"
     case $key in
       --cloud)
-        if [ $ha_mode = false ]
+        if [ $ha_mode == false ]
         then
           doCloud=true
+          csp=$2
           shift
         else
           echo "Cloud launch does not support NVFlare HA mode."
@@ -417,9 +514,18 @@ start_svr_sh: |
     shift
   done
 
-  if [ $doCloud = true ]
+  if [ $doCloud == true ]
   then
-    echo "Only on-prem is currently supported."
+    case $csp in
+      azure)
+        $DIR/azure_start.sh ${all_arguments}
+        ;;
+      aws)
+        $DIR/aws_start.sh ${all_arguments}
+        ;;
+      *)
+        echo "Only on-prem or azure or aws is currently supported."
+    esac
   else
     $DIR/sub_start.sh &
   fi
@@ -444,7 +550,7 @@ stop_fl_sh: |
       ;;
   esac
 
-sub_start_cln_sh: |
+sub_start_sh: |
   #!/usr/bin/env bash
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
   echo "WORKSPACE set to $DIR/.."
@@ -452,9 +558,48 @@ sub_start_cln_sh: |
   export PYTHONPATH=/local/custom:$PYTHONPATH
   echo "PYTHONPATH is $PYTHONPATH"
 
+  # Memory management configuration
+  # Opt-in jemalloc preload for PyTorch workloads.
+  # Enable by setting NVFLARE_ENABLE_JEMALLOC_PRELOAD=true.
+  if [ "${NVFLARE_ENABLE_JEMALLOC_PRELOAD:-false}" = "true" ]; then
+    for JEMALLOC in /usr/lib/x86_64-linux-gnu/libjemalloc.so.2 \
+                    /usr/lib64/libjemalloc.so.2 \
+                    /usr/local/lib/libjemalloc.so; do
+        if [ -f "$JEMALLOC" ]; then
+            export LD_PRELOAD="${LD_PRELOAD:+$LD_PRELOAD:}$JEMALLOC"
+            export MALLOC_CONF="${MALLOC_CONF:-dirty_decay_ms:5000,muzzy_decay_ms:5000}"
+            echo "Using jemalloc: $JEMALLOC"
+            break
+        fi
+    done
+  fi
+
+  # Limit glibc memory arenas to reduce RSS fragmentation (ignored by jemalloc)
+  # Recommended: MALLOC_ARENA_MAX=2 for clients, MALLOC_ARENA_MAX=4 for servers
+  export MALLOC_ARENA_MAX=${MALLOC_ARENA_MAX:-4}
+
+  while [[ $# -gt 0 ]]
+  do
+    key="$1"
+    case $key in
+      --verify)
+        doVerify=true
+      ;;
+      --once)
+        doOnce=true
+      ;;
+    esac
+    shift
+  done
+
   SECONDS=0
   lst=-400
   restart_count=0
+
+  start_python() {
+    python3 -u -m nvflare.private.fed.app.{~~type~~}.{~~app_name~~} -m $DIR/.. -s fed_{~~type~~}.json --set secure_train=true {~~cln_uid~~} org={~~org_name~~} config_folder={~~config_folder~~}
+  }
+
   start_fl() {
     if [[ $(( $SECONDS - $lst )) -lt 300 ]]; then
       ((restart_count++))
@@ -467,7 +612,7 @@ sub_start_cln_sh: |
       exit
     fi
     lst=$SECONDS
-  ((python3 -u -m nvflare.private.fed.app.client.client_train -m $DIR/.. -s fed_client.json --set secure_train=true uid={~~client_name~~} org={~~org_name~~} config_folder={~~config_folder~~} 2>&1 & echo $! >&3 ) 3>$DIR/../pid.fl )
+    (start_python 2>&1 & echo $! >&3 ) 3>$DIR/../pid.fl
     pid=`cat $DIR/../pid.fl`
     echo "new pid ${pid}"
   }
@@ -488,92 +633,21 @@ sub_start_cln_sh: |
     rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl 2> /dev/null 1>&2
   }
 
-  if [[ -f "$DIR/../daemon_pid.fl" ]]; then
-    dpid=`cat $DIR/../daemon_pid.fl`
-    kill -0 ${dpid} 2> /dev/null 1>&2
-    if [[ $? -eq 0 ]]; then
-      echo "There seems to be one instance, pid=$dpid, running."
-      echo "If you are sure it's not the case, please kill process $dpid and then remove daemon_pid.fl in $DIR/.."
-      exit
+  if [[ "$doVerify" == "true" ]]; then
+    python3 -m nvflare.tool.verify_startup_kits -f $DIR/../ -c $DIR/rootCA.pem
+    verification_status=$?
+    if [[ $verification_status -ne 0 ]]; then
+      echo "verification failed"
+      exit 1
     fi
-    rm -f $DIR/../daemon_pid.fl
   fi
 
-  echo $BASHPID > $DIR/../daemon_pid.fl
-
-  while true
-  do
-    sleep 5
-    if [[ ! -f "$DIR/../pid.fl" ]]; then
-      echo "start fl because of no pid.fl"
-      start_fl
-      continue
-    fi
-    pid=`cat $DIR/../pid.fl`
-    kill -0 ${pid} 2> /dev/null 1>&2
-    if [[ $? -ne 0 ]]; then
-      if [[ -f "$DIR/../shutdown.fl" ]]; then
-        echo "Gracefully shutdown."
-        break
-      fi
-      echo "start fl because process of ${pid} does not exist"
-      start_fl
-      continue
-    fi
-    if [[ -f "$DIR/../shutdown.fl" ]]; then
-      echo "About to shutdown."
-      stop_fl
-      break
-    fi
-    if [[ -f "$DIR/../restart.fl" ]]; then
-      echo "About to restart."
-      stop_fl
-    fi
-  done
-
-  rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl $DIR/../daemon_pid.fl
-
-sub_start_svr_sh: |
-  #!/usr/bin/env bash
-  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  echo "WORKSPACE set to $DIR/.."
-  mkdir -p $DIR/../transfer
-
-  SECONDS=0
-  lst=-400
-  restart_count=0
-  start_fl() {
-    if [[ $(( $SECONDS - $lst )) -lt 300 ]]; then
-      ((restart_count++))
-    else
-      restart_count=0
-    fi
-    if [[ $(($SECONDS - $lst )) -lt 300 && $restart_count -ge 5 ]]; then
-      echo "System is in trouble and unable to start the task!!!!!"
-      rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl $DIR/../daemon_pid.fl
-      exit
-    fi
-    lst=$SECONDS
-  ((python3 -u -m nvflare.private.fed.app.server.server_train -m $DIR/.. -s fed_server.json --set secure_train=true org={~~org_name~~} config_folder={~~config_folder~~} 2>&1 & echo $! >&3 ) 3>$DIR/../pid.fl )
-    pid=`cat $DIR/../pid.fl`
-    echo "new pid ${pid}"
-  }
-
-  stop_fl() {
-    if [[ ! -f "$DIR/../pid.fl" ]]; then
-      echo "No pid.fl.  No need to kill process."
-      return
-    fi
-    pid=`cat $DIR/../pid.fl`
-    sleep 5
-    kill -0 ${pid} 2> /dev/null 1>&2
-    if [[ $? -ne 0 ]]; then
-      echo "Process already terminated"
-      return
-    fi
-    kill -9 $pid
-    rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl
-  }
+  if [[ "$doOnce" == "true" ]]; then
+    echo "Start NVFlare directly"
+    rm -f $DIR/../pid.fl $DIR/../shutdown.fl $DIR/../restart.fl 2> /dev/null 1>&2
+    start_python
+    exit $?
+  fi
 
   if [[ -f "$DIR/../daemon_pid.fl" ]]; then
     dpid=`cat $DIR/../daemon_pid.fl`
@@ -634,21 +708,58 @@ docker_cln_sh: |
   # Parse command-line arguments
   while [[ "$#" -gt 0 ]]; do
       case $1 in
-          --data_dir)        MY_DATA_DIR="$2"; shift ;;
-          --scratch_dir)     MY_SCRATCH_DIR="$2"; shift ;;
-          --GPU)             GPU2USE="$2"; shift ;;
-          --no_pull)         NOPULL="1" ;;
-          --dummy_training)  DUMMY_TRAINING="1" ;;
-          --preflight_check) PREFLIGHT_CHECK="1" ;;
-          --local_training)  LOCAL_TRAINING="1" ;;
-          --start_client)    START_CLIENT="1" ;;
-          --list_licenses)   LIST_LICENSES="1";;
-          --interactive)     INTERACTIVE="1" ;;
-          --run_script)      SCRIPT_TO_RUN="$2"; shift ;;
+          --data_dir)            MY_DATA_DIR="$2"; shift ;;
+          --scratch_dir)         MY_SCRATCH_DIR="$2"; shift ;;
+          --GPU)                 GPU2USE="$2"; shift ;;
+          --no_pull)             NOPULL="1" ;;
+          --dummy_training)      DUMMY_TRAINING="1" ;;
+          --preflight_check)     PREFLIGHT_CHECK="1" ;;
+          --local_training)      LOCAL_TRAINING="1" ;;
+          --start_client)        START_CLIENT="1" ;;
+          --list_licenses)       LIST_LICENSES="1";;
+          --interactive)         INTERACTIVE="1" ;;
+          --run_script)          SCRIPT_TO_RUN="$2"; shift ;;
+          --job)                 JOB_NAME="$2"; shift ;;
+          --log_dataset_details) LOG_DATASET_DETAILS="1";;
+          --institution)         CLI_INSTITUTION="$2"; shift ;;
+          --model_name)          CLI_MODEL_NAME="$2"; shift ;;
+          --num_epochs)          CLI_NUM_EPOCHS="$2"; shift ;;
+          --fold)                CLI_FOLD="$2"; shift ;;
+          --image)               CLI_IMAGE="$2"; shift ;;
+          --config)              CLI_CONFIG="$2"; shift ;;
+          --container_name)      CONTAINER_NAME="$2"; shift ;;
+          --docker_options)      CLI_DOCKER_OPTIONS="$2"; shift ;;
+          --external_validation) EXTERNAL_VALIDATION="1" ;;
+          --checkpoint)          CLI_CHECKPOINT="$2"; shift ;;
+          --split)               CLI_SPLIT="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
   done
+
+  # Default job for preflight_check and local_training
+  : ${JOB_NAME:="challenge_1DivideAndConquer"}
+
+  # Auto-derive MODEL_NAME from challenge job names.
+  # Challenge jobs (challenge_1DivideAndConquer, etc.) share identical code
+  # via symlinks, so the model is selected entirely by MODEL_NAME.
+  # When --job specifies a challenge job and --model_name was NOT given,
+  # derive MODEL_NAME automatically so participants don't need to set both.
+  if [[ -n "$PREFLIGHT_CHECK" || -n "$LOCAL_TRAINING" ]]; then
+    if [[ -z "${CLI_MODEL_NAME:-}" && "$JOB_NAME" == challenge_* ]]; then
+        _derived="${JOB_NAME#challenge_}"
+        case "$_derived" in
+            4abmil) CLI_MODEL_NAME="4LME_ABMIL" ;;                                       # job dir name differs from model name
+            5pimed) CLI_MODEL_NAME="5Pimed" ;;                                           # job dir name differs from model name
+            *)      CLI_MODEL_NAME="$_derived" ;;
+        esac
+        echo "[INFO] Auto-derived MODEL_NAME='$CLI_MODEL_NAME' from --job '$JOB_NAME'"
+    fi
+    if [[ -z "${CLI_MODEL_NAME:-}" && "$JOB_NAME" == "ODELIA_ternary_classification" ]]; then
+        CLI_MODEL_NAME="MST"                                                             # job dir name differs from model name
+        echo "[INFO] Auto-derived MODEL_NAME='$CLI_MODEL_NAME' from --job '$JOB_NAME'"
+    fi
+  fi
 
   # Prompt for parameters if missing
   if [[ -z "$DUMMY_TRAINING" && -z "$LIST_LICENSES" && -z "$MY_DATA_DIR" ]]; then
@@ -669,7 +780,7 @@ docker_cln_sh: |
   # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-  if [[ ! -z "$MY_SCRATCH_DIR" ]]; then
+  if [ -n "$MY_SCRATCH_DIR" ]; then
       mkdir -p "$MY_SCRATCH_DIR"
       chmod -R 777 "$MY_SCRATCH_DIR"
   fi
@@ -679,69 +790,353 @@ docker_cln_sh: |
   rm -rf ../pid.fl ../daemon_pid.fl
 
   # Docker image and container name
+  #
+  # The provisioned tag below is only the DEFAULT. The backbone, the training code
+  # and the job configs all ship in the IMAGE (not in this kit), and docker.sh pulls
+  # by tag on every run -- so a site can move to a new image WITHOUT a new kit:
+  #
+  #   startup/image.conf   ->  MEDISWARM_IMAGE=jefftud/odelia:1.6.0    (persistent)
+  #   ./docker.sh --image jefftud/odelia:1.6.0 ...                     (one-off)
+  #
+  # Point image.conf at a release channel (e.g. :current) to pick up releases with no
+  # action at all. Precedence: --image > MEDISWARM_IMAGE env > image.conf > default.
   DOCKER_IMAGE={~~docker_image~~}
+  # Capture a pre-exported MEDISWARM_IMAGE BEFORE sourcing image.conf, so a one-off
+  # env override wins over the persistent file (documented precedence: --image > env
+  # > image.conf > default). Without this, image.conf's assignment would clobber the
+  # env var (#449 follow-up).
+  ENV_IMAGE="${MEDISWARM_IMAGE:-}"
+  # Same capture-before-source trick for extra docker options (#218): a pre-exported
+  # MEDISWARM_DOCKER_OPTIONS must beat an image.conf assignment.
+  ENV_DOCKER_OPTIONS="${MEDISWARM_DOCKER_OPTIONS:-}"
+  if [ -f "$DIR/image.conf" ]; then
+      . "$DIR/image.conf"
+  fi
+  MEDISWARM_IMAGE="${ENV_IMAGE:-${MEDISWARM_IMAGE:-}}"
+  DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"
+  # Extra options to pass through to `docker run` (#218): partners needed to add
+  # host-specific options (e.g. --cpus / --cpuset-cpus) without hand-editing this
+  # script. Precedence mirrors the image: --docker_options CLI > MEDISWARM_DOCKER_OPTIONS
+  # env > image.conf. Appended last below so a site option can override a built-in.
+  MEDISWARM_DOCKER_OPTIONS="${ENV_DOCKER_OPTIONS:-${MEDISWARM_DOCKER_OPTIONS:-}}"
+  EXTRA_DOCKER_OPTIONS="${CLI_DOCKER_OPTIONS:-${MEDISWARM_DOCKER_OPTIONS:-}}"
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull "$DOCKER_IMAGE"
   fi
 
-  CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
-  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE -u $(id -u):$(id -g)"
+  if [[ -z "$CONTAINER_NAME" ]]; then
+     CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
+  fi
+  DOCKER_NOFILE_LIMIT="${DOCKER_NOFILE_LIMIT:-65536}"
+  DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE --ulimit nofile=${DOCKER_NOFILE_LIMIT}:${DOCKER_NOFILE_LIMIT} --shm-size=16g -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
-  if [[ ! -z "$MY_DATA_DIR" ]]; then
+  if [ -n "$MY_DATA_DIR" ]; then
       DOCKER_MOUNTS+=" -v $MY_DATA_DIR:/data/:ro"
+      # #478/#481: some sites store exams as symlinks pointing at an ABSOLUTE host path
+      # (e.g. UKA_2/<uid> -> /home/swarm/.../UKA_1/<uid>, to avoid duplicating TBs of
+      # images). Inside the container that absolute path does not exist, so every link
+      # dangles and the loader sees zero images. Mounting the data dir a second time at
+      # its own host path makes any link that stays WITHIN the tree resolve. Targets
+      # outside $MY_DATA_DIR still need an explicit extra mount, e.g. via
+      # MEDISWARM_DOCKER_OPTIONS="-v /abs/target:/abs/target:ro" in startup/image.conf.
+      if ! [[ "$MY_DATA_DIR" =~ "/data" ]]; then
+          DOCKER_MOUNTS+=" -v $MY_DATA_DIR:$MY_DATA_DIR:ro"
+      fi
   fi
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
-  DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B}"
+  DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B} ${EXTRA_DOCKER_OPTIONS}"
 
   # Common ENV vars
+  # CLI flags (--model_name, --num_epochs, --config, --fold) take priority over env
+  # vars,
+  # which in turn take priority over defaults. This ensures values survive "sudo"
+  # (which resets the environment) when passed as CLI arguments.
   ENV_VARS="--env SITE_NAME={~~client_name~~} \
             --env DATA_DIR=/data \
             --env SCRATCH_DIR=/scratch \
             --env TORCH_HOME=/torch_home \
+            --env HF_HOME=/huggingface_home \
             --env GPU_DEVICE=$GPU2USE \
-            --env MODEL_NAME=${MODEL_NAME:-MST} \
-            --env NUM_EPOCHS=${NUM_EPOCHS:-100} \
-            --env CONFIG=unilateral \
-            --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__"
+            --env MODEL_NAME=${CLI_MODEL_NAME:-${MODEL_NAME:-MST}} \
+            --env NUM_EPOCHS=${CLI_NUM_EPOCHS:-${NUM_EPOCHS:-100}} \
+            --env FOLD=${CLI_FOLD:-${FOLD:-0}} \
+            --env CONFIG=${CLI_CONFIG:-${CONFIG:-unilateral}} \
+            --env MEDISWARM_VERSION=__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__ \
+            --env TORCH_MULTIPROCESSING_SHARING_STRATEGY=${TORCH_MULTIPROCESSING_SHARING_STRATEGY:-file_system} \
+            --env NVFLARE_TENSOR_MIN_DOWNLOAD_TIMEOUT=1800"
+  # ↑ NVFLARE_TENSOR_MIN_DOWNLOAD_TIMEOUT: overrides NVFlare's FOBS tensor
+  #   streaming timeout (default 300s). Large models (689MB+) over VPN need
+  #   30 min (1800s). Consumed by ConfigService → ViaDownloaderDecomposer.
+
+  if [ -n "$LOG_DATASET_DETAILS" ]; then
+     ENV_VARS+=" --env LOG_DATASET_DETAILS=1"
+  fi
+
+  # #478: a site whose data folder differs from its swarm identity. SITE_NAME above is
+  # baked at kit-generation time and is the NVFlare client identity (it must match the
+  # certificate), but the loader reads /data/$INSTITUTION/..., which defaults to
+  # SITE_NAME. INSTITUTION lets the two vary independently -- e.g. UKA registers as
+  # UKA_1 while training on the curated /data/UKA_2. Precedence: --institution CLI >
+  # INSTITUTION env (the CLI form survives `sudo`, an exported var does not).
+  INSTITUTION_RESOLVED="${CLI_INSTITUTION:-${INSTITUTION:-}}"
+  if [ -n "$INSTITUTION_RESOLVED" ]; then
+      ENV_VARS+=" --env INSTITUTION=$INSTITUTION_RESOLVED"
+      if [ "$INSTITUTION_RESOLVED" != "{~~client_name~~}" ]; then
+          echo "[INFO] Reading data as INSTITUTION='$INSTITUTION_RESOLVED' (/data/$INSTITUTION_RESOLVED/...);"
+          echo "       swarm identity stays SITE_NAME='{~~client_name~~}'."
+      fi
+  fi
+
+  # Optional ODELIA loader/hash/cache tuning knobs.
+  if [ -n "${ODELIA_NUM_WORKERS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_NUM_WORKERS=$ODELIA_NUM_WORKERS"
+  fi
+  if [ -n "${ODELIA_HASH_NUM_WORKERS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_HASH_NUM_WORKERS=$ODELIA_HASH_NUM_WORKERS"
+  fi
+  if [ -n "${ODELIA_THREADS_PER_WORKER:-}" ]; then
+      ENV_VARS+=" --env ODELIA_THREADS_PER_WORKER=$ODELIA_THREADS_PER_WORKER"
+  fi
+  if [ -n "${ODELIA_INTEROP_THREADS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_INTEROP_THREADS=$ODELIA_INTEROP_THREADS"
+  fi
+  if [ -n "${ODELIA_HASH_CACHE_DIR:-}" ]; then
+      ENV_VARS+=" --env ODELIA_HASH_CACHE_DIR=$ODELIA_HASH_CACHE_DIR"
+  fi
+  if [ -n "${ODELIA_ENABLE_PREPROCESS_CACHE:-}" ]; then
+      ENV_VARS+=" --env ODELIA_ENABLE_PREPROCESS_CACHE=$ODELIA_ENABLE_PREPROCESS_CACHE"
+  fi
+  if [ -n "${ODELIA_PREPROCESS_CACHE_DIR:-}" ]; then
+      ENV_VARS+=" --env ODELIA_PREPROCESS_CACHE_DIR=$ODELIA_PREPROCESS_CACHE_DIR"
+  fi
+  if [ -n "${ODELIA_PREPROCESS_CACHE_VERSION:-}" ]; then
+      ENV_VARS+=" --env ODELIA_PREPROCESS_CACHE_VERSION=$ODELIA_PREPROCESS_CACHE_VERSION"
+  fi
+  # The k-fold data validation (#427) aborts when a declared split has no usable rows,
+  # and its documented escape hatch is this env var (e.g. =test for a site that
+  # genuinely has no test data). It must reach the container or the hatch is unusable.
+  if [ -n "${ODELIA_ALLOW_EMPTY_SPLITS:-}" ]; then
+      ENV_VARS+=" --env ODELIA_ALLOW_EMPTY_SPLITS=$ODELIA_ALLOW_EMPTY_SPLITS"
+  fi
+
+  # ── Live Sync Integration ──────────────────────────────────────────
+  # live_sync.sh is co-located in the startup directory (injected by
+  # _injectLiveSyncIntoStartupKits.sh) and syncs training artifacts to
+  # the central monitoring server for --local_training and --start_client
+  # modes.  If live_sync.sh is not present the functions are a no-op.
+  KIT_ROOT="$(cd "$DIR/.." && pwd)"
+  SYNC_STATE_DIR="$DIR/.mediswarm_sync"
+  SITE_NAME_RESOLVED="{~~client_name~~}"
+
+  _start_live_sync() {
+    local mode="$1"
+    if [ ! -f "$DIR/live_sync.sh" ]; then return; fi
+    mkdir -p "$SYNC_STATE_DIR"
+
+    if [ "$mode" = "local" ]; then
+      "$DIR/live_sync.sh" \
+        --mode local \
+        --site-name "$SITE_NAME_RESOLVED" \
+        --kit-root "$KIT_ROOT" \
+        --startup-dir "$DIR" \
+        --scratch-dir "${MY_SCRATCH_DIR:-}" &
+      LIVE_SYNC_PID=$!
+    elif [ "$mode" = "swarm" ]; then
+      local pid_file="$SYNC_STATE_DIR/swarm_sync.pid"
+      if [ -f "$pid_file" ]; then
+        local old_pid
+        old_pid="$(cat "$pid_file" 2>/dev/null || true)"
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+          echo "Live sync daemon already running (PID $old_pid)"
+          return 0
+        fi
+      fi
+      nohup "$DIR/live_sync.sh" \
+        --mode swarm \
+        --site-name "$SITE_NAME_RESOLVED" \
+        --kit-root "$KIT_ROOT" \
+        --startup-dir "$DIR" \
+        --scratch-dir "${MY_SCRATCH_DIR:-}" \
+        > "$SYNC_STATE_DIR/live_sync_daemon.log" 2>&1 < /dev/null &
+      echo $! > "$pid_file"
+      echo "Started live sync daemon (PID $(cat "$pid_file"))"
+    fi
+  }
+
+  _stop_live_sync() {
+    if [ -n "${LIVE_SYNC_PID:-}" ] && kill -0 "$LIVE_SYNC_PID" 2>/dev/null; then
+      kill "$LIVE_SYNC_PID" || true
+      wait "$LIVE_SYNC_PID" || true
+    fi
+  }
+
+  # ── Pre-run host checks ────────────────────────────────────────────
+  # Surface the failure modes we have repeatedly hit (GPU/cgroup loss,
+  # read-only preprocessing cache, server unreachable, stale client lock)
+  # BEFORE a run, with concrete remediation. See docs/SWARM_FAILURE_MODES.md.
+  _preflight_host_checks() {
+      local fail=0
+      echo "──────────────── Pre-run checks ────────────────"
+
+      # F2: GPU usable inside a container (catches 'NVML: Unknown Error')
+      if timeout 90 docker run --rm --gpus=$GPU2USE $DOCKER_IMAGE nvidia-smi -L >/dev/null 2>&1; then
+          echo "[PASS] GPU usable inside the container."
+      else
+          echo "[FAIL] GPU NOT usable inside the container (likely 'NVML: Unknown Error')."
+          echo "       Fix: run  scripts/client_node_setup/fix_docker_cgroupfs.sh  then recreate the client (docs: F2)."
+          fail=1
+      fi
+
+      # F2 (preventive): systemd cgroup driver -> daemon-reload can strip the GPU mid-run
+      local cgdrv; cgdrv=$(docker info 2>/dev/null | sed -n 's/.*Cgroup Driver: //p' | head -1)
+      if [ "$cgdrv" = "systemd" ]; then
+          echo "[WARN] Docker cgroup driver is 'systemd'. A daily 'systemctl daemon-reload' (e.g. apt"
+          echo "       auto-upgrade) can strip the GPU from RUNNING containers mid-run. Recommended:"
+          echo "       scripts/client_node_setup/fix_docker_cgroupfs.sh  (switches to cgroupfs; docs: F2)."
+      fi
+
+      # F4: preprocessing cache must be writable and NOT under the read-only /data mount
+      if [ "${ODELIA_ENABLE_PREPROCESS_CACHE:-}" = "1" ]; then
+          case "${ODELIA_PREPROCESS_CACHE_DIR:-}" in
+            /data|/data/*)
+              echo "[FAIL] ODELIA_PREPROCESS_CACHE_DIR='$ODELIA_PREPROCESS_CACHE_DIR' is under /data, which is"
+              echo "       mounted READ-ONLY -> training crashes with 'Read-only file system'. Point it under"
+              echo "       /scratch, e.g. ODELIA_PREPROCESS_CACHE_DIR=/scratch/odelia_preprocess_cache (docs: F4)."
+              fail=1 ;;
+          esac
+      fi
+
+      # Checks that only matter when actually joining the swarm
+      if [ -n "$START_CLIENT" ]; then
+          # F6: swarm server reachable over the VPN (best-effort parse of host:port from kit config)
+          local ep host port
+          ep=$(grep -hoE '[A-Za-z0-9][A-Za-z0-9.-]+\.[A-Za-z]{2,}:80[0-9][0-9]' "$DIR"/*.json 2>/dev/null | head -1)
+          if [ -n "$ep" ]; then
+              host=${ep%%:*}; port=${ep##*:}
+              if timeout 6 bash -c "</dev/tcp/$host/$port" 2>/dev/null; then
+                  echo "[PASS] Swarm server $ep reachable."
+              else
+                  echo "[WARN] Swarm server $ep NOT reachable — check the VPN and /etc/hosts (docs: F6)."
+              fi
+          fi
+          # F3: a stale daemon_pid.fl blocks start.sh ("one instance running") after an unclean stop
+          local lock="$DIR/../daemon_pid.fl"
+          if [ -f "$lock" ]; then
+              if docker ps --filter "name=odelia_swarm_client" --format '{{.Names}}' | grep -q .; then
+                  echo "[WARN] $lock present and a client container is running; leaving it in place."
+              else
+                  echo "[INFO] Removing stale daemon_pid.fl (no client container running) so start.sh can launch (docs: F3)."
+                  rm -f "$lock"
+              fi
+          fi
+      fi
+
+      echo "─────────────────────────────────────────────────"
+      if [ "$fail" = "1" ]; then
+          echo "[ABORT] Pre-run checks failed — fix the [FAIL] item(s) above and retry."
+          exit 2
+      fi
+  }
+
+  # Run pre-run host checks for the GPU-using modes
+  if [ -n "$DUMMY_TRAINING" ] || [ -n "$PREFLIGHT_CHECK" ] || [ -n "$START_CLIENT" ] || [ -n "$EXTERNAL_VALIDATION" ]; then
+      _preflight_host_checks
+  fi
 
   # Execution modes
-  if [[ ! -z "$DUMMY_TRAINING" ]]; then
+  if [ -n "$DUMMY_TRAINING" ]; then
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py"
 
-  elif [[ ! -z "$PREFLIGHT_CHECK" ]]; then
+  elif [ -n "$PREFLIGHT_CHECK" ]; then
+      echo "[INFO] Preflight check using job: $JOB_NAME"
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=preflight_check --env NUM_EPOCHS=1 $DOCKER_IMAGE \
-      /bin/bash -c "/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/main.py"
+      /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py"
 
-  elif [[ ! -z "$LOCAL_TRAINING" ]]; then
-      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training --env NUM_EPOCHS=100 $DOCKER_IMAGE \
-      /bin/bash -c "/MediSwarm/application/jobs/ODELIA_ternary_classification/app/custom/main.py"
+  elif [ -n "$LOCAL_TRAINING" ]; then
+      echo "[INFO] Local training using job: $JOB_NAME"
+      trap _stop_live_sync EXIT INT TERM
+      export MEDISWARM_LOCAL_SYNC_START_TS="$(date +%s)"
+      _start_live_sync local
+      LOCAL_TRAINING_CONSOLE_LOG="$DIR/local_training_console_output.txt"
+      : > "$LOCAL_TRAINING_CONSOLE_LOG"
+      set +e
+      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training $DOCKER_IMAGE \
+      /bin/bash -c "/MediSwarm/application/jobs/${JOB_NAME}/app/custom/main.py" 2>&1 | tee "$LOCAL_TRAINING_CONSOLE_LOG"
+      LOCAL_TRAINING_STATUS=${PIPESTATUS[0]}
+      set -e
+      exit "$LOCAL_TRAINING_STATUS"
 
-  elif [[ ! -z "$START_CLIENT" ]]; then
-      docker run -d -t --rm $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
+  elif [ -n "$START_CLIENT" ]; then
+      _start_live_sync swarm
+      docker run -d -t --restart=unless-stopped \
+      --health-cmd="nvidia-smi > /dev/null 2>&1 || exit 1" \
+      --health-interval=120s --health-start-period=180s --health-retries=3 \
+      $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
-  elif [[ ! -z "$LIST_LICENSES" ]]; then
+  elif [ -n "$EXTERNAL_VALIDATION" ]; then
+      # Predict-only external validation (#412): run a delivered global model on this
+      # site's local test/ext split. No swarm, no aggregation, no network -- metrics and
+      # per-sample predictions are written under /scratch and stay on the node. Only the
+      # aggregate metrics in prediction_results.json need to be shared back.
+      EV_CHECKPOINT="${CLI_CHECKPOINT:-/scratch/FL_global_model.pt}"
+      EV_SPLIT="${CLI_SPLIT:-test}"
+      echo "[INFO] External validation: model=${CLI_MODEL_NAME:-${MODEL_NAME:-MST}} checkpoint=$EV_CHECKPOINT split=$EV_SPLIT"
+      docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=local_training \
+      --env EV_CHECKPOINT="$EV_CHECKPOINT" --env EV_SPLIT="$EV_SPLIT" $DOCKER_IMAGE \
+      /bin/bash -c 'python3 /MediSwarm/scripts/evaluation/predict.py --checkpoint "$EV_CHECKPOINT" --model-name "$MODEL_NAME" --output-dir /scratch --split "$EV_SPLIT"'
+
+  elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
 
-  elif [[ ! -z "$INTERACTIVE" ]]; then
+  elif [ -n "$INTERACTIVE" ]; then
       docker run --rm $TTY_OPT --detach-keys="ctrl-x" $DOCKER_OPTIONS $DOCKER_IMAGE /bin/bash
 
-  elif [[ ! -z "$SCRIPT_TO_RUN" ]]; then
+  elif [ -n "$SCRIPT_TO_RUN" ]; then
       docker run --rm $TTY_OPT $DOCKER_OPTIONS $ENV_VARS $DOCKER_IMAGE \
       /bin/bash -c "$SCRIPT_TO_RUN"
 
   else
       echo "❗ One of the following options must be passed:"
-      echo "--dummy_training   minimal sanity check for Docker/GPU"
-      echo "--preflight_check  verify data access & local training"
-      echo "--local_training   train a local model"
-      echo "--start_client     launch FL client in swarm mode"
-      echo "--list_licenses    list licenses of installed packages"
-      echo "--interactive      drop into interactive container (for debugging)"
-      echo "--run_script       execute script in container (for testing)"
+      echo "--dummy_training         minimal sanity check for Docker/GPU"
+      echo "--preflight_check        verify data access & local training (use --job to select model)"
+      echo "--local_training         train a local model (use --job to select model)"
+      echo "--start_client           launch FL client in swarm mode"
+      echo "--list_licenses          list licenses of installed packages"
+      echo "--interactive            drop into interactive container (for debugging)"
+      echo "--run_script             execute script in container (for testing)"
+      echo "--log_dataset_details    log detailed dataset information (UIDs, hashes)"
+      echo ""
+      echo "Optional:"
+      echo "--job <name>             select job/model for preflight_check or local_training"
+      echo "                         (default: challenge_1DivideAndConquer)"
+      echo "                         Available: challenge_1DivideAndConquer, ODELIA_ternary_classification,"
+      echo "                         challenge_2BCN_AIM, challenge_3agaldran, challenge_4abmil, challenge_5pimed"
+      echo "--model_name <name>      set model name (default: auto-derived from --job). Use this instead of 'export MODEL_NAME=...'"
+      echo "--institution <name>     read data from /data/<name>/ instead of /data/{~~client_name~~}/ (swarm identity is unchanged)"
+      echo "                         when running with sudo, as sudo resets environment variables"
+      echo "--num_epochs <n>         set number of training epochs (default: 100)"
+      echo "--image <ref>            run a specific image instead of the one this kit was"
+      echo "                         built with. Persist it in startup/image.conf instead"
+      echo "                         of waiting for a new kit."
+      echo "--fold <n>               cross-validation fold for --local_training /"
+      echo "                         --preflight_check (default: 0). For a swarm run the"
+      echo "                         fold is fixed by the admin in the job, so this flag"
+      echo "                         is ignored by --start_client."
+      echo "--config <name>          set config name (default: unilateral)"
+      echo "--container_name <name>  set name for the Docker container to override default using version number"
+      echo "--docker_options \"<opts>\" extra options passed straight to 'docker run' (e.g."
+      echo "                         \"--cpus 8 --cpuset-cpus 0-7\"). Persist with"
+      echo "                         MEDISWARM_DOCKER_OPTIONS in startup/image.conf."
+      echo "--external_validation    predict-only external validation on your local"
+      echo "                         test/ext split with a delivered global model (no"
+      echo "                         swarm). Writes metrics + predictions to your scratch."
+      echo "--checkpoint <path>      model for --external_validation, a container path under"
+      echo "                         /scratch (default: /scratch/FL_global_model.pt)"
+      echo "--split <name>           dataset split for --external_validation (default: test)"
       exit 1
   fi
 
@@ -757,6 +1152,7 @@ docker_svr_sh: |
           --start_server)   START_SERVER="1";;
           --list_licenses)  LIST_LICENSES="1";;
           --interactive)    INTERACTIVE="1";;
+          --svr_name)       CLI_SVR_NAME="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -774,23 +1170,24 @@ docker_svr_sh: |
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
   fi
-  svr_name="${SVR_NAME:-flserver}"
+  # CLI flag --svr_name takes priority over env var SVR_NAME (survives sudo)
+  svr_name="${CLI_SVR_NAME:-${SVR_NAME:-flserver}}"
   CONTAINER_NAME=odelia_swarm_server_${svr_name}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
   rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
 
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
-  if [[ ! -z "$START_SERVER" ]]; then
-      docker run -d -t --rm --name=$CONTAINER_NAME \
+  if [ -n "$START_SERVER" ]; then
+      docker run -d -t --restart=unless-stopped --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
-  elif [[ ! -z "$LIST_LICENSES" ]]; then
+  elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
-  elif [[ ! -z "$INTERACTIVE" ]]; then
+  elif [ -n "$INTERACTIVE" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
@@ -825,7 +1222,7 @@ docker_adm_sh: |
   fi
   CONTAINER_NAME=odelia_swarm_admin___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
 
-  if [[ ! -z "$LIST_LICENSES" ]]; then
+  if [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
       exit 0
@@ -1056,11 +1453,42 @@ cloud_script_header: |
   }
 
   function prompt() {
-    local __default="$1"
-    read -p "$2" ans
-    if [[ ! -z "$ans" ]]
-    then
-      eval $__default="'$ans'"
+    # usage:  prompt NEW_VAR "Prompt message" ["${PROMPT_VALUE}"]
+    local __resultvar=$1
+    local __prompt=$2
+    local __default=${3:-}
+    local __result
+    if [[ ${BASH_VERSINFO[0]} -ge 4 && -n "$__default" ]]
+      then
+      read -e -i "$__default" -p "$__prompt: " __result
+    else
+      __default=${3:-${!__resultvar:-}}
+      if [[ -n $__default ]]
+        then
+        printf "%s [%s]: " "$__prompt" "$__default"
+      else
+        printf "%s: " "$__prompt"
+      fi
+      IFS= read -r __result
+      if [[ -z "$__result" && -n "$__default" ]]
+        then
+        __result="$__default"
+      fi
+    fi
+    eval $__resultvar="'$__result'"
+  }
+
+  function get_resources_file() {
+    local rfile="${DIR}/../local/resources.json"
+    if [ -f "${rfile}" ]
+      then
+      echo "${rfile}"
+    elif [ -f "${rfile}.default" ]
+      then
+      echo "${rfile}.default"
+    else
+      echo ""
+      exit 1
     fi
   }
 
@@ -1205,4 +1633,31 @@ adm_notebook: |
   },
   "nbformat": 4,
   "nbformat_minor": 5
+  }
+
+relay_resources_json: |
+  {
+    "format_version": 2,
+    "relay_config": {
+      "scheme": "{~~scheme~~}",
+      "identity": "{~~identity~~}",
+      "address": "{~~address~~}",
+      "fqcn": "{~~fqcn~~}",
+      "connection_security": "{~~conn_sec~~}"
+    }
+  }
+
+fed_relay: |
+  {
+    "format_version": 2,
+    "project_name": "{~~project_name~~}",
+    "identity": "{~~identity~~}",
+    "server_identity": "{~~server_identity~~}",
+    "connect_to": {
+      "scheme": "{~~scheme~~}",
+      "identity": "{~~parent_identity~~}",
+      "address": "{~~address~~}",
+      "fqcn": "{~~fqcn~~}",
+      "connection_security": "{~~conn_sec~~}"
+    }
   }

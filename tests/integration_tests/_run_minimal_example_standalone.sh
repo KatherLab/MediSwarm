@@ -10,3 +10,4 @@ run_minimal_example_standalone () {
 }
 
 run_minimal_example_standalone
+echo "✓ MediSwarm test running dummy training in standalone mode completed."

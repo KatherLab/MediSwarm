@@ -8,7 +8,8 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+/build/            # repo-root build output only. Unanchored 'build/' also matched
+                   # scripts/build/, so new files added there were silently ignored.
 develop-eggs/
 dist/
 downloads/
@@ -188,6 +189,16 @@ docker_config/torch_home_cache
 
 # Deployment credentials (contains passwords — never commit)
 deploy_sites.conf
+deploy_sites_2node_test.conf
+deploy_sites_2node_stamp_test.conf
+deploy_sites_4node_test.conf
+deploy_sites_3node_test.conf
+deploy_sites_duke_iid.conf
+deploy_sites_*.local.conf
+# Any other real site conf (e.g. deploy_sites_2node_test.dl3.conf); only *.example is tracked
+deploy_sites_*.conf
+kit_live_sync/sync.conf
+scripts/deploy/distribute_data.conf
 
 # Build output and logs
 challenge_docker_generation.txt
@@ -196,3 +207,26 @@ challenge_model_test/
 
 runs
 *.bak
+
+# Duke benchmark output
+duke_results/
+
+# DECADE local deploy creds (never commit)
+deploy_sites_decade_2node.conf
+
+# temp project yml written during kit provisioning
+*.build.yml
+
+# Startup-kit passwords — NEVER commit (workspace/ is ignored too, this is belt-and-braces)
+kit_passwords.txt
+**/kit_passwords.txt
+
+# Staged swarm jobs, hand-edited per run and regenerated each time
+run_staging/
+
+# Partner announcement emails are drafted locally and never committed (decision 2026-09-14)
+docs/EMAIL_*.md
+
+# Rendered deck for offline presenting; regenerate with headless Chromium --print-to-pdf
+docs/presentation_consortium_45min.pdf
+docs/presentation_consortium_45min.pptx

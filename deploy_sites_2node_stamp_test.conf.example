@@ -1,0 +1,41 @@
+# 2-client STAMP deploy test configuration (local copy only)
+# Copy this file to deploy_sites_2node_stamp_test.conf and fill in your site details.
+#
+# Usage:
+#   cp deploy_sites_2node_stamp_test.conf.example deploy_sites_2node_stamp_test.conf
+#   ./scripts/deploy/run_stamp_deploy_test.sh --conf deploy_sites_2node_stamp_test.conf
+
+# CLIENT_SITES lists only the training client entries.
+CLIENT_SITES=(DL0 DL2)
+
+# ── Cosmos (server + admin only) ──────────────────────────────
+COSMOS_HOST=100.100.100.100
+COSMOS_USER=swarm
+COSMOS_PASS='CHANGEME'
+COSMOS_DEPLOY_DIR=/home/swarm/MediSwarm
+
+# ── dl0 ────────────────────────────────────────────────
+DL0_HOST=100.100.100.101
+DL0_USER=swarm
+DL0_PASS='CHANGEME'
+DL0_SITE_NAME=RUMC_1
+DL0_DATADIR=/mnt/dlhd0/stamp_data
+DL0_SCRATCHDIR=/mnt/dlhd0/stamp_data/tmp
+DL0_DEPLOY_DIR=/home/swarm/MediSwarm
+DL0_GPU="device=0"
+
+# ── dl2 ────────────────────────────────────────────────
+DL2_HOST=100.100.100.102
+DL2_USER=swarm
+DL2_PASS='CHANGEME'
+DL2_SITE_NAME=MHA_1
+DL2_DATADIR=/mnt/sda1/stamp_data
+DL2_SCRATCHDIR=/mnt/sda1/stamp_data/tmp
+DL2_DEPLOY_DIR=/home/swarm/MediSwarm
+DL2_GPU="device=0"
+
+# ── Defaults ───────────────────────────────────────────
+PROJECT_FILE=application/provision/project_deploy_test_2site.yml
+DEFAULT_JOB=STAMP_classification
+ADMIN_USER=admin@example.com
+SERVER_NAME=cosmos.example.internal

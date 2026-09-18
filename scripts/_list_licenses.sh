@@ -5,3 +5,4 @@
 pip-licenses --with-system --with-urls --with-description --format json
 distro2sbom -s --format json
 grep "DINOv2 code and model weights are released under" /torch_home/hub/facebookresearch_dinov2_main/README.md
+echo "The image contains further models, for which licenses are not included in this listing yet."

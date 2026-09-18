@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+
+import os
+import torch
+
+import nvflare.client.lightning as flare
+import nvflare.client as flare_util
+
+import threedcnn_ptl
+
+TRAINING_MODE = os.getenv("TRAINING_MODE")
+TM_PREFLIGHT_CHECK = "preflight_check"
+TM_LOCAL_TRAINING = "local_training"
+TM_SWARM = "swarm"
+LOG_DATASET_DETAILS = 'LOG_DATASET_DETAILS' in os.environ
+
+if not TRAINING_MODE:
+    raise ValueError("TRAINING_MODE environment variable must be set")
+
+if TRAINING_MODE == TM_SWARM:
+    flare_util.init(rank="0")
+    SITE_NAME = flare.get_site_name()
+    # Epoch count will be computed from training data size inside
+    # prepare_training (weighted_epochs=True).  The placeholder value here
+    # is overridden before the Trainer is created.
+    NUM_EPOCHS = 1  # placeholder — replaced by weighted computation
+    USE_WEIGHTED_EPOCHS = True
+elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
+    SITE_NAME = os.getenv("SITE_NAME")
+    if not SITE_NAME:
+        raise ValueError("SITE_NAME environment variable must be set for local training")
+    try:
+        NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", "1"))
+    except ValueError:
+        raise ValueError("NUM_EPOCHS must be an integer")
+    USE_WEIGHTED_EPOCHS = False
+else:
+    raise ValueError(f"Unsupported TRAINING_MODE: {TRAINING_MODE}")
+
+
+def main():
+    """
+    Main function for training and evaluating the model using NVFlare and PyTorch Lightning.
+    """
+    logger = threedcnn_ptl.set_up_logging()
+
+    try:
+        data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(
+            logger, NUM_EPOCHS, SITE_NAME, LOG_DATASET_DETAILS,
+            weighted_epochs=USE_WEIGHTED_EPOCHS,
+        )
+
+        if TRAINING_MODE == TM_SWARM:
+            flare.patch(trainer, load_state_dict_strict=False)  # Patch trainer to enable swarm learning; strict=False allows _class_weight buffer mismatch between server persistor (no class weights) and client models (with class weights computed from training data)
+            torch.autograd.set_detect_anomaly(True)
+
+            logger.info(f"Site name: {SITE_NAME}")
+
+            while flare.is_running():
+                input_model = flare.receive()
+                current_round = input_model.current_round
+                total_rounds = getattr(input_model, "total_rounds", None)
+                logger.info(f"Current round: {current_round} (of {total_rounds})")
+
+                # #314: the per-round aggregated prediction export is expensive and
+                # dominates swarm round time; throttle it (default: final round only).
+                export_predictions = threedcnn_ptl.should_export_aggregated_predictions(
+                    current_round, total_rounds
+                )
+                threedcnn_ptl.validate_and_train(
+                    logger, data_module, model, trainer, path_run_dir,
+                    output_GT_and_classprob=export_predictions,
+                )
+
+                if threedcnn_ptl.is_final_round(current_round, total_rounds):
+                    threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)
+
+        elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
+            threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob=False)
+            if TRAINING_MODE == TM_LOCAL_TRAINING:
+                threedcnn_ptl.finalize_training(logger, model, checkpointing, trainer, path_run_dir, env_vars)
+
+    except Exception as e:
+        logger.error(f"Error in main function: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    main()

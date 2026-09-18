@@ -1,0 +1,612 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>ODELIA Swarm Learning &mdash; Results</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0d1117;font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:#18212f}
+#deck{position:fixed;inset:0}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;
+  background:#ffffff;padding:54px 72px 64px}
+.slide.active{display:flex}
+.slide.title-slide{background:linear-gradient(135deg,#0f2c4d 0%,#1f5f8b 100%);color:#fff;justify-content:center}
+.slide.title-slide h1{font-size:52px;line-height:1.1;max-width:18ch}
+.slide.title-slide .subtitle{font-size:26px;color:#bcd6ec;margin-top:18px}
+.slide.title-slide ul{margin-top:40px;list-style:none}
+.slide.title-slide li{font-size:21px;color:#e8f1fa;margin:10px 0;padding-left:0}
+.kicker{font-size:15px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#1f5f8b}
+h1{font-size:34px;line-height:1.15;color:#0f2c4d;margin-bottom:4px}
+.subtitle{font-size:19px;color:#5b6b7f;margin-bottom:18px}
+.body{flex:1;display:flex;gap:38px;min-height:0}
+.body.has-fig .text{flex:0 0 42%}
+.text{display:flex;flex-direction:column;justify-content:center}
+ul{list-style:none}
+.text li{font-size:21px;line-height:1.5;color:#222b38;margin:13px 0;padding-left:26px;position:relative}
+.text li:before{content:'';position:absolute;left:2px;top:11px;width:10px;height:10px;
+  background:#1f5f8b;border-radius:2px}
+.figwrap{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:0}
+.figwrap svg{width:100%;height:auto;max-height:72vh;border:1px solid #e2e8f0;border-radius:8px;background:#fff}
+.caption{font-size:14px;color:#6b7787;margin-top:12px;text-align:center;font-style:italic;max-width:60ch}
+code{font-family:'SF Mono',Consolas,monospace;background:#eef2f7;padding:1px 6px;border-radius:4px;font-size:.92em}
+.footer{position:absolute;left:72px;right:72px;bottom:20px;display:flex;justify-content:space-between;
+  align-items:center;font-size:13px;color:#9aa6b4}
+.title-slide .footer{color:#9fc0dc}
+.progress{position:fixed;left:0;bottom:0;height:4px;background:#1f5f8b;transition:width .2s;z-index:5}
+#notes{position:fixed;left:0;right:0;bottom:0;max-height:42vh;overflow:auto;background:rgba(13,17,23,.96);
+  color:#e8eef5;padding:22px 72px;font-size:18px;line-height:1.6;display:none;z-index:10;
+  border-top:3px solid #1f5f8b}
+#notes.show{display:block}
+#notes b{color:#7fc1f0}
+.hint{position:fixed;right:14px;top:12px;font-size:12px;color:#6b7787;z-index:6}
+@media print{.slide{display:flex !important;position:relative;page-break-after:always;height:100vh}
+  .progress,.hint,#notes{display:none !important}}
+</style></head><body><div id='deck'><section class='slide title-slide'><h1>Swarm Learning for Breast-MRI Lesion Classification</h1><div class='subtitle'>Multi-site evaluation results &mdash; ODELIA</div><ul><li>Does a privacy-preserving swarm model generalize better than any single hospital&rsquo;s model?</li><li>Three studies &middot; 6 sites &middot; 6 model families</li></ul><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>1 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>The problem and the question</h1><div class='body'><div class='text'><ul><li><b>Medical imaging is siloed.</b> Breast-MRI lives behind hospital governance &mdash; data cannot be pooled centrally.</li><li><b>Swarm / federated learning</b> trains one shared model by exchanging <i>model weights</i>, never images.</li><li><b>The catch:</b> each site sees a different population &mdash; scanners, prevalence, demographics all shift.</li><li><b>Central question:</b> does aggregating across sites beat the best single-site model on <i>unseen</i> data?</li></ul></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>2 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>What we evaluated</h1><div class='subtitle'>One task, two endpoints, three studies</div><div class='body'><div class='text'><ul><li><b>Task:</b> 3-class lesion grade per breast &mdash; 0 none, 1 benign, 2 malignant (unilateral MRI).</li><li><b>Sites:</b> CAM, MHA, RSH, RUMC, UKA, UMCU (+ USZ onboarding).</li><li><b>Two endpoints:</b> <i>internal</i> validation (own site) vs <i>external</i> ODELIA challenge test (held-out).</li><li><b>Study A</b> &mdash; swarm mechanism proof (Duke, 3 clients).</li><li><b>Study B</b> &mdash; 6 models &times; 6 sites swarm, swarm-vs-single-site on external data.</li><li><b>Study C</b> &mdash; single-site checkpoint transfer to the external challenge.</li></ul></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>3 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Study A &mdash; the swarm mechanism works end-to-end</h1><div class='subtitle'>Duke data, 3 clients (node A/B/C), MST model, 20 swarm rounds completed</div><div class='body has-fig'><div class='text'><ul><li>Swarm-aggregated AUROC matches or beats each node&rsquo;s own site model:</li><li>node&nbsp;A 0.948 &middot; node&nbsp;B 0.872 &middot; node&nbsp;C 0.965 (classes 0 vs 2).</li><li>Full three-client run completed; global models written on every node.</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" viewBox="0 0 1100 560">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.legend{font-size:13px;fill:#263241}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.axisline{stroke:#2e3a48;stroke-width:1.2}
+</style>
+<text x="82" y="34" class="title">Extracted Duke swarm validation: AUROC for present classes 0 and 2</text>
+<text x="20" y="255.0" class="axis" transform="rotate(-90 20 255.0)">AUROC</text>
+<line x1="82" x2="1072" y1="448.0" y2="448.0" class="grid"/>
+<text x="72" y="452.0" text-anchor="end" class="axis">0.0</text>
+<line x1="82" x2="1072" y1="370.8" y2="370.8" class="grid"/>
+<text x="72" y="374.8" text-anchor="end" class="axis">0.2</text>
+<line x1="82" x2="1072" y1="293.6" y2="293.6" class="grid"/>
+<text x="72" y="297.6" text-anchor="end" class="axis">0.4</text>
+<line x1="82" x2="1072" y1="216.4" y2="216.4" class="grid"/>
+<text x="72" y="220.4" text-anchor="end" class="axis">0.6</text>
+<line x1="82" x2="1072" y1="139.2" y2="139.2" class="grid"/>
+<text x="72" y="143.2" text-anchor="end" class="axis">0.8</text>
+<line x1="82" x2="1072" y1="62.0" y2="62.0" class="grid"/>
+<text x="72" y="66.0" text-anchor="end" class="axis">1.0</text>
+<line x1="82" x2="1072" y1="448" y2="448" class="axisline"/>
+<line x1="82" x2="82" y1="62" y2="448" class="axisline"/>
+<rect x="121.6" y="83.3" width="81.6" height="364.7" fill="#4e79a7" rx="2"/>
+<rect x="206.2" y="82.0" width="81.6" height="366.0" fill="#59a14f" rx="2"/>
+<rect x="290.8" y="82.0" width="81.6" height="366.0" fill="#f28e2b" rx="2"/>
+<text x="247.0" y="472" text-anchor="middle" class="axis">node_A</text>
+<rect x="451.6" y="112.9" width="81.6" height="335.1" fill="#4e79a7" rx="2"/>
+<rect x="536.2" y="111.4" width="81.6" height="336.6" fill="#59a14f" rx="2"/>
+<rect x="620.8" y="115.2" width="81.6" height="332.8" fill="#f28e2b" rx="2"/>
+<text x="577.0" y="472" text-anchor="middle" class="axis">node_B</text>
+<rect x="781.6" y="73.4" width="81.6" height="374.6" fill="#4e79a7" rx="2"/>
+<rect x="866.2" y="75.7" width="81.6" height="372.3" fill="#59a14f" rx="2"/>
+<rect x="950.8" y="79.1" width="81.6" height="368.9" fill="#f28e2b" rx="2"/>
+<text x="907.0" y="472" text-anchor="middle" class="axis">node_C</text>
+<rect x="82" y="506" width="14" height="14" fill="#4e79a7" rx="2"/>
+<text x="102" y="518" class="legend">Site model best</text>
+<rect x="227" y="506" width="14" height="14" fill="#59a14f" rx="2"/>
+<text x="247" y="518" class="legend">Swarm agg best</text>
+<rect x="367" y="506" width="14" height="14" fill="#f28e2b" rx="2"/>
+<text x="387" y="518" class="legend">Swarm agg last</text>
+</svg>
+<div class='caption'>Extracted Duke 3-client swarm: validation AUROC, site model vs swarm-aggregated.</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>4 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Study A &mdash; what the first swarm taught us</h1><div class='subtitle'>Three issues that became guardrails for Study B</div><div class='body'><div class='text'><ul><li><b>Label coverage:</b> class&nbsp;1 (benign) absent &rArr; 3-class macro AUROC undefined &mdash; coverage must be checked first.</li><li><b>Best-model selection broke:</b> aggregator looked for <code>accuracy</code> but clients logged <code>val/ACC</code> &rArr; run emitted the <i>last</i> model, not the global-best.</li><li><b>Split hygiene:</b> logs flagged UID overlap across train / val / test &rArr; needs split auditing before numbers are trusted.</li><li>All three are <i>data / plumbing</i> issues &mdash; not modeling issues.</li></ul></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>5 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Study B &mdash; a complete 6 &times; 6 swarm matrix</h1><div class='subtitle'>6 model families trained across 6 sites &mdash; complete artifacts everywhere</div><div class='body has-fig'><div class='text'><ul><li>Every model reached <b>6/6</b> global models, run dirs and validation CSVs across all sites.</li><li>5Pimed and MST each had one failed retry, then recovered &mdash; tracked separately.</li><li>Runtimes ~5&ndash;18&nbsp;h per model (RTX-class GPUs).</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="620" height="414" viewBox="0 0 620 414">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.cell{stroke:#ffffff;stroke-width:2}
+</style>
+<text x="180" y="36" class="title">Run status by model</text>
+<text x="239.0" y="64" text-anchor="middle" class="axis">final</text>
+<text x="357.0" y="64" text-anchor="middle" class="axis">failed retry</text>
+<text x="168" y="105" text-anchor="end" class="axis">MST</text>
+<rect x="180" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="105" text-anchor="middle" class="value">complete</text>
+<rect x="298" y="78" width="118" height="42" fill="#df6f64" class="cell" rx="3"/>
+<text x="357.0" y="105" text-anchor="middle" class="value">1</text>
+<text x="168" y="147" text-anchor="end" class="axis">1DivideAndConquer</text>
+<rect x="180" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="147" text-anchor="middle" class="value">complete</text>
+<rect x="298" y="120" width="118" height="42" fill="#dfe7ef" class="cell" rx="3"/>
+<text x="357.0" y="147" text-anchor="middle" class="value">0</text>
+<text x="168" y="189" text-anchor="end" class="axis">2BCN_AIM</text>
+<rect x="180" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="189" text-anchor="middle" class="value">complete</text>
+<rect x="298" y="162" width="118" height="42" fill="#dfe7ef" class="cell" rx="3"/>
+<text x="357.0" y="189" text-anchor="middle" class="value">0</text>
+<text x="168" y="231" text-anchor="end" class="axis">3agaldran</text>
+<rect x="180" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="231" text-anchor="middle" class="value">complete</text>
+<rect x="298" y="204" width="118" height="42" fill="#dfe7ef" class="cell" rx="3"/>
+<text x="357.0" y="231" text-anchor="middle" class="value">0</text>
+<text x="168" y="273" text-anchor="end" class="axis">4LME_ABMIL</text>
+<rect x="180" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="273" text-anchor="middle" class="value">complete</text>
+<rect x="298" y="246" width="118" height="42" fill="#dfe7ef" class="cell" rx="3"/>
+<text x="357.0" y="273" text-anchor="middle" class="value">0</text>
+<text x="168" y="315" text-anchor="end" class="axis">5Pimed</text>
+<rect x="180" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="315" text-anchor="middle" class="value">complete</text>
+<rect x="298" y="288" width="118" height="42" fill="#df6f64" class="cell" rx="3"/>
+<text x="357.0" y="315" text-anchor="middle" class="value">1</text>
+</svg>
+<div class='caption'>Run-status matrix: all six models complete; failed retries kept separate from the final matrix.</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>6 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Study B &mdash; internal validation by model</h1><div class='subtitle'>Best aggregated validation AUROC during swarm training</div><div class='body has-fig'><div class='text'><ul><li>4LME_ABMIL <b>0.900</b> &middot; 3agaldran 0.830 &middot; 1DC 0.811</li><li>5Pimed 0.789 &middot; MST 0.775 &middot; 2BCN_AIM 0.760</li><li><b>But internal validation is necessary, not sufficient</b> &mdash; the real test is the next slide.</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="1120" height="560" viewBox="0 0 1120 560">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.cell{stroke:#ffffff;stroke-width:2}
+</style>
+<text x="84" y="36" class="title">Validation AUROC from available class-probability CSVs</text>
+<text x="22" y="253.0" class="axis" transform="rotate(-90 22 253.0)">AUROC</text>
+<line x1="84" x2="1088" y1="442.0" y2="442.0" class="grid"/>
+<text x="74" y="446.0" text-anchor="end" class="axis">0.0</text>
+<line x1="84" x2="1088" y1="366.4" y2="366.4" class="grid"/>
+<text x="74" y="370.4" text-anchor="end" class="axis">0.2</text>
+<line x1="84" x2="1088" y1="290.8" y2="290.8" class="grid"/>
+<text x="74" y="294.8" text-anchor="end" class="axis">0.4</text>
+<line x1="84" x2="1088" y1="215.2" y2="215.2" class="grid"/>
+<text x="74" y="219.2" text-anchor="end" class="axis">0.6</text>
+<line x1="84" x2="1088" y1="139.6" y2="139.6" class="grid"/>
+<text x="74" y="143.6" text-anchor="end" class="axis">0.8</text>
+<line x1="84" x2="1088" y1="64.0" y2="64.0" class="grid"/>
+<text x="74" y="68.0" text-anchor="end" class="axis">1.0</text>
+<rect x="102.4" y="149.2" width="40.8" height="292.8" fill="#59a14f" rx="2"/>
+<rect x="147.2" y="153.1" width="40.8" height="288.9" fill="#f28e2b" rx="2"/>
+<rect x="192.1" y="139.3" width="40.8" height="302.7" fill="#4e79a7" rx="2"/>
+<text x="167.7" y="468" text-anchor="middle" class="axis">MST</text>
+<rect x="269.7" y="135.5" width="40.8" height="306.5" fill="#59a14f" rx="2"/>
+<rect x="314.6" y="138.7" width="40.8" height="303.3" fill="#f28e2b" rx="2"/>
+<rect x="359.4" y="113.2" width="40.8" height="328.8" fill="#4e79a7" rx="2"/>
+<text x="335.0" y="468" text-anchor="middle" class="axis">1DivideAndConquer</text>
+<rect x="437.1" y="154.6" width="40.8" height="287.4" fill="#59a14f" rx="2"/>
+<rect x="481.9" y="162.0" width="40.8" height="280.0" fill="#f28e2b" rx="2"/>
+<rect x="526.8" y="148.9" width="40.8" height="293.1" fill="#4e79a7" rx="2"/>
+<text x="502.3" y="468" text-anchor="middle" class="axis">2BCN_AIM</text>
+<rect x="604.4" y="128.2" width="40.8" height="313.8" fill="#59a14f" rx="2"/>
+<rect x="649.2" y="128.2" width="40.8" height="313.8" fill="#f28e2b" rx="2"/>
+<rect x="694.1" y="101.0" width="40.8" height="341.0" fill="#4e79a7" rx="2"/>
+<text x="669.7" y="468" text-anchor="middle" class="axis">3agaldran</text>
+<rect x="771.7" y="101.8" width="40.8" height="340.2" fill="#59a14f" rx="2"/>
+<rect x="816.6" y="122.6" width="40.8" height="319.4" fill="#f28e2b" rx="2"/>
+<rect x="861.4" y="98.1" width="40.8" height="343.9" fill="#4e79a7" rx="2"/>
+<text x="837.0" y="468" text-anchor="middle" class="axis">4LME_ABMIL</text>
+<rect x="939.1" y="143.7" width="40.8" height="298.3" fill="#59a14f" rx="2"/>
+<rect x="983.9" y="161.1" width="40.8" height="280.9" fill="#f28e2b" rx="2"/>
+<rect x="1028.8" y="114.6" width="40.8" height="327.4" fill="#4e79a7" rx="2"/>
+<text x="1004.3" y="468" text-anchor="middle" class="axis">5Pimed</text>
+<rect x="84" y="506" width="14" height="14" fill="#59a14f" rx="2"/>
+<text x="104" y="518" class="axis">best aggregated</text>
+<rect x="237" y="506" width="14" height="14" fill="#f28e2b" rx="2"/>
+<text x="257" y="518" class="axis">last aggregated</text>
+<rect x="390" y="506" width="14" height="14" fill="#4e79a7" rx="2"/>
+<text x="410" y="518" class="axis">best site model</text>
+</svg>
+<div class='caption'>Per-model, per-site validation AUROC (best/last aggregated and best site model).</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>7 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Study B &mdash; HEADLINE: swarm beats the best single site externally</h1><div class='subtitle'>External ODELIA challenge, 300 cases, sample-weighted</div><div class='body has-fig'><div class='text'><ul><li>Swarm global &ge; best single-site model on <b>external macro AUROC for 4 of 6</b> models; tied on 3agaldran.</li><li>Biggest gains: 1DC +0.10, 2BCN_AIM +0.06, 4LME_ABMIL +0.03 macro AUROC.</li><li>Best external model overall: <b>4LME_ABMIL swarm</b> &mdash; macro 0.764, Class-2 AUROC 0.847.</li><li>Only the degenerate 5Pimed swarm regressed (0.39 vs 0.61).</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="1120" height="560" viewBox="0 0 1120 560">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}.title{font-size:24px;font-weight:700}.axis{font-size:13px;fill:#465161}.lab{font-size:14px;fill:#263241}.val{font-size:12px;fill:#263241}.grid{stroke:#d8dee8;stroke-width:1}.leg{font-size:14px;fill:#263241}</style>
+<text class="title" x="70" y="38">External challenge macro AUROC: swarm global vs best single-site</text>
+<line class="grid" x1="70" y1="470.0" x2="1090" y2="470.0"/>
+<text class="axis" x="60" y="474.0" text-anchor="end">0.0</text>
+<line class="grid" x1="70" y1="390.0" x2="1090" y2="390.0"/>
+<text class="axis" x="60" y="394.0" text-anchor="end">0.2</text>
+<line class="grid" x1="70" y1="310.0" x2="1090" y2="310.0"/>
+<text class="axis" x="60" y="314.0" text-anchor="end">0.4</text>
+<line class="grid" x1="70" y1="230.0" x2="1090" y2="230.0"/>
+<text class="axis" x="60" y="234.0" text-anchor="end">0.6</text>
+<line class="grid" x1="70" y1="150.0" x2="1090" y2="150.0"/>
+<text class="axis" x="60" y="154.0" text-anchor="end">0.8</text>
+<line class="grid" x1="70" y1="70.0" x2="1090" y2="70.0"/>
+<text class="axis" x="60" y="74.0" text-anchor="end">1.0</text>
+<rect x="93.8" y="212.0" width="61.2" height="258.0" fill="#1f77b4"/>
+<text class="val" x="124.4" y="207.0" text-anchor="middle">0.645</text>
+<rect x="155.0" y="216.0" width="61.2" height="254.0" fill="#d6a419"/>
+<text class="val" x="185.6" y="211.0" text-anchor="middle">0.635</text>
+<text class="lab" x="155.0" y="494.0" text-anchor="middle">MST</text>
+<rect x="263.8" y="186.8" width="61.2" height="283.2" fill="#1f77b4"/>
+<text class="val" x="294.4" y="181.8" text-anchor="middle">0.708</text>
+<rect x="325.0" y="226.4" width="61.2" height="243.6" fill="#d6a419"/>
+<text class="val" x="355.6" y="221.4" text-anchor="middle">0.609</text>
+<text class="lab" x="325.0" y="494.0" text-anchor="middle">1DC</text>
+<rect x="433.8" y="219.2" width="61.2" height="250.8" fill="#1f77b4"/>
+<text class="val" x="464.4" y="214.2" text-anchor="middle">0.627</text>
+<rect x="495.0" y="241.2" width="61.2" height="228.8" fill="#d6a419"/>
+<text class="val" x="525.6" y="236.2" text-anchor="middle">0.572</text>
+<text class="lab" x="495.0" y="494.0" text-anchor="middle">2BCN_AIM</text>
+<rect x="603.8" y="193.2" width="61.2" height="276.8" fill="#1f77b4"/>
+<text class="val" x="634.4" y="188.2" text-anchor="middle">0.692</text>
+<rect x="665.0" y="190.8" width="61.2" height="279.2" fill="#d6a419"/>
+<text class="val" x="695.6" y="185.8" text-anchor="middle">0.698</text>
+<text class="lab" x="665.0" y="494.0" text-anchor="middle">3agaldran</text>
+<rect x="773.8" y="164.4" width="61.2" height="305.6" fill="#1f77b4"/>
+<text class="val" x="804.4" y="159.4" text-anchor="middle">0.764</text>
+<rect x="835.0" y="176.4" width="61.2" height="293.6" fill="#d6a419"/>
+<text class="val" x="865.6" y="171.4" text-anchor="middle">0.734</text>
+<text class="lab" x="835.0" y="494.0" text-anchor="middle">4LME_ABMIL</text>
+<rect x="943.8" y="315.2" width="61.2" height="154.8" fill="#1f77b4"/>
+<text class="val" x="974.4" y="310.2" text-anchor="middle">0.387</text>
+<rect x="1005.0" y="226.4" width="61.2" height="243.6" fill="#d6a419"/>
+<text class="val" x="1035.6" y="221.4" text-anchor="middle">0.609</text>
+<text class="lab" x="1005.0" y="494.0" text-anchor="middle">5Pimed</text>
+<rect x="70" y="524" width="16" height="16" fill="#1f77b4"/>
+<text class="leg" x="92" y="536">Swarm global final</text>
+<rect x="262" y="524" width="16" height="16" fill="#d6a419"/>
+<text class="leg" x="284" y="536">Best single-site model</text>
+</svg><div class='caption'>External challenge macro AUROC: swarm global (blue) vs the strongest single-site model (gold).</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>8 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Study B &mdash; why: aggregation regularizes against site shift</h1><div class='subtitle'>The best single-site model overfits its own population</div><div class='body has-fig'><div class='text'><ul><li>Best site-local models score <b>0.78&ndash;0.91 internally</b> &hellip; but drop to <b>0.57&ndash;0.73 externally</b>.</li><li>Swarm models score <i>lower internally</i> yet <i>higher externally</i> &mdash; classic generalization trade.</li><li>Aggregating across heterogeneous sites acts as regularization against distribution shift.</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="1120" height="560" viewBox="0 0 1120 560">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}.title{font-size:24px;font-weight:700}.axis{font-size:13px;fill:#465161}.lab{font-size:14px;fill:#263241}.val{font-size:12px;fill:#263241}.grid{stroke:#d8dee8;stroke-width:1}.leg{font-size:14px;fill:#263241}</style>
+<text class="title" x="70" y="38">Best single-site model: internal validation vs external challenge</text>
+<line class="grid" x1="70" y1="470.0" x2="1090" y2="470.0"/>
+<text class="axis" x="60" y="474.0" text-anchor="end">0.0</text>
+<line class="grid" x1="70" y1="390.0" x2="1090" y2="390.0"/>
+<text class="axis" x="60" y="394.0" text-anchor="end">0.2</text>
+<line class="grid" x1="70" y1="310.0" x2="1090" y2="310.0"/>
+<text class="axis" x="60" y="314.0" text-anchor="end">0.4</text>
+<line class="grid" x1="70" y1="230.0" x2="1090" y2="230.0"/>
+<text class="axis" x="60" y="234.0" text-anchor="end">0.6</text>
+<line class="grid" x1="70" y1="150.0" x2="1090" y2="150.0"/>
+<text class="axis" x="60" y="154.0" text-anchor="end">0.8</text>
+<line class="grid" x1="70" y1="70.0" x2="1090" y2="70.0"/>
+<text class="axis" x="60" y="74.0" text-anchor="end">1.0</text>
+<rect x="98.6" y="149.6" width="73.4" height="320.4" fill="#5b6b7f"/>
+<text class="val" x="135.3" y="144.6" text-anchor="middle">0.801</text>
+<rect x="172.0" y="216.0" width="73.4" height="254.0" fill="#c0504d"/>
+<text class="val" x="208.7" y="211.0" text-anchor="middle">0.635</text>
+<text class="lab" x="172.0" y="494.0" text-anchor="middle">MST</text>
+<rect x="302.6" y="122.0" width="73.4" height="348.0" fill="#5b6b7f"/>
+<text class="val" x="339.3" y="117.0" text-anchor="middle">0.870</text>
+<rect x="376.0" y="226.4" width="73.4" height="243.6" fill="#c0504d"/>
+<text class="val" x="412.7" y="221.4" text-anchor="middle">0.609</text>
+<text class="lab" x="376.0" y="494.0" text-anchor="middle">1DC</text>
+<rect x="506.6" y="160.0" width="73.4" height="310.0" fill="#5b6b7f"/>
+<text class="val" x="543.3" y="155.0" text-anchor="middle">0.775</text>
+<rect x="580.0" y="241.2" width="73.4" height="228.8" fill="#c0504d"/>
+<text class="val" x="616.7" y="236.2" text-anchor="middle">0.572</text>
+<text class="lab" x="580.0" y="494.0" text-anchor="middle">2BCN_AIM</text>
+<rect x="710.6" y="109.2" width="73.4" height="360.8" fill="#5b6b7f"/>
+<text class="val" x="747.3" y="104.2" text-anchor="middle">0.902</text>
+<rect x="784.0" y="190.8" width="73.4" height="279.2" fill="#c0504d"/>
+<text class="val" x="820.7" y="185.8" text-anchor="middle">0.698</text>
+<text class="lab" x="784.0" y="494.0" text-anchor="middle">3agaldran</text>
+<rect x="914.6" y="106.0" width="73.4" height="364.0" fill="#5b6b7f"/>
+<text class="val" x="951.3" y="101.0" text-anchor="middle">0.910</text>
+<rect x="988.0" y="176.4" width="73.4" height="293.6" fill="#c0504d"/>
+<text class="val" x="1024.7" y="171.4" text-anchor="middle">0.734</text>
+<text class="lab" x="988.0" y="494.0" text-anchor="middle">4LME_ABMIL</text>
+<rect x="70" y="524" width="16" height="16" fill="#5b6b7f"/>
+<text class="leg" x="92" y="536">Internal validation AUROC</text>
+<rect x="325" y="524" width="16" height="16" fill="#c0504d"/>
+<text class="leg" x="347" y="536">External challenge macro AUROC</text>
+</svg><div class='caption'>Same best single-site checkpoints: high internal validation collapses on the external challenge.</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>9 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Study C &mdash; single-site checkpoint transfer</h1><div class='subtitle'>Each site's own checkpoints, scored on the external challenge (Class-2 AUROC)</div><div class='body has-fig'><div class='text'><ul><li>Top transfer: <b>UKA 1DC 0.858</b> &middot; USZ 1DC 0.810 &middot; MHA 1DC 0.795.</li><li>The <b>1DivideAndConquer</b> family dominates the top of the leaderboard.</li><li>Best single checkpoint (UKA 1DC, 0.858) edges the best swarm model on Class-2 AUROC &mdash; but see next slide.</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="1060" height="734" viewBox="0 0 1060 734">
+<rect width="100%" height="100%" fill="white"/>
+<text x="20" y="30" font-size="18" font-weight="700">ODELIA challenge weighted mean Class-2 AUROC by checkpoint</text>
+<text x="260" y="71" text-anchor="end" font-size="12">UKA_1DC_epoch25_step57980 (1DC)</text>
+<rect x="270" y="54" width="720.0" height="24" fill="#386cb0"/>
+<text x="996.0" y="71" font-size="12">0.858</text>
+<text x="260" y="103" text-anchor="end" font-size="12">USZ_1DC_epoch14_best (1DC)</text>
+<rect x="270" y="86" width="679.3" height="24" fill="#386cb0"/>
+<text x="955.3" y="103" font-size="12">0.810</text>
+<text x="260" y="135" text-anchor="end" font-size="12">MHA_1DC_epoch37_step3876 (1DC)</text>
+<rect x="270" y="118" width="666.8" height="24" fill="#386cb0"/>
+<text x="942.8" y="135" font-size="12">0.795</text>
+<text x="260" y="167" text-anchor="end" font-size="12">MHA_1DC_epoch34_step3570 (1DC)</text>
+<rect x="270" y="150" width="659.2" height="24" fill="#386cb0"/>
+<text x="935.2" y="167" font-size="12">0.786</text>
+<text x="260" y="199" text-anchor="end" font-size="12">UKA_1DC_last (1DC)</text>
+<rect x="270" y="182" width="643.7" height="24" fill="#386cb0"/>
+<text x="919.7" y="199" font-size="12">0.767</text>
+<text x="260" y="231" text-anchor="end" font-size="12">USZ_MST_epoch33_best (MST)</text>
+<rect x="270" y="214" width="606.4" height="24" fill="#386cb0"/>
+<text x="882.4" y="231" font-size="12">0.723</text>
+<text x="260" y="263" text-anchor="end" font-size="12">MHA_1DC_last (1DC)</text>
+<rect x="270" y="246" width="604.8" height="24" fill="#386cb0"/>
+<text x="880.8" y="263" font-size="12">0.721</text>
+<text x="260" y="295" text-anchor="end" font-size="12">USZ_1DC_last (1DC)</text>
+<rect x="270" y="278" width="600.8" height="24" fill="#386cb0"/>
+<text x="876.8" y="295" font-size="12">0.716</text>
+<text x="260" y="327" text-anchor="end" font-size="12">MHA_1DC_epoch77_step7956 (1DC)</text>
+<rect x="270" y="310" width="595.7" height="24" fill="#386cb0"/>
+<text x="871.7" y="327" font-size="12">0.710</text>
+<text x="260" y="359" text-anchor="end" font-size="12">CAM_1DC_epoch52_step6466 (1DC)</text>
+<rect x="270" y="342" width="571.8" height="24" fill="#386cb0"/>
+<text x="847.8" y="359" font-size="12">0.682</text>
+<text x="260" y="391" text-anchor="end" font-size="12">USZ_MST_last (MST)</text>
+<rect x="270" y="374" width="569.5" height="24" fill="#386cb0"/>
+<text x="845.5" y="391" font-size="12">0.679</text>
+<text x="260" y="423" text-anchor="end" font-size="12">CAM_1DC_last (1DC)</text>
+<rect x="270" y="406" width="544.8" height="24" fill="#386cb0"/>
+<text x="820.8" y="423" font-size="12">0.650</text>
+<text x="260" y="455" text-anchor="end" font-size="12">CAM_1DC_epoch15_step1952 (1DC)</text>
+<rect x="270" y="438" width="539.1" height="24" fill="#386cb0"/>
+<text x="815.1" y="455" font-size="12">0.643</text>
+<text x="260" y="487" text-anchor="end" font-size="12">CAM_1DC_epoch73_step9028 (1DC)</text>
+<rect x="270" y="470" width="531.0" height="24" fill="#386cb0"/>
+<text x="807.0" y="487" font-size="12">0.633</text>
+<text x="260" y="519" text-anchor="end" font-size="12">CAM_1DC_epoch9_step1220 (1DC)</text>
+<rect x="270" y="502" width="495.5" height="24" fill="#386cb0"/>
+<text x="771.5" y="519" font-size="12">0.591</text>
+<text x="260" y="551" text-anchor="end" font-size="12">MHA_1DC_epoch0_step102 (1DC)</text>
+<rect x="270" y="534" width="447.2" height="24" fill="#386cb0"/>
+<text x="723.2" y="551" font-size="12">0.533</text>
+<text x="260" y="583" text-anchor="end" font-size="12">RUMC_MST_20260218_last (MST)</text>
+<rect x="270" y="566" width="438.4" height="24" fill="#386cb0"/>
+<text x="714.4" y="583" font-size="12">0.523</text>
+<text x="260" y="615" text-anchor="end" font-size="12">RUMC_MST_20260218_epoch0_step940 (MST)</text>
+<rect x="270" y="598" width="398.7" height="24" fill="#386cb0"/>
+<text x="674.7" y="615" font-size="12">0.475</text>
+<text x="260" y="647" text-anchor="end" font-size="12">CAM_1DC_epoch0_step122 (1DC)</text>
+<rect x="270" y="630" width="397.8" height="24" fill="#386cb0"/>
+<text x="673.8" y="647" font-size="12">0.474</text>
+<text x="260" y="679" text-anchor="end" font-size="12">RSH_5Pimed_last (5Pimed)</text>
+<rect x="270" y="662" width="382.8" height="24" fill="#386cb0"/>
+<text x="658.8" y="679" font-size="12">0.456</text>
+</svg>
+<div class='caption'>External challenge weighted Class-2 (malignant) AUROC, ranked by checkpoint.</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>10 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Study C &mdash; internal scores do not predict transfer</h1><div class='subtitle'>High internal validation &ne; good external generalization</div><div class='body has-fig'><div class='text'><ul><li>CAM 1DC: internal Class-2 AUROC <b>0.965</b> &rarr; external <b>0.682</b>.</li><li>RUMC MST: internal accuracy <b>0.995</b> &rarr; external macro <b>0.495</b> (val split was ~199:0:1 &mdash; degenerate).</li><li>RSH 5Pimed: external Class-2 AUROC 0.456 but recall 0.879 &mdash; predicts &lsquo;malignant&rsquo; indiscriminately.</li><li><b>Lesson:</b> select on representative/external validation; under imbalance, trust AUROC + recall, not accuracy.</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="1060" height="734" viewBox="0 0 1060 734">
+<rect width="100%" height="100%" fill="white"/>
+<text x="20" y="30" font-size="18" font-weight="700">ODELIA challenge weighted mean macro AUROC by checkpoint</text>
+<text x="260" y="71" text-anchor="end" font-size="12">UKA_1DC_epoch25_step57980 (1DC)</text>
+<rect x="270" y="54" width="720.0" height="24" fill="#386cb0"/>
+<text x="996.0" y="71" font-size="12">0.709</text>
+<text x="260" y="103" text-anchor="end" font-size="12">USZ_1DC_epoch14_best (1DC)</text>
+<rect x="270" y="86" width="686.2" height="24" fill="#386cb0"/>
+<text x="962.2" y="103" font-size="12">0.675</text>
+<text x="260" y="135" text-anchor="end" font-size="12">MHA_1DC_epoch37_step3876 (1DC)</text>
+<rect x="270" y="118" width="669.0" height="24" fill="#386cb0"/>
+<text x="945.0" y="135" font-size="12">0.658</text>
+<text x="260" y="167" text-anchor="end" font-size="12">MHA_1DC_epoch34_step3570 (1DC)</text>
+<rect x="270" y="150" width="660.5" height="24" fill="#386cb0"/>
+<text x="936.5" y="167" font-size="12">0.650</text>
+<text x="260" y="199" text-anchor="end" font-size="12">USZ_1DC_last (1DC)</text>
+<rect x="270" y="182" width="653.2" height="24" fill="#386cb0"/>
+<text x="929.2" y="199" font-size="12">0.643</text>
+<text x="260" y="231" text-anchor="end" font-size="12">UKA_1DC_last (1DC)</text>
+<rect x="270" y="214" width="640.3" height="24" fill="#386cb0"/>
+<text x="916.3" y="231" font-size="12">0.630</text>
+<text x="260" y="263" text-anchor="end" font-size="12">CAM_1DC_epoch52_step6466 (1DC)</text>
+<rect x="270" y="246" width="625.9" height="24" fill="#386cb0"/>
+<text x="901.9" y="263" font-size="12">0.616</text>
+<text x="260" y="295" text-anchor="end" font-size="12">CAM_1DC_epoch73_step9028 (1DC)</text>
+<rect x="270" y="278" width="625.8" height="24" fill="#386cb0"/>
+<text x="901.8" y="295" font-size="12">0.616</text>
+<text x="260" y="327" text-anchor="end" font-size="12">USZ_MST_epoch33_best (MST)</text>
+<rect x="270" y="310" width="622.3" height="24" fill="#386cb0"/>
+<text x="898.3" y="327" font-size="12">0.612</text>
+<text x="260" y="359" text-anchor="end" font-size="12">MHA_1DC_last (1DC)</text>
+<rect x="270" y="342" width="621.4" height="24" fill="#386cb0"/>
+<text x="897.4" y="359" font-size="12">0.612</text>
+<text x="260" y="391" text-anchor="end" font-size="12">CAM_1DC_last (1DC)</text>
+<rect x="270" y="374" width="604.0" height="24" fill="#386cb0"/>
+<text x="880.0" y="391" font-size="12">0.594</text>
+<text x="260" y="423" text-anchor="end" font-size="12">USZ_MST_last (MST)</text>
+<rect x="270" y="406" width="603.1" height="24" fill="#386cb0"/>
+<text x="879.1" y="423" font-size="12">0.594</text>
+<text x="260" y="455" text-anchor="end" font-size="12">CAM_1DC_epoch15_step1952 (1DC)</text>
+<rect x="270" y="438" width="600.4" height="24" fill="#386cb0"/>
+<text x="876.4" y="455" font-size="12">0.591</text>
+<text x="260" y="487" text-anchor="end" font-size="12">MHA_1DC_epoch77_step7956 (1DC)</text>
+<rect x="270" y="470" width="587.7" height="24" fill="#386cb0"/>
+<text x="863.7" y="487" font-size="12">0.578</text>
+<text x="260" y="519" text-anchor="end" font-size="12">CAM_1DC_epoch9_step1220 (1DC)</text>
+<rect x="270" y="502" width="577.8" height="24" fill="#386cb0"/>
+<text x="853.8" y="519" font-size="12">0.569</text>
+<text x="260" y="551" text-anchor="end" font-size="12">RUMC_MST_20260218_epoch0_step940 (MST)</text>
+<rect x="270" y="534" width="531.4" height="24" fill="#386cb0"/>
+<text x="807.4" y="551" font-size="12">0.523</text>
+<text x="260" y="583" text-anchor="end" font-size="12">CAM_1DC_epoch0_step122 (1DC)</text>
+<rect x="270" y="566" width="519.7" height="24" fill="#386cb0"/>
+<text x="795.7" y="583" font-size="12">0.511</text>
+<text x="260" y="615" text-anchor="end" font-size="12">RUMC_MST_20260413_epoch0_step118 (MST)</text>
+<rect x="270" y="598" width="508.9" height="24" fill="#386cb0"/>
+<text x="784.9" y="615" font-size="12">0.501</text>
+<text x="260" y="647" text-anchor="end" font-size="12">RUMC_MST_20260413_last (MST)</text>
+<rect x="270" y="630" width="508.9" height="24" fill="#386cb0"/>
+<text x="784.9" y="647" font-size="12">0.501</text>
+<text x="260" y="679" text-anchor="end" font-size="12">RSH_5Pimed_last (5Pimed)</text>
+<rect x="270" y="662" width="505.7" height="24" fill="#386cb0"/>
+<text x="781.7" y="679" font-size="12">0.498</text>
+</svg>
+<div class='caption'>External challenge macro AUROC by checkpoint &mdash; ranking differs sharply from internal scores.</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>11 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Onboarding a new site &mdash; USZ (Zurich)</h1><div class='subtitle'>Data audit + local training before joining the live swarm</div><div class='body has-fig'><div class='text'><ul><li>5,312 cases &mdash; train 64.9% / val 15.3% / test 19.8%; <b>0 images missing</b>.</li><li>Heavy imbalance: class&nbsp;0 56% / class&nbsp;1 35% / <b>class&nbsp;2 only 9%</b> (malignant).</li><li>Local MST and 1DC trained cleanly; 1DC reached external Class-2 AUROC 0.810.</li><li>Same audit gate every new partner passes before contributing to the swarm.</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.legend{font-size:13px;fill:#263241}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.axisline{stroke:#2e3a48;stroke-width:1.2}
+</style>
+<text x="170" y="38" class="title">USZ split sizes and annotation classes</text>
+<text x="152" y="111" text-anchor="end" class="axis">Train</text>
+<rect x="170" y="86" width="620.0" height="38" fill="#2c7fb8" rx="3"/>
+<text x="800.0" y="111" class="value">3,448 UIDs</text>
+<text x="152" y="169" text-anchor="end" class="axis">Validation</text>
+<rect x="170" y="144" width="146.4" height="38" fill="#f28e2b" rx="3"/>
+<text x="326.4" y="169" class="value">814 UIDs</text>
+<text x="152" y="227" text-anchor="end" class="axis">Test</text>
+<rect x="170" y="202" width="188.8" height="38" fill="#59a14f" rx="3"/>
+<text x="368.8" y="227" class="value">1,050 UIDs</text>
+<text x="170" y="271" class="axis">Annotation lesion distribution (5,413 UIDs)</text>
+<rect x="170.0" y="291" width="348.9" height="42" fill="#4e79a7"/>
+<text x="344.4" y="318" text-anchor="middle" class="value">class 0: 56.3%</text>
+<rect x="518.9" y="291" width="214.8" height="42" fill="#e15759"/>
+<text x="626.3" y="318" text-anchor="middle" class="value">class 1: 34.6%</text>
+<rect x="733.6" y="291" width="56.4" height="42" fill="#76b7b2"/>
+<text x="761.8" y="318" text-anchor="middle" class="value">class 2: 9.1%</text>
+</svg>
+<div class='caption'>USZ split sizes and annotation class distribution from the onboarding audit.</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>12 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Cross-cutting: data quality is the real bottleneck</h1><div class='subtitle'>Every study surfaced a data/plumbing issue before a modeling one</div><div class='body'><div class='text'><ul><li>Label <b>coverage</b> &mdash; missing benign class breaks 3-class metrics (Study A).</li><li>Split <b>hygiene</b> &mdash; UID overlap across train/val/test inflates scores (Study A).</li><li>Metric-name <b>mismatch</b> silently disabled global-best selection (Study A &amp; 5Pimed in B).</li><li>Class <b>imbalance</b> &mdash; accuracy is misleading; degenerate single-class val splits (RUMC, USZ 9% malignant).</li><li>&rArr; Plausibility auditing is now a gate, not an afterthought.</li></ul></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>13 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Takeaways</h1><div class='body'><div class='text'><ul><li><b>1.</b> The swarm pipeline runs end-to-end: 6 models &times; 6 sites, complete artifacts.</li><li><b>2.</b> Swarm global <b>generalizes better than the best single-site model</b> externally (4/6 win, 1 tie). <i>Core result.</i></li><li><b>3.</b> Internal validation overstates performance &mdash; the external challenge is the honest endpoint.</li><li><b>4.</b> 1DivideAndConquer and 4LME_ABMIL are the strongest families (ext. AUROC up to 0.86).</li><li><b>5.</b> Data audits catch most failures before modeling.</li></ul></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>14 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Next steps</h1><div class='body'><div class='text'><ul><li>Fix global-best selection (align metric names) so the swarm publishes its best model, not its last.</li><li>Re-run the 5Pimed swarm &mdash; current global model is degenerate externally.</li><li>Onboard USZ into the live swarm; standardize external-challenge checkpoint selection.</li><li>Make class-1 coverage + split-overlap auditing CI gates before every run.</li><li>Report Class-2 (malignant) AUROC + recall as the primary clinical endpoint.</li></ul></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>15 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Backup &mdash; runtime by model</h1><div class='subtitle'>Approximate swarm wall-clock per model</div><div class='body has-fig'><div class='text'><ul><li>Spans first-to-last log timestamp; relative comparison only.</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="1120" height="560" viewBox="0 0 1120 560">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.cell{stroke:#ffffff;stroke-width:2}
+</style>
+<text x="84" y="36" class="title">Approximate log timestamp span by model</text>
+<text x="22" y="253.0" class="axis" transform="rotate(-90 22 253.0)">Hours</text>
+<line x1="84" x2="1088" y1="442.0" y2="442.0" class="grid"/>
+<text x="74" y="446.0" text-anchor="end" class="axis">0.0</text>
+<line x1="84" x2="1088" y1="366.4" y2="366.4" class="grid"/>
+<text x="74" y="370.4" text-anchor="end" class="axis">4.0</text>
+<line x1="84" x2="1088" y1="290.8" y2="290.8" class="grid"/>
+<text x="74" y="294.8" text-anchor="end" class="axis">8.0</text>
+<line x1="84" x2="1088" y1="215.2" y2="215.2" class="grid"/>
+<text x="74" y="219.2" text-anchor="end" class="axis">12.1</text>
+<line x1="84" x2="1088" y1="139.6" y2="139.6" class="grid"/>
+<text x="74" y="143.6" text-anchor="end" class="axis">16.1</text>
+<line x1="84" x2="1088" y1="64.0" y2="64.0" class="grid"/>
+<text x="74" y="68.0" text-anchor="end" class="axis">20.1</text>
+<rect x="102.4" y="355.9" width="130.5" height="86.1" fill="#4e79a7" rx="2"/>
+<text x="167.7" y="468" text-anchor="middle" class="axis">MST</text>
+<rect x="269.7" y="218.5" width="130.5" height="223.5" fill="#4e79a7" rx="2"/>
+<text x="335.0" y="468" text-anchor="middle" class="axis">1DivideAndConquer</text>
+<rect x="437.1" y="104.5" width="130.5" height="337.5" fill="#4e79a7" rx="2"/>
+<text x="502.3" y="468" text-anchor="middle" class="axis">2BCN_AIM</text>
+<rect x="604.4" y="322.3" width="130.5" height="119.7" fill="#4e79a7" rx="2"/>
+<text x="669.7" y="468" text-anchor="middle" class="axis">3agaldran</text>
+<rect x="771.7" y="318.7" width="130.5" height="123.3" fill="#4e79a7" rx="2"/>
+<text x="837.0" y="468" text-anchor="middle" class="axis">4LME_ABMIL</text>
+<rect x="939.1" y="346.6" width="130.5" height="95.4" fill="#4e79a7" rx="2"/>
+<text x="1004.3" y="468" text-anchor="middle" class="axis">5Pimed</text>
+<rect x="84" y="506" width="14" height="14" fill="#4e79a7" rx="2"/>
+<text x="104" y="518" class="axis">hours</text>
+</svg>
+<div class='caption'>2BCN_AIM was slowest (~18 h); MST/5Pimed fastest (~5 h).</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>16 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Backup &mdash; artifact coverage</h1><div class='subtitle'>Per-model presence of every expected artifact type</div><div class='body has-fig'><div class='text'><ul><li>Global models, run dirs, CSVs, TFEvents, local checkpoints &mdash; all 6/6.</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="1120" height="414" viewBox="0 0 1120 414">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.cell{stroke:#ffffff;stroke-width:2}
+</style>
+<text x="180" y="36" class="title">Artifact coverage by final run</text>
+<text x="239.0" y="64" text-anchor="middle" class="axis">job dirs</text>
+<text x="357.0" y="64" text-anchor="middle" class="axis">models</text>
+<text x="475.0" y="64" text-anchor="middle" class="axis">run dirs</text>
+<text x="593.0" y="64" text-anchor="middle" class="axis">CSVs</text>
+<text x="711.0" y="64" text-anchor="middle" class="axis">TFEvents</text>
+<text x="829.0" y="64" text-anchor="middle" class="axis">ckpts</text>
+<text x="168" y="105" text-anchor="end" class="axis">MST</text>
+<rect x="180" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="105" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="78" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="105" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="147" text-anchor="end" class="axis">1DivideAndConquer</text>
+<rect x="180" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="147" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="120" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="147" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="189" text-anchor="end" class="axis">2BCN_AIM</text>
+<rect x="180" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="189" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="162" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="189" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="231" text-anchor="end" class="axis">3agaldran</text>
+<rect x="180" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="231" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="204" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="231" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="273" text-anchor="end" class="axis">4LME_ABMIL</text>
+<rect x="180" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="273" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="246" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="273" text-anchor="middle" class="value">6/6</text>
+<text x="168" y="315" text-anchor="end" class="axis">5Pimed</text>
+<rect x="180" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="239.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="298" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="357.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="416" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="475.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="534" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="593.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="652" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="711.0" y="315" text-anchor="middle" class="value">6/6</text>
+<rect x="770" y="288" width="118" height="42" fill="#63b36f" class="cell" rx="3"/>
+<text x="829.0" y="315" text-anchor="middle" class="value">6/6</text>
+</svg>
+<div class='caption'>Complete artifact coverage across all six models and sites.</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>17 / 18</span></div></section><section class='slide'><div class='kicker'>ODELIA &middot; Swarm Learning Results</div><h1>Backup &mdash; example training curve (UKA 1DC)</h1><div class='subtitle'>Best external single-site checkpoint</div><div class='body has-fig'><div class='text'><ul><li>Internal validation AUROC/accuracy over epochs for the top-transfer checkpoint.</li></ul></div><div class='figwrap'><svg xmlns="http://www.w3.org/2000/svg" width="920" height="440" viewBox="0 0 920 440">
+  <rect width="100%" height="100%" fill="white"/>
+  <text x="70" y="24" font-size="18" font-weight="700">UKA 1DC local training: 1DivideAndConquer_unilateral_2026_05_04_082228</text>
+  <line x1="70" y1="368.0" x2="890" y2="368.0" stroke="#e7e7e7" /><text x="60" y="372.0" text-anchor="end" font-size="12">0.55</text><line x1="70" y1="302.8" x2="890" y2="302.8" stroke="#e7e7e7" /><text x="60" y="306.8" text-anchor="end" font-size="12">0.64</text><line x1="70" y1="237.6" x2="890" y2="237.6" stroke="#e7e7e7" /><text x="60" y="241.6" text-anchor="end" font-size="12">0.73</text><line x1="70" y1="172.4" x2="890" y2="172.4" stroke="#e7e7e7" /><text x="60" y="176.4" text-anchor="end" font-size="12">0.82</text><line x1="70" y1="107.2" x2="890" y2="107.2" stroke="#e7e7e7" /><text x="60" y="111.2" text-anchor="end" font-size="12">0.91</text><line x1="70" y1="42.0" x2="890" y2="42.0" stroke="#e7e7e7" /><text x="60" y="46.0" text-anchor="end" font-size="12">1.00</text>
+  <line x1="70.0" y1="42" x2="70.0" y2="368" stroke="#f2f2f2" /><text x="70.0" y="390" text-anchor="middle" font-size="12">0</text><line x1="235.7" y1="42" x2="235.7" y2="368" stroke="#f2f2f2" /><text x="235.7" y="390" text-anchor="middle" font-size="12">20</text><line x1="401.3" y1="42" x2="401.3" y2="368" stroke="#f2f2f2" /><text x="401.3" y="390" text-anchor="middle" font-size="12">40</text><line x1="558.7" y1="42" x2="558.7" y2="368" stroke="#f2f2f2" /><text x="558.7" y="390" text-anchor="middle" font-size="12">59</text><line x1="724.3" y1="42" x2="724.3" y2="368" stroke="#f2f2f2" /><text x="724.3" y="390" text-anchor="middle" font-size="12">79</text><line x1="890.0" y1="42" x2="890.0" y2="368" stroke="#f2f2f2" /><text x="890.0" y="390" text-anchor="middle" font-size="12">99</text>
+  <rect x="70" y="42" width="820" height="326" fill="none" stroke="#333"/>
+  <polyline fill="none" stroke="#2864c9" stroke-width="2.4" points="70.0,287.0 78.3,270.5 86.6,268.0 94.8,266.4 103.1,265.3 111.4,266.0 119.7,264.0 128.0,264.4 136.3,264.9 144.5,263.2 152.8,259.9 161.1,259.1 169.4,259.6 177.7,269.6 186.0,256.9 194.2,260.5 202.5,252.4 210.8,253.2 219.1,250.0 227.4,249.0 235.7,251.3 243.9,252.1 252.2,245.5 260.5,248.1 268.8,247.4 277.1,244.6 285.4,247.5 293.6,232.7 301.9,234.3 310.2,227.3 318.5,231.7 326.8,225.1 335.1,223.9 343.3,222.2 351.6,214.9 359.9,220.2 368.2,224.0 376.5,203.4 384.7,201.9 393.0,199.9 401.3,194.2 409.6,186.9 417.9,184.8 426.2,184.5 434.4,176.7 442.7,171.9 451.0,174.7 459.3,170.7 467.6,176.6 475.9,164.4 484.1,155.5 492.4,150.0 500.7,149.9 509.0,146.1 517.3,147.3 525.6,150.8 533.8,137.7 542.1,141.9 550.4,125.8 558.7,133.7 567.0,120.9 575.3,142.6 583.5,130.3 591.8,132.2 600.1,115.4 608.4,114.1 616.7,120.5 624.9,116.4 633.2,107.6 641.5,117.5 649.8,109.7 658.1,104.6 666.4,105.7 674.6,102.7 682.9,116.0 691.2,99.6 699.5,97.3 707.8,96.7 716.1,92.9 724.3,89.9 732.6,102.7 740.9,89.7 749.2,95.1 757.5,88.1 765.8,100.6 774.0,84.3 782.3,92.0 790.6,84.2 798.9,82.0 807.2,82.5 815.5,79.1 823.7,75.7 832.0,77.5 840.3,74.1 848.6,77.7 856.9,82.3 865.2,78.6 873.4,78.6 881.7,79.6 890.0,71.1" /><polyline fill="none" stroke="#d55e00" stroke-width="2.4" points="70.0,286.4 78.3,268.7 86.6,269.8 94.8,265.4 103.1,264.3 111.4,269.2 119.7,266.1 128.0,263.8 136.3,264.9 144.5,264.9 152.8,264.6 161.1,264.9 169.4,268.5 177.7,279.4 186.0,260.4 194.2,262.5 202.5,262.2 210.8,261.7 219.1,263.0 227.4,265.9 235.7,267.4 243.9,270.8 252.2,269.7 260.5,263.1 268.8,261.8 277.1,259.4 285.4,288.6 293.6,264.6 301.9,260.2 310.2,265.4 318.5,271.8 326.8,270.3 335.1,269.7 343.3,278.1 351.6,279.6 359.9,276.2 368.2,299.8 376.5,288.9 384.7,274.7 393.0,277.6 401.3,275.5 409.6,298.0 417.9,292.0 426.2,282.7 434.4,293.9 442.7,288.9 451.0,292.5 459.3,310.9 467.6,302.7 475.9,289.4 484.1,280.9 492.4,297.5 500.7,309.1 509.0,287.9 517.3,289.2 525.6,304.9 533.8,281.4 542.1,305.0 550.4,306.0 558.7,297.8 567.0,291.2 575.3,279.1 583.5,283.0 591.8,285.6 600.1,308.4 608.4,310.2 616.7,282.4 624.9,290.7 633.2,300.9 641.5,288.4 649.8,315.1 658.1,300.1 666.4,305.5 674.6,319.7 682.9,331.6 691.2,304.0 699.5,313.2 707.8,312.3 716.1,307.8 724.3,313.5 732.6,309.9 740.9,317.6 749.2,295.7 757.5,298.3 765.8,284.2 774.0,301.3 782.3,287.1 790.6,296.9 798.9,315.4 807.2,308.4 815.5,311.7 823.7,311.9 832.0,304.7 840.3,307.1 848.6,315.8 856.9,281.9 865.2,301.8 873.4,297.0 881.7,325.7 890.0,296.9" /><polyline fill="none" stroke="#00876c" stroke-width="2.4" points="70.0,285.4 78.3,138.7 86.6,130.8 94.8,123.3 103.1,115.0 111.4,106.7 119.7,106.2 128.0,103.4 136.3,105.4 144.5,103.4 152.8,98.9 161.1,98.5 169.4,99.4 177.7,101.8 186.0,99.5 194.2,97.0 202.5,93.8 210.8,93.7 219.1,91.4 227.4,88.8 235.7,84.8 243.9,86.7 252.2,86.1 260.5,86.2 268.8,83.9 277.1,83.4 285.4,84.9 293.6,80.6 301.9,80.0 310.2,76.5 318.5,77.1 326.8,74.4 335.1,75.4 343.3,74.7 351.6,71.9 359.9,77.1 368.2,71.2 376.5,71.0 384.7,67.6 393.0,68.0 401.3,67.0 409.6,63.5 417.9,64.1 426.2,65.2 434.4,62.0 442.7,61.1 451.0,60.9 459.3,59.2 467.6,60.1 475.9,58.4 484.1,57.3 492.4,55.8 500.7,54.4 509.0,56.4 517.3,53.8 525.6,54.3 533.8,52.1 542.1,53.7 550.4,52.6 558.7,51.6 567.0,51.6 575.3,51.7 583.5,53.3 591.8,52.3 600.1,50.4 608.4,48.1 616.7,50.7 624.9,48.5 633.2,49.2 641.5,49.5 649.8,49.1 658.1,47.9 666.4,47.9 674.6,47.2 682.9,47.7 691.2,47.6 699.5,48.5 707.8,46.0 716.1,47.5 724.3,45.8 732.6,46.3 740.9,46.1 749.2,45.4 757.5,46.9 765.8,49.0 774.0,46.5 782.3,46.3 790.6,45.3 798.9,43.9 807.2,45.2 815.5,44.7 823.7,45.4 832.0,46.2 840.3,43.8 848.6,44.5 856.9,44.4 865.2,44.2 873.4,44.5 881.7,44.0 890.0,43.8" /><polyline fill="none" stroke="#7b3294" stroke-width="2.4" points="70.0,262.9 78.3,136.6 86.6,118.0 94.8,113.8 103.1,106.7 111.4,105.4 119.7,103.9 128.0,102.4 136.3,100.6 144.5,100.7 152.8,99.5 161.1,94.2 169.4,99.5 177.7,103.1 186.0,98.2 194.2,103.7 202.5,101.0 210.8,100.0 219.1,99.9 227.4,98.3 235.7,100.2 243.9,92.1 252.2,96.9 260.5,106.5 268.8,96.3 277.1,99.3 285.4,98.2 293.6,98.3 301.9,107.0 310.2,97.9 318.5,110.6 326.8,100.3 335.1,100.5 343.3,100.6 351.6,104.2 359.9,103.6 368.2,111.9 376.5,104.3 384.7,109.3 393.0,107.9 401.3,117.2 409.6,114.0 417.9,119.6 426.2,114.8 434.4,120.8 442.7,112.0 451.0,131.8 459.3,124.2 467.6,118.8 475.9,118.1 484.1,127.5 492.4,122.3 500.7,122.4 509.0,135.2 517.3,126.5 525.6,141.2 533.8,127.7 542.1,142.6 550.4,141.8 558.7,134.9 567.0,138.5 575.3,134.3 583.5,134.3 591.8,131.6 600.1,124.2 608.4,142.0 616.7,146.6 624.9,131.6 633.2,143.8 641.5,133.0 649.8,138.4 658.1,135.2 666.4,143.5 674.6,142.8 682.9,145.2 691.2,132.8 699.5,153.4 707.8,153.6 716.1,155.4 724.3,138.3 732.6,134.0 740.9,146.2 749.2,143.1 757.5,133.9 765.8,156.7 774.0,156.5 782.3,151.3 790.6,143.0 798.9,152.5 807.2,143.3 815.5,142.0 823.7,142.4 832.0,177.1 840.3,148.0 848.6,142.3 856.9,156.2 865.2,138.6 873.4,156.0 881.7,139.4 890.0,143.1" />
+  <text x="480.0" y="422" text-anchor="middle" font-size="13">epoch</text>
+  <text x="20" y="205.0" transform="rotate(-90 20 205.0)" text-anchor="middle" font-size="13">metric</text>
+  <line x1="70" y1="396" x2="98" y2="396" stroke="#2864c9" stroke-width="3" /><text x="106" y="400" font-size="13">train accuracy</text><line x1="350" y1="396" x2="378" y2="396" stroke="#d55e00" stroke-width="3" /><text x="386" y="400" font-size="13">val accuracy</text><line x1="70" y1="418" x2="98" y2="418" stroke="#00876c" stroke-width="3" /><text x="106" y="422" font-size="13">train class-2 AUROC</text><line x1="350" y1="418" x2="378" y2="418" stroke="#7b3294" stroke-width="3" /><text x="386" y="422" font-size="13">val class-2 AUROC</text>
+</svg>
+<div class='caption'>UKA 1DivideAndConquer training curves; epoch-25 checkpoint transferred best (Class-2 AUROC 0.858).</div></div></div><div class='footer'><span>ODELIA breast-MRI swarm learning</span><span>18 / 18</span></div></section></div><div class='progress' id='prog'></div><div class='hint'>&larr;/&rarr; navigate &middot; S notes &middot; F fullscreen</div><div id='notes'></div><script>window.__NOTES__=[`Good morning. Today I'm presenting our evaluation results for swarm learning applied to breast-MRI lesion classification, in the ODELIA project. The whole talk is built around one question: when several hospitals train a shared model together without ever sharing their patient data, does that shared swarm model actually generalize better than a model trained at any single hospital? I'll answer that with three studies, spanning six clinical sites and six different model architectures. Let me start with why this question matters.`,`The starting point is that medical imaging data is siloed. Breast-MRI studies sit behind each hospital's data governance, and for good privacy reasons you usually cannot copy them into one central training set. Swarm learning, and federated learning more broadly, gets around this: the sites exchange only model weights, never the images themselves, and converge on one shared model. The catch is distribution shift. Every site has different scanners, a different mix of benign and malignant cases, different demographics. So a model that looks excellent at its home site may collapse elsewhere. That is exactly what we want to measure: does aggregating across sites beat the single best site model when you test on data neither has seen during selection?`,`Here's the structure. The clinical task is a three-class grade for each breast from the MRI: class zero is no lesion, class one benign, class two malignant. Class two, malignant, is the one we care most about. We have six participating sites, with a seventh, USZ in Zurich, currently being onboarded. The single most important idea on this slide is the two endpoints. Internal validation is a model scored on its own site's held-out split, which is what you use during training to pick checkpoints. External validation is the held-out ODELIA challenge test set, pooled across institutions, and that is the honest measure of generalization. Keep that distinction in mind, because the gap between the two is really the story of this talk. I'll walk through three studies that each look at this from a different angle.`,`Study A is the proof that the plumbing works. This was a three-client swarm on Duke data, nodes A, B and C, training the MST model for twenty rounds, and it ran to completion with global model files written on every node. Look at the bars: for each node, the swarm-aggregated model, in the right-hand bars, matches or slightly beats that node's own local site model. Node A reaches 0.948, node B 0.872, node C 0.965. So aggregation is not hurting any individual site, which is the first thing you want to confirm. One honest caveat, which becomes a theme: this run only contained classes zero and two, no benign cases, so these AUROCs are really binary, no-lesion versus malignant. That limitation is what set up the next slide.`,`Running that first swarm taught us three things, and they shaped everything after. First, label coverage: because benign cases were missing, the three-class macro AUROC simply isn't defined, so we now check class coverage before trusting any aggregate metric. Second, and this one is subtle but important, the best-model selection silently broke. The aggregator was configured to track a metric called 'accuracy', but the clients were logging it under the name 'val/ACC'. The names didn't match, so no global-best was ever selected, and the run published its last-round model instead of its best one. Third, the logs flagged the same patient UIDs appearing across train, validation and test, which inflates scores. The key point: every single problem here was a data or plumbing issue, not a modeling one. So for the big study we hardened all three.`,`Study B is the main event. We trained all six ODELIA model families &mdash; MST, 1DivideAndConquer, 2BCN_AIM, 3agaldran, 4LME_ABMIL and 5Pimed &mdash; in a swarm across all six sites. This heatmap is the completeness check: green means that model produced complete artifacts. Every model reached six-of-six on global models, run directories and validation CSVs. Two models, 5Pimed and MST, needed one retry after a failed job, and we keep those failures separate so they don't contaminate the quality numbers. The runtimes ranged from about five hours to about eighteen hours per model. So before we even talk about accuracy: we have a full, reproducible federated matrix with complete artifacts, which is itself a real engineering result.`,`If we rank the models purely on internal validation AUROC during swarm training, 4LME_ABMIL leads at 0.900, then 3agaldran at 0.830, 1DivideAndConquer at 0.811, and the rest between 0.76 and 0.79. These are healthy numbers and they tell us training converged. But I want to flag, before anyone writes these down as the result: internal validation is necessary but not sufficient. It's measured on each site's own distribution, and as we'll see, it systematically overstates how the model does on outside data. The honest comparison is on the external challenge set, and that's the next slide &mdash; the one I'd ask you to remember.`,`This is the headline. For each model we take the swarm's global model, the blue bars, and compare it against the single best site-local model for that family, the gold bars, on the external ODELIA challenge test &mdash; three hundred cases, sample-weighted across institutions, that neither model tuned on. For four of the six models the swarm global wins on external macro AUROC, and it ties on 3agaldran. The gains are real: 1DivideAndConquer jumps about ten points, 2BCN_AIM six, 4LME_ABMIL three. The strongest model overall is 4LME_ABMIL from the swarm, at 0.764 macro AUROC and 0.847 AUROC on the malignant class specifically. The one regression is 5Pimed, where the swarm model was degenerate &mdash; I'll come back to that as a fixable plumbing failure, not evidence against swarm learning. So the central result: training together generalizes better than the best site alone.`,`Why does the swarm win? This chart shows the best single-site model for each family scored two ways: grey is its internal validation, where it looks superb, 0.78 up to 0.91; red is the very same checkpoint on the external challenge, where it falls to between 0.57 and 0.73. That collapse is overfitting to the home population. The swarm models, by contrast, look a little weaker internally but hold up better externally &mdash; which is exactly the trade you want. Mechanistically, averaging weights across sites with different scanners and case mixes acts like a regularizer: it throws away the idiosyncrasies that only help at one site and keeps what transfers. That's the argument for swarm learning in one picture.`,`Study C zooms in on individual checkpoints. Here we took single-site-trained checkpoints and ran each one on the external challenge, ranked by AUROC on the malignant class. The best transfer comes from UKA's 1DivideAndConquer checkpoint at 0.858, then USZ's 1DC at 0.810, then MHA's at 0.795. The clear pattern is that the 1DivideAndConquer architecture owns the top of this leaderboard, which is useful for deciding where to invest. You'll notice the single best checkpoint, UKA at 0.858, is actually a touch higher than the best swarm model on this one malignant-class metric. That's real, but it's cherry-picked with hindsight on the test set &mdash; and the next slide shows why you can't rely on picking it.`,`And this is the cautionary half of Study C. Internal scores do not predict transfer. CAM's 1DC checkpoint looked almost perfect internally, 0.965 on the malignant class, but lands at 0.682 externally. RUMC's MST hit ninety-nine-point-five percent internal accuracy &mdash; but only because its validation split was essentially one class, about 199 negatives to a single positive, so the model just predicted 'negative' every time; externally its macro AUROC is 0.495, no better than chance. RSH's 5Pimed shows the opposite failure: high malignant recall, 0.88, but terrible AUROC, because it cries 'malignant' on almost everyone. The lesson is twofold: choose checkpoints on representative or external validation, not on the home split; and under this kind of class imbalance, accuracy is a trap &mdash; you have to read AUROC together with recall.`,`Beyond the headline science, a practical question for a project like this is: how do you safely add a new hospital? This slide is our onboarding workflow, using USZ in Zurich as the live example. Before a new site contributes to the swarm we run a data audit and a local-only training pass. USZ brings 5,312 cases, cleanly split about 65/15/20 percent, with zero missing images, which is a good sign. The important caveat is the class balance: malignant cases are only nine percent of the data, so it's heavily imbalanced, and that conditions how much we weight USZ for the malignant class. Its local 1DC model already transfers well, 0.810 on the external malignant AUROC. Every new partner passes this same audit gate before joining the live swarm.`,`Stepping back, the strongest cross-cutting lesson is that data quality, not model architecture, was our real bottleneck. Across all three studies, the first thing that broke was always a data or plumbing issue. Label coverage gaps broke our three-class metrics. Patient overlap across splits inflated scores. A metric-name mismatch quietly disabled best-model selection, twice. And class imbalance repeatedly made accuracy look great while the model was effectively guessing, including the degenerate single-class validation split at RUMC. The upshot is that we now treat plausibility auditing &mdash; checking coverage, splits, label balance, and metric wiring &mdash; as a gate that runs before training, not as a post-hoc cleanup. That single change would have caught most of what I've shown you.`,`So, five takeaways. One: the swarm pipeline works end-to-end &mdash; six models across six sites with complete artifacts, which was not trivial to achieve. Two, and this is the core scientific result: the swarm-aggregated global model generalizes better than the best single-site model on external data, winning four of six head-to-heads and tying a fifth. Three: internal validation consistently overstates performance, so we report the external challenge as the honest endpoint. Four: on architecture, 1DivideAndConquer and 4LME_ABMIL are the standouts, reaching external AUROCs up to 0.86 on the malignant class. And five: most of our failures were caught &mdash; or would have been caught &mdash; by data audits, not by better models.`,`Finally, next steps. First, fix the global-best selection by aligning those metric names, so the swarm publishes its best model rather than its last &mdash; that alone should lift several numbers. Second, re-run the 5Pimed swarm, since its current global model is degenerate externally. Third, bring USZ into the live swarm now that it's passed the audit, and standardize how we pick checkpoints against the external challenge. Fourth, promote the coverage and split-overlap audits into automated gates that run before every training job. And fifth, going forward we'll report malignant-class AUROC and recall as the primary clinical endpoint, because that's what matters for patients. Thank you &mdash; I'm happy to take questions.`,`Backup slide on runtimes if it comes up: 2BCN_AIM was the slowest at roughly eighteen hours, while MST and 5Pimed finished in about five. These are log-timestamp spans, so treat them as relative, not billing-grade.`,`Backup detail on artifact coverage: every model produced every expected artifact type &mdash; global models, run directories, validation and training CSVs, TensorBoard events and local checkpoints &mdash; at six-of-six. No gaps.`,`And a representative training curve, for the UKA 1DC run that gave us the best external transfer. The epoch-25 checkpoint, not the last one, was the strongest externally &mdash; another reminder that last is not best.`];
+const slides=[...document.querySelectorAll('.slide')];
+const notesData=window.__NOTES__;
+let i=0;
+const prog=document.getElementById('prog');
+const notes=document.getElementById('notes');
+function show(n){
+  i=Math.max(0,Math.min(slides.length-1,n));
+  slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+  prog.style.width=((i+1)/slides.length*100)+'%';
+  if(notes.classList.contains('show'))renderNotes();
+}
+function renderNotes(){notes.innerHTML='<b>Slide '+(i+1)+'/'+slides.length+'</b><br>'+notesData[i];}
+document.addEventListener('keydown',e=>{
+  if(['ArrowRight','PageDown',' '].includes(e.key)){show(i+1);e.preventDefault();}
+  else if(['ArrowLeft','PageUp'].includes(e.key))show(i-1);
+  else if(e.key==='Home')show(0);
+  else if(e.key==='End')show(slides.length-1);
+  else if(e.key.toLowerCase()==='s'){notes.classList.toggle('show');renderNotes();}
+  else if(e.key.toLowerCase()==='f'){if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();}
+});
+document.addEventListener('click',e=>{if(e.target.closest('#notes'))return;
+  const x=e.clientX/window.innerWidth;show(x<0.25?i-1:i+1);});
+show(0);
+</script></body></html>

@@ -3,26 +3,120 @@ name: MediSwarm PR Validation
 on:
   schedule:
     - cron: '0 5 * * 0'
+  # Lets a maintainer re-run validation on demand — e.g. to refresh a stale README
+  # badge after an infrastructure fix, without pushing an empty commit (#390).
+  workflow_dispatch:
   pull_request:
     branches:
       - main
       - dev
+    # Skip the 60-min single-GPU validation for pure-docs PRs — nothing under
+    # these paths affects training/build. A PR that also touches code/config
+    # still runs it. (validate-swarm is not a required check, so skipping here
+    # cannot block a merge.) True step parallelization is intentionally NOT done:
+    # the self-hosted runner has one shared GPU + a global serialization guard,
+    # so splitting GPU steps into parallel jobs only adds checkout/build overhead
+    # without speedup. The real wins are Docker/pip caching + skipping irrelevant PRs.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
 
 permissions:
   contents: read
 
+# Cancel superseded validation runs for the same PR/ref. The GPU-heavy
+# validate-swarm job below also queues globally to avoid self-hosted GPU
+# contention across different PRs.
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-swarm:
-    runs-on: self-hosted
-    timeout-minutes: 45
+    # The self-hosted runner has one shared GPU; running multiple validation jobs
+    # at once can OOM otherwise independent PRs.
+    concurrency:
+      group: mediswarm-self-hosted-gpu-validation
+      cancel-in-progress: false
+    runs-on: [self-hosted, ci]
+    timeout-minutes: 60
 
     env:
       PYTHONUNBUFFERED: 1
 
 
     steps:
+      - name: Wait for any manual build / deploy test on this host (#448)
+        run: |
+          # This runner shares its GPU, Docker daemon and ports 8002/8003 with
+          # DECADE image builds and deploy tests that are started by hand and
+          # belong to no concurrency group. Critically, the cleanup step below
+          # kills every container matching odelia|stamp|nvflare -- which would
+          # destroy a manual deploy test mid-run -- so wait for the host lock
+          # BEFORE touching any container. Manual runs hold this same lock via
+          # scripts/ci/host_gpu_lock.sh. Inlined rather than sourced because the
+          # repository has not been checked out at this point.
+          command -v flock >/dev/null 2>&1 || { echo "flock unavailable; skipping"; exit 0; }
+          if flock -w 3600 /tmp/mediswarm-host-gpu.lock true; then
+            echo "host is free; proceeding"
+          else
+            echo "host still busy after 3600s; proceeding anyway (CI must not hang forever)"
+          fi
+
+      - name: Clean up root-owned files from previous Docker runs
+        run: |
+          # Canceled self-hosted runs can leave GPU/NVFlare containers alive
+          # before their final cleanup step executes. Remove them before this
+          # run starts so stale processes cannot hold ports or GPU memory.
+          docker ps --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true
+          docker ps -a --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker rm -f 2>/dev/null || true
+
+          # Docker-based tests create root-owned files (owned by root inside the
+          # container) in the workspace/ directory.  The runner process cannot
+          # remove them, which causes the checkout action's "clean" step to fail
+          # with EACCES.  We use a disposable Docker container (which runs as
+          # root) to delete those files before checkout runs.
+          if [ -d "$GITHUB_WORKSPACE/workspace" ]; then
+            echo "Removing root-owned workspace/ via Docker..."
+            docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine rm -rf /ws/workspace
+          fi
+          # Also remove any other root-owned files that Docker tests may have created
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
+            'find /ws -mindepth 1 -maxdepth 1 -not -name ".git" -exec chown -R '"$(id -u):$(id -g)"' {} + 2>/dev/null || true'
+
+      - name: Reclaim disk space (prune stale Docker resources)
+        run: |
+          echo "Disk usage before cleanup:"
+          df -h / | tail -1
+
+          echo "Docker usage before cleanup:"
+          docker system df || true
+
+          # Remove stopped containers, dangling images, and old build cache.
+          docker system prune -f --filter "until=24h" || true
+
+          # PR validation builds large ODELIA/STAMP images with commit-specific
+          # tags. Superseded runs can fill the self-hosted runner even when the
+          # images are too recent for the stale-resource prune above.
+          docker image ls --format '{{.Repository}}:{{.Tag}} {{.ID}}' \
+            | awk '$1 ~ /^(localhost:5000\/)?(odelia|stamp):/ {print $2}' \
+            | sort -u \
+            | xargs -r docker rmi -f || true
+          docker builder prune -af || true
+
+          FREE_KB=$(df --output=avail / | tail -1)
+          if [ "$FREE_KB" -lt 15728640 ]; then
+            echo "Free disk below 15 GiB; pruning all unused Docker images."
+            docker system prune -af || true
+          fi
+
+          echo "Docker usage after cleanup:"
+          docker system df || true
+          echo "Disk usage after cleanup:"
+          df -h / | tail -1
+
       - name: Checkout repository (with submodules)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           submodules: true
           fetch-depth: 0
@@ -30,14 +124,17 @@ jobs:
       - name: Get Docker image version
         id: get_version
         run: |
-          VERSION=$(./getVersionNumber.sh)
+          VERSION=$(./scripts/build/getVersionNumber.sh)
           echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Pin the version for every later step. Without this a run that crosses
+          # local midnight builds one tag and then looks up another (#428).
+          echo "MEDISWARM_IMAGE_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build Docker image for real project (MEVIS)
         run: |
-          chmod +x buildDockerImageAndStartupKits.sh
-          ./buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml
+          chmod +x scripts/build/buildDockerImageAndStartupKits.sh
+          ./scripts/build/buildDockerImageAndStartupKits.sh -p application/provision/project_MEVIS_test.yml --use-docker-cache
 
       - name: Show workspace path for MEVIS project
         run: |
@@ -45,60 +142,119 @@ jobs:
           find workspace -maxdepth 1 -type d -name "odelia_*_MEVIS_test" || echo "No workspace found"
 
       - name: Build Docker image and dummy startup kits
-        run: ./buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
+        run: ./scripts/build/buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml --use-docker-cache
 
-      - name: Run integration test checking documentation on github
+      - name: Run integration test checking documentation in the repository
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh check_files_on_github
+          ./scripts/ci/runIntegrationTests.sh check_files_in_repo
 
       - name: Run dummy training standalone
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_dummy_training_standalone
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_standalone
 
       - name: Run dummy training in simulation mode
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_dummy_training_simulation_mode
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_simulation_mode
 
       - name: Run dummy training in proof-of-concept mode
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_dummy_training_poc_mode
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_poc_mode
 
       - name: Run 3DCNN training in simulation mode
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_3dcnn_simulation_mode
+          ./scripts/ci/runIntegrationTests.sh run_3dcnn_simulation_mode
+
+      # ---------------------------------------------------------------
+      # STAMP pipeline tests
+      # ---------------------------------------------------------------
+      - name: Build STAMP Docker image
+        run: |
+          chmod +x scripts/build/buildDockerImageAndStartupKits.sh
+          ./scripts/build/buildDockerImageAndStartupKits.sh \
+            -p tests/provision/dummy_stamp_project_for_testing.yml \
+            -d docker_config/Dockerfile_STAMP \
+            --use-docker-cache
+
+      - name: Run STAMP preflight check
+        continue-on-error: false
+        env:
+          STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_stamp_preflight_check
+
+      - name: Run STAMP local training
+        continue-on-error: false
+        env:
+          STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_stamp_local_training
+
+      - name: Run STAMP simulation mode
+        continue-on-error: false
+        env:
+          STAMP_DOCKER_IMAGE: "localhost:5000/stamp:${{ steps.get_version.outputs.version }}"
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_stamp_simulation_mode
 
       - name: Run integration test creating startup kits
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh create_startup_kits
+          ./scripts/ci/runIntegrationTests.sh create_startup_kits
 
       - name: Run intergration test listing licenses
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_list_licenses
+          ./scripts/ci/runIntegrationTests.sh run_list_licenses
 
       - name: Run integration test Docker GPU preflight check
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_docker_gpu_preflight_check
+          ./scripts/ci/runIntegrationTests.sh run_docker_gpu_preflight_check
 
-      - name: Run integration test Data access preflight check
+      - name: Run integration test data access preflight check
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_data_access_preflight_check
+          ./scripts/ci/runIntegrationTests.sh run_data_access_preflight_check
+
+      # #352: PRs only exercise the default model, so a break in one of the other
+      # five productive models is invisible until a deploy test or a real run hits
+      # it. run_all_models_preflight_check() already existed and was dispatchable,
+      # but was wired into no workflow at all. Run it on the weekly schedule and on
+      # manual dispatch — not on every PR, since it preflights all six models on the
+      # one shared GPU.
+      - name: Run preflight check for all productive models (weekly / manual)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: false
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_all_models_preflight_check
 
       - name: Run dummy training in swarm
         continue-on-error: false
         run: |
-          ./runIntegrationTests.sh run_dummy_training_in_swarm
+          ./scripts/ci/runIntegrationTests.sh run_dummy_training_in_swarm
+
+      - name: Run local 3DCNN training with synthetic dataset
+        continue-on-error: false
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_3dcnn_local_training
+
+      - name: Run 3DCNN training swarm with synthetic dataset and two clients
+        continue-on-error: false
+        run: |
+          ./scripts/ci/runIntegrationTests.sh run_3dcnn_training_in_swarm
 
       - name: Kill orphaned containers from this run (if any)
-        continue-on-error: false
         if: always()
         run: |
-          ./runIntegrationTests.sh kill_server_and_clients
+          # Kill any odelia/stamp Docker containers that may still be running
+          docker ps --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true
+          docker ps -a --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker rm -f 2>/dev/null || true
+          # Also clean up root-owned workspace files so next run's checkout succeeds
+          if [ -d "$GITHUB_WORKSPACE/workspace" ]; then
+            docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c "rm -rf /ws/workspace"
+          fi

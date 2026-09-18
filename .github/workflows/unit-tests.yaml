@@ -1,0 +1,64 @@
+name: Unit Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+  push:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          # Cache the pip download dir; key derived from this workflow file, whose
+          # inline `pip install` lines are the effective dependency manifest.
+          cache: 'pip'
+          cache-dependency-path: .github/workflows/unit-tests.yaml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # CPU-only PyTorch (much smaller download than full CUDA build)
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # Install unified 'lightning' package — provides both lightning.*
+          # (needed by STAMP tests) and pytorch_lightning.* (needed by ODELIA tests)
+          pip install lightning scikit-learn pytest
+          # fastapi: server_tools/app.py imports it; needed by test_swarm_progress.py (#398)
+          pip install fastapi
+          # torchio + pandas gate the ODELIA dataset tests (degenerate-input guard,
+          # fold validation). Without them pytest silently SKIPS those files, which is
+          # how a broken guard test reached main (#416/#423).
+          pip install torchio pandas
+          # The NVFlare fork gates the server-side metric collector tests
+          # (test_per_site_metrics.py). Same trap as torchio/pandas above: without
+          # it pytest SKIPS the file and the job still reports green, which is how
+          # an empty cross_val_results.json survived two live 8-site runs (#525).
+          # Installed from the in-tree fork so CI tests the same NVFlare the image
+          # ships, not whatever PyPI currently calls 'nvflare'.
+          pip install ./docker_config/NVFlare
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit_tests/ -v --tb=short -m "not gpu"

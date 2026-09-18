@@ -1,0 +1,18 @@
+[
+  {
+    "site_name": "node_A",
+    "display_name": "dl0 / node_A",
+    "ip_address": "100.x.x.x",
+    "institution": "optional",
+    "expected_version": "optional",
+    "enabled": true
+  },
+  {
+    "site_name": "node_B",
+    "display_name": "dl2 / node_B",
+    "ip_address": "100.x.x.x",
+    "institution": "optional",
+    "expected_version": "optional",
+    "enabled": true
+  }
+]

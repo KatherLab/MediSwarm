@@ -47,7 +47,7 @@ fi
 source "$CONF_FILE"
 
 # ── Derived Variables ───────────────────────────────────────────────────────
-VERSION=$("$SCRIPT_DIR/getVersionNumber.sh")
+VERSION=$("$SCRIPT_DIR/scripts/build/getVersionNumber.sh")
 DOCKER_IMAGE="jefftud/odelia:$VERSION"
 GIT_SHORT_HASH=$(git -C "$SCRIPT_DIR" rev-parse --short HEAD)
 
@@ -59,8 +59,11 @@ PROJECT_NAME=$(grep "^name: " "$SCRIPT_DIR/$PROJECT_FILE" \
     | sed "s/__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__/$VERSION/")
 WORKSPACE_DIR="$SCRIPT_DIR/workspace/$PROJECT_NAME"
 
-# All sites to deploy to (add more here if needed)
-SITES=(MHA RSH)
+# All sites to deploy to — configured in deploy_sites.conf via SITES=()
+# Falls back to (MHA RSH) if deploy_sites.conf doesn't define SITES.
+if [[ -z "${SITES+x}" || ${#SITES[@]} -eq 0 ]]; then
+    SITES=(MHA RSH)
+fi
 
 # SSH options for sshpass
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
@@ -138,7 +141,7 @@ cmd_build() {
     # buildDockerImageAndStartupKits.sh must be invoked from the repo root
     # with a RELATIVE project file path (it passes the path into a Docker
     # container where the absolute host path doesn't exist).
-    (cd "$SCRIPT_DIR" && ./buildDockerImageAndStartupKits.sh -p "$PROJECT_FILE")
+    (cd "$SCRIPT_DIR" && ./scripts/build/buildDockerImageAndStartupKits.sh -p "$PROJECT_FILE")
 
     # Verify
     local prod_dir
@@ -216,7 +219,8 @@ cmd_start_server() {
 
     local prod_dir
     prod_dir=$(find_latest_prod)
-    local server_startup="$prod_dir/dl3.tud.de/startup"
+    local server_name="${SERVER_NAME:-dl3.tud.de}"
+    local server_startup="$prod_dir/$server_name/startup"
 
     if [[ ! -d "$server_startup" ]]; then
         err "Server startup kit not found: $server_startup"
@@ -232,7 +236,7 @@ cmd_start_server() {
     sleep 10
 
     # Verify
-    if docker ps --format '{{.Names}}' | grep -q "odelia_swarm_server"; then
+    if docker ps --format '{{.Names}}' | grep -qE "odelia_swarm|nvflare"; then
         ok "Server container is running"
     else
         warn "Server container not detected — it may still be starting"
@@ -240,8 +244,15 @@ cmd_start_server() {
 }
 
 cmd_start_clients() {
+    local model_name="${1:-}"
     step "Starting NVFlare clients on remote sites"
     check_dependencies
+
+    local model_flag=""
+    if [[ -n "$model_name" ]]; then
+        model_flag="--model_name '$model_name'"
+        info "Using MODEL_NAME=$model_name"
+    fi
 
     for site in "${SITES[@]}"; do
         local site_name host deploy_dir datadir scratchdir gpu
@@ -260,12 +271,26 @@ cmd_start_clients() {
              export SITE_NAME='$site_name' && \
              export DATADIR='$datadir' && \
              export SCRATCHDIR='$scratchdir' && \
-             ./docker.sh --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' --start_client"
+             ./docker.sh --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $model_flag --start_client"
 
         ok "  Client started on $site_name"
     done
 
     ok "All clients started"
+}
+
+# Map job directory names to the MODEL_NAME env var expected by the model factory.
+job_to_model_name() {
+    local job="$1"
+    case "$job" in
+        challenge_1DivideAndConquer)   echo "1DivideAndConquer" ;;
+        challenge_2BCN_AIM)            echo "2BCN_AIM" ;;
+        challenge_3agaldran)           echo "3agaldran" ;;
+        challenge_4abmil)              echo "4LME_ABMIL" ;;
+        challenge_5pimed)              echo "5Pimed" ;;
+        ODELIA_ternary_classification) echo "MST" ;;
+        *)                             echo "MST" ;;
+    esac
 }
 
 cmd_submit() {
@@ -320,7 +345,7 @@ cmd_status() {
 
     echo ""
     info "Local containers:"
-    docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | grep -E "odelia|NAMES" || echo "  (none)"
+    docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | grep -E "odelia|stamp|nvflare|NAMES" || echo "  (none)"
 
     check_dependencies
 
@@ -332,7 +357,7 @@ cmd_status() {
         echo ""
         info "$site ($site_name @ $host):"
         remote_exec "$site" \
-            "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null | grep -E 'odelia|NAMES' || echo '  (none)'" \
+            "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null | grep -E 'odelia|stamp|nvflare|NAMES' || echo '  (none)'" \
             2>/dev/null || warn "  Could not connect to $host"
     done
 }
@@ -341,7 +366,7 @@ cmd_logs() {
     local target="${1:-}"
     if [[ -z "$target" ]]; then
         err "Usage: ./deploy_and_test.sh logs <site>"
-        echo "  Sites: MHA, RSH, server"
+        echo "  Sites: ${SITES[*]}, server"
         exit 1
     fi
 
@@ -350,7 +375,8 @@ cmd_logs() {
     if [[ "$target" == "SERVER" ]]; then
         local prod_dir
         prod_dir=$(find_latest_prod)
-        local log_file="$prod_dir/dl3.tud.de/startup/nohup.out"
+        local server_name="${SERVER_NAME:-dl3.tud.de}"
+        local log_file="$prod_dir/$server_name/startup/nohup.out"
         if [[ -f "$log_file" ]]; then
             step "Server logs (last 50 lines)"
             tail -50 "$log_file"
@@ -393,7 +419,7 @@ cmd_stop() {
     info "Stopping local containers..."
     # Kill all odelia containers locally
     local local_containers
-    local_containers=$(docker ps --format '{{.Names}}' | grep "odelia_swarm" || true)
+    local_containers=$(docker ps --format '{{.Names}}' | grep -E "odelia_swarm|stamp|nvflare" || true)
     if [[ -n "$local_containers" ]]; then
         echo "$local_containers" | xargs docker kill 2>/dev/null || true
         ok "Stopped local containers"
@@ -411,7 +437,7 @@ cmd_stop() {
         echo ""
         info "Stopping containers on $site ($host)..."
         remote_exec "$site" \
-            "docker ps --format '{{.Names}}' | grep 'odelia_swarm' | xargs -r docker kill 2>/dev/null || true" \
+            "docker ps --format '{{.Names}}' | grep -E 'odelia_swarm|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true" \
             2>/dev/null || warn "  Could not connect to $host"
         ok "  Stopped containers on $site"
     done
@@ -421,15 +447,17 @@ cmd_stop() {
 
 cmd_all() {
     local job_name="${1:-$DEFAULT_JOB}"
+    local model_name
+    model_name=$(job_to_model_name "$job_name")
     step "Full deployment pipeline"
-    info "Job: $job_name"
+    info "Job: $job_name (MODEL_NAME=$model_name)"
     echo ""
 
     cmd_build
     cmd_push
     cmd_deploy
     cmd_start_server
-    cmd_start_clients
+    cmd_start_clients "$model_name"
 
     info "Waiting 15s for clients to register with server..."
     sleep 15
@@ -438,7 +466,9 @@ cmd_all() {
 
     echo ""
     ok "Full pipeline complete!"
-    info "Monitor progress at: http://172.24.4.65:8080/"
+    # Real address intentionally not in the public tree; set MEDISWARM_MONITOR_URL
+    # (see the members-only site registry) to print a clickable URL here.
+    info "Monitor progress at: ${MEDISWARM_MONITOR_URL:-http://<SERVER_IP>:8080/}"
     info "Check status with: ./deploy_and_test.sh status"
     info "View logs with: ./deploy_and_test.sh logs <MHA|RSH|server>"
 }
@@ -466,6 +496,9 @@ usage() {
     echo "  $0 submit challenge_3agaldran          # Submit a different job"
     echo "  $0 logs MHA                            # Check MHA logs"
     echo "  $0 stop                                # Kill everything"
+    echo ""
+    echo "Sites are configured in deploy_sites.conf via SITES=(SITE1 SITE2 ...)."
+    echo "Server name is configured via SERVER_NAME=dl3.tud.de (default)."
 }
 
 COMMAND="${1:-}"
@@ -476,7 +509,7 @@ case "$COMMAND" in
     push)           cmd_push ;;
     deploy)         cmd_deploy ;;
     start-server)   cmd_start_server ;;
-    start-clients)  cmd_start_clients ;;
+    start-clients)  cmd_start_clients "${1:-}" ;;
     submit)         cmd_submit "${1:-}" ;;
     status)         cmd_status ;;
     logs)           cmd_logs "${1:-}" ;;

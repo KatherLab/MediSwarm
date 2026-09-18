@@ -1,0 +1,222 @@
+name: ODELIA Deploy Test
+
+on:
+  workflow_dispatch:     # Manual trigger
+    inputs:
+      project_file:
+        description: "Provision YAML used to build startup kits"
+        required: false
+        default: "application/provision/project_deploy_test_4site.yml"
+        type: string
+      min_clients:
+        description: "min_clients / configure_min_clients to bake into generated jobs (= number of test clients in the conf)"
+        required: false
+        default: "2"
+      num_rounds:
+        description: "Number of FL rounds to bake into generated jobs"
+        required: false
+        default: "1"
+        type: string
+      conf_source:
+        description: "Deploy-site credential/config file on the runner (default: ~/mediswarm_deploy_conf/...)"
+        required: false
+        # Empty -> the job falls back to $HOME/mediswarm_deploy_conf/deploy_sites_odelia_ci_2node.conf
+        # on the runner. A literal $HOME here would NOT be expanded by YAML.
+        default: ""
+        type: string
+      run_all:
+        description: "Run all six ODELIA models instead of the selected model/job"
+        required: false
+        default: false
+        type: boolean
+      model:
+        description: "MODEL_NAME for a single-model run"
+        required: false
+        default: "1DivideAndConquer"
+        type: string
+      job:
+        description: "Job directory for a single-model run"
+        required: false
+        default: "challenge_1DivideAndConquer"
+        type: string
+      skip_eval:
+        description: "Skip deploy-runner post-training evaluation"
+        required: false
+        default: false
+        type: boolean
+      timeout_minutes:
+        description: "Per-model timeout passed to run_deploy_test.sh"
+        required: false
+        default: "10080"
+        type: string
+  release:
+    types: [published]   # Run on every tagged release
+
+permissions:
+  contents: read
+
+concurrency:
+  group: odelia-deploy-test
+  cancel-in-progress: false  # Don't cancel long-running swarm training
+
+jobs:
+  deploy-test:
+    # Runs on a "ci" runner (dl0/dl2), which orchestrates the deploy targets via SSH.
+    # The cosmos runner was removed on 2026-07-28 because that host runs the live
+    # ODELIA production server and CI collided with it (ports 8002/8003 + cleanup
+    # force-removing production containers); dl3 was removed for the same reason
+    # (DECADE production server). The orchestrating runner must be able to SSH to
+    # the sites named in the conf below, and must not be a deploy target itself.
+    runs-on: [self-hosted, ci]
+    timeout-minutes: 4320  # 3 days (6 models, generous for slow VPN + large models)
+
+    steps:
+      - name: Clean root-owned files from previous runs
+        run: |
+          # NVFlare server container creates root-owned workspace files that
+          # block actions/checkout@v4's git clean.  Remove them before checkout.
+          # `sudo` is NOT usable on these runners (no passwordless sudo): it prompts,
+          # fails silently under `2>/dev/null || true`, and the step reports success
+          # while deleting nothing. Use a disposable root container, as pr-test.yaml does.
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine sh -c \
+            'rm -rf /ws/workspace /ws/deploy_test' || true
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Resolve deploy test parameters
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PROJECT_FILE: ${{ inputs.project_file }}
+          INPUT_NUM_ROUNDS: ${{ inputs.num_rounds }}
+          INPUT_MIN_CLIENTS: ${{ inputs.min_clients }}
+          INPUT_CONF_SOURCE: ${{ inputs.conf_source }}
+          INPUT_RUN_ALL: ${{ inputs.run_all }}
+          INPUT_MODEL: ${{ inputs.model }}
+          INPUT_JOB: ${{ inputs.job }}
+          INPUT_SKIP_EVAL: ${{ inputs.skip_eval }}
+          INPUT_TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        run: |
+          set -euo pipefail
+
+          project_file="${INPUT_PROJECT_FILE:-application/provision/project_deploy_test_4site.yml}"
+          num_rounds="${INPUT_NUM_ROUNDS:-1}"
+          min_clients="${INPUT_MIN_CLIENTS:-2}"
+          conf_source="${INPUT_CONF_SOURCE:-$HOME/mediswarm_deploy_conf/deploy_sites_odelia_ci_2node.conf}"
+          run_all="${INPUT_RUN_ALL:-false}"
+          model="${INPUT_MODEL:-1DivideAndConquer}"
+          job="${INPUT_JOB:-challenge_1DivideAndConquer}"
+          skip_eval="${INPUT_SKIP_EVAL:-false}"
+          timeout_minutes="${INPUT_TIMEOUT_MINUTES:-10080}"
+
+          # Release runs preserve the historical behavior: 4-site, one round,
+          # all six ODELIA models, evaluation enabled.
+          if [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            run_all="true"
+            skip_eval="false"
+          fi
+
+          case "$run_all" in true|false) ;; *) echo "run_all must be true/false: $run_all"; exit 1 ;; esac
+          case "$skip_eval" in true|false) ;; *) echo "skip_eval must be true/false: $skip_eval"; exit 1 ;; esac
+          [[ "$num_rounds" =~ ^[0-9]+$ ]] || { echo "num_rounds must be an integer: $num_rounds"; exit 1; }
+          [[ "$timeout_minutes" =~ ^[0-9]+$ ]] || { echo "timeout_minutes must be an integer: $timeout_minutes"; exit 1; }
+          [[ -f "$project_file" ]] || { echo "Project file not found: $project_file"; exit 1; }
+          [[ -f "$conf_source" ]] || { echo "Deploy config not found: $conf_source"; exit 1; }
+
+          conf_file="$GITHUB_WORKSPACE/deploy_sites_ci.conf"
+          cp "$conf_source" "$conf_file"
+          {
+            echo ""
+            echo "# GitHub Actions workflow override: keep build and deploy-runner workspace lookup aligned."
+            echo "PROJECT_FILE=$project_file"
+          } >> "$conf_file"
+          chmod 600 "$conf_file"
+
+          {
+            echo "DEPLOY_PROJECT_FILE=$project_file"
+            echo "DEPLOY_NUM_ROUNDS=$num_rounds"
+            echo "DEPLOY_MIN_CLIENTS=$min_clients"
+            echo "DEPLOY_CONF_FILE=$conf_file"
+            echo "DEPLOY_RUN_ALL=$run_all"
+            echo "DEPLOY_MODEL=$model"
+            echo "DEPLOY_JOB=$job"
+            echo "DEPLOY_SKIP_EVAL=$skip_eval"
+            echo "DEPLOY_TIMEOUT_MINUTES=$timeout_minutes"
+          } >> "$GITHUB_ENV"
+
+          echo "project_file=$project_file"
+          echo "num_rounds=$num_rounds"
+          echo "run_all=$run_all"
+          echo "model=$model"
+          echo "job=$job"
+          echo "skip_eval=$skip_eval"
+          echo "timeout_minutes=$timeout_minutes"
+
+      - name: Build Docker image + startup kits
+        run: |
+          # --min-clients: the productive jobs carry min_clients tuned for the full
+          # consortium (5); with two test clients the run aborts in 30 s with
+          # "min_clients (5) exceeds the number of participating clients (2)".
+          ./scripts/build/buildDockerImageAndStartupKits.sh \
+            -p "$DEPLOY_PROJECT_FILE" \
+            --use-docker-cache \
+            --num-rounds "$DEPLOY_NUM_ROUNDS" \
+            --min-clients "$DEPLOY_MIN_CLIENTS"
+
+      - name: Push Docker image to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Remote clients pull the image from Docker Hub during startup, so the
+          # build under test has to be published before the clients start.
+          #
+          # This used to rely on the runner having an ambient ~/.docker/config.json
+          # (true only on the old cosmos runner). Since the deploy tests moved to the
+          # ci runners the push failed with "denied: requested access to the resource
+          # is denied" on every run. Authenticate explicitly from repository secrets
+          # instead: these workflows are workflow_dispatch/schedule only, so a fork
+          # cannot trigger them and the credential is never written to the runner's
+          # ambient config.
+          if [[ -n "${DOCKERHUB_TOKEN:-}" ]]; then
+            echo "$DOCKERHUB_TOKEN" | docker login -u "${DOCKERHUB_USERNAME:-jefftud}" --password-stdin
+          else
+            echo "::warning::DOCKERHUB_TOKEN secret is not set — falling back to any ambient docker credential."
+          fi
+
+          VERSION=$(./scripts/build/getVersionNumber.sh)
+          docker push "jefftud/odelia:$VERSION"
+
+      - name: Run deploy test
+        run: |
+          set -euo pipefail
+
+          args=(--conf "$DEPLOY_CONF_FILE" --timeout "$DEPLOY_TIMEOUT_MINUTES")
+          if [[ "$DEPLOY_SKIP_EVAL" == "true" ]]; then
+            args+=(--skip-eval)
+          fi
+
+          if [[ "$DEPLOY_RUN_ALL" == "true" ]]; then
+            args=(--all "${args[@]}")
+          else
+            args=(--model "$DEPLOY_MODEL" --job "$DEPLOY_JOB" "${args[@]}")
+          fi
+
+          ./scripts/deploy/run_deploy_test.sh "${args[@]}"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: deploy-test-results
+          path: workspace/deploy_test_results/
+
+      - name: Kill orphaned containers (cleanup)
+        if: always()
+        run: |
+          # Stop and remove any lingering containers from this test run
+          docker ps --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true
+          docker ps -a --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker rm -f 2>/dev/null || true

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#18212f}
+.title{font-size:24px;font-weight:700}
+.axis{font-size:13px;fill:#465161}
+.label{font-size:12px;fill:#465161}
+.legend{font-size:13px;fill:#263241}
+.value{font-size:12px;fill:#263241}
+.grid{stroke:#d8dee8;stroke-width:1}
+.axisline{stroke:#2e3a48;stroke-width:1.2}
+</style>
+<text x="170" y="38" class="title">USZ split sizes and annotation classes</text>
+<text x="152" y="111" text-anchor="end" class="axis">Train</text>
+<rect x="170" y="86" width="620.0" height="38" fill="#2c7fb8" rx="3"/>
+<text x="800.0" y="111" class="value">3,448 UIDs</text>
+<text x="152" y="169" text-anchor="end" class="axis">Validation</text>
+<rect x="170" y="144" width="146.4" height="38" fill="#f28e2b" rx="3"/>
+<text x="326.4" y="169" class="value">814 UIDs</text>
+<text x="152" y="227" text-anchor="end" class="axis">Test</text>
+<rect x="170" y="202" width="188.8" height="38" fill="#59a14f" rx="3"/>
+<text x="368.8" y="227" class="value">1,050 UIDs</text>
+<text x="170" y="271" class="axis">Annotation lesion distribution (5,413 UIDs)</text>
+<rect x="170.0" y="291" width="348.9" height="42" fill="#4e79a7"/>
+<text x="344.4" y="318" text-anchor="middle" class="value">class 0: 56.3%</text>
+<rect x="518.9" y="291" width="214.8" height="42" fill="#e15759"/>
+<text x="626.3" y="318" text-anchor="middle" class="value">class 1: 34.6%</text>
+<rect x="733.6" y="291" width="56.4" height="42" fill="#76b7b2"/>
+<text x="761.8" y="318" text-anchor="middle" class="value">class 2: 9.1%</text>
+</svg>

@@ -1,52 +1,61 @@
-# Use the specified PyTorch image as the base
-ARG PYTORCH_IMAGE=pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime
+# Use the specified PyTorch image as the base.
+# Pinned by DIGEST, not just by tag: a tag is mutable and can be re-pushed under
+# us, so the digest is the only thing here that actually makes a build
+# reproducible. Bump it deliberately (see .github/workflows/daily-image-verify.yml).
+ARG PYTORCH_IMAGE=pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime@sha256:923f687790bec78081c357e71dcd5dcef80b0cc00f6c34484902a5e83362c854
 FROM ${PYTORCH_IMAGE}
 
 # Specify the NVFlare version
-ARG NVF_VERSION=2.4.1
+ARG NVF_VERSION=2.8.0
 ENV NVF_BRANCH=${NVF_VERSION}
 
-# Set the Python version
-ENV PYTHON_VERSION=3.10.14
+# Three OpenMP runtimes end up in this image: numpy (conda/MKL) loads LLVM's
+# libomp, torch (pip) loads GNU libgomp, scikit-learn bundles its own libgomp.
+# LLVM's runtime aborts the process when it finds another one already
+# initialised ("OMP: Error #15") -- intermittently, depending on which library
+# initialises first. That kills a client's worker within a second of job
+# launch, and the coordinator then only sees a site that "had not configured"
+# (#596; hit CAM_1 in production on 2026-04-08). This is the documented
+# escape hatch: the error becomes a warning. The proper fix is a single
+# runtime (numpy without MKL); until then this line must stay.
+ENV KMP_DUPLICATE_LIB_OK=TRUE
 
-# Install updates of installed packages
-RUN apt update
+# ===========================================================================
+# Layer ordering strategy for Docker build cache efficiency:
+#
+# 1. pip installs FIRST (most expensive to rebuild, change least often)
+# 2. apt installs AFTER (change more often due to CVE version bumps, but
+#    are fast to rebuild)
+# 3. COPY pretrained weights (rarely change, but multi-GB layers)
+# 4. NVFlare from source + master_template.yml (the template is stamped with
+#    this build's version/commit hash, so it is a cache miss on EVERY commit --
+#    nothing cacheable may sit below it; see the CACHE NOTE at that stage)
+# 5. COPY source code (changes every build — must be last)
+#
+# The base pytorch image already includes python3 + pip, so pip installs
+# don't depend on the apt python packages below — those are just security
+# version updates.
+# ===========================================================================
 
-RUN apt install -y \
-    apt \
-    apt-utils \
-    libapt-pkg6.0
+# ---------------------------------------------------------------------------
+# Stage 1: Python packages (expensive, rarely changes)
+# ---------------------------------------------------------------------------
 
-# Install python and dependencies
-RUN apt install -y \
-    libexpat1 \
-    libmpdec3 \
-    libpython3-stdlib \
-    libpython3.10-minimal \
-    libpython3.10-stdlib \
-    libreadline8 \
-    libsqlite3-0 \
-    media-types \
-    python3-minimal \
-    python3.10-minimal \
-    python3.10 \
-    python3=3.10.6-1~22.04.1 \
-    readline-common=8.1.2-1
-
-# uninstall conda to prevent usage and avoid and potential repository license issues
+# uninstall conda to prevent usage and avoid potential repository license issues
 RUN python3 -m pip uninstall -y conda conda-package-handling conda_index
 
 # Install specific versions of pip and setuptools
-RUN python3 -m pip install \
+RUN python3 -m pip install --no-cache-dir \
     -U \
     pip==25.2 \
     setuptools==80.8.0
 
-# Install dependencies of NVFlare at fixed versions
-RUN python3 -m pip install \
+# Install dependencies of NVFlare and application packages in a single layer.
+# Using --no-cache-dir avoids writing pip's download cache to the layer,
+# reducing image size and eliminating the need for a separate cache purge.
+RUN python3 -m pip install --no-cache-dir \
     --upgrade \
-    psutil==7.0.0
-RUN python3 -m pip install \
+    psutil==7.0.0 \
     Flask==3.0.2 \
     Flask-JWT-Extended==4.6.0 \
     Flask-SQLAlchemy==3.1.1 \
@@ -66,7 +75,7 @@ RUN python3 -m pip install \
     websockets==15.0.1
 
 # Install additional Python packages for application code at defined versions
-RUN python3 -m pip install \
+RUN python3 -m pip install --no-cache-dir \
     Deprecated==1.2.18 \
     SimpleITK==2.5.0 \
     absl-py==2.2.2 \
@@ -98,6 +107,9 @@ RUN python3 -m pip install \
     oauthlib==3.2.2 \
     openpyxl==3.1.5 \
     pandas==2.2.3 \
+    # PINNED (load-bearing): torch 2.2.2 comes from the base image and predates the
+    # NumPy 2.0 ABI break. Unpinning pulls NumPy 2.x and breaks torch/SimpleITK/monai
+    # at import. Do not relax without moving the base image first.
     numpy==1.26.4 \
     pyasn1-modules==0.4.2 \
     pyasn1==0.6.1 \
@@ -123,6 +135,9 @@ RUN python3 -m pip install \
     timm==1.0.15 \
     torchio==0.20.1 \
     torchmetrics==1.7.1 \
+    # PINNED (load-bearing): exact companion releases of the torch 2.2.2 that ships in
+    # the base image. Unpinning makes pip resolve newer builds and silently replace
+    # the CUDA torch from the base image.
     torchvision==0.17.2 \
     torchaudio==2.2.2 \
     tqdm==4.67.0 \
@@ -134,6 +149,7 @@ RUN python3 -m pip install \
     annotated-types==0.7.0 \
     dill==0.3.8 \
     docker-pycreds==0.4.0 \
+    dynamic-network-architectures==0.4.3 \
     einx==0.3.0 \
     frozendict==2.4.6 \
     gitdb==4.0.12 \
@@ -151,26 +167,50 @@ RUN python3 -m pip install \
     smmap==5.0.2 \
     typing-extensions==4.13.2 \
     typing-inspection==0.4.1 \
-    xxhash==3.5.0 \
-    gdown==5.2.1
+    xxhash==3.5.0
 
-# Install packages needed for listing licenses of installed pip packages
-RUN python3 -m pip install \
+# Install packages needed for listing licenses and creating SBOM
+RUN python3 -m pip install --no-cache-dir \
     pip-licenses==5.0.0 \
-    prettytable==3.16.0
-
-# Install packages needed for creating SBOM of apt packages
-RUN python3 -m pip install \
+    prettytable==3.16.0 \
     defusedxml==0.7.1 \
     distro2sbom==0.6.0 \
     lib4sbom==0.8.4 \
     semantic-version==2.10.0
 
-# Clean up pip cache
-RUN python3 -m pip cache purge
+# ---------------------------------------------------------------------------
+# Stage 2: apt packages (deliberately UNPINNED)
+# ---------------------------------------------------------------------------
+# apt installs the current patch version on purpose. Exact pins here gave us
+# neither reproducibility (the base image floats unless pinned by digest -- see
+# above) nor security: a pin FREEZES an old patch version while the Ubuntu archive
+# garbage-collects it, so pinned builds simultaneously miss security updates AND
+# break once the pinned version is dropped from the mirror (#395).
+# Security comes from the daily CVE scan of the built image
+# (.github/workflows/daily-image-verify.yml), not from freezing versions here.
+# If bit-for-bit apt reproducibility is ever genuinely needed, that is
+# snapshot.ubuntu.com -- pins against a live archive cannot provide it in principle.
+#
+# Kept after the pip installs so apt changes don't invalidate the expensive pip
+# layers above.
 
-# Update versions of installed packages
-RUN apt install -y \
+RUN apt update && apt install -y \
+    apt \
+    apt-utils \
+    libapt-pkg6.0 \
+    libexpat1 \
+    libmpdec3 \
+    libpython3-stdlib \
+    libpython3.10-minimal \
+    libpython3.10-stdlib \
+    libreadline8 \
+    libsqlite3-0 \
+    media-types \
+    python3-minimal \
+    python3.10-minimal \
+    python3.10 \
+    python3 \
+    readline-common \
     base-files \
     bash \
     bsdutils \
@@ -210,9 +250,6 @@ RUN apt install -y \
     mount \
     openssl \
     util-linux \
-    openssh-client
-# Install apt-transport-https curl gnupg lsb-release zip and dependencies at defined versions
-RUN apt install -y \
     apt-transport-https \
     curl \
     dirmngr \
@@ -244,30 +281,57 @@ RUN apt install -y \
     pinentry-curses \
     publicsuffix \
     unzip \
-    zip
+    zip \
+    && rm -rf /var/lib/apt/lists/*
 
-# challenge model import
-RUN python3 -m pip install \
-    dynamic-network-architectures
+# ---------------------------------------------------------------------------
+# Stage 3: Pretrained weights (rarely change — must stay ABOVE anything that
+# carries this build's version/commit identifier, see the note in Stage 4)
+# ---------------------------------------------------------------------------
 
-# Clean up apt cache
-RUN rm -rf /var/lib/apt/lists/*
+# These are the multi-GB layers. Keep them above master_template.yml so a plain
+# code commit does not re-create them.
+COPY ./torch_home_cache /torch_home
+COPY ./hf_home_cache /huggingface_home
+RUN chmod a+rwX /huggingface_home -R
+# permissions only needed for huggingface directory
+
+# ---------------------------------------------------------------------------
+# Stage 4: NVFlare from source (changes with NVFlare updates)
+# ---------------------------------------------------------------------------
+#
+# CACHE NOTE: master_template.yml is NOT content-stable across commits.
+# buildDockerImageAndStartupKits.sh rewrites its placeholders before the build:
+#   __REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__ -> <version>-dev.<date>.<git short hash>
+#   __REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__ -> <git short hash>
+# Both embed the commit hash, so the file's CONTENT differs on every commit and
+# this COPY is a genuine cache miss -- not an mtime artefact (Docker excludes
+# mtime from COPY checksums). Everything below this line therefore rebuilds on
+# every commit, which is precisely why the weight layers now sit above it.
 
 # install ODELIA fork of NVFlare from local source
 WORKDIR /workspace/
 COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
-## use startup kit template in the dashboard
-COPY ./MediSwarm/docker_config/master_template.yml /workspace/nvflare/nvflare/lighter/impl/
-RUN python3 -m pip install /workspace/nvflare
-RUN rm -rf /workspace/nvflare
+RUN python3 -m pip install --no-cache-dir /workspace/nvflare && rm -rf /workspace/nvflare
+## Override with MediSwarm master_template.yml (contains version placeholders injected by build script)
+COPY ./MediSwarm/docker_config/master_template.yml /tmp/master_template.yml
+RUN mv /tmp/master_template.yml $(python3 -c "import nvflare.lighter,os;print(os.path.dirname(nvflare.lighter.__file__))")/templates/master_template.yml
+
+# ---------------------------------------------------------------------------
+# Stage 5: application code (changes every commit)
+# ---------------------------------------------------------------------------
 
 # Copy the source code for local training and deploying to the swarm
 COPY ./MediSwarm /MediSwarm
-RUN mkdir -p /fl_admin/transfer
-RUN ln -s /MediSwarm /fl_admin/transfer/MediSwarm
-
-# Copy pre-trained model weights to image
-COPY ./torch_home_cache /torch_home
+# Replace symlinks with actual copies so NVFlare's os.walk()-based job signing
+# and zip utilities can traverse all directories (os.walk does not follow symlinks)
+RUN find /MediSwarm -type l | while read link; do \
+        target=$(readlink -f "$link") && \
+        rm "$link" && \
+        if [ -d "$target" ]; then cp -r "$target" "$link"; \
+        elif [ -f "$target" ]; then cp "$target" "$link"; fi; \
+    done
+RUN mkdir -p /fl_admin/transfer && ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 
 # allow creating home directory for local user inside container if needed
 RUN chmod a+rwx /home
