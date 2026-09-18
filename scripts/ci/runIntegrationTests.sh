@@ -448,17 +448,17 @@ run_data_access_preflight_check () {
 
     for UNEXPECTED_OUTPUT in "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                \
                              "ERROR:threedcnn_ptl:Duplicate image data detected. This should not happen."                                                  \
-                             "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique"                                         \
-                             "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended."                                \
-                             "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended."                                \
-                             "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended."                           \
-                             "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended."                           \
-                             "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only."                                \
-                             "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only."                                      \
-                             "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only."                                    \
-                             "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen."            \
-                             "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." \
-                             "WARNING:threedcnn_ptl:UIDs with among training data _right present and _left missing detected, make sure this was intended." \
+                             "ERROR:threedcnn_ptl:[0-9]* duplicates among all split UIDs detected, they should be unique"                                         \
+                             "WARNING:threedcnn_ptl:[0-9]* UIDs in split but not in images detected, make sure this was intended."                                \
+                             "WARNING:threedcnn_ptl:[0-9]* UIDs in images but not in split detected, make sure this was intended."                                \
+                             "WARNING:threedcnn_ptl:[0-9]* UIDs in annotation but not in images detected, make sure this was intended."                           \
+                             "WARNING:threedcnn_ptl:[0-9]* UIDs in images but not in annotation detected, make sure this was intended."                           \
+                             "ERROR:threedcnn_ptl:[0-9]* entries in training∩validation detected, they should be in one set only."                                \
+                             "ERROR:threedcnn_ptl:[0-9]* entries in training∩test detected, they should be in one set only."                                      \
+                             "ERROR:threedcnn_ptl:[0-9]* entries in validation∩test detected, they should be in one set only."                                    \
+                             "ERROR:threedcnn_ptl:[0-9]* UIDs among training data present that do not end in _left or _right, this should not happen."            \
+                             "WARNING:threedcnn_ptl:[0-9]* UIDs among training data with _left present and _right missing detected, make sure this was intended." \
+                             "WARNING:threedcnn_ptl:[0-9]* UIDs among training data with _right present and _left missing detected, make sure this was intended." \
                              "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen."                        ;
     do
         if grep -q "$UNEXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
@@ -487,17 +487,17 @@ run_data_access_preflight_check_with_problems () {
     for EXPECTED_OUTPUT in "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                \
                            "ERROR:threedcnn_ptl:Duplicate image UIDs detected. This should not happen."                                                  \
                            "ERROR:threedcnn_ptl:Duplicate image data detected. This should not happen."                                                  \
-                           "ERROR:threedcnn_ptl:Duplicates among all split UIDs detected, they should be unique"                                         \
-                           "WARNING:threedcnn_ptl:UIDs in split but not in images detected, make sure this was intended."                                \
-                           "WARNING:threedcnn_ptl:UIDs in images but not in split detected, make sure this was intended."                                \
-                           "WARNING:threedcnn_ptl:UIDs in annotation but not in images detected, make sure this was intended."                           \
-                           "WARNING:threedcnn_ptl:UIDs in images but not in annotation detected, make sure this was intended."                           \
-                           "ERROR:threedcnn_ptl:Entries in training∩validation detected, they should be in one set only."                                \
-                           "ERROR:threedcnn_ptl:Entries in training∩test detected, they should be in one set only."                                      \
-                           "ERROR:threedcnn_ptl:Entries in validation∩test detected, they should be in one set only."                                    \
-                           "ERROR:threedcnn_ptl:UIDs among training data present that do not end in _left or _right, this should not happen."            \
-                           "WARNING:threedcnn_ptl:UIDs with among training data _left present and _right missing detected, make sure this was intended." \
-                           "WARNING:threedcnn_ptl:UIDs with among training data _right present and _left missing detected, make sure this was intended." \
+                           "ERROR:threedcnn_ptl:[0-9]* duplicates among all split UIDs detected, they should be unique"                                         \
+                           "WARNING:threedcnn_ptl:[0-9]* UIDs in split but not in images detected, make sure this was intended."                                \
+                           "WARNING:threedcnn_ptl:[0-9]* UIDs in images but not in split detected, make sure this was intended."                                \
+                           "WARNING:threedcnn_ptl:[0-9]* UIDs in annotation but not in images detected, make sure this was intended."                           \
+                           "WARNING:threedcnn_ptl:[0-9]* UIDs in images but not in annotation detected, make sure this was intended."                           \
+                           "ERROR:threedcnn_ptl:[0-9]* entries in training∩validation detected, they should be in one set only."                                \
+                           "ERROR:threedcnn_ptl:[0-9]* entries in training∩test detected, they should be in one set only."                                      \
+                           "ERROR:threedcnn_ptl:[0-9]* entries in validation∩test detected, they should be in one set only."                                    \
+                           "ERROR:threedcnn_ptl:[0-9]* UIDs among training data present that do not end in _left or _right, this should not happen."            \
+                           "WARNING:threedcnn_ptl:[0-9]* UIDs among training data with _left present and _right missing detected, make sure this was intended." \
+                           "WARNING:threedcnn_ptl:[0-9]* UIDs among training data with _right present and _left missing detected, make sure this was intended." \
                            "ERROR:threedcnn_ptl:UIDs for the same exam found in training and validation, this should not happen."                        ;
     do
         if grep -q "$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
