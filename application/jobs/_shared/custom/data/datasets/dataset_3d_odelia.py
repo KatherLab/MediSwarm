@@ -561,7 +561,7 @@ class ODELIA_Dataset3D(data.Dataset):
 
         def _log_duplicates(uids: List[str], where: str, logger, log_dataset_details) -> None:
             if len(uids) != len(set(uids)):
-                logger.error(f'Duplicates among {where} UIDs detected, they should be unique')
+                logger.error(f'{len(uids) - len(set(uids))} duplicates among {where} UIDs detected, they should be unique')
                 if log_dataset_details:
                     for uid in set(uids):
                         count = uids.count(uid)
@@ -571,7 +571,7 @@ class ODELIA_Dataset3D(data.Dataset):
         def _log_difference(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
             difference = set(uids_a).difference(set(uids_b))
             if difference:
-                logger.warning(f'UIDs in {where_a} but not in {where_b} detected, make sure this was intended.')
+                logger.warning(f'{len(difference)} UIDs in {where_a} but not in {where_b} detected, make sure this was intended.')
                 if log_dataset_details:
                     logger.warning(f'Difference {where_a}\\{where_b}: ' + ', '.join(sorted(difference)))
 
@@ -582,7 +582,7 @@ class ODELIA_Dataset3D(data.Dataset):
         def _log_intersection(uids_a: List[str], uids_b: List[str], where_a: str, where_b: str, logger, log_dataset_details) -> None:
             intersection = set(uids_a).intersection(set(uids_b))
             if intersection:
-                logger.error(f'Entries in {where_a}∩{where_b} detected, they should be in one set only.')
+                logger.error(f'{len(intersection)} entries in {where_a}∩{where_b} detected, they should be in one set only.')
                 if log_dataset_details:
                     logger.error(f'Entries in {where_a}∩{where_b}: ' + ', '.join(sorted(intersection)))
 
@@ -590,7 +590,7 @@ class ODELIA_Dataset3D(data.Dataset):
             def _log_neither_left_nor_right(uids: List[str], where: str, logger, log_dataset_details) -> None:
                 neither_left_right = [u for u in uids if ( not u.endswith('_left') and not u.endswith('_right') )]
                 if neither_left_right:
-                    logger.error(f'UIDs among {where} data present that do not end in _left or _right, this should not happen.')
+                    logger.error(f'{len(neither_left_right)} UIDs among {where} data present that do not end in _left or _right, this should not happen.')
                     if log_dataset_details:
                         neither_left_right.sort()
                         logger.error(f'The following UIDs among {where} data do not end in _left or _right: ' + ', '.join(neither_left_right))
@@ -598,7 +598,7 @@ class ODELIA_Dataset3D(data.Dataset):
             def _log_one_side_only(uids: List[str], where: str, logger, log_dataset_details) -> None:
                 def _report(discrepancies: List[str], present: str, absent: str, where: str, logger, log_dataset_details) -> None:
                     if discrepancies:
-                        logger.warning(f'UIDs with among {where} data {present} present and {absent} missing detected, make sure this was intended.')
+                        logger.warning(f'{len(discrepancies)} UIDs among {where} data with {present} present and {absent} missing detected, make sure this was intended.')
                         if log_dataset_details:
                             discrepancies = list(discrepancies)
                             discrepancies.sort()
