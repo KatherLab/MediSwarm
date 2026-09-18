@@ -995,11 +995,11 @@ _run_3dcnn_training_in_swarm_for_odelia_model () {
 
     # Poll for completion instead of a fixed sleep.  The server log will
     # contain "Server runner finished." once all rounds are done.  We check
-    # every 30 seconds for up to 20 minutes (40 iterations).
+    # every 30 seconds for up to 40 minutes (80 iterations).
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local max_attempts=40  # TODO set suitable timeout
+    local max_attempts=80  # TODO set suitable timeout
     local attempt=0
-    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 20min) ..."
+    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 40min) ..."
     while [ $attempt -lt $max_attempts ]; do
         if [ -f "$server_log" ] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
             echo "  ✅ Server runner finished detected after $((attempt * 30))s"
