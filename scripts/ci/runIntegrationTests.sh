@@ -23,6 +23,7 @@ if [ -z "$GPU_FOR_TESTING" ]; then
     export GPU_FOR_TESTING="all"
 fi
 
+DEFAULT_MODEL_FOR_TESTS=ResNet18
 
 check_files_in_repo () {
     echo "[Run] Test whether expected content is available in the repo"
@@ -268,7 +269,7 @@ run_nvflare_integration_tests(){
            "$DOCKER_IMAGE"
 }
 
-create_startup_kits_and_check_contained_files () {
+_create_startup_kits () {
     echo "[Prepare] Startup kits for test project ..."
 
     if [ ! -d "$PROJECT_DIR"/prod_00 ]; then
@@ -279,7 +280,9 @@ create_startup_kits_and_check_contained_files () {
         exit 1
     fi
     ./scripts/build/_buildStartupKits.sh $PROJECT_FILE $VERSION $DOCKER_IMAGE
+}
 
+_check_contained_files_in_startup_kits () {
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
         if [ -f "$PROJECT_DIR/prod_01/client_A/startup/$FILE" ] ; then
@@ -324,6 +327,11 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
     echo "✅ kit archive contains the expected startup files"
+}
+
+create_startup_kits_and_check_contained_files () {
+    _create_startup_kits
+    _check_contained_files_in_startup_kits
 }
 
 
@@ -418,7 +426,7 @@ run_data_access_preflight_check () {
     # Data access assertions do not depend on the default challenge model. Use
     # the lightweight 3D-CNN path so this check stays focused on dataset access
     # and logging rather than challenge-model startup time.
-    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "Epoch 0: 100%"                                            \
                            "INFO:threedcnn_ptl:Run directory"                         \
@@ -482,7 +490,7 @@ run_data_access_preflight_check_with_problems () {
     cd client_P/startup
     CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # timeout may kill epoch before it is finished, this test is only about logging before the epoch is started
-    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                \
                            "ERROR:threedcnn_ptl:Duplicate image UIDs detected. This should not happen."                                                  \
@@ -531,7 +539,7 @@ run_data_access_preflight_check_with_problems_log_details () {
     cd client_P/startup
     CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # timeout may kill epoch before it is finished, this test is only about logging before the epoch is started
-    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:"                                                       \
                            "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                                                     \
@@ -620,31 +628,51 @@ start_server () {
 }
 
 
-start_clients () {
-    echo "[Run] Start client Docker containers ..."
+start_clients_for_odelia_model () {
+    MODEL_NAME=$1
+    echo "[Run] Start client Docker containers for ODELIA_ternary_classification with model "$MODEL_NAME" ..."
 
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --job ODELIA_ternary_classification --model_name "$MODEL_NAME" --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
-    # Stagger the second client: launching both clients' heavy torch/lightning init against
-    # the SAME GPU at once has starved client_B on the shared CI host, leaving it stuck at the
-    # swarm-config step (it registers but never returns the config task, so the controller
-    # wedges in "Configuring clients" until the ~900s timeout). A short stagger avoids the
-    # simultaneous-init collision. Override with CI_SWARM_CLIENT_STAGGER.
-    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"
+    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"  # avoid simultaneous-init collision
     cd client_B/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --job ODELIA_ternary_classification --model_name "$MODEL_NAME" --GPU "$GPU_FOR_TESTING" --start_client
     sleep 8
 
     cd "$CWD"
 }
 
-start_server_and_clients () {
-    start_server
-    start_clients
+start_clients_for_challenge_model () {
+    # TODO consider refactoring (duplicate code with method above)
+
+    JOB_NAME=$1
+    echo "[Run] Start client Docker containers for model "$JOB_NAME" ..."
+
+    cd "$PROJECT_DIR"/prod_00
+    cd client_A/startup
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --job "$JOB_NAME" --GPU "$GPU_FOR_TESTING" --start_client
+    cd ../..
+    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"  # avoid simultaneous-init collision
+    cd client_B/startup
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --job "$JOB_NAME" --GPU "$GPU_FOR_TESTING" --start_client
+    sleep 8
+
+    cd "$CWD"
 }
 
+start_server_and_clients_for_odelia_model () {
+    MODEL_NAME=$1
+    start_server
+    start_clients_for_odelia_model "$MODEL_NAME"
+}
+
+start_server_and_clients_for_challenge_model () {
+    JOB_NAME=$1
+    start_server
+    start_clients_for_challenge_model "$JOB_NAME"
+}
 
 start_registry_docker_and_push () {
     docker run -d --rm -p 5000:5000 --name local_test_registry_$CONTAINER_VERSION_SUFFIX registry:3
@@ -953,9 +981,7 @@ run_3dcnn_local_training () {
 }
 
 
-run_3dcnn_training_in_swarm () {
-    echo "[Run] 3DCNN training in swarm (polling for completion, up to 10 minutes) ..."
-
+_run_3dcnn_training_in_swarm_for_odelia_model () {
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
     # only require 2 clients in test
@@ -969,11 +995,11 @@ run_3dcnn_training_in_swarm () {
 
     # Poll for completion instead of a fixed sleep.  The server log will
     # contain "Server runner finished." once all rounds are done.  We check
-    # every 30 seconds for up to 10 minutes (20 iterations).
+    # every 30 seconds for up to 40 minutes (80 iterations).
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local max_attempts=20
+    local max_attempts=80  # TODO set suitable timeout
     local attempt=0
-    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 10min) ..."
+    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 40min) ..."
     while [ $attempt -lt $max_attempts ]; do
         if [ -f "$server_log" ] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
             echo "  ✅ Server runner finished detected after $((attempt * 30))s"
@@ -983,9 +1009,11 @@ run_3dcnn_training_in_swarm () {
         sleep 30
     done
     if [ $attempt -eq $max_attempts ]; then
-        echo "  ⚠️  Timed out after 10min waiting for 3DCNN swarm completion — proceeding to assertions"
+        echo "  ⚠️  Timed out after 20min waiting for 3DCNN swarm completion — proceeding to assertions"
     fi
+}
 
+_verify_3dcnn_training_in_swarm_for_odelia_model_output() {
     # check for expected output in server log (clients joined, job ID assigned, 1 round)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
     CONSOLE_OUTPUT_FILE=nohup.out
@@ -1047,6 +1075,13 @@ run_3dcnn_training_in_swarm () {
     done
 }
 
+run_3dcnn_training_in_swarm_for_odelia_model () {
+    MODEL_NAME=$1
+    echo "[Run] 3DCNN training in swarm (polling for completion, up to 10 minutes) ..."
+    _run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
+    _verify_3dcnn_training_in_swarm_for_odelia_model_output
+}
+
 
 _verify_all_model_preflight_check_output () {
     EXPECTED_OUTPUT_ABOUT_MODEL=$1
@@ -1063,7 +1098,6 @@ _verify_all_model_preflight_check_output () {
             exit 1
         fi
     done
-
 }
 
 _verify_challenge_preflight_check() {
@@ -1114,6 +1148,70 @@ run_all_models_preflight_check () {
     cd "$CWD"
 }
 
+
+_verify_ODELIA_ternary_swarm_training_output() {
+    EXPECTED_OUTPUT_ABOUT_MODEL=$1
+    WHICH_MODEL=$2
+
+    CONSOLE_OUTPUT_FILE="$PROJECT_DIR"/prod_00/client_A/startup/nohup.out
+
+    for EXPECTED_OUTPUT in "$EXPECTED_OUTPUT_ABOUT_MODEL";
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+            echo "✅ Expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" swarm training found"
+        else
+            cat "$CONSOLE_OUTPUT_FILE"
+            echo "❌ Missing expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" swarm training"
+            exit 1
+        fi
+    done
+}
+
+_verify_ODELIA_ternary_swarm_training() {
+    MODEL_NAME=$1
+    EXPECTED_OUTPUT_ABOUT_MODEL=$2
+
+    mkdir -p "$SCRATCH_DIR"
+    _create_startup_kits
+    create_synthetic_data
+
+    start_server_and_clients_for_odelia_model "$MODEL_NAME"
+    run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
+    _verify_3dcnn_training_in_swarm_for_odelia_model_output
+    _verify_ODELIA_ternary_swarm_training_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$MODEL_NAME"
+
+    kill_server_and_clients
+    cleanup_temporary_data
+    # create new directories for next run
+    SYNTHETIC_DATA_DIR=$(mktemp -d)
+    STAMP_SYNTHETIC_DATA_DIR=$(mktemp -d)
+    SCRATCH_DIR=$(mktemp -d)
+
+    sleep 10
+}
+
+_verify_ODELIA_challenge_swarm_training() {
+    # TODO consider refactoring (duplicate code with method above)
+    JOB_NAME=$1
+    EXPECTED_OUTPUT_ABOUT_MODEL=$2
+}
+
+run_all_models_training_in_swarm () {
+    _verify_ODELIA_ternary_swarm_training "ResNet10"                 "model *| _ResNet *| 14"
+    _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
+    _verify_ODELIA_ternary_swarm_training "ResNet34"                 "model *| _ResNet *| 63"
+    _verify_ODELIA_ternary_swarm_training "ResNet50"                 "model *| _ResNet *| 46"
+    _verify_ODELIA_ternary_swarm_training "ResNet101"                "model *| _ResNet *| 85"
+    _verify_ODELIA_ternary_swarm_training "ResNet152"                "model *| _ResNet *| 117"
+    _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
+    # _verify_ODELIA_ternary_swarm_training "Swin3D"                   "model *| TODO"  # currently does not work
+    echo "❗ Swin3D currently does not work, swarm training check not executed"
+
+    # challenge models (same order as for preflight checks?)
+    echo "Challenge models TODO"
+
+    cleanup_temporary_data
+}
 
 
 cleanup_synthetic_data () {
@@ -1238,7 +1336,7 @@ case "$1" in
 
     run_dummy_training_in_swarm)
         create_startup_kits_and_check_contained_files
-        start_server_and_clients
+        start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
@@ -1252,10 +1350,11 @@ case "$1" in
         ;;
 
     run_3dcnn_training_in_swarm)
+        # TODO rename, also in workflow(s)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
-        start_server_and_clients
-        run_3dcnn_training_in_swarm
+        start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
+        run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         kill_server_and_clients
         cleanup_temporary_data
         ;;
@@ -1272,6 +1371,12 @@ case "$1" in
         create_synthetic_data
         run_all_models_preflight_check
         cleanup_temporary_data
+        ;;
+
+    run_all_models_training_in_swarm)
+        # TODO add to weekly/manual workflow
+        # preparation and cleanup happens for each model separately
+        run_all_models_training_in_swarm
         ;;
 
     run_stamp_preflight_check)
@@ -1325,9 +1430,11 @@ case "$1" in
         create_synthetic_data
         run_3dcnn_local_training
         verify_wrong_certificates_are_rejected
-        start_server_and_clients
+        start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         run_dummy_training_in_swarm
-        run_3dcnn_training_in_swarm
+        run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
+        run_all_models_preflight_check
+        run_all_models_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
         ;;
