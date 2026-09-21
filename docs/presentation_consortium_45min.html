@@ -135,6 +135,20 @@
   .notes-bar button { font:inherit; font-size:.78rem; padding:.35rem .8rem; border:1px solid var(--indigo); color:var(--indigo); background:#fff; border-radius:3px; cursor:pointer; }
   .notes-bar button:hover { background:#EEF0FB; }
   @media print { .notes, .notes-bar { display:none; } }
+  /* present mode: one slide at a time, 16:9, scaled to the window */
+  .present-hint { font-size:.74rem; color:var(--muted); align-self:center; margin-right:auto; }
+  .pres-inner { display:flex; flex-direction:column; flex:1 1 auto; min-height:0; transform-origin:top left; }
+  body.presenting { overflow:hidden; background:#111; }
+  body.presenting .deck { max-width:none; margin:0; padding:0; gap:0; display:block; }
+  body.presenting .notes-bar, body.presenting footer, body.presenting .slide, body.presenting .notes { display:none; }
+  body.presenting .slide.current { display:flex; position:fixed; left:50%; top:50%; width:1280px; height:720px; min-height:0; margin:0; border:0; border-radius:0;
+                                   overflow:hidden; box-sizing:border-box; transform:translate(-50%,-50%) scale(var(--pk,1)); transform-origin:center center; cursor:pointer; }
+  body.presenting .slide.current.measuring { height:auto; }
+  .pres-hud, .pres-notes { display:none; }
+  body.presenting .pres-hud { display:block; position:fixed; right:1rem; top:.6rem; z-index:5; color:#9a9a9a; font-size:.74rem; letter-spacing:.02em; }
+  body.presenting.with-notes .pres-notes { display:block; position:fixed; left:0; right:0; bottom:0; max-height:34vh; overflow:auto; z-index:4;
+                                           background:#1c1c1c; color:#eee; border-top:1px solid #444; padding:.9rem 1.4rem 1.2rem; font-size:1.02rem; line-height:1.5; }
+  .pres-notes b { color:var(--sky); }
   @media (prefers-reduced-motion: reduce){ *{ animation:none!important; transition:none!important; } }
   @media print {
     @page { size: 13.33in 7.5in; margin: 0; }
@@ -192,7 +206,7 @@
       </div>
       <div class="date">ODELIA · Bremen · 17.09.2026</div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Hi everyone. I'm Jeff, I run the swarm platform for the consortium from Dresden, and this is where we stand at month 45. Four numbers to start: 34 thousand training volumes across eight hospitals, none of which ever left its site. A shared model at 0.887 malignant AUROC on the external challenge set, and the same number on an American cohort it has never seen. And software version 1.8.1, which went out to all of you on Monday.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Hi everyone. I'm Jeff, I run the swarm platform for the consortium at TUD, and this is where we stand at month 45. Four numbers to start: 34 thousand training volumes across eight hospitals, none of which ever left its site. A shared model at 0.887 malignant AUROC on the external challenge set, and the same number on an American cohort it has never seen. And software version 1.8.1, which went out to all of you on Monday.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 1</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -225,7 +239,7 @@
         The range is 94-fold, from 17,834 volumes (UKA) to 190 (VHIO).
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>This is the training data per site, counted by each site's own trainer when it loads the data set, so these are the real numbers, not what was promised. Aachen alone is half of the consortium. The smallest site has 190 volumes. That 94-fold range shapes almost every technical decision I'll show you today.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>This is the training data per site, counted by each site's own trainer when it loads the data set, so these are the real numbers, not what was promised. UKA alone is half of the consortium. The smallest site has 190 volumes. That 94-fold range shapes almost every technical decision I'll show you today.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 3</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -243,7 +257,7 @@
         The eighth site, VHIO, joined on 31 July.
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>How we got there. Two sites in April, and then two big jumps: Aachen and Cambridge together on the eleventh of June, Utrecht in July. The eighth site came online at the end of July, and since then the data set has been stable.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>How we got there. Two sites in April, and then two big jumps: UKA and CAM together on the eleventh of June, UMCU in July. The eighth site came online at the end of July, and since then the data set has been stable.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 4</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -266,7 +280,7 @@
         This imbalance shapes the aggregation and robustness results later in the deck.
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Same sites, now split by class at true scale. The thing to notice is the light blue: the benign cases. Aachen holds 84 percent of all benign cases in the consortium. VHIO has none. Keep that in mind for the robustness slides later, it comes back.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Same sites, now split by class at true scale. The thing to notice is the light blue: the benign cases. UKA holds 84 percent of all benign cases in the consortium. VHIO has none. Keep that in mind for the robustness slides later, it comes back.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 5</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -289,7 +303,7 @@
         Read this chart together with the previous one.
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>And the same thing normalised, so you can see each site's own mix. RSH looks very malignant-heavy at 63 percent, but that is 221 volumes. Aachen's 7 percent malignant is 1,251 volumes. So please read this slide together with the previous one, not on its own.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>And the same thing normalised, so you can see each site's own mix. RSH looks very malignant-heavy at 63 percent, but that is 221 volumes. UKA's 7 percent malignant is 1,251 volumes. So please read this slide together with the previous one, not on its own.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 6</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -325,13 +339,17 @@
     <div class="viz-root chartwrap">
       <svg viewBox="0 0 720 300" role="img" aria-label="External challenge AUROC: the eight-site swarm reaches 0.887 malignant and 0.820 macro, above the six-site swarm at 0.847 and 0.764, the best single site at 0.858 and 0.709, and the median single site at 0.658 and 0.601"><g id="modelBars"></g></svg>
     </div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--s1)"></i> Malignant vs rest AUROC</span>
+      <span><i class="sw" style="background:var(--s2)"></i> Macro AUROC (three classes)</span>
+    </div>
     <p class="cap">External challenge set. The eight-site swarm compared with the previous six-site swarm and with single-site models.</p>
       <div class="callout">
         <strong>The swarm model scores higher than every single-site model</strong>, including UKA's, which trains on half the data.
         A typical site gains +0.229 malignant AUROC by joining.
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Now the result. The eight-site swarm model on the external challenge set, against the previous six-site swarm and against single-site models. The swarm beats every single-site model, including Aachen's, and Aachen trains on half the data. For a typical site, joining is worth about 0.23 AUROC.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Now the result. The eight-site swarm model on the external challenge set, against the previous six-site swarm and against single-site models. The swarm beats every single-site model, including UKA's, and UKA trains on half the data. For a typical site, joining is worth about 0.23 AUROC.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 8</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -462,7 +480,7 @@
         <table>
           <thead><tr><th>Deliverable</th><th>Task</th><th>Due</th><th>What the proposal asks</th><th>Sites needed</th></tr></thead>
           <tbody>
-            <tr><td class="id"><strong>D2.5</strong> Regional fine-tuning</td><td>T2.4</td><td class="n">M48 · Dec 2026</td><td>Compare the pan-European model with models fine-tuned to the Dutch and Greek cohorts</td><td>RUMC, UMCU, MHA with per-case return on</td></tr>
+            <tr><td class="id"><strong>D2.5</strong> Regional fine-tuning</td><td>T2.4</td><td class="n">M48 · Dec 2026</td><td>Compare the consortium model with models fine-tuned to the RUMC and UMCU cohort and to the MHA cohort</td><td>RUMC, UMCU, MHA with per-case return on</td></tr>
             <tr><td class="id"><strong>D3.2</strong> Active learning</td><td>T3.2</td><td class="n">M48 · Dec 2026</td><td>Show that the model can request the cases worth labelling next</td><td>The fleet, for one reduced retraining run</td></tr>
             <tr><td class="id"><strong>D3.4</strong> Adversarial robustness</td><td>WP3</td><td class="n">M48 · Dec 2026</td><td>Report on attacks against a swarm and the measures against them</td><td>None (simulation at TUD)</td></tr>
             <tr><td class="id"><strong>T3.3</strong> Differential privacy</td><td>T3.3</td><td class="n">M54 · Jun 2027</td><td>Optional noise in training with a privacy budget by design</td><td>One 20-round run to measure the accuracy cost</td></tr>
@@ -507,7 +525,7 @@
       <div class="two">
         <div class="panel">
           <h3>Exists</h3>
-          <p>Baselines of the pan-European model on the challenge split per region. Fine-tuning code and the paired analysis.
+          <p>Baselines of the consortium model on the challenge split for the RUMC and UMCU cohort and for the MHA cohort. Fine-tuning code and the paired analysis.
           Per-case return in the software, verified on real kits.</p>
         </div>
         <div class="panel alt">
@@ -517,7 +535,7 @@
         </div>
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Regional fine-tuning. The proposal wants the pan-European model compared with versions fine-tuned to the Dutch and the Greek cohorts. What I need for that is per-case predictions coming back from RUMC, UMCU and MHA: a row number, the label and three probabilities. No identifiers, no images. That feature is in 1.8, verified on real kits, and it is off by default: each site switches it on. The comparison itself happens in the October run.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Regional fine-tuning. The proposal wants the consortium model compared with versions fine-tuned to the RUMC and UMCU cohort and to the MHA cohort. What I need for that is per-case predictions coming back from RUMC, UMCU and MHA: a row number, the label and three probabilities. No identifiers, no images. That feature is in 1.8, verified on real kits, and it is off by default: each site switches it on. The comparison itself happens in the October run.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 14</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -573,7 +591,7 @@
         </div>
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Active learning. The idea: labelling breast MRI is the expensive part, so let the model tell the radiologist which cases are worth labelling next. The model scores every unlabelled case by how uncertain it is, we take the top k, a radiologist labels them, they go into the training set, retrain, repeat. The control is the dashed path: pick k cases at random with the same budget. If the model can't beat random, it isn't useful.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Active learning. The problem this deliverable solves is simple: the expensive part of our work is not the training, it is the labelling. Every labelled case costs a radiologist's time. So if a radiologist gives us time for twenty more cases, which twenty should we ask for? The naive answer is any twenty. Active learning says: ask the model. Follow the diagram from left to right. On the left is a pool of cases with images but no label. The model gives each case three numbers: the probability of no lesion, of benign, of malignant. For an easy case those look like 95, 3 and 2 percent. For a hard case they look like 40, 30 and 30. The second one is the case the model is unsure about, and that is what the middle box measures. Entropy just means how spread out the three numbers are; high entropy, the model is unsure. We sort all cases by that number and take the top k. That k is the labelling budget, the number of cases the radiologist has time for. The radiologist labels them, they go into the training set, we retrain, and the loop starts again. The model chooses its own homework. The dashed path at the bottom is the control: same budget, same radiologist, but the k cases are drawn at random. Any method has to beat that. One more thing, which is why the next slide counts malignant cases: on the challenge set the model calls 21 cases malignant while 37 truly are. It under-calls cancer, so malignant cases are the ones it needs most.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 15</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -604,7 +622,7 @@
         planned for October and November.
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>And it does beat random. With a budget of 10 cases, entropy selection finds 5 malignant cases where random finds 2 or 3. At 20, 9 against 4 or 5. So roughly double, where the budget is small, which is exactly where it matters. By 100 cases everyone has taken most of the pool and the methods converge, as they must. What this doesn't show yet is a model retrained on those cases. That's the reduced retraining run in October and November.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>This table is the selection step alone, before any retraining. We took the 165 challenge cases, hid their labels and treated them as the unlabelled pool; 37 of them are malignant, about 22 percent. The budget is simply how many cases you are allowed to have labelled. Both methods pick that many, we uncover the labels of the picked cases and count the malignant ones. Random column: draw the budget at random, count, repeat many times, report the average and the spread. Since 22 percent of the pool is malignant, ten random cases contain about two malignant ones; that column is just budget times 22 percent. Entropy column: the model scores all 165 cases once, sorts them by how unsure it is, and hands over the top of the list. The ten most uncertain cases contained 5 malignant ones; there is no plus or minus because there is no randomness. Budget of 20: random gets 4 or 5, the model gets 9. At 30 and 40 the ratio is still 1.6. So at every small budget, which is the realistic budget, the model finds roughly twice as many of the cases it needs. The last row is a sanity check: with 100 of 165 cases picked, both methods have taken most of the 37 malignant cases, so they meet at 21 and 22. The advantage lives where budgets are small, and that is where we are. What this does not show yet is the second half: that a model retrained on the selected cases gets better than one retrained on the random ones. That is the reduced retraining run in October and November, two arms at two budgets, about 45 hours of GPU across the fleet. When that is in, D3.2 is complete.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 16</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -657,7 +675,7 @@
         </div>
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Differential privacy. What the proposal asks is optional noise in training with a privacy budget. Here is where the noise goes. A site trains, produces a model update. We clip that update to a fixed norm so no single site can push too hard, then add Gaussian noise, and only then send it. An accountant adds up the privacy cost, epsilon, over the rounds and stops training when the budget is spent. The guarantee is at the hospital level: from the shared model you cannot tell whether a given hospital took part in a round.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Differential privacy is a formal way of saying: what leaves a hospital must not reveal too much about what is inside it. Not a policy, a mathematical guarantee with a number attached. The proposal asks for two things: optional noise in training, and a privacy budget that the software enforces. The diagram follows one site through one round. The site trains and produces a model update, a long list of numbers saying how the shared model should change. Two things happen before it leaves. First, clipping: we cap the size of the update, so no single site can push the shared model further than a fixed amount. Second, noise: we add random numbers calibrated to that cap, large enough that nobody can work backwards from the update to the data, small enough that, averaged over eight sites and twenty rounds, the model still learns. Only that clipped, noised update travels. The images never leave. The box underneath is the accountant. Every noisy round spends a bit of privacy, and the accountant adds it up as a number called epsilon; smaller epsilon, stronger privacy. When the agreed budget is spent, training stops. That is the budget by design. The guarantee is at the hospital level: someone who sees the shared model cannot tell whether a given hospital took part in a round. Clipping and noise are in the software since 1.8. Still missing: the accountant writing epsilon into the metrics, the automatic stop, and the measurement of what the noise costs in accuracy.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 17</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -691,7 +709,7 @@
         <strong>The noise level is a consortium decision.</strong> One 20-round run at &sigma; = 2.4 measures the accuracy cost of &epsilon; &le; 10 and turns this table into a trade-off.
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>So what does a guarantee cost? This table is for a 20-round run. Epsilon of 10, which is the commonly accepted level, needs noise scale 2.4. Epsilon 3 needs 6.7. Epsilon 1 would need 18 and probably destroys the model. The honest gap: we have not yet measured what 2.4 costs in accuracy. One 20-round run does that, and the noise level is then a decision for this room, not a default I set.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>This table answers one question: how much noise do we have to add to get a given guarantee? The left column is the guarantee, epsilon, for a full twenty-round run. The middle column, sigma, is the amount of noise relative to the clipping cap. Bigger sigma, more noise, stronger privacy, and a worse model. Epsilon of 10 is what most published medical work uses; it needs a sigma of 2.4. Epsilon of 3 is a strong guarantee; it needs 6.7, almost three times as much noise. Epsilon of 1 is the strictest number people cite; it needs 18, and at our scale of eight sites that will most likely destroy the model. The small delta in the caption is a standard technicality, an allowed failure probability of one in a hundred thousand. Two honest limits. The guarantee covers whether a hospital took part. It does not cover whether a particular patient was in a hospital's data; that needs noise inside the local training itself, and we do not claim it. And we have not yet measured what sigma 2.4 costs in accuracy. One twenty-round run with the noise on gives us that number, and then this table becomes a real trade-off. In one line: a hospital-level guarantee at the commonly accepted level is within reach at sigma 2.4, but its cost in accuracy is unmeasured, so the consortium should choose epsilon only after that run.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 18</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -748,7 +766,7 @@
         </div>
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Adversarial robustness. In a swarm every site sends weights, so every site is a potential attacker. Here eight sites send updates, one of them poisoned. With the aggregation rule we use today, a plain weighted mean, there is no bound: VHIO with 0.6 percent of the data can move the shared model by five and a half times its share. With a norm-bounded mean, each contribution is capped, every site stays in, and the same attack moves the model by 0.04.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Adversarial robustness. The proposal asks for a report on how a swarm can be attacked and what protects it. The uncomfortable starting point: in a swarm every site sends model weights to whoever aggregates the round, and nobody inspects them. So every site is a potential attacker, by intent, by a bug, or through a compromised machine that sends garbage. The diagram shows one round. The eight sites send their updates, weighted by how much data they hold: UKA 52 percent, UMCU 18, down to VHIO with 0.6. One update is poisoned, and I chose the smallest site on purpose, to show that size does not protect us. The rule we use today is a plain weighted mean with no limit on how large any single update may be. If VHIO sends an update ten times too large, the mean simply takes it: the shared model moves 5.5 times VHIO's actual share. The defence at the bottom is the norm-bounded mean. Before averaging, each site's update is capped at a length proportional to that site's weight; a too-large update is shrunk to the cap, a normal one passes unchanged. Every site stays in, the data-set weights stay in. Same attack: the model moves by 0.04, and with no attack at all by 0.032. The attack has almost stopped mattering.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 19</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -783,7 +801,7 @@
         </div>
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>We tried five rules. The textbook robust ones, trimmed mean, coordinate median, Krum, cost a lot even with no attacker at all, 0.47 to 0.64 error. That's because they throw away contributions and ignore data-set weights, so with Aachen holding 84 percent of benign cases they aim at the average site instead of the pooled data. The norm-bounded mean costs almost nothing and holds the attack. That's the recommendation. It does not limit the largest contributor, and capping any site's share is a governance decision, not mine.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>We tried five aggregation rules on a simulation with the consortium's real data-set weights. Two columns matter: the error with no attacker, which is what the rule costs us in a normal round, measured as the distance from the correct weighted average; and what happens under the attack. The weighted mean, our current rule, costs nothing but offers no protection. The norm-bounded mean costs 0.032, almost nothing, and holds the attack at 0.04. Those are the two rows to compare. The three rules below are the textbook answers. Trimmed mean throws away the largest and smallest values, coordinate median takes the middle value, Krum keeps only the one update that looks most like the others. They all bound an attacker, but look at the first column: 0.47, 0.60, 0.64. A huge error with nobody attacking, because these rules treat every site as equal and throw information away. Our sites are anything but equal: UKA holds 84 percent of all benign cases. A rule that ignores the weights aims at the average site instead of the pooled data, and that alone costs more than the attack it prevents. So the recommendation is the norm-bounded mean: cap every contribution, keep every site, keep the weights. One limit to state openly: the cap is proportional to weight, so it does not limit UKA. Protecting against the largest site too would mean capping its share, which costs accuracy; that is a governance decision for the consortium. Still open for the report: a dishonest aggregating site, which we simulate in October.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 20</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -841,7 +859,7 @@
         </div>
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>The white-hat attack, milestone 6. In the proposal, Cambridge and Nijmegen attack the trained model to expose vulnerabilities, and the deliverable is a preprint. Top row is that plan: we give you the model weights and a protocol, you try to reconstruct data or infer membership, we write up the findings and the fix together. What I need from Cambridge and Nijmegen is a slot in the first quarter of next year, and I'd like to fix the date this autumn.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>The white-hat attack, milestone 6. In the proposal, CAM and RUMC attack the trained model to expose vulnerabilities, and the deliverable is a preprint. Top row is that plan: we give you the model weights and a protocol, you try to reconstruct data or infer membership, we write up the findings and the fix together. What I need from CAM and RUMC is a slot in the first quarter of next year, and I'd like to fix the date this autumn.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 21</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -873,7 +891,7 @@
         This is a lower bound. The MS6 attacker has the model weights, not only the outputs. The result tells CAM and RUMC where to look first.
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>In the meantime we ran the part that needs nobody else. The question: from a case's three output probabilities alone, can you tell which hospital it came from? On no-lesion cases, no. On malignant cases, yes: 60 percent correct against 33 percent chance. So the model behaves differently per site exactly on the clinically relevant cases. This is a lower bound, the real attacker has the weights. But it tells Cambridge and Nijmegen where to look first, and it is relevant for the per-case predictions I'm asking for.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>In the meantime we ran the part that needs nobody else. The question: from a case's three output probabilities alone, can you tell which hospital it came from? On no-lesion cases, no. On malignant cases, yes: 60 percent correct against 33 percent chance. So the model behaves differently per site exactly on the clinically relevant cases. This is a lower bound, the real attacker has the weights. But it tells CAM and RUMC where to look first, and it is relevant for the per-case predictions I'm asking for.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 22</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -928,7 +946,7 @@
         <table>
           <thead><tr><th>When</th><th>What happens</th><th>Serves</th></tr></thead>
           <tbody>
-            <tr><td class="id">Sep 2026</td><td>1.8.1 kit at all eight sites (MHA done); one-round metrics check across the fleet</td><td class="n">everything below</td></tr>
+            <tr><td class="id">Sep 2026</td><td>1.8.1 kit at all eight sites (MHA, CAM and USZ done); one-round metrics check across the fleet</td><td class="n">everything below</td></tr>
             <tr><td class="id">Oct 2026</td><td><strong>20-round consortium benchmark on the released version</strong>, per-case return on at RUMC, UMCU, MHA (about two days)</td><td class="n">D2.5 · D3.5</td></tr>
             <tr><td class="id">Oct to Nov</td><td>Reduced retraining curve for active learning; malicious-aggregator simulation; noise-cost run if the fleet has slack</td><td class="n">D3.2 · D3.4 · T3.3</td></tr>
             <tr><td class="id">Nov 2026</td><td>Three report drafts to the consortium for review</td><td class="n">D2.5 · D3.2 · D3.4</td></tr>
@@ -945,7 +963,7 @@
 
   <section class="slide">
     <div class="eyebrow">04 · Milestones and timeline</div>
-    <h2>Deliverable status, 16 September 2026</h2>
+    <h2>Deliverable status, 17 September 2026</h2>
     <div class="body">
       <div class="scroll">
         <table>
@@ -963,39 +981,39 @@
       </div>
       <div class="callout">
         <strong>Software since 13 September.</strong> 1.8.0 and 1.8.1 released; per-site metrics, per-case return and the warm-start guard verified on real kits on 14 September.
-        1.8.1 kits distributed to all sites on 14 September; MHA installed the same day. Cambridge's SAM-Med2D model is merged as <code>MST_SAMMed2D</code>.
+        1.8.1 kits distributed to all sites on 14 September; MHA installed the same day, CAM and USZ reported their kits ready on 17 September. CAM's SAM-Med2D model is merged as <code>MST_SAMMed2D</code>.
         Four-client fault-injection tests on 14 to 16 September found three defects: a site whose worker crashed at launch (a duplicate OpenMP runtime in the image, seen once at CAM in April; fixed and merged),
         the tolerant mode not telling surviving sites about a pruned one (fixed; the injection test passed on 16 September with the stopped site as the round's aggregator; in review),
         and a configure quorum that proceeds the instant the minimum is reached (filed). Production benchmarks run strict and are affected only by the first.
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Status in one table. And a short note on what happened since the software went out: 1.8.1 is verified on real kits, MHA already installed it, Cambridge's SAM-Med2D model is merged into the platform, and fault-injection tests over the last three days found three defects. One, a worker crash at start-up, had actually hit Cambridge once in April; that fix is merged and matters for the October run. The second, the tolerant mode not telling the other sites when one is dropped, is fixed and passed its test yesterday. The third is a small timing race that I've filed.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Status in one table. And a short note on what happened since the software went out: 1.8.1 is verified on real kits, MHA, CAM and USZ have their kits ready, CAM's SAM-Med2D model is merged into the platform, and fault-injection tests over the last three days found three defects. One, a worker crash at start-up, had actually hit CAM once in April; that fix is merged and matters for the October run. The second, the tolerant mode not telling the other sites when one is dropped, is fixed and passed its test yesterday. The third is a small timing race that I've filed.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 25</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
 
   <section class="slide">
     <div class="eyebrow">05 · Sites</div>
-    <h2>Site status and to-do list, 16 September 2026</h2>
+    <h2>Site status and to-do list, 17 September 2026</h2>
     <div class="body">
       <div class="scroll">
         <table>
           <thead><tr><th>Site</th><th>Coordinator</th><th>Kit</th><th>Log feed</th><th>To do</th></tr></thead>
           <tbody>
-            <tr><td class="id"><strong>CAM_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n">today</td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Keep only the mediswarm-vpn tunnel; two OpenVPN processes were seen (F10)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
-            <tr><td class="id"><strong>MHA_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">re-registered 14 Sep 20:50 UTC</span></td><td class="n"><span class="chip good">1.8.1</span></td><td class="n">today</td><td><ul class="todo"><li>Done: 1.8.1 installed, first site</li><li>Turn on per-case return for the October run (Greek cohort, D2.5)</li></ul></td></tr>
-            <tr><td class="id"><strong>RSH_1</strong></td><td><span class="chip good">connected</span></td><td class="n"><span class="chip warn">3 kits alive</span></td><td class="n">today</td><td><ul class="todo"><li>Three kits are still sending logs (one 1.6.0, two 1.5.0); stop the leftover containers and daemons, keep one kit</li><li>Install the 1.8.1 kit into a new folder and run only that one</li><li>Complete the site checklist on the board</li></ul></td></tr>
-            <tr><td class="id"><strong>RUMC_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n"><span class="chip warn">30 Aug</span></td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Log upload silent since 30 Aug: check the upload key</li><li>VPN as a service; a hand-started tunnel is in use (F11); TUD owes a debug session</li><li>Turn on per-case return for the October run (Dutch cohort, D2.5)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
+            <tr><td class="id"><strong>CAM_1</strong></td><td><span class="chip good">connected</span></td><td class="n"><span class="chip good">1.8.1</span></td><td class="n">today</td><td><ul class="todo"><li>Done: 1.8.1 kit ready (email of 17 Sep); the log feed already comes from the new kit</li><li>Keep only the mediswarm-vpn tunnel; two OpenVPN processes were seen (F10)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
+            <tr><td class="id"><strong>MHA_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">re-registered 14 Sep 20:50 UTC</span></td><td class="n"><span class="chip good">1.8.1</span></td><td class="n">today</td><td><ul class="todo"><li>Done: 1.8.1 installed on 14 Sep, first site; kit confirmed ready by email on 17 Sep</li><li>Turn on per-case return for the October run (D2.5)</li></ul></td></tr>
+            <tr><td class="id"><strong>RSH_1</strong></td><td><span class="chip good">connected</span></td><td class="n"><span class="chip warn">3 old kits alive</span></td><td class="n">today</td><td><ul class="todo"><li>Asked for help with the 1.8.1 setup (email of 17 Sep): TUD and RSH do it together in a shared session this week</li><li>Three old kits are still sending logs (one 1.6.0, two 1.5.0); stop the leftover containers and daemons in that session, keep one kit</li><li>Complete the site checklist on the board</li></ul></td></tr>
+            <tr><td class="id"><strong>RUMC_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n"><span class="chip warn">30 Aug</span></td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Log upload silent since 30 Aug: check the upload key</li><li>VPN as a service; a hand-started tunnel is in use (F11); TUD owes a debug session</li><li>Turn on per-case return for the October run (D2.5)</li><li>Agree a slot for the MS6 exercise</li></ul></td></tr>
             <tr><td class="id"><strong>UKA_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">back 14 Sep 07:57 UTC</span></td><td class="n">1.6.0</td><td class="n">4 Sep</td><td><ul class="todo"><li>Install the 1.8.1 kit</li><li>Confirm stability after the 4 Sep kernel crashes; stay online through October</li></ul></td></tr>
-            <tr><td class="id"><strong>UMCU_1</strong></td><td><span class="chip warn">two clients</span><br><span class="cap">a second client re-registers every few seconds and is rejected</span></td><td class="n"><span class="chip warn">unconfirmed</span></td><td class="n">14 Sep</td><td><ul class="todo"><li>Two clients are running under the same identity; stop the old one and keep the 1.8.1 kit</li><li>Copy sync.conf into the new kit so the log feed resumes</li><li>Complete the site checklist on the board</li><li>Turn on per-case return for the October run (Dutch cohort, D2.5)</li></ul></td></tr>
-            <tr><td class="id"><strong>USZ_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">restarted 16 Sep 08:26 UTC</span></td><td class="n"><span class="chip warn">unconfirmed</span></td><td class="n"><span class="chip warn">22 Jul</span></td><td><ul class="todo"><li>Confirm the 1.8.1 install (the client was restarted on 16 Sep; without a log feed the kit version is unknown)</li><li>Log upload silent since 22 Jul: set up the upload key</li><li>VPN as a service instead of the hand-started tunnel (F11)</li></ul></td></tr>
+            <tr><td class="id"><strong>UMCU_1</strong></td><td><span class="chip warn">two clients</span><br><span class="cap">a second client re-registers every few seconds and is rejected</span></td><td class="n"><span class="chip warn">unconfirmed</span></td><td class="n">today</td><td><ul class="todo"><li>Two clients are running under the same identity; stop the old one and keep the 1.8.1 kit</li><li>Confirm the kit version once a single client is left</li><li>Complete the site checklist on the board</li><li>Turn on per-case return for the October run (D2.5)</li></ul></td></tr>
+            <tr><td class="id"><strong>USZ_1</strong></td><td><span class="chip good">connected</span><br><span class="cap">restarted 16 Sep 08:26 UTC</span></td><td class="n"><span class="chip good">1.8.1</span><br><span class="cap">by email, 17 Sep</span></td><td class="n"><span class="chip warn">22 Jul</span></td><td><ul class="todo"><li>Done: 1.8.1 kit prepared (email of 17 Sep)</li><li>Log upload silent since 22 Jul: set up the upload key so the kit shows up at the coordinator</li><li>VPN as a service instead of the hand-started tunnel (F11)</li></ul></td></tr>
             <tr><td class="id"><strong>VHIO_1</strong></td><td><span class="chip good">connected</span></td><td class="n">1.6.0</td><td class="n">today</td><td><ul class="todo"><li>Install the 1.8.1 kit</li></ul></td></tr>
           </tbody>
         </table>
       </div>
-      <p class="cap">Coordinator: the coordination server's client registry, evening of 16 September. Kit: the version each site's node reports about itself. Log feed: the last upload received from the hospital's own machine. F10 and F11 are entries in the board's Known issues tab.</p>
+      <p class="cap">Coordinator: the coordination server's client registry, evening of 16 September. Kit: the version each site's node reports about itself, or the site's email of 17 September where marked. Log feed: the last upload received from the hospital's own machine. F10 and F11 are entries in the board's Known issues tab.</p>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Where each site stands as of last night. Everyone is connected to the coordinator. MHA is on 1.8.1, thank you. The others still need to install the kit, it's ten minutes and the certificates don't change. Two things I only saw yesterday evening: UMCU has two clients running with the same identity, so a second one keeps re-registering every few seconds and gets rejected; and RSH still has three old kits alive and sending logs, one 1.6 and two 1.5 ones. In both cases: stop everything, keep one client, and make it the 1.8.1 kit. RUMC and USZ, your log feed has been silent for a while, please check the upload key. USZ, you restarted something yesterday morning; without the feed I can't see which kit it is, so please confirm.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Where each site stands as of this morning. Everyone is connected to the coordinator. MHA, CAM and USZ, thank you, your emails came in this morning: the 1.8.1 kits are ready at all three, and CAM's log feed already comes from the new kit. RSH asked for a hand with the setup, so we'll do it together in a shared session this week and stop the three old kits at the same time. UKA, RUMC and VHIO still need to install the kit; it's ten minutes and the certificates don't change. One thing I saw on Tuesday evening: UMCU has two clients running under the same identity, so the second one keeps re-registering every few seconds and gets rejected; stop the old one and keep the 1.8.1 kit. RUMC and USZ, your log feed has been silent for a while, please check the upload key. USZ, once the feed is back I can confirm the kit from here.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 26</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -1021,7 +1039,7 @@
         <div class="ask-b">The model misses about half the cancers at a false-alarm rate near 1&#8239;%. Moving the threshold is free. Where it should sit is a clinical judgement.</div>
       </div>
     </div>
-    <details class="notes"><summary>Speaker notes</summary><p>Three requests. One: RUMC, UMCU and MHA, switch on per-case return before the October run. You saw on slide 22 that those rows carry some site information, so decide with that in mind. Two: Cambridge and Nijmegen, a slot for the white-hat exercise in the first quarter. Three: a clinical view on the operating point. The model misses half the cancers at a 1 percent false-alarm rate. Moving the threshold is free; deciding where it goes is yours. Thank you.</p></details>
+    <details class="notes"><summary>Speaker notes</summary><p>Three requests. One: RUMC, UMCU and MHA, switch on per-case return before the October run. You saw on slide 22 that those rows carry some site information, so decide with that in mind. Two: CAM and RUMC, a slot for the white-hat exercise in the first quarter. Three: a clinical view on the operating point. The model misses half the cancers at a 1 percent false-alarm rate. Moving the threshold is free; deciding where it goes is yours. Thank you.</p></details>
 <div class="foot"><div class="logos"><span class="lg lg-odelia" role="img" aria-label="ODELIA"></span></div><div class="pg">Slide 27</div><div class="logos"><span class="lg lg-ukd"></span><span class="lg lg-ekfz"></span><span class="lg-nct-text" role="img" aria-label="NCT Heidelberg">NCT<small>Nationales Centrum<br>für Tumorerkrankungen<b>Heidelberg</b></small></span><span class="lg lg-tud"></span></div></div>
   </section>
 
@@ -1355,5 +1373,82 @@
     const note = el("text", { x: L, y: T + ROWS.length * rowH + 22, class: "val-sm" });
     note.textContent = "Dashed outline: no task window in Part A for this item; drawn from the start of the work to its due date."; g.appendChild(note);
   })();
+})();
+</script>
+<script>
+(function(){
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const bar = document.querySelector('.notes-bar');
+  if (!slides.length || !bar) return;
+  const W = 1280, H = 720;
+  const hint = document.createElement('span'); hint.className = 'present-hint';
+  hint.textContent = 'Present shows one slide at a time: arrow keys move, N shows the speaker notes, F is full screen, Esc leaves.';
+  const btn = document.createElement('button'); btn.type = 'button'; btn.id = 'present-btn'; btn.textContent = 'Present';
+  bar.insertBefore(hint, bar.firstChild); bar.appendChild(btn);
+  const hud = document.createElement('div'); hud.className = 'pres-hud'; document.body.appendChild(hud);
+  const notes = document.createElement('div'); notes.className = 'pres-notes'; document.body.appendChild(notes);
+  let cur = 0, on = false;
+  function prep(s){
+    if (s.querySelector(':scope > .pres-inner')) return;
+    const inner = document.createElement('div'); inner.className = 'pres-inner';
+    Array.from(s.children).forEach(c => { if (!c.classList.contains('foot') && !c.classList.contains('notes')) inner.appendChild(c); });
+    s.insertBefore(inner, s.firstChild);
+  }
+  function fit(){
+    const s = slides[cur]; prep(s);
+    const nh = document.body.classList.contains('with-notes') ? notes.offsetHeight : 0;
+    const avH = innerHeight - nh;
+    const k = Math.min(innerWidth / W, avH / H);
+    s.style.setProperty('--pk', k); s.style.top = (avH / 2) + 'px';
+    const inner = s.querySelector(':scope > .pres-inner'); inner.style.transform = ''; inner.style.minHeight = '';
+    s.classList.add('measuring'); const need = inner.offsetHeight; s.classList.remove('measuring');
+    const foot = s.querySelector('.foot');
+    const avail = H - parseFloat(getComputedStyle(s).paddingTop) - (foot ? foot.offsetHeight : 0) - 8;
+    if (need > avail) { inner.style.minHeight = need + 'px'; inner.style.transform = 'scale(' + (avail / need) + ')'; }
+  }
+  function show(i){
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle('current', j === cur));
+    const p = slides[cur].querySelector('.notes p');
+    notes.innerHTML = '<b>Slide ' + (cur + 1) + '</b> ' + (p ? p.innerHTML : '');
+    hud.textContent = (cur + 1) + ' / ' + slides.length + '   arrows: next and back   N: notes   F: full screen   Esc: leave';
+    history.replaceState(null, '', '#s' + (cur + 1));
+    fit();
+  }
+  function enter(){
+    on = true; document.body.classList.add('presenting');
+    let start = 0; const m = /^#s(\d+)$/.exec(location.hash);
+    if (m) start = parseInt(m[1], 10) - 1;
+    else { const y = scrollY + 40; start = slides.findIndex(s => s.offsetTop + s.offsetHeight > y); if (start < 0) start = 0; }
+    show(start);
+  }
+  function leave(){
+    on = false; document.body.classList.remove('presenting', 'with-notes');
+    slides.forEach(s => { s.classList.remove('current'); s.style.top = ''; const i = s.querySelector(':scope > .pres-inner'); if (i) { i.style.transform = ''; i.style.minHeight = ''; } });
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    history.replaceState(null, '', location.pathname + location.search);
+    slides[cur].scrollIntoView({ block: 'start' });
+  }
+  btn.addEventListener('click', enter);
+  addEventListener('resize', () => { if (on) fit(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (on) fit(); });   /* re-measure once the web font is in */
+  addEventListener('keydown', e => {
+    if (!on) return;
+    const k = e.key;
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); show(cur + 1); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); show(cur - 1); }
+    else if (k === 'Home') { e.preventDefault(); show(0); }
+    else if (k === 'End') { e.preventDefault(); show(slides.length - 1); }
+    else if (k === 'n' || k === 'N') { document.body.classList.toggle('with-notes'); fit(); }
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }
+      else if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen().catch(() => {}); }
+    }
+    else if (k === 'Escape') { e.preventDefault(); leave(); }
+  });
+  document.addEventListener('click', e => {
+    if (on && e.target.closest('.slide.current') && !e.target.closest('a, button, summary, details')) show(cur + 1);
+  });
+  if (/^#s\d+$/.test(location.hash)) enter();
 })();
 </script>

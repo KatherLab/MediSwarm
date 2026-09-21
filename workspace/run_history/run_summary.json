@@ -60,18 +60,6 @@
   "source": "live_monitor"
  },
  {
-  "job_id": "_active",
-  "date_first": "",
-  "date_last": "",
-  "n_sites": 2,
-  "n_real_sites": 0,
-  "n_test_sites": 2,
-  "is_production": false,
-  "learn_tasks": 0,
-  "failure_classes": [],
-  "source": "live_monitor"
- },
- {
   "job_id": "test_from_usz",
   "date_first": "",
   "date_last": "",
@@ -1219,12 +1207,13 @@
   "failure_classes": [],
   "source": "both",
   "status": "FINISHED:ABORTED",
-  "duration": "0:29:09.213414"
+  "duration": "0:29:09.213414",
+  "coordinator_retained": true
  },
  {
   "job_id": "fd8ce441-1120-4dd8-b9d3-e238d2ccb48c",
   "date_first": "2026-07-21",
-  "date_last": "2026-09-09",
+  "date_last": "2026-09-17",
   "n_sites": 6,
   "n_real_sites": 6,
   "n_test_sites": 0,
@@ -1235,7 +1224,8 @@
   ],
   "source": "both",
   "status": "FINISHED:COMPLETED",
-  "duration": "0:00:27.519649"
+  "duration": "0:00:27.519649",
+  "coordinator_retained": true
  },
  {
   "job_id": "27b33655-80fe-478c-ad68-1a53d0850ad3",
@@ -1249,7 +1239,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "1:50:55.533980",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "c5066fbf-aee4-43c9-99ad-c4f4bc4350ed",
@@ -1263,7 +1254,8 @@
   "failure_classes": [],
   "source": "both",
   "status": "FINISHED:EXECUTION_EXCEPTION",
-  "duration": "0:01:19.152849"
+  "duration": "0:01:19.152849",
+  "coordinator_retained": true
  },
  {
   "job_id": "bade52db-e621-444d-a6e5-c3e7d2332ac7",
@@ -1277,7 +1269,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "0:00:27.547070",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "6d228ba1-5470-47a2-bb81-aac98e3e9a33",
@@ -1291,7 +1284,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "0:00:27.534211",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "6e1d08b9-09fc-4dc1-a683-dcc4dfcbea01",
@@ -1307,7 +1301,8 @@
   ],
   "status": "FINISHED:EXECUTION_EXCEPTION",
   "duration": "1 day, 6:14:24.670639",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "831d16b4-8500-44b3-b449-fdef28d1a0e7",
@@ -1321,7 +1316,8 @@
   "failure_classes": [],
   "status": "FINISHED:ABORTED",
   "duration": "10:45:23.062270",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "3fa12bcd-124a-4ac6-a3f9-bdd356888026",
@@ -1335,7 +1331,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "0:00:27.700511",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "a01b7629-e49c-4e7b-978f-980e6ca32d5c",
@@ -1351,7 +1348,8 @@
   ],
   "status": "FINISHED:EXECUTION_EXCEPTION",
   "duration": "0:02:28.448489",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "a8c6a75b-0666-49fa-a832-ba3c2d15f5d2",
@@ -1365,7 +1363,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "2:23:15.745261",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "1e4bface-91f8-460b-bcf0-2e14d60b5d72",
@@ -1379,7 +1378,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "2:54:47.416760",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "87c5bbee-6f8b-41cb-bd37-e9625cbecee2",
@@ -1393,7 +1393,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "1 day, 19:52:47.775123",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "85159a6d-5fc1-4ead-bb8c-6ed610f2ab5a",
@@ -1407,7 +1408,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "0:00:52.081768",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "24cdf247-14da-4f8e-a374-fa00f0e0c07a",
@@ -1423,7 +1425,8 @@
   ],
   "status": "FINISHED:EXECUTION_EXCEPTION",
   "duration": "5:00:05.912490",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "7c6e72c6-e337-4fd8-b6d9-fd77146fedd3",
@@ -1437,7 +1440,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "0:00:36.753440",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "912acc1a-29e6-4405-a071-e1cd80d35857",
@@ -1453,7 +1457,8 @@
   ],
   "status": "FINISHED:ABORTED",
   "duration": "1:13:32.745118",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "b534abf6-e914-4324-8c67-396695b39dde",
@@ -1469,7 +1474,8 @@
   ],
   "status": "FINISHED:EXECUTION_EXCEPTION",
   "duration": "0:03:16.111151",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "c5520641-f1ed-4251-a63c-95c7ee61144b",
@@ -1483,7 +1489,8 @@
   "failure_classes": [],
   "status": "FINISHED:COMPLETED",
   "duration": "0:00:34.134654",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "17fb1512-dda8-4468-9841-bdbc66b2f30d",
@@ -1499,7 +1506,8 @@
   ],
   "status": "FINISHED:ABORTED",
   "duration": "0:10:13.555210",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "354c87da-dd2c-4bb4-9863-2c53daeca644",
@@ -1516,7 +1524,8 @@
   ],
   "status": "FINISHED:ABORTED",
   "duration": "3:41:59.437832",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "513c8988-c9e1-4f54-b79b-765c07a88656",
@@ -1533,7 +1542,8 @@
   ],
   "status": "FINISHED:ABORTED",
   "duration": "19:23:35.362388",
-  "source": "coordinator"
+  "source": "coordinator",
+  "retained": true
  },
  {
   "job_id": "5667d451-8299-4856-b4aa-b40100fff69d",
