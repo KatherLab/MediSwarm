@@ -28,7 +28,7 @@ DEFAULT_MODEL_FOR_TESTS=ResNet18
 check_files_in_repo () {
     echo "[Run] Test whether expected content is available in the repo"
 
-    LICENSE_LOCAL=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/LICENSE)
+    local LICENSE_LOCAL=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/LICENSE)
     if grep -q "MIT License" <<< "$LICENSE_LOCAL" ; then
         echo "✅ Verified license in repo"
     else
@@ -36,7 +36,7 @@ check_files_in_repo () {
         exit 1
     fi
 
-    MAIN_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/README.md)
+    local MAIN_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/README.md)
     for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
     do
         if grep -qi "$ROLE" <<< "$MAIN_README" ; then
@@ -47,7 +47,7 @@ check_files_in_repo () {
         fi
     done
 
-    PARTICIPANT_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.participant.md)
+    local PARTICIPANT_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.participant.md)
     for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node' 'Output files';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$PARTICIPANT_README" ; then
@@ -58,7 +58,7 @@ check_files_in_repo () {
         fi
     done
 
-    SWARM_OPERATOR_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.operator.md)
+    local SWARM_OPERATOR_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.operator.md)
     for EXPECTED_KEYWORDS in 'Create Startup Kits' 'Starting a Swarm Training';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$SWARM_OPERATOR_README" ; then
@@ -69,7 +69,7 @@ check_files_in_repo () {
         fi
     done
 
-    APC_DEVELOPER_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.developer.md)
+    local APC_DEVELOPER_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.developer.md)
     for EXPECTED_KEYWORDS in 'Contributing Application Code';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$APC_DEVELOPER_README" ; then
@@ -80,7 +80,7 @@ check_files_in_repo () {
         fi
     done
 
-    DUMMY_TRAINING_APC=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py)
+    local DUMMY_TRAINING_APC=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py)
     for EXPECTED_KEYWORDS in 'python3';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$DUMMY_TRAINING_APC"; then
@@ -167,18 +167,18 @@ run_stamp_simulation_mode () {
 run_dummy_training_standalone(){
     echo "[Run] Minimal example, standalone"
 
-    OUTPUT=$(docker run --rm \
-                    --shm-size=16g \
-                    --ipc=host \
-                    --ulimit memlock=-1 \
-                    --ulimit stack=67108864 \
-                    -u $(id -u):$(id -g) \
-                    -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
-                    -v "$SYNTHETIC_DATA_DIR":/data \
-                    -v "$SCRATCH_DIR":/scratch \
-                    --gpus="$GPU_FOR_TESTING" \
-                    --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
-                    "$DOCKER_IMAGE" 2>&1 || echo "")
+    local OUTPUT=$(docker run --rm \
+                          --shm-size=16g \
+                          --ipc=host \
+                          --ulimit memlock=-1 \
+                          --ulimit stack=67108864 \
+                          -u $(id -u):$(id -g) \
+                          -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+                          -v "$SYNTHETIC_DATA_DIR":/data \
+                          -v "$SCRATCH_DIR":/scratch \
+                          --gpus="$GPU_FOR_TESTING" \
+                          --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
+                          "$DOCKER_IMAGE" 2>&1 || echo "")
 
     for EXPECTED_OUTPUT in "✓ MediSwarm test running dummy training in standalone mode completed." \
                            "Best model checkpoint:"                                                ;
@@ -193,17 +193,17 @@ run_dummy_training_standalone(){
     done
 
 
-    OUTPUT_WITHOUT_GPU=$(docker run --rm \
-                                --shm-size=16g \
-                                --ipc=host \
-                                --ulimit memlock=-1 \
-                                --ulimit stack=67108864 \
-                                -u $(id -u):$(id -g) \
-                                -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
-                                -v "$SYNTHETIC_DATA_DIR":/data \
-                                -v "$SCRATCH_DIR":/scratch \
-                                --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
-                                "$DOCKER_IMAGE" 2>&1 || echo "")
+    local OUTPUT_WITHOUT_GPU=$(docker run --rm \
+                                      --shm-size=16g \
+                                      --ipc=host \
+                                      --ulimit memlock=-1 \
+                                      --ulimit stack=67108864 \
+                                      -u $(id -u):$(id -g) \
+                                      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+                                      -v "$SYNTHETIC_DATA_DIR":/data \
+                                      -v "$SCRATCH_DIR":/scratch \
+                                      --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
+                                      "$DOCKER_IMAGE" 2>&1 || echo "")
 
     if grep -q "RuntimeError: This example does not work without GPU" <<< "$OUTPUT_WITHOUT_GPU"; then
         echo "✅ Verified that minimal example requires GPU"
@@ -217,7 +217,7 @@ run_dummy_training_standalone(){
 run_dummy_training_simulation_mode(){
     echo "[Run] Minimal example, simulation mode (capturing output)"
 
-    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
+    local OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
 
     if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example simulation mode succeeded."
@@ -234,7 +234,7 @@ run_dummy_training_poc_mode(){
     # `|| true`: without it, set -e kills the script on the command substitution when the
     # container exits non-zero, BEFORE we echo the captured output -- so a real failure
     # showed up as a bare exit code with no log. Capture, always echo, then judge.
-    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
+    local OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
 
     if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example proof-of-concept mode succeeded."
@@ -293,7 +293,7 @@ _check_contained_files_in_startup_kits () {
         fi
     done
 
-    DOCKER_SCRIPT="$PROJECT_DIR/prod_01/client_A/startup/docker.sh"
+    local DOCKER_SCRIPT="$PROJECT_DIR/prod_01/client_A/startup/docker.sh"
     for EXPECTED_OUTPUT in "\-\-dummy_training"  \
                            "\-\-preflight_check" \
                            "\-\-local_training"  \
@@ -312,10 +312,10 @@ _check_contained_files_in_startup_kits () {
     # Kits ship as plain zips (consortium decision, reversing #449 encryption):
     # every site picks its own from a members-only shared folder. Verify the
     # archive exists and carries the expected startup files.
-    KIT="$PROJECT_DIR/prod_01/client_B_${VERSION}.zip"
+    local KIT="$PROJECT_DIR/prod_01/client_B_${VERSION}.zip"
     [ -f "$KIT" ] || { echo "❌ kit archive $KIT not found"; exit 1; }
 
-    ZIP_CONTENT=$(unzip -tv "$KIT")
+    local ZIP_CONTENT=$(unzip -tv "$KIT")
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
         if grep -q "$FILE" <<< "$ZIP_CONTENT"; then
@@ -350,11 +350,11 @@ create_synthetic_data () {
 run_list_licenses () {
     # the output has mixed line endings, remove CRs
     cd "$CWD"/"$PROJECT_DIR/prod_00/admin@test.odelia/startup"
-    ADMIN_LICENSES=$( ./docker.sh --no_pull --list_licenses  | sed 's/\r//g' )
+    local ADMIN_LICENSES=$( ./docker.sh --no_pull --list_licenses  | sed 's/\r//g' )
     cd "$CWD"/"$PROJECT_DIR/prod_00/localhost/startup/"
-    SERVER_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
+    local SERVER_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
     cd "$CWD"/"$PROJECT_DIR/prod_00/client_A/startup/"
-    CLIENT_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
+    local CLIENT_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
     cd "$CWD"
 
     for license_output in "$ADMIN_LICENSES" "$SERVER_LICENSES" "$CLIENT_LICENSES";
@@ -377,7 +377,7 @@ run_docker_gpu_preflight_check () {
     # requires having built a startup kit
     echo "[Run] Docker/GPU preflight check (local dummy training via startup kit) ..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
     # also check that it finishes within one minute
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT_FILE"
 
@@ -397,11 +397,11 @@ run_two_containers_in_parallel () {
     # requires having built a startup kit
     echo "[Run] Starting two containers in parallel (local dummy training via startup kit) ..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT_FILE" &
     sleep 1
 
-    CONSOLE_OUTPUT_FILE_A=docker_gpu_preflight_check_console_output_a.txt
+    local CONSOLE_OUTPUT_FILE_A=docker_gpu_preflight_check_console_output_a.txt
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull --container_name MediSwarmODELIATestSecondContainer 2>&1 | tee "$CONSOLE_OUTPUT_FILE_A" &
     sleep 60
 
@@ -422,7 +422,7 @@ run_data_access_preflight_check () {
     echo "[Run] Data access preflight check with unproblematic dataset ..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # Data access assertions do not depend on the default challenge model. Use
     # the lightweight 3D-CNN path so this check stays focused on dataset access
     # and logging rather than challenge-model startup time.
@@ -488,7 +488,7 @@ run_data_access_preflight_check_with_problems () {
     echo "[Run] Data access preflight check with problematic dataset ..."
     cd "$PROJECT_DIR"/prod_00
     cd client_P/startup
-    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # timeout may kill epoch before it is finished, this test is only about logging before the epoch is started
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
@@ -537,7 +537,7 @@ run_data_access_preflight_check_with_problems_log_details () {
     cd "$PROJECT_DIR"/prod_00
 
     cd client_P/startup
-    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # timeout may kill epoch before it is finished, this test is only about logging before the epoch is started
     timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
@@ -579,7 +579,7 @@ run_data_access_preflight_check_without_data () {
     echo "[Run] Data access preflight check with logging dataset details..."
     cd "$PROJECT_DIR"/prod_00
     cd client_P/startup
-    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # also check that it finishes the single round within one minute
     timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
@@ -645,25 +645,25 @@ start_clients_for_odelia_or_challenge_model () {
 }
 
 start_clients_for_odelia_model () {
-    MODEL_NAME=$1
+    local MODEL_NAME=$1
     echo "[Run] Start client Docker containers for ODELIA_ternary_classification with model "$MODEL_NAME" ..."
     start_clients_for_odelia_or_challenge_model "--job ODELIA_ternary_classification --model_name $MODEL_NAME"
 }
 
 start_clients_for_challenge_model () {
-    JOB_NAME=$1
+    local JOB_NAME=$1
     echo "[Run] Start client Docker containers for model "$JOB_NAME" ..."
     start_clients_for_odelia_or_challenge_model "--job $JOB_NAME"
 }
 
 start_server_and_clients_for_odelia_model () {
-    MODEL_NAME=$1
+    local MODEL_NAME=$1
     start_server
     start_clients_for_odelia_model "$MODEL_NAME"
 }
 
 start_server_and_clients_for_challenge_model () {
-    JOB_NAME=$1
+    local JOB_NAME=$1
     start_server
     start_clients_for_challenge_model "$JOB_NAME"
 }
@@ -679,7 +679,7 @@ run_container_with_pulling () {
     docker rmi localhost:5000/odelia:$VERSION
     cd "$PROJECT_DIR"/prod_00
     cd localhost/startup
-    OUTPUT=$(./docker.sh --list_licenses)
+    local OUTPUT=$(./docker.sh --list_licenses)
 
     if grep -qi "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" <<< "$OUTPUT"; then
         echo "✅ Image pulled successfully"
@@ -725,8 +725,8 @@ verify_wrong_certificates_are_rejected () {
 
     sleep 20
 
-    CONSOLE_OUTPUT_FILE_SERVER=localhost/startup/nohup.out
-    CONSOLE_OUTPUT_FILE_CLIENT=client_A/startup/nohup.out
+    local CONSOLE_OUTPUT_FILE_SERVER=localhost/startup/nohup.out
+    local CONSOLE_OUTPUT_FILE_CLIENT=client_A/startup/nohup.out
 
     if grep -q "Total clients: 1" $CONSOLE_OUTPUT_FILE_SERVER; then
         cat $CONSOLE_OUTPUT_FILE_SERVER
@@ -746,7 +746,7 @@ verify_wrong_certificates_are_rejected () {
 
     # start admin console and verify that it gets rejected
     cd admin@test.odelia/startup
-    CONSOLE_OUTPUT_FILE_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
+    local CONSOLE_OUTPUT_FILE_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
     if grep -q "Communication Error - please try later" <<< "$CONSOLE_OUTPUT_FILE_ADMIN"; then
         echo "✅ Connection by unauthorized admin console rejected successfully"
     else
@@ -766,9 +766,9 @@ verify_wrong_certificates_are_rejected () {
 
 
 _verify_that_string_is_contained_once_in_file() {
-    expected_string=$1
-    filename=$2
-    num_occurences=$(grep -o "$expected_string" "$filename" | wc -l)
+    local expected_string=$1
+    local filename=$2
+    local num_occurences=$(grep -o "$expected_string" "$filename" | wc -l)
     if [ "$num_occurences" -eq 1 ]; then
         echo "✅ Expected output" "$expected_string" "found exactly once"
     else
@@ -849,7 +849,7 @@ run_dummy_training_in_swarm () {
 
     # check for expected output in server log (clients joined, job ID assigned, 5 rounds, start of round logged, finished training logged)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
-    CONSOLE_OUTPUT_FILE=nohup.out
+    local CONSOLE_OUTPUT_FILE=nohup.out
     for EXPECTED_OUTPUT in 'Client: New client client_A.* joined.*' \
                            'Client: New client client_B.* joined.*' \
                            'Client: New client client_.* joined. Sent token: .* Total clients: 1' \
@@ -872,7 +872,7 @@ run_dummy_training_in_swarm () {
 
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
-    CONSOLE_OUTPUT_FILE=combined_nohup.out
+    local CONSOLE_OUTPUT_FILE=combined_nohup.out
     cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 9: 100%' \
@@ -899,7 +899,7 @@ run_dummy_training_in_swarm () {
     cd "$CWD"
 
     cd "$PROJECT_DIR"/prod_00/client_A/
-    FILES_PRESENT=$(find . -type f -name "*.*")
+    local FILES_PRESENT=$(find . -type f -name "*.*")
     for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt';
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
@@ -911,7 +911,7 @@ run_dummy_training_in_swarm () {
         fi
     done
 
-    actualsize=$(wc -c <*/app_client_A/best_FL_global_model.pt)
+    local actualsize=$(wc -c <*/app_client_A/best_FL_global_model.pt)
     if [ $actualsize -le 1048576 ]; then
         echo "✅ Checkpoint file size OK"
     else
@@ -935,7 +935,7 @@ run_3dcnn_local_training () {
     echo "[Run] 3DCNN local training..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT_FILE=local_training_console_output.txt
+    local CONSOLE_OUTPUT_FILE=local_training_console_output.txt
     timeout --signal=kill 3m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --num_epochs 2 --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     # verify that expected output is present in the log
@@ -957,9 +957,9 @@ run_3dcnn_local_training () {
     cd "$CWD"
 
     # verify that expected files have been created
-    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR" -type f -name "*.*")
-    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
-    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    local FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR" -type f -name "*.*")
+    local FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
                          "last_global_model.ckpt";
@@ -1023,7 +1023,7 @@ _run_3dcnn_training_in_swarm_for_challenge_model () {
 _verify_3dcnn_training_in_swarm_for_odelia__or_challenge_model_output() {
     # check for expected output in server log (clients joined, job ID assigned, 1 round)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
-    CONSOLE_OUTPUT_FILE=nohup.out
+    local CONSOLE_OUTPUT_FILE=nohup.out
     for EXPECTED_OUTPUT in 'updated status of client client_A on round 0: .* action=start_learn_task, all_done=False' \
                            'updated status of client client_B on round 0: .* action=start_learn_task, all_done=False' \
                            'all_done=True';
@@ -1040,7 +1040,7 @@ _verify_3dcnn_training_in_swarm_for_odelia__or_challenge_model_output() {
 
     # check for expected output in client logs
     cd "$PROJECT_DIR"/prod_00/client_A/startup
-    CONSOLE_OUTPUT_FILE=combined_nohup.out
+    local CONSOLE_OUTPUT_FILE=combined_nohup.out
     cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
     for EXPECTED_OUTPUT in "sending training result to aggregation client" \
                            "Epoch 4: 100%" \
@@ -1056,14 +1056,14 @@ _verify_3dcnn_training_in_swarm_for_odelia__or_challenge_model_output() {
         fi
     done
 
-    CONSOLE_OUTPUT_FILE_ONE_SITE=nohup.out
+    local CONSOLE_OUTPUT_FILE_ONE_SITE=nohup.out
     _verify_that_string_is_contained_once_in_file 'Training completed successfully.' "$CONSOLE_OUTPUT_FILE_ONE_SITE"
     cd "$CWD"
 
     # check for expected output files
-    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR"/client_A -type f -name "*.*")
-    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
-    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    local FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR"/client_A -type f -name "*.*")
+    local FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
                          "aggregated_model_gt_and_classprob_train.csv" \
@@ -1098,8 +1098,8 @@ run_3dcnn_training_in_swarm_for_challenge_model () {
 
 
 _verify_all_model_preflight_check_output () {
-    EXPECTED_OUTPUT_ABOUT_MODEL=$1
-    WHICH_MODEL=$2
+    local EXPECTED_OUTPUT_ABOUT_MODEL=$1
+    local WHICH_MODEL=$2
 
     for EXPECTED_OUTPUT in "$EXPECTED_OUTPUT_ABOUT_MODEL" \
                            "Epoch 0: 100%";
@@ -1115,9 +1115,9 @@ _verify_all_model_preflight_check_output () {
 }
 
 _verify_challenge_preflight_check() {
-    JOB_NAME=$1
-    EXPECTED_OUTPUT_ABOUT_MODEL=$2
-    CONSOLE_OUTPUT_FILE=preflight_check_console_output_$JOB_NAME.txt
+    local JOB_NAME=$1
+    local EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    local CONSOLE_OUTPUT_FILE=preflight_check_console_output_$JOB_NAME.txt
     timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job "$JOB_NAME" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     _verify_all_model_preflight_check_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$JOB_NAME"
@@ -1126,9 +1126,9 @@ _verify_challenge_preflight_check() {
 }
 
 _verify_ODELIA_ternary_preflight_check() {
-    MODEL_NAME=$1
-    EXPECTED_OUTPUT_ABOUT_MODEL=$2
-    CONSOLE_OUTPUT_FILE=preflight_check_console_output_$MODEL_NAME.txt
+    local MODEL_NAME=$1
+    local EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    local CONSOLE_OUTPUT_FILE=preflight_check_console_output_$MODEL_NAME.txt
     timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$MODEL_NAME" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     _verify_all_model_preflight_check_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "ODELIA_ternary_classification/$MODEL_NAME"
