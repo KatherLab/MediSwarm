@@ -270,6 +270,12 @@ class TestGetUnifiedModelName:
         name = mc.get_unified_model_name(_logger(), "Swin3D", env)
         assert name == "Swin3D"
 
+    def test_mst_sammed2d_passthrough(self):
+        mc = _import_models_config()
+        env = {"model_name": "whatever"}
+        name = mc.get_unified_model_name(_logger(), "MST_SAMMed2D", env)
+        assert name == "MST_SAMMed2D"
+
 
 # ===================================================================
 # Tests for create_model() — error paths (no GPU in CI)

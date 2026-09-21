@@ -17,7 +17,7 @@ eb9b942d-0796-423e-920e-3261534c0663,CAM_1,Cambridge-Swarm,10.176.153.34,real,20
 f7824f34-187f-4eb7-9460-5b71dcf72851,CAM_1,Cambridge-Swarm,10.176.153.34,real,2026-07-02,2026-07-22,1.5.0-dev.260702.be9ef04,,swarm,1DivideAndConquer_unilateral_2026_07_06_105432,running,1714,1616,40,58,13,400,0,cert_mismatch,0,posix_spawn|cert_mismatch
 f929b74c-9638-4700-a976-53b7261ee6e1,CAM_1,dl3.tud.de,,test,2026-04-07,2026-04-07,1.4.0-dev.260407.b06e0a3,,swarm,,running,,,,,1,0,0,,1,posix_spawn
 fd2f3406-1440-4a27-83ad-259029c6b6ce,CAM_1,dl3.tud.de,,test,2026-04-08,2026-04-08,1.4.1-dev.260408.40182cc,,swarm,1DivideAndConquer_unilateral_2026_04_08_061816,running,190,141,21,28,5,10637,0,cert_mismatch,0,posix_spawn|cert_mismatch
-fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,CAM_1,Cambridge-Swarm,10.176.153.34,real,2026-07-21,2026-09-08,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125112,running,1778,1678,42,58,43,117909,0,stale_lock,0,posix_spawn|stale_lock
+fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,CAM_1,Cambridge-Swarm,10.176.153.34,real,2026-07-21,2026-09-15,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125112,running,1778,1678,42,58,43,117909,0,stale_lock,0,posix_spawn|stale_lock
 003ccdeb-1f5d-40a6-b6a9-50caf358bcb4,MHA_1,odelia,172.29.254.4,real,2026-07-01,2026-07-01,1.4.7-dev.260701.530b0e6,,swarm,5Pimed_unilateral_2026_07_01_071935,running,810,659,70,81,3,14638,0,,1,posix_spawn
 01122bb5-f923-47ce-a2e3-5b4380a81cf0,MHA_1,odelia,172.29.254.4,real,2026-06-30,2026-06-30,1.4.7-dev.260630.e62e475,,swarm,,running,,,,,0,0,0,liveness_timeout,0,liveness_timeout|posix_spawn
 024b9741-fe20-479d-9e9f-a453d2bd2c58,MHA_1,odelia,,real,2026-04-30,2026-04-30,1.4.4-dev.260430.64ef7b1,,swarm,MST_unilateral_2026_04_30_133842,running,810,659,70,81,0,0,0,,1,posix_spawn
@@ -98,11 +98,11 @@ f3c52419-97c8-460c-8075-8bd05b786fb9,MHA_1,odelia,172.29.254.4,real,2026-06-11,2
 f7824f34-187f-4eb7-9460-5b71dcf72851,MHA_1,odelia,172.29.254.4,real,2026-07-02,2026-07-13,1.5.0-dev.260702.be9ef04,,swarm,1DivideAndConquer_unilateral_2026_07_06_105426,running,810,659,70,81,14,19919,0,cert_mismatch,0,posix_spawn|cert_mismatch
 f929b74c-9638-4700-a976-53b7261ee6e1,MHA_1,dl2.tud.de,,test,2026-04-07,2026-04-07,1.4.0-dev.260407.b06e0a3,,swarm,1DivideAndConquer_unilateral_2026_04_07_220438,running,76,53,5,18,1,1582,0,,1,posix_spawn
 f982d373-69a2-4027-b8d4-61164700ef28,MHA_1,?,,test,2026-04-07,2026-04-07,,,,,,76,53,5,18,2,5850,0,,1,posix_spawn
-fc2d7170-a302-4033-be05-bb9ce1cb9526,MHA_1,dl2.tud.de,192.168.33.196,test,2026-09-08,2026-09-08,1.7.0-dev.260908.0074f69,localhost:5000/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_08_102903,running,76,53,5,18,2,1895,0,,1,posix_spawn
+fc2d7170-a302-4033-be05-bb9ce1cb9526,MHA_1,dl2.tud.de,192.168.33.196,test,2026-09-08,2026-09-08,1.7.0-dev.260908.0074f69,,swarm,1DivideAndConquer_unilateral_fold0_2026_09_08_102903,running,76,53,5,18,2,1895,0,,1,posix_spawn
 fd2f3406-1440-4a27-83ad-259029c6b6ce,MHA_1,dl2.tud.de,,test,2026-04-08,2026-04-08,1.4.1-dev.260408.40182cc,,swarm,2BCN_AIM_unilateral_2026_04_08_073459,running,76,53,5,18,5,7910,0,,1,posix_spawn
 fd413dd9-24fb-4e17-b7c3-e500f9266127,MHA_1,?,,real,2026-06-09,2026-06-09,,,,,,76,53,5,18,2,3163,0,,1,posix_spawn
 fd6fdc94-a8af-46c1-a9ed-57eceeb0d135,MHA_1,odelia,172.29.254.4,real,2026-06-11,2026-06-29,1.4.5-dev.260610.2cf6e82,,swarm,1DivideAndConquer_unilateral_2026_06_21_215943,running,810,659,70,81,152,383495,0,stale_lock,0,posix_spawn|stale_lock
-fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,MHA_1,odelia,172.29.254.4,real,2026-07-21,2026-09-09,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125106,running,1120,904,120,96,42,141861,0,,1,vpn_or_peer_transfer|posix_spawn
+fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,MHA_1,odelia,172.29.254.4,real,2026-07-21,2026-09-13,1.6.0,,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125106,running,1120,904,120,96,42,141861,0,,1,vpn_or_peer_transfer|posix_spawn
 fef10dec-502c-4a1e-a919-f98bb2c13fa7,MHA_1,odelia,172.29.254.4,real,2026-06-29,2026-06-29,1.4.7-dev.260629.f148a7e,,swarm,5Pimed_unilateral_2026_06_29_122642,running,810,659,70,81,5,24398,0,liveness_timeout,0,liveness_timeout|posix_spawn
 003ccdeb-1f5d-40a6-b6a9-50caf358bcb4,RSH_1,odelia,10.50.217.250,real,2026-07-01,2026-07-01,1.4.7-dev.260701.530b0e6,,swarm,5Pimed_unilateral_2026_07_01_071847,running,351,4,126,221,3,14872,0,,1,vpn_or_peer_transfer|posix_spawn
 01122bb5-f923-47ce-a2e3-5b4380a81cf0,RSH_1,odelia,10.50.217.250,real,2026-06-30,2026-06-30,1.4.7-dev.260630.e62e475,,swarm,,running,,,,,0,0,0,liveness_timeout,0,liveness_timeout|posix_spawn
@@ -152,7 +152,7 @@ f15bddf4-727f-4e4f-8eea-dadf933e5d6e,RSH_1,odelia,10.50.217.250,real,2026-06-29,
 f2bcd6e1-4bf4-496e-8c5b-de87eddf56cd,RSH_1,?,,real,2026-03-26,2026-03-26,,,swarm,challenge_2BCN_AIM_unilateral_2026_03_26_174019,running,,,,,6,2323,0,,0,
 f7824f34-187f-4eb7-9460-5b71dcf72851,RSH_1,odelia,10.50.217.250,real,2026-07-03,2026-07-31,1.5.0-dev.260702.be9ef04,,swarm,1DivideAndConquer_unilateral_2026_07_06_105446,running,351,4,126,221,13,20191,0,cert_mismatch,0,posix_spawn|cert_mismatch
 fd6fdc94-a8af-46c1-a9ed-57eceeb0d135,RSH_1,odelia,10.50.217.250,real,2026-06-28,2026-07-03,1.5.0-dev.260702.be9ef04,,swarm,,running,,,,,1,0,0,cert_mismatch,0,posix_spawn|cert_mismatch
-fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,RSH_1,odelia,10.50.217.250,real,2026-07-31,2026-09-09,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125050,running,351,4,126,221,42,151167,0,,1,posix_spawn
+fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,RSH_1,odelia,10.50.217.250,real,2026-07-31,2026-09-17,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125050,running,351,4,126,221,42,151167,0,,1,posix_spawn
 fef10dec-502c-4a1e-a919-f98bb2c13fa7,RSH_1,odelia,10.50.217.250,real,2026-06-29,2026-06-29,1.4.7-dev.260629.f148a7e,,swarm,5Pimed_unilateral_2026_06_29_122636,running,351,4,126,221,5,24788,0,liveness_timeout,0,liveness_timeout|posix_spawn
 04321cbe-0712-4c06-bb44-8169e48b788e,RUMC_1,?,,test,2026-04-07,2026-04-07,,,,,,,,,,0,0,0,,1,posix_spawn
 0503438c-283f-4399-94b2-7bdd630850e1,RUMC_1,dl0.tud.de,,test,2026-04-08,2026-04-08,1.4.1-dev.260408.410f526,,swarm,1DivideAndConquer_unilateral_2026_04_08_084244,running,22,16,0,6,16,7764,0,,1,posix_spawn
@@ -167,7 +167,6 @@ fef10dec-502c-4a1e-a919-f98bb2c13fa7,RSH_1,odelia,10.50.217.250,real,2026-06-29,
 59aa5b1c-4419-4fe6-abb0-f8b4f2d37562,RUMC_1,?,,test,2026-04-07,2026-04-07,,,,,,,,,,1,0,0,,1,posix_spawn
 63859fb0-0b9c-435d-ba97-6be481246d14,RUMC_1,dl0.tud.de,192.168.33.197,test,2026-09-08,2026-09-08,1.7.0-dev.260908.0074f69,jefftud/odelia:1.7.0-dev.260908.0074f69,swarm,1DivideAndConquer_unilateral_fold0_2026_09_08_090148,running,38,30,0,8,1,0,0,,1,posix_spawn
 8d767f32-e246-4e02-9c41-e2bc29f4bbcf,RUMC_1,xidradodeliap01.exid.umcn.nl,,real,2026-04-30,2026-04-30,1.4.4-dev.260430.64ef7b1,,swarm,,running,,,,,1,40,0,,1,posix_spawn
-_active,RUMC_1,?,,unknown,,,,,,,,,,,,0,0,0,,0,
 a1365bf0-b2cc-4ab3-9e83-4df8c09b71c6,RUMC_1,dl0.tud.de,,test,2026-04-07,2026-04-08,1.4.0-dev.260408.d856450,,swarm,1DivideAndConquer_unilateral_2026_04_08_024328,running,22,16,0,6,21,9820,0,,1,posix_spawn
 a1e4c9bc-5721-4878-bf17-4bbd81ed27bb,RUMC_1,dl0.tud.de,,test,2026-04-08,2026-04-08,1.4.1-dev.260408.a766b4b,,swarm,,running,15,,,,2,2,0,,1,posix_spawn
 a4ea2d7e-3eaa-4937-8c51-c3e3345e5149,RUMC_1,dl0.tud.de,,test,2026-04-08,2026-04-08,1.4.1-dev.260408.410f526,,swarm,1DivideAndConquer_unilateral_2026_04_08_075423,running,22,16,0,6,1,502,0,,1,posix_spawn
@@ -207,13 +206,12 @@ eb9b942d-0796-423e-920e-3261534c0663,UMCU_1,bldaiod01,143.121.237.178,real,2026-
 f7824f34-187f-4eb7-9460-5b71dcf72851,UMCU_1,bldaiod01,143.121.237.178,real,2026-07-02,2026-08-05,1.5.0-dev.260702.be9ef04,,swarm,1DivideAndConquer_unilateral_2026_07_06_105432,running,6133,5337,740,56,14,49495,0,cert_mismatch,0,posix_spawn|cert_mismatch
 f982d373-69a2-4027-b8d4-61164700ef28,UMCU_1,?,,test,2026-04-07,2026-04-07,,,,,,122,92,8,22,2,6284,0,,1,posix_spawn
 fd2f3406-1440-4a27-83ad-259029c6b6ce,UMCU_1,dl3.tud.de,,test,2026-04-08,2026-04-08,1.4.1-dev.260408.40182cc,,swarm,1DivideAndConquer_unilateral_2026_04_08_070347,running,122,92,8,22,5,11228,0,cert_mismatch,0,posix_spawn|cert_mismatch
-fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,UMCU_1,bldaiod01,143.121.237.178,real,2026-08-05,2026-09-08,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125112,running,6133,5337,740,56,45,417607,0,,1,posix_spawn
+fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,UMCU_1,bldaiod01,143.121.237.178,real,2026-08-05,2026-09-13,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125112,running,6133,5337,740,56,45,417607,0,,1,posix_spawn
 003ccdeb-1f5d-40a6-b6a9-50caf358bcb4,USZ_1,BF2920004,192.168.0.195,real,2026-07-01,2026-07-01,1.4.7-dev.260701.530b0e6,,swarm,5Pimed_unilateral_2026_07_01_072213,running,3448,1911,1244,293,3,20710,0,,1,posix_spawn
 01122bb5-f923-47ce-a2e3-5b4380a81cf0,USZ_1,BF2920004,192.168.0.195,real,2026-06-30,2026-06-30,1.4.7-dev.260630.e62e475,,swarm,,running,,,,,0,0,0,liveness_timeout,0,liveness_timeout|posix_spawn
 1e83ac1e-2702-4255-a3d6-1f0718bf0626,USZ_1,BF2920004,192.168.0.195,real,2026-06-05,2026-06-09,1.4.4-dev.260601.a4b6748,,swarm,1DivideAndConquer_unilateral_2026_06_05_100642,running,3448,1911,1244,293,6,201,0,,1,posix_spawn
 5c3805e5-2390-48d9-9193-474a4edd1227,USZ_1,BF2920004,192.168.0.195,real,2026-07-02,2026-07-03,1.5.0-dev.260702.be9ef04,,swarm,,running,,,,,1,40,0,,1,posix_spawn
 82046a3f-7888-4529-8fe6-249a9154317b,USZ_1,BF2920004,192.168.0.195,real,2026-06-10,2026-06-10,1.4.5-dev.260610.9219d55,,swarm,1DivideAndConquer_unilateral_2026_06_10_085427,running,3448,1911,1244,293,1,0,0,data_missing,0,posix_spawn|data_missing
-_active,USZ_1,?,,unknown,,,,,,,,,,,,0,0,0,,0,
 a940283a-b9a9-4e0e-a617-05d4c2037160,USZ_1,BF2920004,192.168.0.195,real,2026-06-11,2026-06-12,1.4.5-dev.260610.2cf6e82,,swarm,1DivideAndConquer_unilateral_2026_06_11_143314,running,3448,1911,1244,293,1,6904,0,data_missing,0,posix_spawn|data_missing
 adcd0b80-5ac1-41e4-ad55-54bc97f76e25,USZ_1,BF2920004,192.168.0.195,real,2026-07-02,2026-07-03,1.5.0-dev.260702.be9ef04,,swarm,,running,,,,,6,240,0,,1,posix_spawn
 b999ee3f-4ead-4bd0-b585-8ee6dd9e21ba,USZ_1,BF2920004,192.168.0.195,real,2026-07-01,2026-07-01,1.4.7-dev.260701.530b0e6,,swarm,5Pimed_unilateral_2026_07_01_080230,running,3448,1911,1244,293,4,27614,0,,1,posix_spawn
@@ -229,4 +227,4 @@ fd413dd9-24fb-4e17-b7c3-e500f9266127,USZ_1,BF2920004,172.24.4.75,real,2026-06-09
 fd6fdc94-a8af-46c1-a9ed-57eceeb0d135,USZ_1,BF2920004,192.168.0.195,real,2026-06-11,2026-06-30,1.4.5-dev.260610.2cf6e82,,swarm,1DivideAndConquer_unilateral_2026_06_21_215945,finished,3448,1911,1244,293,154,568382,0,stale_lock,0,posix_spawn|stale_lock|cert_mismatch
 test_from_usz,USZ_1,?,,unknown,,,,,,,,,,,,0,0,0,,0,
 ca69f347-0d0b-4f14-9b67-353744253498,VHIO_1,odelia,172.27.40.114,real,2026-07-23,2026-09-03,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_08_13_081801,running,190,159,0,31,35,116037,0,,1,posix_spawn
-fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,VHIO_1,odelia,172.27.40.114,real,2026-07-23,2026-09-08,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125107,running,190,159,0,31,42,117321,0,,1,posix_spawn
+fd8ce441-1120-4dd8-b9d3-e238d2ccb48c,VHIO_1,odelia,172.27.40.114,real,2026-07-23,2026-09-13,1.6.0,jefftud/odelia:current,swarm,1DivideAndConquer_unilateral_fold0_2026_09_07_125107,running,190,159,0,31,42,117321,0,,1,posix_spawn

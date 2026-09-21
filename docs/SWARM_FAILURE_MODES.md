@@ -22,6 +22,8 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 | F8 | Run trains on a **subset**: `clients [...] did not configure within timeout but min_clients=N allows proceeding` | Controller stops waiting once `configure_min_clients` answer; slower sites lose the key exchange | Set `configure_min_clients` **= number of participating sites** |
 | F9 | Site never appears in `check_status server`, container reports `(healthy)` for weeks | Startup kit older than the server's provisioning generation → `ClientConnectorCertificateError` | Re-issue the current startup kit to that site |
 | F10 | `cross_val_results.json` is `{}` although the server logged `Published metrics for N site(s)` | Two components act on the same `END_RUN`; `ValidationJsonGenerator` writes the file before the later-listed collector publishes into it | Publish on `ABOUT_TO_END_RUN`, which is fired strictly earlier (already fixed in `per_site_metrics.py`) |
+| F11 | Aggregator fails with `None of the N incoming model parameter(s) matched the local model's M`; a client logged `missing keys` when loading the global | An **unlabelled** warm-start mirror from another architecture was auto-loaded (`warm_start_mode=auto`, no provenance sidecar) | Guard now intersects parameter names and refuses on zero overlap (#575); deploy test wipes mirrors first (#573) |
+| F12 | `Pin memory thread exited unexpectedly` / `unable to open shared memory object </torch_…>` at an epoch end — **not** F7 | `file_system` sharing-strategy cleanup race, aggravated by many DataLoader workers on a tiny training set | `cap_loader_workers` (#575, #574): ≥4 samples per worker; never binds on a real site |
 
 ---
 
@@ -174,6 +176,69 @@ anything fails. The server log simply stops advancing.
   green throughout: `pytest.importorskip("nvflare")` skipped the collector's tests entirely because
   the workflow never installed NVFlare (cf. #416/#423). A skipped test file is not a passing one.
 - **Observed 2026-09-04:** job `7c6e72c6` reported all eight sites and still wrote `{}`.
+- **Where the file is after a run:** for a *completed* job the server keeps nothing under
+  `<server kit>/<job_id>/` — NVFlare packs the server workspace into its job store
+  (`/tmp/nvflare/jobs-storage/<job_id>/workspace`, a zip **inside the server container**) and
+  deletes the run dir. Retrieve it with `download_job <job_id>` from the admin console; it lands in
+  the admin kit's `transfer/<job_id>/workspace/cross_site_val/`. Only an *aborted* run leaves a run
+  dir behind — which is how the deploy test read the file on 12 Sep and found nothing after the
+  clean 20-round run on 13 Sep (harness fixed to read the store).
+
+## F11 — A wrong-architecture warm-start mirror that nobody labelled
+
+- **Symptom (aggregating client, `startup/nohup.out`):**
+  ```
+  FaultTolerantSwarmClientController - ERROR - exception ending gatherer:
+  ValueError: None of the 187 incoming model parameter(s) matched the local model's 450 parameter(s).
+  ```
+  Earlier on the same client: `WarmStart: /scratch/mediswarm_latest_global.pt carries no provenance; cannot confirm it was produced by 'MST'. … Proceeding.` and then
+  `FLCallback - WARNING - There were missing keys when loading the global state_dict`.
+- **Root cause:** every ODELIA job mirrors its latest global to one path, `/scratch/mediswarm_latest_global.pt`, and `warm_start_mode = "auto"` loads whatever is there. The #545 guard refused a mirror whose *sidecar* named another model, but a mirror **without** a sidecar — every one written before provenance existed, and anything copied by hand — was accepted with a warning. On 2026-09-11 a 722 MB 1DivideAndConquer mirror left by a failed run warm-started an MST client. The two key sets were disjoint from the first byte.
+- **Detection:** the `carries no provenance` warning followed by `missing keys` on load is the tell. `checkpoint_keys()` in `warm_continue.py` lists a mirror's parameter names (and the model its own `train_conf` records) without loading it.
+- **Fix:** #575 — the guard intersects the checkpoint's parameter names with the model's whether or not a sidecar exists; an empty intersection is refused with `WARM_START_MODEL_MISMATCH`, and a refusal now returns `None` from `load_model` instead of loading anyway. The deploy test wipes mirrors before each model (#573, `clear_stale_mirrors`; `DEPLOY_TEST_KEEP_MIRROR=1` to opt out).
+- **Prevention:** never leave a mirror beside a run that did not write it. This is E2 (`docs/EVALUATION_PITFALLS.md`) arriving through the training path instead of the evaluation path — same lesson: the file's contents, not its name or location, say what model it is.
+
+## F12 — Pin-memory thread dies at an epoch boundary (reads as F7; is not)
+
+- **Symptom (client `startup/nohup.out`):**
+  ```
+  Epoch 8: 100%|██████████| 38/38 … Exception in thread Thread-10 (_pin_memory_loop):
+  RuntimeError: unable to open shared memory object </torch_310_3681426278_102> in read-write mode: No such file or directory (2)
+  threedcnn_ptl - ERROR - Error in main function: Pin memory thread exited unexpectedly
+  ```
+  No OOM in the kernel log; `/dev/shm` large; `--shm-size=16g --ipc=host` set. That rules out F7.
+- **Root cause:** the `file_system` sharing strategy (chosen in `8ac8f85` to stop file-descriptor exhaustion — do not switch it back) hands tensors between DataLoader workers and the pin-memory thread by shm *filename*, and the segment can be cleaned before the reader opens it. Sixteen workers on a 38-volume set is close to the worst case: with batch size 1 the whole epoch is in shm at once.
+- **Fix:** `cap_loader_workers` (#575, #574) — each worker gets at least four samples per epoch, so 16 → 9 on 38 volumes; on a real site the cap never binds. The fault-tolerant controller retries the round, but on a two-client test with `min_clients=2` a retry is a whole round.
+- **Observed 2026-09-11:** `TEST_A_1` (dl0), 77 s into round 0; trained normally on the retry.
+
+## F13 — Tolerant mode kept waiting for a site the server had already written off
+
+- **Symptom (aggregating client's log, tolerant job profile only):** after one site is stopped, every later round ends with `gatherer for round N exit after 3600 seconds since received minimum responses` and the next scatter still lists the dead site: `broadcasting learn task of round N+1 to [..., 'TEST_D_1']` → `no connection to TEST_D_1 … cannot forward req: no path`. Six minutes of training, sixty minutes of waiting, per round. A second shape: `clients ['X'] had not configured when the quorum … was reached … proceeding without them`, then an hour later `Aborting current RUN due to FATAL_SYSTEM_ERROR received: failed to start workflow swarm_controller on client <starting client>` — the starting client's scatter was retrying delivery to X for `learn_task_ack_timeout` (a day) and never returned from the start task.
+- **Root cause:** pruning happened on the server only. The clients' trainer, aggregator-candidate and result-recipient lists are fixed at configure time, so a site the server had deemed disconnected (or that never configured because its worker died at launch — F14) stayed in every round's roster (#595).
+- **Fix:** the server announces every prune on the aux topic `swarm_ft.prune.<workflow>`; the surviving clients drop the site from all three lists and from a gatherer that is still waiting on it. Unconfigured sites are pruned before the start task goes out. A pruned site does not rejoin. Strict profiles (quorum = site count, the consortium benchmarks) are untouched: there a disconnected site keeps training locally and submits when its tunnel returns, and the strict gatherer waits for it.
+- **Third shape, the dead site was the round's aggregator:** the survivors' logs fill with `got unexpected RC TIMEOUT for submission request from TEST_D_1` once a minute, forever. The aggregator is fixed in the learn task, so a list update alone cannot help. On the prune notice the survivors elect the first remaining aggregator candidate (the same choice everywhere), the elected client sets up the round's gatherer from the learn task it holds, pending permission requests and result sends are redirected to it, and a result the dead aggregator had already accepted is submitted again.
+- **Fourth shape, at the very end:** the swarm completes, the server logs `Workflow … finished on all clients`, then addresses the end-of-workflow request to every original participant and waits `end_workflow_timeout` (100 h in this fork) for the pruned one. Pruning now also removes the client from the participant list the request is sent to.
+- **Observed 2026-09-14/15:** four clients on dl3, one stopped in round 2; runs `mvp4_local_260914_1429` (trainer) and `mvp4_prune_260915_0817` (aggregator, by the random draw). Acceptance tests for the fix: the same injection with the stopped site forced to be the aggregator, and again as a plain trainer; six rounds complete with the three survivors in both.
+- **Acceptance runs (fix on branch, 16 and 17 Sep):** `mvp4_aggrdie4_260916_0929` (the stopped site was the round's aggregator; take-over at 10:11, six rounds on three sites) and `mvp4_traindie2_260917_1251` (the stopped site was a trainer; pruned at 13:33, one minute after the server removed it, round-2 aggregation finished one second later, six rounds on three sites, workflow closed three seconds after the last result). Both passed the deploy-test harness.
+
+## F14 — Client worker dies at job launch: `OMP: Error #15`
+
+- **Symptom (client `startup/nohup.out`):**
+  ```
+  worker_process - INFO - Worker_process started.
+  OMP: Error #15: Initializing libomp.so, but found unknown library already initialized.
+  JobExecutor - INFO - run (…): child worker process finished with RC 1
+  ```
+  `log_error.txt` is empty. The coordinator sees a site that never configured; in a strict run the configure phase times out after 30 min and the run fails; in a tolerant run see F13.
+- **Root cause:** three OpenMP runtimes in the image — numpy (conda/MKL) loads LLVM `libomp`, torch loads GNU `libgomp`, scikit-learn bundles its own `libgomp`. LLVM's aborts the process when another runtime initialised first; which one wins is a race, so it is intermittent (2 of 12 launches on dl3; once at CAM_1 on 2026-04-08).
+- **Fix:** `KMP_DUPLICATE_LIB_OK=TRUE` in the image (#596, #597) turns the abort into a warning. The deploy-test harness now prints `WORKER DIED: …` for a client whose worker exited. Proper fix: one runtime (numpy without MKL).
+
+## F15 — Upload host refuses every SSH login: logind session cap
+
+- **Symptom (upload host, cosmos):** new SSH logins get no session (`XDG_RUNTIME_DIR` unset, VS Code Remote-SSH connects and drops); `loginctl list-sessions` is near 8192; the site uploads keep arriving right up to the cap. Seen 16 Sep 2026.
+- **Root cause:** two things stacked. The live-sync daemon in every kit made every upload a separate SSH login (three to five per 30 s per kit, about two per second in total, 1,183 in ten minutes measured), and logind on the host leaked sessions in `closing` state, so the churn filled the cap.
+- **Fix:** `kit_live_sync/live_sync.sh` multiplexes one connection per kit (#602); duplicate clients and leftover kits at a site multiply the load, so keep one kit per site. Host side: restart `systemd-logind` to recover; an alert on the session count is worth having.
+- **Detection:** `journalctl -u ssh --since -10min | grep -c 'Accepted publickey for mediswarm-upload'` should be about the number of kits once they run the multiplexing daemon, not a thousand.
 
 ## Operator diagnostic playbook
 

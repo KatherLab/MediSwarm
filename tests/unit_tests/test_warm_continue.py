@@ -1,5 +1,6 @@
 import importlib.util
 import sys
+import threading
 import types
 from pathlib import Path
 from types import SimpleNamespace
@@ -122,6 +123,9 @@ def _install_controller_nvflare_mocks(monkeypatch):
         def get_peer_context(self):
             return self.peer_context
 
+        def set_peer_context(self, ctx):
+            self.peer_context = ctx
+
         def get_identity_name(self):
             return self.identity
 
@@ -138,7 +142,21 @@ def _install_controller_nvflare_mocks(monkeypatch):
             self.status = None
             self.last_progress_time = None
 
+    class FakeTrainerStatus:
+        def __init__(self, name):
+            self.name = name
+            self.reply_time = None
+            self.busy = False
+
     class FakeGatherer:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+            self.trainers = list(kwargs.get("trainers", []))
+            self.trainer_statuses = {t: FakeTrainerStatus(t) for t in self.trainers}
+            self.min_responses_required = kwargs.get("min_responses_required", len(self.trainers))
+            self.for_round = kwargs.get("for_round")
+            self.lock = threading.Lock()
+
         def is_done(self):
             return "base-is-done"
 
@@ -162,8 +180,37 @@ def _install_controller_nvflare_mocks(monkeypatch):
             self.base_seen_fl_ctx = fl_ctx
             return fl_ctx.get_engine()
 
+        def process_config(self, fl_ctx):
+            self.base_process_config_called = True
+            return None
+
+        def broadcast_and_wait(self, task, fl_ctx, targets=None, min_responses=1,
+                               wait_time_after_min_received=0, abort_signal=None):
+            self.base_sends = getattr(self, "base_sends", []) + [(task, list(targets or []))]
+            reply = FakeShareable()
+            reply["return_code"] = getattr(self, "base_send_rc", "OK")
+            return {t: reply for t in (targets or [])}
+
+        def is_task_secure(self, fl_ctx):
+            return False
+
+        def get_config_prop(self, name, default=None):
+            if not getattr(self, "config", None):
+                return default
+            return self.config.get(name, default)
+
     class FakeSwarmServerController:
-        pass
+        def __init__(self, *args, **kwargs):
+            self.init_kwargs = kwargs
+
+        def handle_event(self, event_type, fl_ctx):
+            self.base_events = getattr(self, "base_events", []) + [event_type]
+
+        def _configure_clients(self, learn_config, fl_ctx, abort_signal):
+            return getattr(self, "base_configure_result", True)
+
+        def _is_configured(self, client_name):
+            return client_name in getattr(self, "configured", set(self.client_statuses))
 
     def status_report_from_dict(report):
         return SimpleNamespace(
@@ -177,6 +224,7 @@ def _install_controller_nvflare_mocks(monkeypatch):
     modules = {
         "nvflare": types.ModuleType("nvflare"),
         "nvflare.apis": types.ModuleType("nvflare.apis"),
+        "nvflare.apis.event_type": types.ModuleType("nvflare.apis.event_type"),
         "nvflare.apis.fl_constant": types.ModuleType("nvflare.apis.fl_constant"),
         "nvflare.apis.fl_context": types.ModuleType("nvflare.apis.fl_context"),
         "nvflare.apis.shareable": types.ModuleType("nvflare.apis.shareable"),
@@ -190,14 +238,34 @@ def _install_controller_nvflare_mocks(monkeypatch):
         "nvflare.app_common.ccwf.swarm_server_ctl": types.ModuleType("nvflare.app_common.ccwf.swarm_server_ctl"),
         "nvflare.security": types.ModuleType("nvflare.security"),
         "nvflare.security.logging": types.ModuleType("nvflare.security.logging"),
+        "nvflare.apis.controller_spec": types.ModuleType("nvflare.apis.controller_spec"),
     }
+
+    class FakeTask:
+        def __init__(self, name, data, timeout=0, secure=False, **kwargs):
+            self.name = name
+            self.data = data
+            self.timeout = timeout
+            self.secure = secure
+
+    modules["nvflare.apis.controller_spec"].Task = FakeTask
     modules["nvflare.apis.fl_constant"].ReservedKey = SimpleNamespace(
         ENGINE=engine_key,
         RC="__rc__",
         TASK_NAME="__task_name__",
     )
     modules["nvflare.apis.fl_constant"].ReservedTopic = SimpleNamespace(DO_TASK="__do_task__")
+    modules["nvflare.apis.fl_constant"].FLContextKey = SimpleNamespace(
+        DISCONNECTED_CLIENT_NAME="__disconnected_client__",
+        RECONNECTED_CLIENT_NAME="__reconnected_client__",
+        WORKFLOW="__workflow__",
+    )
+    modules["nvflare.apis.event_type"].EventType = SimpleNamespace(
+        CLIENT_DISCONNECTED="_client_disconnected",
+        CLIENT_RECONNECTED="_client_reconnected",
+    )
     modules["nvflare.apis.fl_context"].FLContext = FakeFLContext
+    modules["nvflare.apis.shareable"].Shareable = FakeShareable
     modules["nvflare.apis.shareable"].ReturnCode = SimpleNamespace(
         OK="OK",
         ERROR="ERROR",
@@ -222,7 +290,14 @@ def _install_controller_nvflare_mocks(monkeypatch):
         BEFORE_CONTRIBUTION_ACCEPT="before_contribution_accept",
         AFTER_CONTRIBUTION_ACCEPT="after_contribution_accept",
     )
-    modules["nvflare.app_common.ccwf.common"].Constant = SimpleNamespace(STATUS_REPORTS="status_reports")
+    modules["nvflare.app_common.ccwf.common"].Constant = SimpleNamespace(
+        STATUS_REPORTS="status_reports",
+        CLIENTS="clients",
+        TRAIN_CLIENTS="train_clients",
+        AGGR_CLIENTS="aggr_clients",
+        RESULT_CLIENTS="result_clients",
+        AGGREGATOR="aggregator",
+    )
     modules["nvflare.app_common.ccwf.common"].ResultType = SimpleNamespace(BEST="best", LAST="last")
     modules["nvflare.app_common.ccwf.common"].status_report_from_dict = status_report_from_dict
     modules["nvflare.security.logging"].secure_format_traceback = lambda *args, **kwargs: ""
@@ -392,6 +467,10 @@ def _make_controller_with_report(module, fl_context_cls, error):
     controller.log_debug = lambda *args, **kwargs: None
     controller.log_info = lambda *args, **kwargs: None
     controller.log_warning = lambda *args, **kwargs: None
+    controller.log_error = lambda *args, **kwargs: None
+    controller.prune_notify_timeout = 5.0
+    controller.pruned_clients = []
+    controller.participating_clients = ["site1", "site2", "site3"]
     panics = []
     controller.system_panic = lambda message, ctx: panics.append(message)
     return controller, fl_ctx, panics
@@ -440,6 +519,9 @@ def _make_permission_retry_adapter(module, responses):
     controller = SimpleNamespace(
         request_to_submit_learn_result_task_name="request_submit",
         log_warning=lambda fl_ctx, message: warnings.append((fl_ctx, message)),
+        aggregator_replacement=lambda name: None,
+        note_permission_granted_by=lambda aggr: None,
+        me="me",
     )
     engine = _SequenceEngine(responses)
     return module._PermissionReplyRetryEngine(engine, controller), engine, warnings
@@ -535,10 +617,16 @@ def test_retry_adapter_is_context_local_for_learning_task(fault_tolerant_ccwf):
     )
     controller.request_to_submit_learn_result_task_name = "request_submit"
     controller.log_warning = lambda *args, **kwargs: None
+    controller._round_lock = threading.Lock()
+    controller._round = {}
+    controller._aggr_replacement = {}
+    task_data = module.Shareable()
+    task_data.set_header(module.AppConstants.CURRENT_ROUND, 0)
+    task_data.set_header(module.Constant.AGGREGATOR, "site9")
 
     seen_engine = controller.do_learn_task(
         name="train",
-        task_data={},
+        task_data=task_data,
         fl_ctx=original_fl_ctx,
         abort_signal=SimpleNamespace(triggered=False),
     )
@@ -547,6 +635,8 @@ def test_retry_adapter_is_context_local_for_learning_task(fault_tolerant_ccwf):
     assert seen_engine._engine is delegate
     assert controller.base_seen_fl_ctx is not original_fl_ctx
     assert original_fl_ctx.get_engine() is delegate
+    assert controller._round["num"] == 0 and controller._round["aggr"] == "site9"
+    assert controller._round["task_data"] is task_data and controller._round["done"] is False
 
 
 def test_start_run_installs_fault_tolerant_gatherer_used_by_inherited_controller(fault_tolerant_ccwf):
@@ -896,3 +986,642 @@ def test_production_swarm_client_configs_keep_result_refs_and_control_retries_al
     assert "max_concurrent_submissions = 1" in client_config
     # Reusable templates must not bake in the current ODELIA deployment's site count.
     assert "min_responses_required = 5" in client_config
+
+
+# --- structural guard (#545 follow-up): parameter names, independent of the sidecar ---
+
+def _two_disjoint_models():
+    import torch
+    a = torch.nn.Module(); a.enc = torch.nn.Linear(3, 2)
+    b = torch.nn.Module(); b.head = torch.nn.Linear(3, 2)
+    return a, b
+
+
+def test_unlabelled_checkpoint_of_another_architecture_is_refused(warm_continue, tmp_path, monkeypatch):
+    """The 2026-09-11 case: no sidecar, disjoint parameter names -> refuse."""
+    import torch
+    written_by, running = _two_disjoint_models()
+    ckpt = tmp_path / "mediswarm_latest_global.pt"
+    torch.save({"model": written_by.state_dict(),
+                "train_conf": {"train": {"model": "ResidualEncoderClsLightning"}}}, ckpt)
+    monkeypatch.setenv("MODEL_NAME", "MST")
+
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(
+        warm_start_mode="auto", source_ckpt_file_full_name=str(ckpt))
+    persistor.model = running
+
+    assert persistor.load_model(SimpleNamespace(get_prop=lambda key: None)) is None
+    assert len(persistor.panics) == 1
+    msg = persistor.panics[0]
+    assert "WARM_START_MODEL_MISMATCH" in msg
+    assert "shares no parameter names" in msg
+    assert "ResidualEncoderClsLightning" in msg      # the label read out of the file (E2)
+    assert "enc.weight" in msg and "head.weight" in msg
+
+
+def test_unlabelled_checkpoint_of_the_same_architecture_still_loads(warm_continue, tmp_path, monkeypatch):
+    """Pre-provenance mirrors of the right model must keep working -- with a warning."""
+    import torch
+    written_by, _ = _two_disjoint_models()
+    running = torch.nn.Module(); running.enc = torch.nn.Linear(3, 2)   # same names
+    ckpt = tmp_path / "latest.pt"
+    torch.save({"model": written_by.state_dict()}, ckpt)
+    monkeypatch.setenv("MODEL_NAME", "MST")
+
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(
+        warm_start_mode="auto", source_ckpt_file_full_name=str(ckpt))
+    persistor.model = running
+
+    assert persistor.load_model(SimpleNamespace(get_prop=lambda key: None)) == "loaded"
+    assert persistor.panics == []
+    kinds = [k for k, _ in persistor.logger.messages]
+    assert "warning" in kinds                                     # "carries no provenance"
+    assert any("structure OK" in m for _, m in persistor.logger.messages)
+
+
+def test_structural_check_catches_a_sidecar_that_lies(warm_continue, tmp_path, monkeypatch):
+    """A sidecar naming the right model does not excuse disjoint parameters."""
+    import torch
+    written_by, running = _two_disjoint_models()
+    ckpt = tmp_path / "latest.pt"
+    torch.save({"model": written_by.state_dict()}, ckpt)
+    warm_continue.write_provenance(str(ckpt), "MST", "job-1", "deadbeef")
+    monkeypatch.setenv("MODEL_NAME", "MST")
+
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(
+        warm_start_mode="auto", source_ckpt_file_full_name=str(ckpt))
+    persistor.model = running
+
+    assert persistor.load_model(SimpleNamespace(get_prop=lambda key: None)) is None
+    assert len(persistor.panics) == 1 and "shares no parameter names" in persistor.panics[0]
+
+
+def test_structural_check_is_skipped_when_no_model_is_built(warm_continue, tmp_path):
+    """Not a torch file and no model attribute: old behaviour, nothing crashes."""
+    ckpt = tmp_path / "latest.pt"
+    ckpt.write_bytes(b"not a checkpoint")
+    persistor = warm_continue.WarmStartablePTFileModelPersistor(
+        warm_start_mode="auto", source_ckpt_file_full_name=str(ckpt))
+    assert persistor.load_model(SimpleNamespace(get_prop=lambda key: None)) == "loaded"
+    assert persistor.panics == []
+
+
+def test_checkpoint_keys_reads_a_string_train_conf(warm_continue, tmp_path):
+    import torch
+    m = torch.nn.Module(); m.x = torch.nn.Linear(2, 1)
+    ckpt = tmp_path / "c.pt"
+    torch.save({"model": m.state_dict(), "train_conf": "{'train': {'model': 'MST'}}"}, ckpt)
+    keys, label = warm_continue.checkpoint_keys(str(ckpt))
+    assert keys == {"x.weight", "x.bias"} and label == "MST"
+
+
+# ---------------------------------------------------------------------------
+# #595: pruning is announced to the surviving clients, who act on it
+# ---------------------------------------------------------------------------
+
+
+class _RecordingEngine:
+    """Records send_aux_request calls; answers OK for every target unless told otherwise."""
+
+    def __init__(self, silent=()):
+        self.calls = []
+        self.silent = set(silent)
+
+    def send_aux_request(self, targets, topic, request, timeout, fl_ctx, secure=False):
+        self.calls.append({"targets": list(targets), "topic": topic, "request": dict(request), "timeout": timeout})
+        replies = {}
+        for t in targets:
+            if t in self.silent:
+                continue
+            reply = type(request)()
+            reply["return_code"] = "OK"
+            replies[t] = reply
+        return replies
+
+
+def _make_server(module, fl_context_cls, active=("site1", "site2", "site3", "site4"), min_clients=3, silent=()):
+    engine = _RecordingEngine(silent=silent)
+    fl_ctx = fl_context_cls(engine=engine)
+    controller = module.FaultTolerantSwarmServerController.__new__(module.FaultTolerantSwarmServerController)
+    controller.workflow_id = "wf"
+    controller.min_clients = min_clients
+    controller.asked_to_stop = False
+    controller.prune_notify_timeout = 5.0
+    controller.pruned_clients = []
+    controller.client_statuses = {name: module.ClientStatus() for name in active}
+    controller.participating_clients = list(active)
+    logs = []
+    controller.log_debug = lambda ctx, msg: None
+    controller.log_info = lambda ctx, msg: logs.append(("info", msg))
+    controller.log_warning = lambda ctx, msg: logs.append(("warning", msg))
+    controller.log_error = lambda ctx, msg: logs.append(("error", msg))
+    panics = []
+    controller.system_panic = lambda message, ctx: panics.append(message)
+    return controller, fl_ctx, engine, logs, panics
+
+
+def test_error_report_prune_notifies_survivors(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, panics = _make_controller_with_report(module, fl_context_cls, "MODEL_UNRECOGNIZED")
+    engine = _RecordingEngine()
+    fl_ctx.engine = engine
+
+    controller._update_client_status(fl_ctx)
+
+    assert panics == []
+    assert "site1" not in controller.client_statuses
+    assert controller.pruned_clients == ["site1"]
+    assert len(engine.calls) == 1
+    call = engine.calls[0]
+    assert call["topic"] == module.prune_topic("wf")
+    assert sorted(call["targets"]) == ["site2", "site3"]
+    assert call["request"][module.PRUNE_KEY_PRUNED] == ["site1"]
+    assert sorted(call["request"][module.PRUNE_KEY_ACTIVE]) == ["site2", "site3"]
+    assert "MODEL_UNRECOGNIZED" in call["request"][module.PRUNE_KEY_REASON]
+
+
+def test_disconnect_prunes_and_notifies_when_min_clients_remain(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    fl_ctx.set_prop(module.FLContextKey.DISCONNECTED_CLIENT_NAME, "site4", private=True, sticky=False)
+
+    controller.handle_event(module.EventType.CLIENT_DISCONNECTED, fl_ctx)
+
+    assert controller.base_events == [module.EventType.CLIENT_DISCONNECTED]  # stock handling still ran
+    assert sorted(controller.client_statuses) == ["site1", "site2", "site3"]
+    assert controller.participating_clients == ["site1", "site2", "site3"]  # end-of-workflow no longer waits on site4
+    assert panics == []
+    assert engine.calls[0]["request"][module.PRUNE_KEY_PRUNED] == ["site4"]
+    assert sorted(engine.calls[0]["targets"]) == ["site1", "site2", "site3"]
+    assert any("acknowledged by all active clients" in msg for level, msg in logs if level == "info")
+
+
+def test_disconnect_in_strict_mode_is_logged_not_pruned(fault_tolerant_ccwf):
+    """A strict run waits for a site that lost its VPN: it keeps training and submits later."""
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls, min_clients=4)
+    fl_ctx.set_prop(module.FLContextKey.DISCONNECTED_CLIENT_NAME, "site4", private=True, sticky=False)
+
+    controller.handle_event(module.EventType.CLIENT_DISCONNECTED, fl_ctx)
+
+    assert sorted(controller.client_statuses) == ["site1", "site2", "site3", "site4"]
+    assert engine.calls == []
+    assert panics == []
+    assert any("not pruned" in msg for level, msg in logs if level == "warning")
+
+
+def test_disconnect_of_already_pruned_or_unknown_client_is_ignored(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    fl_ctx.set_prop(module.FLContextKey.DISCONNECTED_CLIENT_NAME, "nobody", private=True, sticky=False)
+
+    controller.handle_event(module.EventType.CLIENT_DISCONNECTED, fl_ctx)
+
+    assert len(controller.client_statuses) == 4
+    assert engine.calls == []
+
+
+def test_unconfigured_clients_are_pruned_before_the_start_task(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    controller.configured = {"site1", "site2", "site4"}  # site3's worker died at launch
+
+    assert controller._configure_clients({}, fl_ctx, None) is True
+
+    assert sorted(controller.client_statuses) == ["site1", "site2", "site4"]
+    assert controller.pruned_clients == ["site3"]
+    assert engine.calls[0]["request"][module.PRUNE_KEY_PRUNED] == ["site3"]
+    assert "not configured" in engine.calls[0]["request"][module.PRUNE_KEY_REASON]
+    assert sorted(engine.calls[0]["targets"]) == ["site1", "site2", "site4"]
+
+
+def test_configure_failure_is_passed_through(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    controller.base_configure_result = False
+
+    assert controller._configure_clients({}, fl_ctx, None) is False
+    assert engine.calls == []
+
+
+def test_prune_notice_names_clients_that_did_not_acknowledge(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls, silent=("site2",))
+
+    controller._prune(["site4"], "test", fl_ctx)
+
+    warnings = [msg for level, msg in logs if level == "warning"]
+    assert any("no acknowledgement from ['site2']" in msg for msg in warnings)
+
+
+def test_reconnected_pruned_client_stays_pruned(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, engine, logs, panics = _make_server(module, fl_context_cls)
+    controller._prune(["site4"], "test", fl_ctx)
+    fl_ctx.set_prop(module.FLContextKey.RECONNECTED_CLIENT_NAME, "site4", private=True, sticky=False)
+
+    controller.handle_event(module.EventType.CLIENT_RECONNECTED, fl_ctx)
+
+    assert "site4" not in controller.client_statuses
+    assert any("stays pruned" in msg for level, msg in logs if level == "warning")
+
+
+class _FakeTrainerStatus:
+    def __init__(self):
+        self.reply_time = None
+
+
+def _make_gatherer(module, trainers, min_responses_required):
+    g = module.FaultTolerantGatherer.__new__(module.FaultTolerantGatherer)
+    g.trainers = list(trainers)
+    g.trainer_statuses = {t: _FakeTrainerStatus() for t in trainers}
+    g.min_responses_required = min_responses_required
+    g.for_round = 2
+    g.lock = threading.Lock()
+    g.logs = []
+    g.log_warning = lambda ctx, msg: g.logs.append(msg)
+    return g
+
+
+def test_gatherer_drops_pruned_trainers_that_have_not_replied(fault_tolerant_ccwf):
+    module, _ = fault_tolerant_ccwf
+    g = _make_gatherer(module, ["a", "b", "c", "d"], min_responses_required=3)
+    g.trainer_statuses["a"].reply_time = 1.0
+
+    dropped = g.drop_trainers({"d", "zzz"}, None)
+
+    assert dropped == ["d"]
+    assert sorted(g.trainer_statuses) == ["a", "b", "c"]
+    assert g.trainers == ["a", "b", "c"]
+    assert g.min_responses_required == 3
+    assert g._all_responses_required() is True  # 3 of 3: strict among the survivors
+
+
+def test_gatherer_keeps_a_pruned_trainer_whose_result_arrived(fault_tolerant_ccwf):
+    module, _ = fault_tolerant_ccwf
+    g = _make_gatherer(module, ["a", "b", "c"], min_responses_required=2)
+    g.trainer_statuses["c"].reply_time = 1.0
+
+    assert g.drop_trainers({"c"}, None) == []
+    assert sorted(g.trainer_statuses) == ["a", "b", "c"]
+
+
+def test_gatherer_lowers_min_responses_when_trainers_shrink_below_it(fault_tolerant_ccwf):
+    module, _ = fault_tolerant_ccwf
+    g = _make_gatherer(module, ["a", "b", "c", "d"], min_responses_required=4)
+
+    g.drop_trainers({"d"}, None)
+
+    assert g.min_responses_required == 3
+
+
+def _make_client(module, fl_context_cls, me="site1"):
+    controller = module.FaultTolerantSwarmClientController.__new__(module.FaultTolerantSwarmClientController)
+    controller.me = me
+    controller.workflow_id = "wf"
+    controller.config = {
+        module.Constant.CLIENTS: ["site1", "site2", "site3", "site4"],
+        module.Constant.TRAIN_CLIENTS: ["site1", "site2", "site3", "site4"],
+        module.Constant.AGGR_CLIENTS: ["site1", "site4"],
+        module.Constant.RESULT_CLIENTS: ["site1", "site2", "site3", "site4"],
+    }
+    controller.trainers = ["site1", "site2", "site3", "site4"]
+    controller.aggrs = ["site1", "site4"]
+    controller.gatherer = None
+    controller._round_lock = threading.Lock()
+    controller._round = {}
+    controller._aggr_replacement = {}
+    controller.aggregator_death_grace = 0.3
+    controller.aggregator_death_poll = 0.02
+    controller.request_to_submit_learn_result_task_name = "request_submit"
+    controller.report_learn_result_task_name = "report_result"
+    controller.request_to_submit_result_max_wait = 0
+    controller.request_to_submit_result_msg_timeout = 1
+    controller.request_to_submit_result_interval = 0.01
+    controller.learn_task_ack_timeout = 30
+    controller.learn_task_timeout = 60
+    controller.min_responses_required = 3
+    controller.wait_time_after_min_resps_received = 5
+    controller.max_concurrent_submissions = 1
+    controller.metric_comparator = object()
+    controller.aggregator = object()
+    waiter_calls = []
+    controller.gatherer_waiter = SimpleNamespace(set=lambda: waiter_calls.append(True))
+    controller.waiter_calls = waiter_calls
+    logs = []
+    controller.log_info = lambda ctx, msg: logs.append(("info", msg))
+    controller.log_warning = lambda ctx, msg: logs.append(("warning", msg))
+    controller.log_error = lambda ctx, msg: logs.append(("error", msg))
+    return controller, fl_context_cls(identity=me), logs
+
+
+def test_client_applies_prune_to_every_list_and_the_live_gatherer(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls)
+    gatherer = _make_gatherer(module, ["site1", "site2", "site3", "site4"], min_responses_required=3)
+    controller.gatherer = gatherer
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+    request[module.PRUNE_KEY_ACTIVE] = ["site1", "site2", "site3"]
+    request[module.PRUNE_KEY_REASON] = "deemed disconnected by the server"
+
+    reply = controller._process_prune_notice(module.prune_topic("wf"), request, fl_ctx)
+
+    assert reply["return_code"] == "OK"
+    assert controller.get_config_prop(module.Constant.TRAIN_CLIENTS) == ["site1", "site2", "site3"]
+    assert controller.get_config_prop(module.Constant.AGGR_CLIENTS) == ["site1"]
+    assert controller.get_config_prop(module.Constant.RESULT_CLIENTS) == ["site1", "site2", "site3"]
+    assert controller.get_config_prop(module.Constant.CLIENTS) == ["site1", "site2", "site3"]
+    assert controller.trainers == ["site1", "site2", "site3"]
+    assert controller.aggrs == ["site1"]
+    assert sorted(gatherer.trainer_statuses) == ["site1", "site2", "site3"]
+    assert any("server pruned ['site4']" in msg for level, msg in logs if level == "warning")
+
+
+def test_client_ignores_prune_before_configuration_but_still_acks(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls)
+    controller.config = None
+    controller.trainers = None
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+
+    reply = controller._process_prune_notice("t", request, fl_ctx)
+
+    assert reply["return_code"] == "OK"
+    assert any("before configuration" in msg for level, msg in logs if level == "warning")
+
+
+def test_client_pruned_itself_only_logs(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site4")
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+    request[module.PRUNE_KEY_ACTIVE] = ["site1", "site2", "site3"]
+
+    controller._process_prune_notice("t", request, fl_ctx)
+
+    assert controller.trainers == ["site1", "site2", "site3", "site4"]  # untouched
+    assert any("pruned THIS client" in msg for level, msg in logs if level == "error")
+
+
+def test_client_registers_prune_handler_after_configuration(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls)
+    registered = []
+    controller.engine = SimpleNamespace(
+        register_aux_message_handler=lambda topic, message_handle_func: registered.append((topic, message_handle_func))
+    )
+
+    controller.process_config(fl_ctx)
+
+    assert controller.base_process_config_called is True
+    assert registered == [(module.prune_topic("wf"), controller._process_prune_notice)]
+
+
+# ---------------------------------------------------------------------------
+# #595: the pruned client was the round's aggregator
+# ---------------------------------------------------------------------------
+
+
+def _round_state(num=2, aggr="site4", **extra):
+    rd = {"num": num, "aggr": aggr, "task_data": "task-data", "fl_ctx": None, "result": None,
+          "submitted_to": None, "granted_by": None, "done": False}
+    rd.update(extra)
+    return rd
+
+
+def _perm_request(module, round_num=2):
+    req = module.Shareable()
+    req.set_header(module.AppConstants.CURRENT_ROUND, round_num)
+    return req
+
+
+def test_permission_adapter_redirects_to_the_replacement_and_rekeys(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller._round = _round_state()
+    controller._aggr_replacement = {"site4": "site2"}
+    engine = _RecordingEngine()
+    adapter = module._PermissionReplyRetryEngine(engine, controller)
+
+    resp = adapter.send_aux_request(targets=["site4"], topic="request_submit", request=_perm_request(module),
+                                    timeout=1, fl_ctx=fl_ctx, secure=False)
+
+    assert engine.calls[0]["targets"] == ["site2"]
+    assert "site4" in resp and resp["site4"]["return_code"] == "OK"
+    assert "site2" not in resp
+    assert controller._round["granted_by"] == "site2"
+
+
+def test_permission_adapter_answers_locally_when_this_client_took_over(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller._round = _round_state()
+    controller._aggr_replacement = {"site4": "site1"}
+    engine = _RecordingEngine()
+    fl_ctx.engine = SimpleNamespace(new_context=lambda: fl_context_cls(identity="site1"))
+    seen = []
+
+    def fake_submission_request(topic, request, ctx):
+        seen.append((topic, ctx.get_peer_context().get_identity_name()))
+        reply = module.Shareable()
+        reply["return_code"] = "OK"
+        return reply
+
+    controller._process_submission_request = fake_submission_request
+    adapter = module._PermissionReplyRetryEngine(engine, controller)
+
+    resp = adapter.send_aux_request(targets=["site4"], topic="request_submit", request=_perm_request(module),
+                                    timeout=1, fl_ctx=fl_ctx, secure=False)
+
+    assert engine.calls == []
+    assert seen == [("request_submit", "site1")]
+    assert resp["site4"]["return_code"] == "OK"
+    assert controller._round["granted_by"] == "site1"
+
+
+def test_permission_adapter_records_who_granted_without_redirect(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller._round = _round_state()
+    adapter = module._PermissionReplyRetryEngine(_RecordingEngine(), controller)
+
+    adapter.send_aux_request(targets=["site4"], topic="request_submit", request=_perm_request(module),
+                             timeout=1, fl_ctx=fl_ctx, secure=False)
+
+    assert controller._round["granted_by"] == "site4"
+
+
+def test_pruned_aggregator_is_replaced_by_the_first_remaining_candidate(fault_tolerant_ccwf):
+    """Every survivor computes the same replacement; only the elected one sets up a gatherer."""
+    module, fl_context_cls = fault_tolerant_ccwf
+    elected, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    elected._round = _round_state()
+    other, fl_ctx2, logs2 = _make_client(module, fl_context_cls, me="site2")
+    other._round = _round_state()
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+    request[module.PRUNE_KEY_ACTIVE] = ["site1", "site2", "site3"]
+    request[module.PRUNE_KEY_REASON] = "deemed disconnected by the server"
+
+    elected._process_prune_notice("t", request, fl_ctx)
+    other._process_prune_notice("t", request, fl_ctx2)
+
+    assert elected.aggregator_replacement("site4") == "site1"
+    assert other.aggregator_replacement("site4") == "site1"
+    g = elected.gatherer
+    assert isinstance(g, module.FaultTolerantGatherer)
+    assert g.for_round == 2 and g.trainers == ["site1", "site2", "site3"] and g.task_data == "task-data"
+    assert elected.waiter_calls == [True]
+    assert other.gatherer is None and other.waiter_calls == []
+    assert any("takes over the round" in msg for level, msg in logs if level == "warning")
+
+
+def test_prune_of_a_non_aggregator_does_not_touch_the_round(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller._round = _round_state(aggr="site2")
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+
+    controller._process_prune_notice("t", request, fl_ctx)
+
+    assert controller._aggr_replacement == {}
+    assert controller.gatherer is None
+
+
+def test_accepted_result_is_resubmitted_when_its_aggregator_dies(fault_tolerant_ccwf, monkeypatch):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    controller._round = _round_state(done=True, submitted_to="site4", result="my-result")
+    calls = []
+    controller._submit_result_to = lambda aggr, rnd, result, ctx, need_permission: (
+        calls.append((aggr, rnd, result, need_permission)) or {"return_code": "OK"})
+
+    class SyncThread:
+        def __init__(self, target, args=(), name=None, daemon=None):
+            self._t, self._a = target, args
+
+        def start(self):
+            self._t(*self._a)
+
+    monkeypatch.setattr(module.threading, "Thread", SyncThread)
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+
+    controller._process_prune_notice("t", request, fl_ctx)
+
+    assert calls == [("site1", 2, "my-result", True)]
+    assert controller._round["submitted_to"] == "site1"
+
+
+def test_result_send_is_redirected_when_the_aggregator_was_replaced(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    controller._round = _round_state(granted_by="site1")
+    controller._aggr_replacement = {"site4": "site1"}
+    calls = []
+    ok = module.Shareable(); ok["return_code"] = "OK"
+    controller._submit_result_to = lambda aggr, rnd, result, ctx, need_permission: (
+        calls.append((aggr, rnd, result, need_permission)) or ok)
+    task = module.Task(name="report_result", data="my-result", timeout=30)
+
+    resp = controller.broadcast_and_wait(task, fl_ctx, ["site4"], 1)
+
+    assert calls == [("site1", 2, "my-result", False)]  # permission already came from site1 via the adapter
+    assert resp == {"site4": ok}
+    assert controller._round["done"] is True and controller._round["submitted_to"] == "site1"
+
+
+def test_failed_result_send_waits_for_the_prune_then_redirects(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    controller._round = _round_state()
+    controller.base_send_rc = "ERROR"  # the stock send to the dying aggregator fails
+    ok = module.Shareable(); ok["return_code"] = "OK"
+    calls = []
+    controller._submit_result_to = lambda aggr, rnd, result, ctx, need_permission: (
+        calls.append((aggr, need_permission)) or ok)
+    # the server prunes the aggregator shortly after the failed send
+    threading.Timer(0.05, lambda: controller._aggr_replacement.update({"site4": "site3"})).start()
+    task = module.Task(name="report_result", data="my-result", timeout=30)
+
+    resp = controller.broadcast_and_wait(task, fl_ctx, ["site4"], 1)
+
+    assert controller.base_sends[0][1] == ["site4"]
+    assert calls == [("site3", True)]
+    assert resp == {"site4": ok}
+
+
+def test_failed_result_send_without_a_prune_keeps_the_stock_error(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    controller._round = _round_state()
+    controller.base_send_rc = "ERROR"
+    task = module.Task(name="report_result", data="my-result", timeout=30)
+
+    resp = controller.broadcast_and_wait(task, fl_ctx, ["site4"], 1)
+
+    assert resp["site4"]["return_code"] == "ERROR"
+    assert controller._round["done"] is False
+
+
+def test_other_tasks_pass_through_broadcast_and_wait(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    task = module.Task(name="something_else", data="x")
+
+    resp = controller.broadcast_and_wait(task, fl_ctx, ["site4"], 1)
+
+    assert controller.base_sends[0] == (task, ["site4"])
+    assert resp["site4"]["return_code"] == "OK"
+
+
+def test_submit_result_to_self_asks_and_gathers_locally(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    fl_ctx.engine = SimpleNamespace(new_context=lambda: fl_context_cls(identity="site1"))
+    ok = module.Shareable(); ok["return_code"] = "OK"
+    perms, gathers = [], []
+    controller._process_submission_request = lambda topic, req, ctx: perms.append(topic) or ok
+    controller._resolve_lazy_refs = lambda result, ctx: result
+    controller._process_learn_result = lambda result, ctx, abort: gathers.append(result) or ok
+
+    reply = controller._submit_result_to("site1", 2, "my-result", fl_ctx, need_permission=True)
+
+    assert perms == ["request_submit"] and gathers == ["my-result"]
+    assert reply is ok
+    assert controller.base_sends == [] if hasattr(controller, "base_sends") else True
+
+
+def test_submit_result_to_remote_asks_then_sends(fault_tolerant_ccwf):
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site2")
+    engine = _RecordingEngine()
+    fl_ctx.engine = engine
+
+    reply = controller._submit_result_to("site3", 2, "my-result", fl_ctx, need_permission=True)
+
+    assert engine.calls[0]["targets"] == ["site3"] and engine.calls[0]["topic"] == "request_submit"
+    assert controller.base_sends[0][1] == ["site3"] and controller.base_sends[0][0].data == "my-result"
+    assert reply["return_code"] == "OK"
+
+
+def test_emptied_role_list_falls_back_to_the_survivors(fault_tolerant_ccwf):
+    """A config that named one aggregator, and that site dies: the next scatter must still have candidates."""
+    module, fl_context_cls = fault_tolerant_ccwf
+    controller, fl_ctx, logs = _make_client(module, fl_context_cls, me="site1")
+    controller.config[module.Constant.AGGR_CLIENTS] = ["site4"]
+    controller.aggrs = ["site4"]
+    controller._round = _round_state(aggr="site4")
+    request = module.Shareable()
+    request[module.PRUNE_KEY_PRUNED] = ["site4"]
+
+    controller._process_prune_notice("t", request, fl_ctx)
+
+    assert controller.get_config_prop(module.Constant.AGGR_CLIENTS) == ["site1", "site2", "site3"]
+    assert controller.aggrs == ["site1", "site2", "site3"]
+    assert controller.aggregator_replacement("site4") == "site1"
+    assert isinstance(controller.gatherer, module.FaultTolerantGatherer)
+    assert any("emptied by the prune" in msg for level, msg in logs if level == "warning")

@@ -8,6 +8,10 @@ on:
         required: false
         default: "application/provision/project_deploy_test_4site.yml"
         type: string
+      min_clients:
+        description: "min_clients / configure_min_clients to bake into generated jobs (= number of test clients in the conf)"
+        required: false
+        default: "2"
       num_rounds:
         description: "Number of FL rounds to bake into generated jobs"
         required: false
@@ -87,6 +91,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_PROJECT_FILE: ${{ inputs.project_file }}
           INPUT_NUM_ROUNDS: ${{ inputs.num_rounds }}
+          INPUT_MIN_CLIENTS: ${{ inputs.min_clients }}
           INPUT_CONF_SOURCE: ${{ inputs.conf_source }}
           INPUT_RUN_ALL: ${{ inputs.run_all }}
           INPUT_MODEL: ${{ inputs.model }}
@@ -98,6 +103,7 @@ jobs:
 
           project_file="${INPUT_PROJECT_FILE:-application/provision/project_deploy_test_4site.yml}"
           num_rounds="${INPUT_NUM_ROUNDS:-1}"
+          min_clients="${INPUT_MIN_CLIENTS:-2}"
           conf_source="${INPUT_CONF_SOURCE:-$HOME/mediswarm_deploy_conf/deploy_sites_odelia_ci_2node.conf}"
           run_all="${INPUT_RUN_ALL:-false}"
           model="${INPUT_MODEL:-1DivideAndConquer}"
@@ -131,6 +137,7 @@ jobs:
           {
             echo "DEPLOY_PROJECT_FILE=$project_file"
             echo "DEPLOY_NUM_ROUNDS=$num_rounds"
+            echo "DEPLOY_MIN_CLIENTS=$min_clients"
             echo "DEPLOY_CONF_FILE=$conf_file"
             echo "DEPLOY_RUN_ALL=$run_all"
             echo "DEPLOY_MODEL=$model"
@@ -149,10 +156,14 @@ jobs:
 
       - name: Build Docker image + startup kits
         run: |
+          # --min-clients: the productive jobs carry min_clients tuned for the full
+          # consortium (5); with two test clients the run aborts in 30 s with
+          # "min_clients (5) exceeds the number of participating clients (2)".
           ./scripts/build/buildDockerImageAndStartupKits.sh \
             -p "$DEPLOY_PROJECT_FILE" \
             --use-docker-cache \
-            --num-rounds "$DEPLOY_NUM_ROUNDS"
+            --num-rounds "$DEPLOY_NUM_ROUNDS" \
+            --min-clients "$DEPLOY_MIN_CLIENTS"
 
       - name: Push Docker image to Docker Hub
         env:
@@ -197,7 +208,7 @@ jobs:
           ./scripts/deploy/run_deploy_test.sh "${args[@]}"
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: deploy-test-results

@@ -25,6 +25,13 @@ Output
 `run_history.csv`  one row per (job_id, site) with what that site did in that run
 `run_summary.json` one entry per job_id, aggregated across sites
 
+The dataset is append-only: a run that was in the previous output but has since
+vanished from both sources is kept and marked `retained: true`. The coordinator's
+job store lives inside the server container and is wiped on every recreate (#607;
+the 1.8.1 restart of 13 Sep 2026 emptied it), so without this rule a refresh would
+silently delete the consortium's completed runs from the record. `--no-merge`
+disables it.
+
 Usage
     python3 scripts/analysis/extract_run_history.py [--live-root DIR] [--out DIR]
 """
@@ -39,7 +46,16 @@ from collections import defaultdict
 
 # Machines that belong to the coordinating team, not to a hospital. A record
 # from one of these is test infrastructure regardless of the site name it wears.
+# Deploy tests run on our own machines. Records from them must not be counted as
+# hospital runs -- doing so put four site join dates ~6 weeks early in a published
+# chart, because April records from dl0/dl3 carried hospital site names.
+#
+# From 1.8.0 the deploy-test projects use TEST_A_1..TEST_D_1 instead of real site
+# names (see application/provision/project_deploy_test_*site.yml), so new records
+# are unambiguous by name alone. This hostname heuristic stays because the
+# historical records it was written for do not change.
 TEST_HOSTS = {"dl0.tud.de", "dl2.tud.de", "dl3.tud.de", "cosmos", "agh1"}
+TEST_SITE_NAMES = {"TEST_A_1", "TEST_B_1", "TEST_C_1", "TEST_D_1"}
 
 SITES = ["CAM_1", "MHA_1", "RSH_1", "RUMC_1", "UKA_1", "UMCU_1", "USZ_1", "VHIO_1"]
 
@@ -92,13 +108,20 @@ TEST_PATH_MARK = re.compile(r"deploy_test|/fl_admin/local/mediswarm_jobs")
 PROD_PATH_MARK = re.compile(r"Documents/MediSwarm/workspace|/startupkit/[0-9a-f]{8}-")
 
 
-def classify_host(host, text=""):
-    """real | test | unknown -- the distinction the site *label* cannot make.
+def classify_host(host, text="", site=""):
+    """real | test | unknown -- the distinction the site *label* used to be unable to make.
+
+    From 1.8.0 a TEST_* site name is decisive on its own; that is the whole point
+    of renaming the deploy-test participants. Everything below is for the archive
+    written before the rename, where the label was a real hospital name whatever
+    machine produced it.
 
     heartbeat.json's hostname is authoritative when present. Roughly a third of
     the archive predates it, so fall back to the kit path in the console log:
     a deploy test installs under .../deploy_test/<SITE>, production does not.
     """
+    if site in TEST_SITE_NAMES:
+        return "test"
     if host and host != "?":
         return "test" if host in TEST_HOSTS else "real"
     if text:
@@ -134,7 +157,7 @@ def parse_job_dir(job_dir, site):
         "hb_status":  hb.get("status", ""),
     }
 
-    rec["host_class"] = classify_host(hb.get("hostname", ""), text)
+    rec["host_class"] = classify_host(hb.get("hostname", ""), text, site)
 
     dates = sorted(set(re.findall(r"(20\d\d-\d\d-\d\d) \d\d:\d\d:\d\d", text)))
     rec["date_first"] = dates[0] if dates else ""
@@ -168,6 +191,12 @@ def parse_job_dir(job_dir, site):
 
 
 COORD_CONTAINER = "odelia_swarm_server_flserver_a19be57"
+
+
+def is_job_id(name: str) -> bool:
+    """A job directory is named by its NVFlare job id; the 1.8.x kits also mirror the
+    running client under `_active`, which is not a run."""
+    return bool(name) and not name.startswith("_") and len(name) > 8
 
 
 def coordinator_jobs(container=COORD_CONTAINER):
@@ -222,24 +251,37 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--live-root", default="/srv/mediswarm/live")
     ap.add_argument("--out", default="workspace/run_history")
+    ap.add_argument("--no-merge", action="store_true",
+                    help="do not keep runs from the previous output that are no longer found")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
+    csv_path = os.path.join(args.out, "run_history.csv")
+    json_path = os.path.join(args.out, "run_summary.json")
+    prev_rows, prev_summary = [], []
+    if not args.no_merge:
+        if os.path.exists(csv_path):
+            with open(csv_path, newline="") as fh:
+                prev_rows = list(csv.DictReader(fh))
+        if os.path.exists(json_path):
+            prev_summary = json.load(open(json_path))
 
     rows = []
     for site in SITES:
         for job_dir in sorted(glob.glob(os.path.join(args.live_root, site, "swarm", "*"))):
-            if os.path.isdir(job_dir):
+            if os.path.isdir(job_dir) and is_job_id(os.path.basename(job_dir)):
                 rows.append(parse_job_dir(job_dir, site))
 
     cols = ["job_id", "site", "hostname", "ip_address", "host_class", "date_first",
             "date_last", "kit_version", "image_ref", "mode", "run_name", "hb_status",
             "train_n", "class_0", "class_1", "class_2", "learn_tasks", "epochs_seen",
             "configured", "failure_class", "advisory_only", "signatures"]
-    csv_path = os.path.join(args.out, "run_history.csv")
+    # append-only: keep site-run rows whose job directory has since been removed
+    have = {(r["job_id"], r["site"]) for r in rows}
+    retained_rows = [r for r in prev_rows if (r.get("job_id"), r.get("site")) not in have and is_job_id(r.get("job_id", ""))]
     with open(csv_path, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
-        for r in rows:
+        for r in rows + retained_rows:
             w.writerow({c: r.get(c, "") for c in cols})
 
     jobs = defaultdict(lambda: {"sites": [], "real_sites": [], "test_sites": []})
@@ -273,7 +315,11 @@ def main():
     # merge the coordinator's tail; it holds runs the monitor never received
     seen = {r["job_id"] for r in summary}
     coord_added = 0
-    for c in coordinator_jobs():
+    coord = coordinator_jobs()
+    if not coord:
+        print("  WARNING: the coordinator's job store is empty or unreachable (container recreated? see #607);"
+              " runs it held are kept from the previous output only")
+    for c in coord:
         if c["job_id"] in seen:
             for r in summary:
                 if r["job_id"] == c["job_id"]:
@@ -292,18 +338,32 @@ def main():
             })
             coord_added += 1
 
+    # append-only: a run that vanished from both sources stays, marked as retained
+    seen = {r["job_id"] for r in summary}
+    retained = 0
+    prev_by_id = {r.get("job_id"): r for r in prev_summary}
+    for r in summary:
+        p = prev_by_id.get(r["job_id"])
+        if p and p.get("status") and not r.get("status"):
+            r["status"], r["duration"] = p["status"], p.get("duration")
+            r["source"], r["coordinator_retained"] = "both", True
+    for r in prev_summary:
+        if r.get("job_id") not in seen and is_job_id(r.get("job_id", "")):
+            r = dict(r); r["retained"] = True
+            summary.append(r); retained += 1
     summary.sort(key=lambda x: x["date_first"] or "")
-    json.dump(summary, open(os.path.join(args.out, "run_summary.json"), "w"), indent=1)
+    json.dump(summary, open(json_path, "w"), indent=1)
 
     real = [r for r in rows if r["host_class"] == "real"]
     test = [r for r in rows if r["host_class"] == "test"]
     print(f"  site-run rows : {len(rows)}   ({len(real)} real host, {len(test)} test host, "
           f"{len(rows)-len(real)-len(test)} unknown)")
     print(f"  unique jobs   : {len(summary)}  "
-          f"({len(jobs)} from the live monitor, {coord_added} only in the coordinator)")
+          f"({len(jobs)} from the live monitor, {coord_added} only in the coordinator, "
+          f"{retained} retained from the previous output; {len(retained_rows)} site-run rows retained)")
     print(f"  production    : {sum(1 for s in summary if s['is_production'])}")
     print(f"  wrote {csv_path}")
-    print(f"  wrote {os.path.join(args.out, 'run_summary.json')}")
+    print(f"  wrote {json_path}")
 
 
 if __name__ == "__main__":

@@ -195,6 +195,8 @@ deploy_sites_4node_test.conf
 deploy_sites_3node_test.conf
 deploy_sites_duke_iid.conf
 deploy_sites_*.local.conf
+# Any other real site conf (e.g. deploy_sites_2node_test.dl3.conf); only *.example is tracked
+deploy_sites_*.conf
 kit_live_sync/sync.conf
 scripts/deploy/distribute_data.conf
 
@@ -221,3 +223,10 @@ kit_passwords.txt
 
 # Staged swarm jobs, hand-edited per run and regenerated each time
 run_staging/
+
+# Partner announcement emails are drafted locally and never committed (decision 2026-09-14)
+docs/EMAIL_*.md
+
+# Rendered deck for offline presenting; regenerate with headless Chromium --print-to-pdf
+docs/presentation_consortium_45min.pdf
+docs/presentation_consortium_45min.pptx
