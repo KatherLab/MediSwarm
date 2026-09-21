@@ -1406,7 +1406,6 @@ case "$1" in
         ;;
 
     run_all_models_training_in_swarm)
-        # TODO add to weekly/manual workflow
         # preparation and cleanup happens for each model separately
         run_all_models_training_in_swarm
         ;;
