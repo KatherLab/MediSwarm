@@ -1352,18 +1352,18 @@ case "$1" in
         ;;
 
     push_pull_image)
+        # TODO add to CI if we want this (takes several minutes)
         create_startup_kits_and_check_contained_files
         start_registry_docker_and_push
         run_container_with_pulling
         kill_registry_docker
-        # TODO add to CI if we want this (takes several minutes)
         ;;
 
     check_wrong_startup_kit)
+        # TODO add to CI if we want this
         create_startup_kits_and_check_contained_files
         verify_wrong_certificates_are_rejected
         cleanup_temporary_data
-        # TODO add to CI if we want this
         ;;
 
     run_dummy_training_in_swarm)
