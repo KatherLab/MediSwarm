@@ -1361,6 +1361,7 @@ case "$1" in
 
     check_wrong_startup_kit)
         # TODO add to CI if we want this
+        # TODO add to "all" section when this works again
         create_startup_kits_and_check_contained_files
         verify_wrong_certificates_are_rejected
         cleanup_temporary_data
