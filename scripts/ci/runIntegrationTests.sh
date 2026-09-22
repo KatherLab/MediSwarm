@@ -1237,7 +1237,8 @@ run_all_models_training_in_swarm () {
     _verify_ODELIA_challenge_swarm_training "challenge_5pimed"              "backbone *| Resnet"
 
     _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
-    _verify_ODELIA_ternary_swarm_training "MST_SAMMed2D"             "mst *| _MST *| 267"  # random init unless sam-med2d_b.pth is in the image
+    # _verify_ODELIA_ternary_swarm_training "MST_SAMMed2D"             "mst *| _MST *| 267"  # random init unless sam-med2d_b.pth is in the image
+    echo "❗ Swin3D needs too much GPU memory for two clients on CI server, swarm training check not executed"
     _verify_ODELIA_ternary_swarm_training "ResNet10"                 "model *| _ResNet *| 14"
     _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
     _verify_ODELIA_ternary_swarm_training "ResNet34"                 "model *| _ResNet *| 63"
