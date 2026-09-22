@@ -1385,8 +1385,7 @@ case "$1" in
         cleanup_temporary_data
         ;;
 
-    run_3dcnn_training_in_swarm)
-        # TODO rename, also in workflow(s)
+    run_one_productive_3dcnn_training_in_swarm)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
         start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
