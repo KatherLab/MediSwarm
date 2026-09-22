@@ -1023,9 +1023,10 @@ _run_3dcnn_training_in_swarm_for_challenge_model () {
 _verify_3dcnn_training_in_swarm_for_odelia__or_challenge_model_output() {
     local CONSOLE_OUTPUT_FILE_SERVER="$PROJECT_DIR"/prod_00/localhost/startup/nohup.out
 
+    local CONSOLE_OUTPUT_FILE_ONE_SITE="$PROJECT_DIR"/prod_00/client_A/startup/nohup.out
     local CONSOLE_OUTPUT_FILE_CLIENTS="$PROJECT_DIR"/prod_00/client_A/startup/combined_nohup.out
     echo "Output of client A" > "$CONSOLE_OUTPUT_FILE_CLIENTS"
-    cat "$PROJECT_DIR"/prod_00/client_A/startup/nohup.out >> $CONSOLE_OUTPUT_FILE_CLIENTS
+    cat "$CONSOLE_OUTPUT_FILE_ONE_SITE" >> $CONSOLE_OUTPUT_FILE_CLIENTS
     echo "Output of client B" >> "$CONSOLE_OUTPUT_FILE_CLIENTS"
     cat "$PROJECT_DIR"/prod_00/client_B/startup/nohup.out >> $CONSOLE_OUTPUT_FILE_CLIENTS
 
@@ -1060,9 +1061,7 @@ _verify_3dcnn_training_in_swarm_for_odelia__or_challenge_model_output() {
         fi
     done
 
-    local CONSOLE_OUTPUT_FILE_ONE_SITE=nohup.out
     _verify_that_string_is_contained_once_in_file 'Training completed successfully.' "$CONSOLE_OUTPUT_FILE_ONE_SITE"
-    cd "$CWD"
 
     # check for expected output files
     local FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR"/client_A -type f -name "*.*")
