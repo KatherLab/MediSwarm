@@ -1021,36 +1021,40 @@ _run_3dcnn_training_in_swarm_for_challenge_model () {
 }
 
 _verify_3dcnn_training_in_swarm_for_odelia__or_challenge_model_output() {
-    # check for expected output in server log (clients joined, job ID assigned, 1 round)
-    cd "$PROJECT_DIR"/prod_00/localhost/startup
-    local CONSOLE_OUTPUT_FILE=nohup.out
+    local CONSOLE_OUTPUT_FILE_SERVER="$PROJECT_DIR"/prod_00/localhost/startup/nohup.out
+
+    local CONSOLE_OUTPUT_FILE_CLIENTS="$PROJECT_DIR"/prod_00/client_A/startup/combined_nohup.out
+    echo "Output of client A" > "$CONSOLE_OUTPUT_FILE_CLIENTS"
+    cat "$PROJECT_DIR"/prod_00/client_A/startup/nohup.out >> $CONSOLE_OUTPUT_FILE_CLIENTS
+    echo "Output of client B" >> "$CONSOLE_OUTPUT_FILE_CLIENTS"
+    cat "$PROJECT_DIR"/prod_00/client_B/startup/nohup.out >> $CONSOLE_OUTPUT_FILE_CLIENTS
+
+    # check for expected output in server log
     for EXPECTED_OUTPUT in 'updated status of client client_A on round 0: .* action=start_learn_task, all_done=False' \
                            'updated status of client client_B on round 0: .* action=start_learn_task, all_done=False' \
                            'all_done=True';
     do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE_SERVER"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
         else
-            cat "$CONSOLE_OUTPUT_FILE"
+            cat "$CONSOLE_OUTPUT_FILE_SERVER"
+            cat "$CONSOLE_OUTPUT_FILE_CLIENTS"
             echo "❌ Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
     done
-    cd "$CWD"
 
     # check for expected output in client logs
-    cd "$PROJECT_DIR"/prod_00/client_A/startup
-    local CONSOLE_OUTPUT_FILE=combined_nohup.out
-    cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
     for EXPECTED_OUTPUT in "sending training result to aggregation client" \
                            "Epoch 4: 100%" \
                            "Training completed successfully" \
                            "Best model checkpoint:";
     do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE_CLIENTS"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
         else
-            cat "$CONSOLE_OUTPUT_FILE"
+            cat "$CONSOLE_OUTPUT_FILE_SERVER"
+            cat "$CONSOLE_OUTPUT_FILE_CLIENTS"
             echo "❌ Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
