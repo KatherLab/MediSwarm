@@ -1016,9 +1016,17 @@ _run_3dcnn_training_in_swarm_for_odelia_model () {
 
 _run_3dcnn_training_in_swarm_for_challenge_model () {
     local JOB_NAME=$1
-    cat "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp | sed 's+jobs/ODELIA_ternary_classification+jobs/'$JOB_NAME'+' > "$PROJECT_DIR"/prod_00/_submit.exp
-    ls "$CWD"/"$PROJECT_DIR"/prod_00/_submit.exp
-    _run_3dcnn_training_in_swarm_for_odelia_or_challenge_model "$CWD"/"$PROJECT_DIR"/prod_00/_submit.exp
+    local ORIG_EXP_FILE="$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
+    local EXP_FILE="$CWD"/"$PROJECT_DIR"/prod_00/_submit.exp
+    cat "$ORIG_EXP_FILE" | sed 's+jobs/ODELIA_ternary_classification+jobs/'$JOB_NAME'+' > "$EXP_FILE"
+    if grep -q "$JOB_NAME" "$EXP_FILE"; then
+        _run_3dcnn_training_in_swarm_for_odelia_or_challenge_model "$EXP_FILE"
+    else
+        cat "$ORIG_EXP_FILE"
+        cat "$EXP_FILE"
+        echo "❌ using $JOB_NAME in $EXP_FILE failed"
+        exit 1
+    fi
     rm "$PROJECT_DIR"/prod_00/_submit.exp
 }
 
