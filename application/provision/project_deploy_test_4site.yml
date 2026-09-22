@@ -6,8 +6,8 @@ participants:
   - name: dl3.tud.de
     type: server
     org: TUD
-    fed_learn_port: 8002
-    admin_port: 8003
+    fed_learn_port: 8102
+    admin_port: 8103
   # Client names are TEST_A_1..TEST_D_1 and MUST NOT be real hospital site names.
   # They used to be RUMC_1 / MHA_1 / CAM_1 / UMCU_1, which collides with the
   # productive sites in two places that are read by humans and by analysis code:
