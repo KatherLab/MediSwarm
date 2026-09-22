@@ -1020,7 +1020,7 @@ _run_3dcnn_training_in_swarm_for_challenge_model () {
     rm "$PROJECT_DIR"/prod_00/_submit.exp
 }
 
-_verify_3dcnn_training_in_swarm_for_odelia__or_challenge_model_output() {
+_verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
     local CONSOLE_OUTPUT_FILE_SERVER="$PROJECT_DIR"/prod_00/localhost/startup/nohup.out
 
     local CONSOLE_OUTPUT_FILE_ONE_SITE="$PROJECT_DIR"/prod_00/client_A/startup/nohup.out
@@ -1089,14 +1089,14 @@ run_3dcnn_training_in_swarm_for_odelia_model () {
     local MODEL_NAME=$1
     echo "[Run] 3DCNN training in swarm using "$MODEL_NAME" (polling for completion) ..."
     _run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
-    _verify_3dcnn_training_in_swarm_for_odelia__or_challenge_model_output
+    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output
 }
 
 run_3dcnn_training_in_swarm_for_challenge_model () {
     local JOB_NAME=$1
     echo "[Run] 3DCNN training in swarm using "$JOB_NAME" (polling for completion) ..."
     _run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME"
-    _verify_3dcnn_training_in_swarm_for_odelia__or_challenge_model_output
+    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output
 }
 
 
