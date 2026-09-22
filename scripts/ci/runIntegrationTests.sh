@@ -24,6 +24,7 @@ if [ -z "$GPU_FOR_TESTING" ]; then
 fi
 
 DEFAULT_MODEL_FOR_TESTS=ResNet18
+POLLING_INTERVAL=15  # seconds
 
 check_files_in_repo () {
     echo "[Run] Test whether expected content is available in the repo"
@@ -992,19 +993,20 @@ _run_3dcnn_training_in_swarm_for_odelia_or_challenge_model () {
     # contain "Server runner finished." once all rounds are done.  We check
     # every 30 seconds for up to 40 minutes (80 iterations).
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local max_attempts=80  # TODO set suitable timeout
+    local timeout=$((40*60))  # seconds # TODO set suitable timeout
+    local max_attempts=$((timeout/POLLING_INTERVAL))
     local attempt=0
-    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 40min) ..."
+    echo "  Waiting for 3DCNN swarm training to finish (checking every "$POLLING_INTERVAL"s, max "$((timeout/60))"min) ..."
     while [ $attempt -lt $max_attempts ]; do
         if [ -f "$server_log" ] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
-            echo "  ✅ Server runner finished detected after $((attempt * 30))s"
+            echo "  ✅ Server runner finished detected after $((attempt * POLLING_INTERVAL))s"
             break
         fi
         attempt=$((attempt + 1))
-        sleep 30
+        sleep $POLLING_INTERVAL
     done
     if [ $attempt -eq $max_attempts ]; then
-        echo "  ⚠️  Timed out after 40min waiting for 3DCNN swarm completion — proceeding to assertions"
+        echo "  ⚠️  Timed out after "$((timeout/60))"min waiting for 3DCNN swarm completion—proceeding to assertions"
     fi
 }
 
