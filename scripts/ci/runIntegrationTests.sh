@@ -993,11 +993,8 @@ _run_3dcnn_training_in_swarm_for_odelia_or_challenge_model () {
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
     cd "$CWD"
 
-    # Poll for completion instead of a fixed sleep.  The server log will
-    # contain "Server runner finished." once all rounds are done.  We check
-    # every 30 seconds for up to 40 minutes (80 iterations).
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local timeout=$((40*60))  # seconds # TODO set suitable timeout
+    local timeout=$((15*60))  # minutes → seconds
     local max_attempts=$((timeout/POLLING_INTERVAL))
     local attempt=0
     echo "  Waiting for 3DCNN swarm training to finish (checking every "$POLLING_INTERVAL"s, max "$((timeout/60))"min) ..."
