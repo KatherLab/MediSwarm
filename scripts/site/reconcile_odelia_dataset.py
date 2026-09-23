@@ -46,8 +46,11 @@ def find_site_root(data_dir: Path) -> Path:
 
 
 def read_csv(path: Path) -> list[dict]:
-    with open(path, newline="") as fh:
-        return list(csv.DictReader(fh))
+    """Tolerate a UTF-8 byte-order mark, CRLF line endings and padded header names,
+    all of which appear in files exported from spreadsheets."""
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        rows = list(csv.DictReader(fh))
+    return [{(k or "").strip(): (v or "").strip() for k, v in r.items()} for r in rows]
 
 
 def exam_folders(path: Path) -> tuple[set[str], list[str]]:
