@@ -1,7 +1,7 @@
 # BreastDivider preprocessing benchmark (odelia-preprocessing 0.2.1)
 
-Status: 23 September 2026. Fold 0 of the train-from-scratch comparison is complete; folds 1 and 2
-are running and will be appended. Runs on dl3 (GPU) and dl0 (Duke DICOM conversion).
+Status: 23 September 2026, complete (three train/val folds of the train-from-scratch comparison).
+Runs on dl3 (GPU) and dl0 (Duke DICOM conversion).
 Scripts: `scripts/preprocessing/benchmark_breastdivider/`.
 
 ## Summary
@@ -15,15 +15,20 @@ Scripts: `scripts/preprocessing/benchmark_breastdivider/`.
   is a train/test geometry mismatch, not a lack of information in the new crops.
 - On external Duke exams the same frozen models are unaffected (MST 0.690 vs 0.708,
   1DivideAndConquer 0.885 vs 0.882).
-- **Trained from scratch on the same Duke exams, MST is better on BreastDivider crops:** malignant
-  AUROC 0.887 vs 0.846 (best-validation weights, +0.042, 95 % CI [-0.005, +0.094]); with the
-  last-epoch weights +0.053 (CI [+0.012, +0.096]). A model trained on BreastDivider crops also
-  transfers better to the other format (-0.031) than the reverse (-0.048).
+- **Trained from scratch on the same Duke exams, the two formats are equivalent.** MST on the shared
+  184-side test set, mean over three train/val folds: 0.892 (BreastDivider) vs 0.883 (current),
+  +0.009 with a 95 % interval of [-0.026, +0.045]; the three-model ensembles are 0.900 vs 0.907. The
+  fold-0 gain of +0.042 did not replicate (fold 1 +0.003, fold 2 -0.019).
+- **Switching crop format without retraining costs about 0.06 AUROC in either direction** (current
+  model on BreastDivider crops -0.056, BreastDivider model on current crops -0.060, both intervals
+  exclude 0), so the two formats must never be mixed within one model's data.
 - Cost: docker + GPU for the segmentation (14.4 GB image), about 1.8 s per exam on the GPU plus
   4.5 s per exam of CPU cropping with 14 workers, against 1.3 s per exam for the current pipeline.
-- Recommendation: adopt as the crop format of the next data version, with retraining at every
-  site, not as a drop-in for the October benchmark run. Three points to settle with MEVIS first
-  (section 6).
+- Recommendation: no accuracy case for switching; the case for BreastDivider is robustness (no
+  midline assumption, whole breast in z, handles single-breast exams such as the 467 at RSH). Keep
+  the current crops for the October run and for every trained model; if the consortium wants the
+  new format for the next data version, decide it on robustness grounds, with a fixed-spacing
+  output mode tested first and retraining at every site (section 6).
 
 ## 1. What was tested
 
@@ -51,7 +56,7 @@ repository) so that both variants start from identical volumes.
 | UMCU challenge, all labelled | 102 | 204 | 151 / 20 / 33 | frozen-model comparison; the exams were part of the swarm models' training data |
 | UMCU challenge, fold-0 test split | 41 sides | | 31 / 2 / 8 | held out from swarm training, too small to decide anything |
 | Duke, fold-0 test patients on disk | 87 | 174 | 84 / 0 / 90 | frozen-model comparison on external data |
-| Duke, all annotated patients on disk | 456 | 912 | 436 / 0 / 476 | train from scratch, 5-fold split from `/mnt/dlhd0/DUKE/metadata`; fold 0 = 588 train / 140 val / 184 test sides |
+| Duke, all annotated patients on disk | 456 | 912 | 436 / 0 / 476 | train from scratch, split from `/mnt/dlhd0/DUKE/metadata`: a fixed test set of 184 sides (87 / 0 / 97) and three train/val folds of 588 / 140 sides |
 
 The Duke download on dl0 is partial: 630 of the 922 mapped patients and 456 of the 651 annotated
 ones have both Pre and Post_1 on disk; `Breast_MRI_066` lacks the Post_1 series. That is the only
@@ -62,9 +67,10 @@ exam either pipeline skipped.
 - Frozen models: the final global models of the consortium runs (`MST_swarm_global_final.pt`,
   `1DivideAndConquer_swarm_global_final.pt`) evaluated with `scripts/evaluation/predict.py` inside
   `jefftud/odelia:current`, with each crop variant bind-mounted at `/data/<SITE>/data_unilateral`.
-- From scratch: `TRAINING_MODE=local_training`, MST, 20 epochs, fold 0, batch 1 with 8-step
-  accumulation, 16-bit mixed precision, best checkpoint by validation AUROC; 27 min per run on the
-  RTX 8000. Both variants use exactly the same uids and split.
+- From scratch: `TRAINING_MODE=local_training`, MST, 20 epochs, folds 0 to 2 (same test set, the
+  train/val partition rotates), batch 1 with 8-step accumulation, 16-bit mixed precision, best
+  checkpoint by validation AUROC; 27 min per run on the RTX 8000. Both variants use exactly the
+  same uids and split; every model is also tested on the other format.
 - Comparison: same cases under both variants, AUROC (malignant vs rest, and macro over classes),
   paired bootstrap over cases (2,000 resamples) for the difference. `compare_variants.py`.
 
@@ -96,20 +102,30 @@ change, and the BreastDivider change is large (scale and z coverage).
 | 1DivideAndConquer | current | 0.759 | 0.885 | |
 | 1DivideAndConquer | BreastDivider | 0.730 | 0.882 | -0.003 [-0.050, +0.044] |
 
-### 4.3 MST trained from scratch on Duke, fold 0 (184 test sides)
+### 4.3 MST trained from scratch on Duke, three folds, shared test set (184 sides)
 
-Best-validation checkpoints (epoch 18 of 20 for current crops, epoch 19 for BreastDivider):
+Malignant AUROC of the best-validation checkpoint of each run; the three folds share the test set
+and differ in the train/val partition, so they act as three repeats.
 
-| Trained on | Tested on | Accuracy | AUROC malignant | Difference [95 % CI] |
-|---|---|---|---|---|
-| current | current | 0.761 | 0.846 | reference |
-| BreastDivider | BreastDivider | 0.837 | 0.887 | +0.042 [-0.005, +0.094] |
-| current | BreastDivider | 0.723 | 0.798 | -0.048 [-0.099, +0.000] against current/current |
-| BreastDivider | current | 0.777 | 0.856 | -0.031 [-0.079, +0.013] against BreastDivider/BreastDivider |
+| Trained on | Tested on | Fold 0 | Fold 1 | Fold 2 | Mean | 3-model ensemble |
+|---|---|---|---|---|---|---|
+| current | current | 0.846 | 0.886 | 0.918 | 0.883 | 0.907 |
+| BreastDivider | BreastDivider | 0.887 | 0.889 | 0.899 | 0.892 | 0.900 |
+| current | BreastDivider | 0.798 | 0.828 | 0.855 | 0.827 | 0.848 |
+| BreastDivider | current | 0.856 | 0.840 | 0.798 | 0.831 | 0.861 |
 
-Last-epoch checkpoints: current 0.835, BreastDivider 0.887, difference +0.053 [+0.012, +0.096].
-Both runs were still improving at epoch 20, so the absolute numbers are not the ceiling of either
-format. Folds 1 and 2: pending.
+Paired bootstrap over cases (2,000 resamples) of the mean per-fold difference:
+
+| Comparison | Difference [95 % CI] |
+|---|---|
+| BreastDivider vs current, each in its own format | +0.009 [-0.026, +0.045] |
+| current model, BreastDivider crops vs its own | -0.056 [-0.093, -0.021] |
+| BreastDivider model, current crops vs its own | -0.060 [-0.107, -0.013] |
+
+The fold-0 advantage of BreastDivider (+0.042, interval [-0.005, +0.094]) did not hold up: fold 1
++0.003, fold 2 -0.019. The BreastDivider runs are the more consistent three (0.887 to 0.899 against
+0.846 to 0.918), which is worth noting but is three numbers. All runs were still improving at
+epoch 20, so the absolute values are not the ceiling of either format.
 
 ### 4.4 Qualitative
 
@@ -145,17 +161,20 @@ format. Folds 1 and 2: pending.
 
 1. Keep the current crops for the October benchmark run and for every site that already holds
    the consortium models: those models lose 0.1 to 0.2 AUROC on the new crops (section 4.1).
-2. Treat BreastDivider as the crop format of the next data version. Evidence for it: no fallbacks
-   on 645 exams, equal frozen-model performance on external data, and a from-scratch gain of about
-   0.04 AUROC on fold 0 (to be confirmed on folds 1 and 2 below). Adoption means every site re-runs
-   step 3 (docker + GPU, about 6 s per exam) and every model is retrained.
+2. There is no accuracy case for switching: trained from scratch on the same exams the two formats
+   are within +0.01 of each other (section 4.3). The case for BreastDivider is robustness: no
+   midline assumption, the whole breast kept in z, and single-breast exams handled (RSH has 467
+   exams with one breast, which the midline split cannot serve). If the consortium adopts it for the
+   next data version, every site re-runs step 3 (docker + GPU, about 6 s per exam) and every model
+   is retrained; mixing formats costs 0.06 AUROC (section 4.3).
 3. Before adoption, agree with MEVIS on: the fixed-spacing question (item 3 above), the false error
    (item 1), and a version tag in the crop metadata so that a site's crops can be told apart from
    the current format (the loader cannot detect the difference, and mixing formats in one run would
    reproduce the section 4.1 drop silently).
 4. Validation still missing: a from-scratch comparison on an ODELIA site with more than a few
-   hundred labelled sides (UKA or CAM), run by the site with its own GPU, and the two remaining
-   Duke folds.
+   hundred labelled sides (UKA or CAM), run by the site with its own GPU, and the fixed-spacing
+   variant of BreastDivider, which is the most likely way to keep its localisation and drop the
+   per-case rescale that the cross-format results point at.
 
 ## 7. Reproduction
 
