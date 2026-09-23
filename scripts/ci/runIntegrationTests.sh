@@ -23,11 +23,13 @@ if [ -z "$GPU_FOR_TESTING" ]; then
     export GPU_FOR_TESTING="all"
 fi
 
+DEFAULT_MODEL_FOR_TESTS=ResNet18
+POLLING_INTERVAL=15  # seconds
 
 check_files_in_repo () {
     echo "[Run] Test whether expected content is available in the repo"
 
-    LICENSE_LOCAL=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/LICENSE)
+    local LICENSE_LOCAL=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/LICENSE)
     if grep -q "MIT License" <<< "$LICENSE_LOCAL" ; then
         echo "✅ Verified license in repo"
     else
@@ -35,7 +37,7 @@ check_files_in_repo () {
         exit 1
     fi
 
-    MAIN_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/README.md)
+    local MAIN_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/README.md)
     for ROLE in 'Swarm Participant' 'Developer' 'Swarm Operator';
     do
         if grep -qi "$ROLE" <<< "$MAIN_README" ; then
@@ -46,7 +48,7 @@ check_files_in_repo () {
         fi
     done
 
-    PARTICIPANT_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.participant.md)
+    local PARTICIPANT_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.participant.md)
     for EXPECTED_KEYWORDS in 'Prerequisites' 'RAM' 'Ubuntu' 'VPN' 'Prepare Dataset' './docker.sh' 'Local Training' 'Start Swarm Node' 'Output files';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$PARTICIPANT_README" ; then
@@ -57,7 +59,7 @@ check_files_in_repo () {
         fi
     done
 
-    SWARM_OPERATOR_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.operator.md)
+    local SWARM_OPERATOR_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.operator.md)
     for EXPECTED_KEYWORDS in 'Create Startup Kits' 'Starting a Swarm Training';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$SWARM_OPERATOR_README" ; then
@@ -68,7 +70,7 @@ check_files_in_repo () {
         fi
     done
 
-    APC_DEVELOPER_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.developer.md)
+    local APC_DEVELOPER_README=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/assets/readme/README.developer.md)
     for EXPECTED_KEYWORDS in 'Contributing Application Code';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$APC_DEVELOPER_README" ; then
@@ -79,7 +81,7 @@ check_files_in_repo () {
         fi
     done
 
-    DUMMY_TRAINING_APC=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py)
+    local DUMMY_TRAINING_APC=$(curl https://raw.githubusercontent.com/KatherLab/MediSwarm/refs/heads/main/application/jobs/minimal_training_pytorch_cnn/app/custom/main.py)
     for EXPECTED_KEYWORDS in 'python3';
     do
         if grep -qi "$EXPECTED_KEYWORDS" <<< "$DUMMY_TRAINING_APC"; then
@@ -166,18 +168,18 @@ run_stamp_simulation_mode () {
 run_dummy_training_standalone(){
     echo "[Run] Minimal example, standalone"
 
-    OUTPUT=$(docker run --rm \
-                    --shm-size=16g \
-                    --ipc=host \
-                    --ulimit memlock=-1 \
-                    --ulimit stack=67108864 \
-                    -u $(id -u):$(id -g) \
-                    -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
-                    -v "$SYNTHETIC_DATA_DIR":/data \
-                    -v "$SCRATCH_DIR":/scratch \
-                    --gpus="$GPU_FOR_TESTING" \
-                    --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
-                    "$DOCKER_IMAGE" 2>&1 || echo "")
+    local OUTPUT=$(docker run --rm \
+                          --shm-size=16g \
+                          --ipc=host \
+                          --ulimit memlock=-1 \
+                          --ulimit stack=67108864 \
+                          -u $(id -u):$(id -g) \
+                          -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+                          -v "$SYNTHETIC_DATA_DIR":/data \
+                          -v "$SCRATCH_DIR":/scratch \
+                          --gpus="$GPU_FOR_TESTING" \
+                          --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
+                          "$DOCKER_IMAGE" 2>&1 || echo "")
 
     for EXPECTED_OUTPUT in "✓ MediSwarm test running dummy training in standalone mode completed." \
                            "Best model checkpoint:"                                                ;
@@ -192,17 +194,17 @@ run_dummy_training_standalone(){
     done
 
 
-    OUTPUT_WITHOUT_GPU=$(docker run --rm \
-                                --shm-size=16g \
-                                --ipc=host \
-                                --ulimit memlock=-1 \
-                                --ulimit stack=67108864 \
-                                -u $(id -u):$(id -g) \
-                                -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
-                                -v "$SYNTHETIC_DATA_DIR":/data \
-                                -v "$SCRATCH_DIR":/scratch \
-                                --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
-                                "$DOCKER_IMAGE" 2>&1 || echo "")
+    local OUTPUT_WITHOUT_GPU=$(docker run --rm \
+                                      --shm-size=16g \
+                                      --ipc=host \
+                                      --ulimit memlock=-1 \
+                                      --ulimit stack=67108864 \
+                                      -u $(id -u):$(id -g) \
+                                      -v /etc/passwd:/etc/passwd -v /etc/group:/etc/group \
+                                      -v "$SYNTHETIC_DATA_DIR":/data \
+                                      -v "$SCRATCH_DIR":/scratch \
+                                      --entrypoint=/MediSwarm/tests/integration_tests/_run_minimal_example_standalone.sh \
+                                      "$DOCKER_IMAGE" 2>&1 || echo "")
 
     if grep -q "RuntimeError: This example does not work without GPU" <<< "$OUTPUT_WITHOUT_GPU"; then
         echo "✅ Verified that minimal example requires GPU"
@@ -216,7 +218,7 @@ run_dummy_training_standalone(){
 run_dummy_training_simulation_mode(){
     echo "[Run] Minimal example, simulation mode (capturing output)"
 
-    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
+    local OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
 
     if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example simulation mode succeeded."
@@ -233,7 +235,7 @@ run_dummy_training_poc_mode(){
     # `|| true`: without it, set -e kills the script on the command substitution when the
     # container exits non-zero, BEFORE we echo the captured output -- so a real failure
     # showed up as a bare exit code with no log. Capture, always echo, then judge.
-    OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
+    local OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
 
     if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
         echo "✅ Minimal example proof-of-concept mode succeeded."
@@ -268,7 +270,7 @@ run_nvflare_integration_tests(){
            "$DOCKER_IMAGE"
 }
 
-create_startup_kits_and_check_contained_files () {
+_create_startup_kits () {
     echo "[Prepare] Startup kits for test project ..."
 
     if [ ! -d "$PROJECT_DIR"/prod_00 ]; then
@@ -279,7 +281,9 @@ create_startup_kits_and_check_contained_files () {
         exit 1
     fi
     ./scripts/build/_buildStartupKits.sh $PROJECT_FILE $VERSION $DOCKER_IMAGE
+}
 
+_check_contained_files_in_startup_kits () {
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
         if [ -f "$PROJECT_DIR/prod_01/client_A/startup/$FILE" ] ; then
@@ -290,7 +294,7 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
 
-    DOCKER_SCRIPT="$PROJECT_DIR/prod_01/client_A/startup/docker.sh"
+    local DOCKER_SCRIPT="$PROJECT_DIR/prod_01/client_A/startup/docker.sh"
     for EXPECTED_OUTPUT in "\-\-dummy_training"  \
                            "\-\-preflight_check" \
                            "\-\-local_training"  \
@@ -309,10 +313,10 @@ create_startup_kits_and_check_contained_files () {
     # Kits ship as plain zips (consortium decision, reversing #449 encryption):
     # every site picks its own from a members-only shared folder. Verify the
     # archive exists and carries the expected startup files.
-    KIT="$PROJECT_DIR/prod_01/client_B_${VERSION}.zip"
+    local KIT="$PROJECT_DIR/prod_01/client_B_${VERSION}.zip"
     [ -f "$KIT" ] || { echo "❌ kit archive $KIT not found"; exit 1; }
 
-    ZIP_CONTENT=$(unzip -tv "$KIT")
+    local ZIP_CONTENT=$(unzip -tv "$KIT")
     for FILE in 'client.crt' 'client.key' 'docker.sh' 'rootCA.pem';
     do
         if grep -q "$FILE" <<< "$ZIP_CONTENT"; then
@@ -324,6 +328,11 @@ create_startup_kits_and_check_contained_files () {
         fi
     done
     echo "✅ kit archive contains the expected startup files"
+}
+
+create_startup_kits_and_check_contained_files () {
+    _create_startup_kits
+    _check_contained_files_in_startup_kits
 }
 
 
@@ -342,11 +351,11 @@ create_synthetic_data () {
 run_list_licenses () {
     # the output has mixed line endings, remove CRs
     cd "$CWD"/"$PROJECT_DIR/prod_00/admin@test.odelia/startup"
-    ADMIN_LICENSES=$( ./docker.sh --no_pull --list_licenses  | sed 's/\r//g' )
+    local ADMIN_LICENSES=$( ./docker.sh --no_pull --list_licenses  | sed 's/\r//g' )
     cd "$CWD"/"$PROJECT_DIR/prod_00/localhost/startup/"
-    SERVER_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
+    local SERVER_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
     cd "$CWD"/"$PROJECT_DIR/prod_00/client_A/startup/"
-    CLIENT_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
+    local CLIENT_LICENSES=$( ./docker.sh --no_pull --list_licenses | sed 's/\r//g' )
     cd "$CWD"
 
     for license_output in "$ADMIN_LICENSES" "$SERVER_LICENSES" "$CLIENT_LICENSES";
@@ -369,7 +378,7 @@ run_docker_gpu_preflight_check () {
     # requires having built a startup kit
     echo "[Run] Docker/GPU preflight check (local dummy training via startup kit) ..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
     # also check that it finishes within one minute
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT_FILE"
 
@@ -389,11 +398,11 @@ run_two_containers_in_parallel () {
     # requires having built a startup kit
     echo "[Run] Starting two containers in parallel (local dummy training via startup kit) ..."
     cd "$PROJECT_DIR/prod_00/client_A/startup/"
-    CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=docker_gpu_preflight_check_console_output.txt
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull 2>&1 | tee "$CONSOLE_OUTPUT_FILE" &
     sleep 1
 
-    CONSOLE_OUTPUT_FILE_A=docker_gpu_preflight_check_console_output_a.txt
+    local CONSOLE_OUTPUT_FILE_A=docker_gpu_preflight_check_console_output_a.txt
     timeout --signal=kill 1m ./docker.sh --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --dummy_training --no_pull --container_name MediSwarmODELIATestSecondContainer 2>&1 | tee "$CONSOLE_OUTPUT_FILE_A" &
     sleep 60
 
@@ -414,11 +423,11 @@ run_data_access_preflight_check () {
     echo "[Run] Data access preflight check with unproblematic dataset ..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # Data access assertions do not depend on the default challenge model. Use
     # the lightweight 3D-CNN path so this check stays focused on dataset access
     # and logging rather than challenge-model startup time.
-    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "Epoch 0: 100%"                                            \
                            "INFO:threedcnn_ptl:Run directory"                         \
@@ -480,9 +489,9 @@ run_data_access_preflight_check_with_problems () {
     echo "[Run] Data access preflight check with problematic dataset ..."
     cd "$PROJECT_DIR"/prod_00
     cd client_P/startup
-    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # timeout may kill epoch before it is finished, this test is only about logging before the epoch is started
-    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "WARNING:threedcnn_ptl:No Samples of class 2 in test set, please make sure this was intended."                                \
                            "ERROR:threedcnn_ptl:Duplicate image UIDs detected. This should not happen."                                                  \
@@ -529,9 +538,9 @@ run_data_access_preflight_check_with_problems_log_details () {
     cd "$PROJECT_DIR"/prod_00
 
     cd client_P/startup
-    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # timeout may kill epoch before it is finished, this test is only about logging before the epoch is started
-    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name ResNet18 --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 1m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     for EXPECTED_OUTPUT in "INFO:threedcnn_ptl:All training data image UIDs, UIDs with hashes:"                                                       \
                            "INFO:threedcnn_ptl:All validation data image UIDs, UIDs with hashes:"                                                     \
@@ -571,7 +580,7 @@ run_data_access_preflight_check_without_data () {
     echo "[Run] Data access preflight check with logging dataset details..."
     cd "$PROJECT_DIR"/prod_00
     cd client_P/startup
-    CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
+    local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
     # also check that it finishes the single round within one minute
     timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
@@ -620,31 +629,45 @@ start_server () {
 }
 
 
-start_clients () {
-    echo "[Run] Start client Docker containers ..."
+start_clients_for_odelia_or_challenge_model () {
+    local DOCKER_RUN_OPTIONS=$1
 
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A $DOCKER_RUN_OPTIONS --GPU "$GPU_FOR_TESTING" --start_client
     cd ../..
-    # Stagger the second client: launching both clients' heavy torch/lightning init against
-    # the SAME GPU at once has starved client_B on the shared CI host, leaving it stuck at the
-    # swarm-config step (it registers but never returns the config task, so the controller
-    # wedges in "Configuring clients" until the ~900s timeout). A short stagger avoids the
-    # simultaneous-init collision. Override with CI_SWARM_CLIENT_STAGGER.
-    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"
+    sleep "${CI_SWARM_CLIENT_STAGGER:-15}"  # avoid simultaneous-init collision
     cd client_B/startup
-    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B --GPU "$GPU_FOR_TESTING" --start_client
+    ./docker.sh --no_pull --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_B $DOCKER_RUN_OPTIONS --GPU "$GPU_FOR_TESTING" --start_client
     sleep 8
 
     cd "$CWD"
+
 }
 
-start_server_and_clients () {
+start_clients_for_odelia_model () {
+    local MODEL_NAME=$1
+    echo "[Run] Start client Docker containers for ODELIA_ternary_classification with model "$MODEL_NAME" ..."
+    start_clients_for_odelia_or_challenge_model "--job ODELIA_ternary_classification --model_name $MODEL_NAME"
+}
+
+start_clients_for_challenge_model () {
+    local JOB_NAME=$1
+    echo "[Run] Start client Docker containers for model "$JOB_NAME" ..."
+    start_clients_for_odelia_or_challenge_model "--job $JOB_NAME"
+}
+
+start_server_and_clients_for_odelia_model () {
+    local MODEL_NAME=$1
     start_server
-    start_clients
+    start_clients_for_odelia_model "$MODEL_NAME"
 }
 
+start_server_and_clients_for_challenge_model () {
+    local JOB_NAME=$1
+    start_server
+    start_clients_for_challenge_model "$JOB_NAME"
+}
 
 start_registry_docker_and_push () {
     docker run -d --rm -p 5000:5000 --name local_test_registry_$CONTAINER_VERSION_SUFFIX registry:3
@@ -657,7 +680,7 @@ run_container_with_pulling () {
     docker rmi localhost:5000/odelia:$VERSION
     cd "$PROJECT_DIR"/prod_00
     cd localhost/startup
-    OUTPUT=$(./docker.sh --list_licenses)
+    local OUTPUT=$(./docker.sh --list_licenses)
 
     if grep -qi "Status: Downloaded newer image for localhost:5000/odelia:$VERSION" <<< "$OUTPUT"; then
         echo "✅ Image pulled successfully"
@@ -706,8 +729,8 @@ verify_wrong_certificates_are_rejected () {
 
     sleep 20
 
-    CONSOLE_OUTPUT_FILE_SERVER=localhost/startup/nohup.out
-    CONSOLE_OUTPUT_FILE_CLIENT=client_A/startup/nohup.out
+    local CONSOLE_OUTPUT_FILE_SERVER=localhost/startup/nohup.out
+    local CONSOLE_OUTPUT_FILE_CLIENT=client_A/startup/nohup.out
 
     if grep -q "Total clients: 1" $CONSOLE_OUTPUT_FILE_SERVER; then
         cat $CONSOLE_OUTPUT_FILE_SERVER
@@ -728,7 +751,7 @@ verify_wrong_certificates_are_rejected () {
     # start admin console and verify that it gets rejected
     cd admin@test.odelia/startup
     echo "  Attempting to start admin console …"
-    CONSOLE_OUTPUT_FILE_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
+    local CONSOLE_OUTPUT_FILE_ADMIN=$("$CWD"/tests/integration_tests/_attemptAdminConsoleLogin.exp)
     if grep -q "Communication Error - please try later" <<< "$CONSOLE_OUTPUT_FILE_ADMIN"; then
         echo "✅ Connection by unauthorized admin console rejected successfully"
     else
@@ -748,9 +771,9 @@ verify_wrong_certificates_are_rejected () {
 
 
 _verify_that_string_is_contained_once_in_file() {
-    expected_string=$1
-    filename=$2
-    num_occurences=$(grep -o "$expected_string" "$filename" | wc -l)
+    local expected_string=$1
+    local filename=$2
+    local num_occurences=$(grep -o "$expected_string" "$filename" | wc -l)
     if [ "$num_occurences" -eq 1 ]; then
         echo "✅ Expected output" "$expected_string" "found exactly once"
     else
@@ -831,7 +854,7 @@ run_dummy_training_in_swarm () {
 
     # check for expected output in server log (clients joined, job ID assigned, 5 rounds, start of round logged, finished training logged)
     cd "$PROJECT_DIR"/prod_00/localhost/startup
-    CONSOLE_OUTPUT_FILE=nohup.out
+    local CONSOLE_OUTPUT_FILE=nohup.out
     for EXPECTED_OUTPUT in 'Client: New client client_A.* joined.*' \
                            'Client: New client client_B.* joined.*' \
                            'Client: New client client_.* joined. Sent token: .* Total clients: 1' \
@@ -854,7 +877,7 @@ run_dummy_training_in_swarm () {
 
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
-    CONSOLE_OUTPUT_FILE=combined_nohup.out
+    local CONSOLE_OUTPUT_FILE=combined_nohup.out
     cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 9: 100%' \
@@ -881,7 +904,7 @@ run_dummy_training_in_swarm () {
     cd "$CWD"
 
     cd "$PROJECT_DIR"/prod_00/client_A/
-    FILES_PRESENT=$(find . -type f -name "*.*")
+    local FILES_PRESENT=$(find . -type f -name "*.*")
     for EXPECTED_FILE in 'custom/minimal_training.py' 'best_FL_global_model.pt' 'FL_global_model.pt';
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
@@ -893,7 +916,7 @@ run_dummy_training_in_swarm () {
         fi
     done
 
-    actualsize=$(wc -c <*/app_client_A/best_FL_global_model.pt)
+    local actualsize=$(wc -c <*/app_client_A/best_FL_global_model.pt)
     if [ $actualsize -le 1048576 ]; then
         echo "✅ Checkpoint file size OK"
     else
@@ -917,7 +940,7 @@ run_3dcnn_local_training () {
     echo "[Run] 3DCNN local training..."
     cd "$PROJECT_DIR"/prod_00
     cd client_A/startup
-    CONSOLE_OUTPUT_FILE=local_training_console_output.txt
+    local CONSOLE_OUTPUT_FILE=local_training_console_output.txt
     timeout --signal=kill 3m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --local_training --num_epochs 2 --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     # verify that expected output is present in the log
@@ -939,9 +962,9 @@ run_3dcnn_local_training () {
     cd "$CWD"
 
     # verify that expected files have been created
-    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR" -type f -name "*.*")
-    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
-    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    local FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR" -type f -name "*.*")
+    local FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
                          "last_global_model.ckpt";
@@ -957,9 +980,8 @@ run_3dcnn_local_training () {
 }
 
 
-run_3dcnn_training_in_swarm () {
-    echo "[Run] 3DCNN training in swarm (polling for completion, up to 10 minutes) ..."
-
+_run_3dcnn_training_in_swarm_for_odelia_or_challenge_model () {
+    local EXP_FILE=$1
     cd "$PROJECT_DIR"/prod_00
     cd admin@test.odelia/startup
     # only require 2 clients in test
@@ -967,72 +989,95 @@ run_3dcnn_training_in_swarm () {
     # only run 2 rounds in test
     sed -i 's#python3#sed -i "s/num_rounds = 20/num_rounds = 2/" `find /MediSwarm/application/ -name "config_fed_server.conf"` \npython3#' fl_admin.sh
 
-    expect -f "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
+    expect -f "$EXP_FILE"
     docker kill odelia_swarm_admin_$CONTAINER_VERSION_SUFFIX
     cd "$CWD"
 
-    # Poll for completion instead of a fixed sleep.  The server log will
-    # contain "Server runner finished." once all rounds are done.  We check
-    # every 30 seconds for up to 10 minutes (20 iterations).
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local max_attempts=20
+    local timeout=$((15*60))  # minutes → seconds
+    local max_attempts=$((timeout/POLLING_INTERVAL))
     local attempt=0
-    echo "  Waiting for 3DCNN swarm training to finish (checking every 30s, max 10min) ..."
+    echo "  Waiting for 3DCNN swarm training to finish (checking every "$POLLING_INTERVAL"s, max "$((timeout/60))"min) ..."
     while [ $attempt -lt $max_attempts ]; do
         if [ -f "$server_log" ] && grep -q 'Server runner finished\.' "$server_log" 2>/dev/null; then
-            echo "  ✅ Server runner finished detected after $((attempt * 30))s"
+            echo "  ✅ Server runner finished detected after $((attempt * POLLING_INTERVAL))s"
             break
         fi
         attempt=$((attempt + 1))
-        sleep 30
+        sleep $POLLING_INTERVAL
     done
     if [ $attempt -eq $max_attempts ]; then
-        echo "  ⚠️  Timed out after 10min waiting for 3DCNN swarm completion — proceeding to assertions"
+        echo "  ⚠️  Timed out after "$((timeout/60))"min waiting for 3DCNN swarm completion—proceeding to assertions"
     fi
+}
 
-    # check for expected output in server log (clients joined, job ID assigned, 1 round)
-    cd "$PROJECT_DIR"/prod_00/localhost/startup
-    CONSOLE_OUTPUT_FILE=nohup.out
+_run_3dcnn_training_in_swarm_for_odelia_model () {
+    _run_3dcnn_training_in_swarm_for_odelia_or_challenge_model "$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
+}
+
+_run_3dcnn_training_in_swarm_for_challenge_model () {
+    local JOB_NAME=$1
+    local ORIG_EXP_FILE="$CWD"/tests/integration_tests/_submit3DCNNTraining.exp
+    local EXP_FILE="$CWD"/"$PROJECT_DIR"/prod_00/_submit.exp
+    cat "$ORIG_EXP_FILE" | sed 's+jobs/ODELIA_ternary_classification+jobs/'$JOB_NAME'+' > "$EXP_FILE"
+    if grep -q "$JOB_NAME" "$EXP_FILE"; then
+        _run_3dcnn_training_in_swarm_for_odelia_or_challenge_model "$EXP_FILE"
+    else
+        cat "$ORIG_EXP_FILE"
+        cat "$EXP_FILE"
+        echo "❌ using $JOB_NAME in $EXP_FILE failed"
+        exit 1
+    fi
+    rm "$PROJECT_DIR"/prod_00/_submit.exp
+}
+
+_verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
+    local CONSOLE_OUTPUT_FILE_SERVER="$PROJECT_DIR"/prod_00/localhost/startup/nohup.out
+
+    local CONSOLE_OUTPUT_FILE_ONE_SITE="$PROJECT_DIR"/prod_00/client_A/startup/nohup.out
+    local CONSOLE_OUTPUT_FILE_CLIENTS="$PROJECT_DIR"/prod_00/client_A/startup/combined_nohup.out
+    echo "Output of client A" > "$CONSOLE_OUTPUT_FILE_CLIENTS"
+    cat "$CONSOLE_OUTPUT_FILE_ONE_SITE" >> $CONSOLE_OUTPUT_FILE_CLIENTS
+    echo "Output of client B" >> "$CONSOLE_OUTPUT_FILE_CLIENTS"
+    cat "$PROJECT_DIR"/prod_00/client_B/startup/nohup.out >> $CONSOLE_OUTPUT_FILE_CLIENTS
+
+    # check for expected output in server log
     for EXPECTED_OUTPUT in 'updated status of client client_A on round 0: .* action=start_learn_task, all_done=False' \
                            'updated status of client client_B on round 0: .* action=start_learn_task, all_done=False' \
                            'all_done=True';
     do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE_SERVER"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
         else
-            cat "$CONSOLE_OUTPUT_FILE"
+            cat "$CONSOLE_OUTPUT_FILE_SERVER"
+            cat "$CONSOLE_OUTPUT_FILE_CLIENTS"
             echo "❌ Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
     done
-    cd "$CWD"
 
     # check for expected output in client logs
-    cd "$PROJECT_DIR"/prod_00/client_A/startup
-    CONSOLE_OUTPUT_FILE=combined_nohup.out
-    cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
     for EXPECTED_OUTPUT in "sending training result to aggregation client" \
                            "Epoch 4: 100%" \
                            "Training completed successfully" \
                            "Best model checkpoint:";
     do
-        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE_CLIENTS"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
         else
-            cat "$CONSOLE_OUTPUT_FILE"
+            cat "$CONSOLE_OUTPUT_FILE_SERVER"
+            cat "$CONSOLE_OUTPUT_FILE_CLIENTS"
             echo "❌ Expected output $EXPECTED_OUTPUT missing"
             exit 1
         fi
     done
 
-    CONSOLE_OUTPUT_FILE_ONE_SITE=nohup.out
     _verify_that_string_is_contained_once_in_file 'Training completed successfully.' "$CONSOLE_OUTPUT_FILE_ONE_SITE"
-    cd "$CWD"
 
     # check for expected output files
-    FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR"/client_A -type f -name "*.*")
-    FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
-    FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+    local FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR"/client_A -type f -name "*.*")
+    local FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
+    local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
                          "aggregated_model_gt_and_classprob_train.csv" \
@@ -1051,10 +1096,24 @@ run_3dcnn_training_in_swarm () {
     done
 }
 
+run_3dcnn_training_in_swarm_for_odelia_model () {
+    local MODEL_NAME=$1
+    echo "[Run] 3DCNN training in swarm using "$MODEL_NAME" (polling for completion) ..."
+    _run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
+    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output
+}
+
+run_3dcnn_training_in_swarm_for_challenge_model () {
+    local JOB_NAME=$1
+    echo "[Run] 3DCNN training in swarm using "$JOB_NAME" (polling for completion) ..."
+    _run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME"
+    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output
+}
+
 
 _verify_all_model_preflight_check_output () {
-    EXPECTED_OUTPUT_ABOUT_MODEL=$1
-    WHICH_MODEL=$2
+    local EXPECTED_OUTPUT_ABOUT_MODEL=$1
+    local WHICH_MODEL=$2
 
     for EXPECTED_OUTPUT in "$EXPECTED_OUTPUT_ABOUT_MODEL" \
                            "Epoch 0: 100%";
@@ -1067,13 +1126,12 @@ _verify_all_model_preflight_check_output () {
             exit 1
         fi
     done
-
 }
 
 _verify_challenge_preflight_check() {
-    JOB_NAME=$1
-    EXPECTED_OUTPUT_ABOUT_MODEL=$2
-    CONSOLE_OUTPUT_FILE=preflight_check_console_output_$JOB_NAME.txt
+    local JOB_NAME=$1
+    local EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    local CONSOLE_OUTPUT_FILE=preflight_check_console_output_$JOB_NAME.txt
     timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job "$JOB_NAME" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     _verify_all_model_preflight_check_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$JOB_NAME"
@@ -1082,9 +1140,9 @@ _verify_challenge_preflight_check() {
 }
 
 _verify_ODELIA_ternary_preflight_check() {
-    MODEL_NAME=$1
-    EXPECTED_OUTPUT_ABOUT_MODEL=$2
-    CONSOLE_OUTPUT_FILE=preflight_check_console_output_$MODEL_NAME.txt
+    local MODEL_NAME=$1
+    local EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    local CONSOLE_OUTPUT_FILE=preflight_check_console_output_$MODEL_NAME.txt
     timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$MODEL_NAME" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     _verify_all_model_preflight_check_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "ODELIA_ternary_classification/$MODEL_NAME"
@@ -1118,6 +1176,89 @@ run_all_models_preflight_check () {
     cd "$CWD"
 }
 
+
+_verify_ODELIA_ternary_or_challenge_swarm_training_output() {
+    local EXPECTED_OUTPUT_ABOUT_MODEL=$1
+    local WHICH_MODEL=$2
+
+    local CONSOLE_OUTPUT_FILE="$PROJECT_DIR"/prod_00/client_A/startup/nohup.out
+
+    for EXPECTED_OUTPUT in "$EXPECTED_OUTPUT_ABOUT_MODEL";
+    do
+        if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
+            echo "✅ Expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" swarm training found"
+        else
+            cat "$CONSOLE_OUTPUT_FILE"
+            echo "❌ Missing expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" swarm training"
+            exit 1
+        fi
+    done
+}
+
+_prepare_ODELIA_swarm_training() {
+   mkdir -p "$SCRATCH_DIR"
+    _create_startup_kits
+    create_synthetic_data
+}
+
+_cleanup_ODELIA_swarm_training() {
+    kill_server_and_clients
+    cleanup_temporary_data
+    # create new directories for next run
+    SYNTHETIC_DATA_DIR=$(mktemp -d)
+    STAMP_SYNTHETIC_DATA_DIR=$(mktemp -d)
+    SCRATCH_DIR=$(mktemp -d)
+
+    sleep 10
+}
+
+_verify_ODELIA_ternary_swarm_training() {
+    local MODEL_NAME=$1
+    local EXPECTED_OUTPUT_ABOUT_MODEL=$2
+
+    _prepare_ODELIA_swarm_training
+
+    start_server_and_clients_for_odelia_model "$MODEL_NAME"
+    run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
+    _verify_ODELIA_ternary_or_challenge_swarm_training_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$MODEL_NAME"
+
+    _cleanup_ODELIA_swarm_training
+}
+
+_verify_ODELIA_challenge_swarm_training() {
+    local JOB_NAME=$1
+    local EXPECTED_OUTPUT_ABOUT_MODEL=$2
+
+    _prepare_ODELIA_swarm_training
+
+    start_server_and_clients_for_challenge_model "$JOB_NAME"
+    run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME"
+    _verify_ODELIA_ternary_or_challenge_swarm_training_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$JOB_NAME"
+
+    _cleanup_ODELIA_swarm_training
+}
+
+run_all_models_training_in_swarm () {
+    _verify_ODELIA_challenge_swarm_training "challenge_1DivideAndConquer"   "model *| ResidualEncoderClsNetwork"
+    _verify_ODELIA_challenge_swarm_training "challenge_2BCN_AIM"            "backbone *| SwinUNETRMultiTask"
+    _verify_ODELIA_challenge_swarm_training "challenge_3agaldran"           "backbone *| Wrapper"
+    _verify_ODELIA_challenge_swarm_training "challenge_4abmil"              "backbone *| ABMIL_Swin"
+    _verify_ODELIA_challenge_swarm_training "challenge_5pimed"              "backbone *| Resnet"
+
+    _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
+    # _verify_ODELIA_ternary_swarm_training "MST_SAMMed2D"             "mst *| _MST *| 267"  # random init unless sam-med2d_b.pth is in the image
+    echo "❗ Swin3D needs too much GPU memory for two clients on CI server, swarm training check not executed"
+    _verify_ODELIA_ternary_swarm_training "ResNet10"                 "model *| _ResNet *| 14"
+    _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
+    _verify_ODELIA_ternary_swarm_training "ResNet34"                 "model *| _ResNet *| 63"
+    _verify_ODELIA_ternary_swarm_training "ResNet50"                 "model *| _ResNet *| 46"
+    _verify_ODELIA_ternary_swarm_training "ResNet101"                "model *| _ResNet *| 85"
+    _verify_ODELIA_ternary_swarm_training "ResNet152"                "model *| _ResNet *| 117"
+    # _verify_ODELIA_ternary_swarm_training "Swin3D"                   "model *| TODO"  # currently does not work
+    echo "❗ Swin3D currently does not work, swarm training check not executed"
+
+    cleanup_temporary_data
+}
 
 
 cleanup_synthetic_data () {
@@ -1227,6 +1368,7 @@ case "$1" in
         ;;
 
     push_pull_image)
+        # TODO add to CI if we want this (takes several minutes)
         create_startup_kits_and_check_contained_files
         start_registry_docker_and_push
         run_container_with_pulling
@@ -1234,6 +1376,8 @@ case "$1" in
         ;;
 
     check_wrong_startup_kit)
+        # TODO add to CI if we want this
+        # TODO add to "all" section when this works again
         echo "⚠ check whether incorrect startup kits are rejected currently omitted"
         # create_startup_kits_and_check_contained_files
         # verify_wrong_certificates_are_rejected
@@ -1242,7 +1386,7 @@ case "$1" in
 
     run_dummy_training_in_swarm)
         create_startup_kits_and_check_contained_files
-        start_server_and_clients
+        start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         run_dummy_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
@@ -1255,11 +1399,11 @@ case "$1" in
         cleanup_temporary_data
         ;;
 
-    run_3dcnn_training_in_swarm)
+    run_one_productive_3dcnn_training_in_swarm)
         create_startup_kits_and_check_contained_files
         create_synthetic_data
-        start_server_and_clients
-        run_3dcnn_training_in_swarm
+        start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
+        run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         kill_server_and_clients
         cleanup_temporary_data
         ;;
@@ -1276,6 +1420,11 @@ case "$1" in
         create_synthetic_data
         run_all_models_preflight_check
         cleanup_temporary_data
+        ;;
+
+    run_all_models_training_in_swarm)
+        # preparation and cleanup happens for each model separately
+        run_all_models_training_in_swarm
         ;;
 
     run_stamp_preflight_check)
@@ -1329,9 +1478,11 @@ case "$1" in
         run_3dcnn_local_training
         # verify_wrong_certificates_are_rejected
         echo "⚠ check whether incorrect startup kits are rejected currently omitted"
-        start_server_and_clients
+        start_server_and_clients_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
         run_dummy_training_in_swarm
-        run_3dcnn_training_in_swarm
+        run_3dcnn_training_in_swarm_for_odelia_model "$DEFAULT_MODEL_FOR_TESTS"
+        run_all_models_preflight_check
+        run_all_models_training_in_swarm
         kill_server_and_clients
         cleanup_temporary_data
         ;;
