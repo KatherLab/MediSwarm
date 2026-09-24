@@ -69,3 +69,19 @@ def test_weight_file_name_matches_build_script():
     build_script = REPO_ROOT / "scripts" / "build" / "_cacheAndCopyPretrainedModelWeights.sh"
     from models.models_config import MEDICALNET_WEIGHTS_FILE
     assert MEDICALNET_WEIGHTS_FILE in build_script.read_text()
+
+
+def test_frozen_batchnorm_stays_in_eval_mode_during_training():
+    model = _MedicalNetResNet34(num_classes=3, freeze_bn=True)
+    model.train()
+    bns = [m for m in model.backbone.modules() if isinstance(m, torch.nn.BatchNorm3d)]
+    assert bns and all(not m.training for m in bns)
+    assert model.classifier.training
+    unfrozen = _MedicalNetResNet34(num_classes=3, freeze_bn=False).train()
+    assert all(m.training for m in unfrozen.backbone.modules() if isinstance(m, torch.nn.BatchNorm3d))
+
+
+def test_learning_rate_env_override(monkeypatch):
+    monkeypatch.setenv("MEDICALNET_LR", "5e-5")
+    model = MedicalNet(n_input_channels=1, num_classes=3, spatial_dims=3)
+    assert model.optimizer_kwargs["lr"] == 5e-5

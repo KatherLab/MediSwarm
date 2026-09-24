@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 
@@ -8,8 +10,12 @@ from models.medicalnet_resnet import resnet34
 class _MedicalNetResNet34(nn.Module):
     """MedicalNet 3D-ResNet34 adapted from segmentation to classification."""
 
-    def __init__(self, num_classes: int, pretrained_path: str | None = None):
+    def __init__(self, num_classes: int, pretrained_path: str | None = None, freeze_bn: bool = False):
         super().__init__()
+        # With batch size 1 (the swarm recipe) BatchNorm running statistics drift and the
+        # eval-mode network diverges from the train-mode one; freezing them keeps the
+        # pretrained statistics (standard practice for small-batch fine-tuning).
+        self.freeze_bn = freeze_bn
         self.backbone = resnet34(
             sample_input_W=224,
             sample_input_H=224,
@@ -38,6 +44,14 @@ class _MedicalNetResNet34(nn.Module):
         if len(missing) == len(self.backbone.state_dict()):
             raise RuntimeError(f"No MedicalNet backbone weights found in {pretrained_path}")
 
+    def train(self, mode: bool = True):
+        super().train(mode)
+        if mode and self.freeze_bn:
+            for m in self.backbone.modules():
+                if isinstance(m, nn.BatchNorm3d):
+                    m.eval()
+        return self
+
     def forward(self, x):
         x = self.backbone.conv1(x)
         x = self.backbone.bn1(x)
@@ -64,8 +78,15 @@ class MedicalNet(BasicClassifier):
     ):
         if n_input_channels != 1 or spatial_dims != 3:
             raise ValueError("MedicalNet requires one input channel and spatial_dims=3")
+        # Fine-tuning defaults (the BasicClassifier default of lr 1e-3 is for training from
+        # scratch): overridable per run through MEDICALNET_LR and MEDICALNET_FREEZE_BN.
+        kwargs.setdefault("optimizer_kwargs", {
+            "lr": float(os.environ.get("MEDICALNET_LR", "1e-4")),
+            "weight_decay": 1e-2,
+        })
+        freeze_bn = os.environ.get("MEDICALNET_FREEZE_BN", "1") == "1"
         super().__init__(n_input_channels, num_classes, spatial_dims, **kwargs)
-        self.model = _MedicalNetResNet34(num_classes, pretrained_path)
+        self.model = _MedicalNetResNet34(num_classes, pretrained_path, freeze_bn=freeze_bn)
 
     def forward(self, x):
         return self.model(x)
