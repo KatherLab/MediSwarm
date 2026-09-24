@@ -38,6 +38,13 @@ MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH=61224f9317fcce873366deb3703183e92cc47325b
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_CONTENTS=758fe285bc8ab565eb4f9f965810f1d1a3f79491
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_FILE=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/refs/main'
 
+# MedicalNet (VHIO model): Tencent MedicalNet ResNet34, 23-dataset checkpoint, MIT licence.
+# Shipped at /MediSwarm/pretrained_weights/resnet_34_23dataset.pth; models/models_config.py
+# resolves it there (or via MEDICALNET_PRETRAINED_PATH).
+MODEL_WEIGHTS_FILE_MEDICALNET34=$CACHE_DIR'/pretrained_weights/resnet_34_23dataset.pth'
+MODEL_WEIGHTS_FILE_MEDICALNET34_URL=https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet34/resolve/main/resnet_34_23dataset.pth
+MODEL_WEIGHTS_FILE_MEDICALNET34_HASH=3ea7188e396774e4ef95b66e5e90a78273bb33f6e58d3d717bf24f5f1aaeaa28
+
 _cache_file_wget () {
     url=$1
     filename=$2
@@ -96,6 +103,7 @@ cache_files () {
     _cache_file_wget "$MODEL_WEIGHTS_FILE_MVIT_URL" "$MODEL_WEIGHTS_FILE_MVIT"
 
     _cache_file_wget "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_URL" "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN"
+    _cache_file_wget "$MODEL_WEIGHTS_FILE_MEDICALNET34_URL" "$MODEL_WEIGHTS_FILE_MEDICALNET34"
     if [[ ! -f "$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK" ]]; then
         mkdir -p $(dirname $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK)
         cd $(dirname $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK)
@@ -128,6 +136,7 @@ verify_files () {
     _verify_hash $MODEL_WEIGHTS_FILE_MVIT_HASH $MODEL_WEIGHTS_FILE_MVIT
     _verify_hash $MODEL_WEIGHTS_FILE_ODAC_HASH $MODEL_WEIGHTS_FILE_ODAC
     _verify_hash $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH $MODEL_WEIGHTS_FILE_RESNETEIGHTEEN
+    _verify_hash $MODEL_WEIGHTS_FILE_MEDICALNET34_HASH $MODEL_WEIGHTS_FILE_MEDICALNET34
 }
 
 
@@ -178,6 +187,10 @@ copy_files() {
     # challenge_3agaldran: mvit_v2_s-ae3be167.pth (PyTorch pretrained weights)
     echo "3agaldran: copying mvit_v2_s-ae3be167.pth"
     cp "$MODEL_WEIGHTS_FILE_MVIT"  "$WEIGHTS_DIR/"
+
+    # MedicalNet (VHIO model): resnet_34_23dataset.pth
+    echo "MedicalNet: copying resnet_34_23dataset.pth"
+    cp "$MODEL_WEIGHTS_FILE_MEDICALNET34" "$WEIGHTS_DIR/"
 
     # MST_SAMMed2D: sam-med2d_b.pth, only if the operator placed it in the cache
     if [[ -f "$MODEL_WEIGHTS_FILE_SAMMED2D" ]]; then

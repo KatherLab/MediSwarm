@@ -7,7 +7,28 @@ from env_config import load_environment_variables
 from pathlib import Path
 import importlib.util
 import logging
-from models import ResNet, MST, Swin3D
+from models import ResNet, MST, Swin3D, MedicalNet
+
+# MedicalNet 3D-ResNet34 (VHIO model): the Tencent 23-dataset checkpoint, shipped in the
+# image at /MediSwarm/pretrained_weights/ by _cacheAndCopyPretrainedModelWeights.sh.
+# MEDICALNET_PRETRAINED_PATH overrides the location (e.g. a bind mount for benchmarks).
+MEDICALNET_WEIGHTS_FILE = "resnet_34_23dataset.pth"
+
+
+def resolve_medicalnet_weights(logger) -> str:
+    candidates = [
+        os.environ.get("MEDICALNET_PRETRAINED_PATH", ""),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), MEDICALNET_WEIGHTS_FILE),
+        os.path.join("/MediSwarm/pretrained_weights", MEDICALNET_WEIGHTS_FILE),
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path):
+            logger.info(f"MedicalNet pretrained weights: {path}")
+            return path
+    raise FileNotFoundError(
+        f"MedicalNet weights {MEDICALNET_WEIGHTS_FILE} not found (looked at {candidates[1:]}). "
+        "They ship with the Docker image; set MEDICALNET_PRETRAINED_PATH to use another file."
+    )
 
 """
 Shared configuration for challenge models.
@@ -193,6 +214,15 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
                         spatial_dims=3,
                         loss_kwargs=loss_kwargs,
                         **scheduler_kwargs)
+    elif model_name == 'MedicalNet':
+        # VHIO model: MedicalNet 3D-ResNet34 with dilated stages 3 and 4 (original Tencent
+        # backbone), global average pooling and a linear head; pretrained on 23 datasets.
+        model = MedicalNet(n_input_channels=1,
+                           num_classes=num_classes,
+                           spatial_dims=3,
+                           pretrained_path=resolve_medicalnet_weights(logger),
+                           loss_kwargs=loss_kwargs,
+                           **scheduler_kwargs)
     elif "challenge_" in model_name:
         team_name = "_".join(model_name.split('_')[1:])
         config = get_model_config(logger, team_name)
