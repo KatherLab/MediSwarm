@@ -51,6 +51,9 @@ jobs:
           # fold validation). Without them pytest silently SKIPS those files, which is
           # how a broken guard test reached main (#416/#423).
           pip install torchio pandas
+          # models/ package chain (test_medicalnet.py imports models.medicalnet, which pulls in
+          # resnet.py, mst.py and swin3D.py): without these the file is silently SKIPPED.
+          pip install monai einops x-transformers
           # The NVFlare fork gates the server-side metric collector tests
           # (test_per_site_metrics.py). Same trap as torchio/pandas above: without
           # it pytest SKIPS the file and the job still reports green, which is how
