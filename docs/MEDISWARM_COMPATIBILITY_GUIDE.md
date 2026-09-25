@@ -818,7 +818,7 @@ export MODEL_NAME="challenge_my_resnet"
 | `ResNet101`                   | ResNet-101 via MONAI                     |
 | `ResNet50`                    | ResNet-50 via MONAI                      |
 | `Swin3D`                      | Swin Transformer 3D                      |
-| `MedicalNet`                  | MedicalNet 3D-ResNet34, dilated backbone, 23-dataset pretraining (VHIO model) |
+| `MedicalNet`                  | MedicalNet 3D-ResNet34 (VHIO model); pretrained weights via `MEDICALNET_PRETRAINED_PATH`, not in the image |
 | `challenge_1DivideAndConquer` | Residual encoder network                 |
 | `challenge_2BCN_AIM`          | Swin UNETR architecture                  |
 | `challenge_3agaldran`         | MobileViT v2 / video backbone model      |

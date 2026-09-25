@@ -21,7 +21,7 @@ pytest.importorskip("x_transformers")
 import torch  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent))
-from conftest import REPO_ROOT, SHARED_CUSTOM_DIR  # noqa: E402
+from conftest import SHARED_CUSTOM_DIR  # noqa: E402
 
 if str(SHARED_CUSTOM_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_CUSTOM_DIR))
@@ -63,12 +63,6 @@ def test_checkpoint_with_foreign_keys_is_rejected(tmp_path):
     torch.save({"state_dict": {"module.not_a_layer.weight": torch.zeros(1)}}, ckpt)
     with pytest.raises(RuntimeError):
         _MedicalNetResNet34(num_classes=3, pretrained_path=str(ckpt))
-
-
-def test_weight_file_name_matches_build_script():
-    build_script = REPO_ROOT / "scripts" / "build" / "_cacheAndCopyPretrainedModelWeights.sh"
-    from models.models_config import MEDICALNET_WEIGHTS_FILE
-    assert MEDICALNET_WEIGHTS_FILE in build_script.read_text()
 
 
 def test_frozen_batchnorm_ignores_training_flag():

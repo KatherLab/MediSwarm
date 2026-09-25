@@ -9,13 +9,14 @@ import importlib.util
 import logging
 from models import ResNet, MST, Swin3D, MedicalNet
 
-# MedicalNet 3D-ResNet34 (VHIO model): the Tencent 23-dataset checkpoint, shipped in the
-# image at /MediSwarm/pretrained_weights/ by _cacheAndCopyPretrainedModelWeights.sh.
-# MEDICALNET_PRETRAINED_PATH overrides the location (e.g. a bind mount for benchmarks).
+# MedicalNet 3D-ResNet34 (VHIO model): the Tencent 23-dataset checkpoint is NOT shipped in
+# the image. Point MEDICALNET_PRETRAINED_PATH at resnet_34_23dataset.pth
+# (https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet34), or drop the file next to
+# this module or at /MediSwarm/pretrained_weights/; without it the model starts from random weights.
 MEDICALNET_WEIGHTS_FILE = "resnet_34_23dataset.pth"
 
 
-def resolve_medicalnet_weights(logger) -> str:
+def resolve_medicalnet_weights(logger):
     candidates = [
         os.environ.get("MEDICALNET_PRETRAINED_PATH", ""),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), MEDICALNET_WEIGHTS_FILE),
@@ -25,10 +26,9 @@ def resolve_medicalnet_weights(logger) -> str:
         if path and os.path.isfile(path):
             logger.info(f"MedicalNet pretrained weights: {path}")
             return path
-    raise FileNotFoundError(
-        f"MedicalNet weights {MEDICALNET_WEIGHTS_FILE} not found (looked at {candidates[1:]}). "
-        "They ship with the Docker image; set MEDICALNET_PRETRAINED_PATH to use another file."
-    )
+    logger.warning(f"MedicalNet weights {MEDICALNET_WEIGHTS_FILE} not found; starting from random weights. "
+                   "Set MEDICALNET_PRETRAINED_PATH to use the pretrained checkpoint.")
+    return None
 
 """
 Shared configuration for challenge models.
