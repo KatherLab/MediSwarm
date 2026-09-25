@@ -174,7 +174,9 @@ sync_daemon_log() {
 
 build_heartbeat() {
   export_sync_env
-  "$SCRIPT_DIR/build_heartbeat.sh" "$@"
+  # Through bash, not exec: a kit unzipped without the exec bit (UMCU_1, 25 Sep 2026)
+  # otherwise fails with "Permission denied" every cycle and never sends a heartbeat.
+  bash "$SCRIPT_DIR/build_heartbeat.sh" "$@"
 }
 
 find_latest_job_id() {
