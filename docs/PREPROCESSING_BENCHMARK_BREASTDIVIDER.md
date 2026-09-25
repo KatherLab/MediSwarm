@@ -1,6 +1,7 @@
 # BreastDivider preprocessing benchmark (odelia-preprocessing 0.2.1)
 
 Status: 23 September 2026, complete (three train/val folds of the train-from-scratch comparison).
+Updated 25 September 2026: version 0.2.2 verified (section 5), z coverage measured (section 1).
 Runs on dl3 (GPU) and dl0 (Duke DICOM conversion).
 Scripts: `scripts/preprocessing/benchmark_breastdivider/`.
 
@@ -25,10 +26,11 @@ Scripts: `scripts/preprocessing/benchmark_breastdivider/`.
 - Cost: docker + GPU for the segmentation (14.4 GB image), about 1.8 s per exam on the GPU plus
   4.5 s per exam of CPU cropping with 14 workers, against 1.3 s per exam for the current pipeline.
 - Recommendation: no accuracy case for switching; the case for BreastDivider is robustness (no
-  midline assumption, whole breast in z, handles single-breast exams such as the 467 at RSH). Keep
+  midline assumption, the whole segmented breast in z, handles single-breast exams such as the 467
+  at RSH). Keep
   the current crops for the October run and for every trained model; if the consortium wants the
-  new format for the next data version, decide it on robustness grounds, with a fixed-spacing
-  output mode tested first and retraining at every site (section 6).
+  new format for the next data version, decide it on robustness grounds, with retraining at every
+  site (section 6).
 
 ## 1. What was tested
 
@@ -38,8 +40,8 @@ Scripts: `scripts/preprocessing/benchmark_breastdivider/`.
 | | Current pipeline (`scripts/preprocessing/step3_unilateral.py`) | BreastDivider package (`BD_main.py`) |
 |---|---|---|
 | Breast localisation | Fixed midline split; height cropped to 256 rows by the 90 % intensity quantile | nnU-Net breast segmentation (`ykirchhoff/breastdivider:latest`, docker, GPU), then a per-breast bounding box; geometric fallback when the segmentation is untrusted |
-| Output grid | 256 x 256 x 32 voxels at a fixed 0.7 x 0.7 x 3 mm | 256 x 256 x 32 voxels, but the box is fitted to the breast and then resized, so the spacing varies per case (example 0.64 x 0.81 x 4.9 mm) |
-| z coverage | 96 mm, centred on the scan (CropOrPad) | The whole breast extent (example 156 mm of a 157 mm scan), resampled to 32 slices |
+| Output grid | 256 x 256 x 32 voxels at a fixed 0.7 x 0.7 x 3 mm | 256 x 256 x 32 voxels. The box starts from the same 0.7 x 0.7 x 3 mm default and is enlarged for large breasts or shrunk to stay inside the scan, then resized, so the spacing varies per case (example 0.64 x 0.81 x 4.9 mm). Intended by design (MEVIS) |
+| z coverage | 96 mm, centred on the scan (CropOrPad) | The superior-inferior extent of the segmented breast, never less than 96 mm. Measured on all 1,290 crops of this benchmark (no fallback case): 120 to 264 mm, median 174 mm (median z spacing 5.4 mm); none kept the 96 mm default, and 90 % cover at least 90 % of the scan length because the breast labels span most of it. Only the geometric fallback takes the whole scan by rule |
 | Chest wall | Included down to the quantile-based cut | Included up to a thorax margin behind the segmented breast |
 | Subtraction | Post_1 minus Pre, shifted to >= 0, uint16 | Post_1 minus Pre, signed int16 (irrelevant for the models, the loader z-normalises with a min/max mask) |
 | Dependencies | torchio, CPU | docker image 14.4 GB and a GPU for the segmentation, then CPU for the cropping |
@@ -134,26 +136,49 @@ epoch 20, so the absolute values are not the ceiling of either format.
 - Diagnostic panels (`--diagnostic_plots`) show clean left/right separation and boxes that stop at
   the chest wall. The MIPs of the same exam under both pipelines show the intended difference: the
   current crop keeps the breast at fixed scale with black padding laterally and cuts the z range;
-  the BreastDivider crop fills the box with the breast, keeps the whole z range and a slice of
-  thorax behind the breast.
+  the BreastDivider crop fills the box with the breast, keeps the whole segmented breast in z and a
+  slice of thorax behind the breast.
 
-## 5. Package issues found
+## 5. Package issues found, and version 0.2.2
+
+MEVIS released 0.2.2 on 24 September 2026. Only `BD_run_seg.py`, the README and a new
+`unilateralize.py` changed; the cropping code is byte-identical. Trial on 60 UMCU challenge cases
+(25 September), inputs staged as relative symlinks pointing outside the root, batches of 50 and 10:
+
+- Items 1 and 2 below are fixed. No false error, all 60 cases segmented, while 0.2.1 still sees 0
+  cases on the same staging. The new check ("container found only N of M staged inputs") still
+  fires when an input is made invisible on purpose, and the cross-filesystem fallback (symlink plus
+  bind mount of the source root) works.
+- Segmentations are identical between 0.2.1 and 0.2.2 run under the same conditions (60 of 60).
+  Separate runs of the same version differ by up to 66 voxels (GPU nondeterminism), which does not
+  change a single crop: the 0.2.2 Sub_1 crops equal the 0.2.1 crops on all 120 sides.
+- The bundled `unilateralize.py` (the ODELIA Challenge 2025 preprocessing) reproduces our old crops
+  voxel for voxel (Pre and Post_1, 120 of 120 sides), so both benchmarks use the same "old" arm. It
+  writes a `processing.log`, so `compute_mips.py` now compares the two without
+  `--allow-version-mismatch` (item 4). It does not compute subtractions.
+- The README step 2 now writes Sub_1 and Sub_2 by default; MediSwarm reads Sub_1 only.
+
+Issues as found in 0.2.1:
 
 1. **False error in `BD_run_seg.py`.** Every batch of 10, 20 or 50 cases is logged as
    `[ERROR] Batch N: container reported no input despite 50 staged file(s)` although the
    segmentation succeeds: `NO_CASES_MARKER = "0 cases in the source folder"` is a substring of
    nnU-Net's `There are 50 cases in the source folder`. Nothing aborts, but a real failure would be
-   hidden behind the false alarm. Fix: anchor the match (`There are 0 cases`).
+   hidden behind the false alarm. Fix: anchor the match (`There are 0 cases`). **Fixed in 0.2.2.**
 2. **Symlink staging.** A symlink whose target is outside the bind-mounted root is invisible inside
    the container (documented by the package). The benchmark hard-links the bilateral volumes into
-   the root instead (`make_layout.py`).
+   the root instead (`make_layout.py`). **Fixed in 0.2.2** (the staged link now points at the
+   resolved file).
 3. **Output spacing is not fixed.** The box is fitted to each breast and resized to
    256 x 256 x 32, so voxel size differs per case and from the 0.7 x 0.7 x 3 mm the ODELIA models
    were trained on. This is a design choice worth discussing: fixed physical spacing keeps lesion
-   size comparable across cases; box fitting keeps the whole breast. A `--fixed_spacing` output
-   mode would let both be compared on equal terms.
+   size comparable across cases; box fitting keeps the whole breast. **Intended by design:** MEVIS
+   keeps the default spacing where possible and deviates only for large breasts or boxes that
+   would leave the scan; a fixed-spacing mode would need rules for each of those cases and is not
+   planned.
 4. **`compute_mips.py` refuses a reference folder without `processing.log`** (provenance check);
-   `--allow-version-mismatch` is needed to compare against crops made by another tool.
+   `--allow-version-mismatch` is needed to compare against crops made by another tool. **Resolved
+   in 0.2.2** when the old crops come from the bundled `unilateralize.py`.
 5. `--diagnostic_plots` roughly doubles the cropping time; fine for a one-off audit, not for a
    site-wide run.
 
@@ -167,14 +192,14 @@ epoch 20, so the absolute values are not the ceiling of either format.
    exams with one breast, which the midline split cannot serve). If the consortium adopts it for the
    next data version, every site re-runs step 3 (docker + GPU, about 6 s per exam) and every model
    is retrained; mixing formats costs 0.06 AUROC (section 4.3).
-3. Before adoption, agree with MEVIS on: the fixed-spacing question (item 3 above), the false error
-   (item 1), and a version tag in the crop metadata so that a site's crops can be told apart from
-   the current format (the loader cannot detect the difference, and mixing formats in one run would
-   reproduce the section 4.1 drop silently).
+3. Before adoption: a version tag in the crop metadata so that a site's crops can be told apart
+   from the current format (the loader cannot detect the difference, and mixing formats in one run
+   would reproduce the section 4.1 drop silently). The false error and the symlink issue are fixed
+   in 0.2.2, and the variable spacing is intended (section 5).
 4. Validation still missing: a from-scratch comparison on an ODELIA site with more than a few
-   hundred labelled sides (UKA or CAM), run by the site with its own GPU, and the fixed-spacing
-   variant of BreastDivider, which is the most likely way to keep its localisation and drop the
-   per-case rescale that the cross-format results point at.
+   hundred labelled sides (UKA or CAM), run by the site with its own GPU. Comparisons between
+   preprocessing variants need several training runs per arm scored on the same test cases: the
+   run-to-run spread (about 0.02 to 0.04 AUROC) is larger than the differences in question.
 
 ## 7. Reproduction
 
