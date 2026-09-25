@@ -71,14 +71,32 @@ def test_weight_file_name_matches_build_script():
     assert MEDICALNET_WEIGHTS_FILE in build_script.read_text()
 
 
-def test_frozen_batchnorm_stays_in_eval_mode_during_training():
+def test_frozen_batchnorm_ignores_training_flag():
+    """Lightning sets module.training directly; the output must not depend on it."""
+    from models.medicalnet import FrozenBatchNorm3d
+    torch.manual_seed(0)
     model = _MedicalNetResNet34(num_classes=3, freeze_bn=True)
-    model.train()
-    bns = [m for m in model.backbone.modules() if isinstance(m, torch.nn.BatchNorm3d)]
-    assert bns and all(not m.training for m in bns)
-    assert model.classifier.training
-    unfrozen = _MedicalNetResNet34(num_classes=3, freeze_bn=False).train()
-    assert all(m.training for m in unfrozen.backbone.modules() if isinstance(m, torch.nn.BatchNorm3d))
+    bns = [m for m in model.modules() if isinstance(m, FrozenBatchNorm3d)]
+    n_plain = sum(isinstance(m, torch.nn.BatchNorm3d) for m in _MedicalNetResNet34(num_classes=3).modules())
+    assert len(bns) == n_plain > 0 and not any(isinstance(m, torch.nn.BatchNorm3d) for m in model.modules())
+    x = torch.randn(2, 1, 16, 32, 32)
+    stats = bns[5].running_mean.clone()
+    for m in model.modules():
+        m.training = True  # what Lightning's mode restore does
+    with torch.no_grad():
+        y_train = model(x)
+    model.eval()
+    with torch.no_grad():
+        y_eval = model(x)
+    assert torch.allclose(y_train, y_eval, atol=1e-6)
+    assert torch.equal(bns[5].running_mean, stats)
+    assert bns[5].weight.requires_grad
+
+
+def test_frozen_batchnorm_keeps_state_dict_keys():
+    frozen = _MedicalNetResNet34(num_classes=3, freeze_bn=True).state_dict().keys()
+    plain = _MedicalNetResNet34(num_classes=3, freeze_bn=False).state_dict().keys()
+    assert set(frozen) == set(plain)
 
 
 def test_learning_rate_env_override(monkeypatch):
