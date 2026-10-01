@@ -220,13 +220,18 @@ run_dummy_training_simulation_mode(){
 
     local OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
-        echo "✅ Minimal example simulation mode succeeded."
-    else
+    for EXPECTED_OUTPUT in 'Epoch 9: 100%' \
+                           'Predicted batch for FL_global_model.pt' \
+                           'Predicted batch for best_FL_global_model.pt';
+    do
+        if grep -qi "$EXPECTED_OUTPUT" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT found in minimal example simulation mode"
+        else
         echo "$OUTPUT"
-        echo "❌ Minimal example simulation mode failed."
-        exit 1
-    fi
+        echo "❌ Expected output $EXPECTED_OUTPUT missing in minimal example simulation mode"
+            exit 1
+        fi
+    done
 }
 
 run_dummy_training_poc_mode(){
@@ -237,13 +242,16 @@ run_dummy_training_poc_mode(){
     # showed up as a bare exit code with no log. Capture, always echo, then judge.
     local OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
-        echo "✅ Minimal example proof-of-concept mode succeeded."
-    else
+    for EXPECTED_OUTPUT in 'Epoch 9: 100%';  # output from predictions for (best_)FL_global_model does not appear here
+    do
+        if grep -qi "$EXPECTED_OUTPUT" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT found in minimal example proof-of-concept mode"
+        else
         echo "$OUTPUT"
-        echo "❌ Minimal example proof-of-concept mode failed."
-        exit 1
-    fi
+        echo "❌ Expected output $EXPECTED_OUTPUT missing in minimal example proof-of-concept mode"
+            exit 1
+        fi
+    done
 }
 
 run_nvflare_unit_tests(){
@@ -686,7 +694,7 @@ run_container_with_pulling () {
         echo "✅ Image pulled successfully"
     else
         echo "$OUTPUT"
-        echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
+        echo "❌ Pulling image failed"
         exit 1
     fi
 
