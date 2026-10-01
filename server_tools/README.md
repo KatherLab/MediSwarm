@@ -8,10 +8,23 @@ python3 -m venv /srv/mediswarm/venv
 /srv/mediswarm/venv/bin/pip install fastapi uvicorn
 
 cp server_tools/app.py /srv/mediswarm/app.py
-/srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080
+/srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host <VPN-IP> --port 8080   # not 0.0.0.0 on a public host; see Login below
 
 Then open:
 http://<SERVER_IP>:8080/
+
+## Login (required when the monitor is reachable beyond the operators)
+
+The monitor has no login unless `MEDISWARM_MONITOR_USERS` names a users file, one
+`user:sha256hex(password)` line per person. Create an entry with
+
+```bash
+printf 'bulat:%s\n' "$(printf '%s' 'THE-PASSWORD' | sha256sum | cut -d' ' -f1)" >> /srv/mediswarm/monitor_users
+```
+
+and start uvicorn with `MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users`. A configured
+file that is empty or malformed stops the app at start-up instead of running it open.
+Bind to the VPN address (`--host 172.24.4.65`), never `0.0.0.0` on a host with a public IP.
 
 # Detailed version: MediSwarm Live Monitor: installation and usage
 

@@ -15,7 +15,10 @@ Features:
 """
 
 from pathlib import Path
+import base64
 import csv
+import hashlib
+import hmac
 import io
 import json
 import os
@@ -27,7 +30,7 @@ from typing import Any
 from html import escape as html_escape
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, FileResponse, Response
 
 # Optional: TensorBoard event parsing via tbparse
 try:
@@ -56,6 +59,55 @@ SERVER_LOG = os.environ.get("MEDISWARM_SERVER_LOG", "")
 SWARM_STALL_SECONDS = int(os.environ.get("MEDISWARM_SWARM_STALL_SECONDS", "600"))
 
 app = FastAPI(title="MediSwarm Live Monitor")
+
+# ---------------------------------------------------------------------------
+# Optional login (HTTP Basic). Off unless MEDISWARM_MONITOR_USERS names a file of
+# "user:sha256hex(password)" lines ('#' starts a comment). The monitor shows every
+# site's logs and serves files, so a deployment reachable by more than the operators
+# (e.g. the whole consortium VPN) should set it. A configured but empty or unreadable
+# file fails closed: the app refuses to start rather than run open.
+# ---------------------------------------------------------------------------
+
+AUTH_FILE = os.environ.get("MEDISWARM_MONITOR_USERS", "")
+
+
+def load_monitor_users(path: str) -> dict[str, str]:
+    users: dict[str, str] = {}
+    for raw in Path(path).read_text().splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        user, sep, digest = line.partition(":")
+        digest = digest.strip().lower()
+        if not sep or not user.strip() or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError(f"{path}: malformed entry for user {user.strip()!r}")
+        users[user.strip()] = digest
+    if not users:
+        raise ValueError(f"{path}: no users configured")
+    return users
+
+
+def credentials_ok(header: str, users: dict[str, str]) -> bool:
+    if not header.lower().startswith("basic "):
+        return False
+    try:
+        user, _, password = base64.b64decode(header[6:].strip()).decode("utf-8").partition(":")
+    except Exception:
+        return False
+    expected = users.get(user)
+    digest = hashlib.sha256(password.encode("utf-8")).hexdigest()
+    # compare even for unknown users so timing does not reveal valid names
+    return hmac.compare_digest(digest, expected or "0" * 64) and expected is not None
+
+
+if AUTH_FILE:
+    _MONITOR_USERS = load_monitor_users(AUTH_FILE)
+
+    @app.middleware("http")
+    async def _require_login(request, call_next):
+        if credentials_ok(request.headers.get("authorization", ""), _MONITOR_USERS):
+            return await call_next(request)
+        return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="MediSwarm monitor"'})
 
 _ROWS_CACHE: dict[str, Any] = {"expires_at": 0.0, "value": None}
 
