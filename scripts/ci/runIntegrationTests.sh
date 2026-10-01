@@ -220,13 +220,18 @@ run_dummy_training_simulation_mode(){
 
     local OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
-        echo "✅ Minimal example simulation mode succeeded."
-    else
+    for EXPECTED_OUTPUT in 'Epoch 9: 100%' \
+                           'Predicted batch for FL_global_model.pt' \
+                           'Predicted batch for best_FL_global_model.pt';
+    do
+        if grep -qi "$EXPECTED_OUTPUT" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT found in minimal example simulation mode"
+        else
         echo "$OUTPUT"
-        echo "❌ Minimal example simulation mode failed."
-        exit 1
-    fi
+        echo "❌ Expected output $EXPECTED_OUTPUT missing in minimal example simulation mode"
+            exit 1
+        fi
+    done
 }
 
 run_dummy_training_poc_mode(){
@@ -237,13 +242,16 @@ run_dummy_training_poc_mode(){
     # showed up as a bare exit code with no log. Capture, always echo, then judge.
     local OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_proof_of_concept_mode.sh 2>&1) || true
 
-    if grep -qi "Epoch 9: 100%" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
-        echo "✅ Minimal example proof-of-concept mode succeeded."
-    else
+    for EXPECTED_OUTPUT in 'Epoch 9: 100%';  # output from predictions for (best_)FL_global_model does not appear here
+    do
+        if grep -qi "$EXPECTED_OUTPUT" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
+            echo "✅ Expected output $EXPECTED_OUTPUT found in minimal example proof-of-concept mode"
+        else
         echo "$OUTPUT"
-        echo "❌ Minimal example proof-of-concept mode failed."
-        exit 1
-    fi
+        echo "❌ Expected output $EXPECTED_OUTPUT missing in minimal example proof-of-concept mode"
+            exit 1
+        fi
+    done
 }
 
 run_nvflare_unit_tests(){
@@ -519,6 +527,7 @@ run_data_access_preflight_check_with_problems () {
     done
 
     if grep -q  "ID_0" "$CONSOLE_OUTPUT_FILE" ; then
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Unexpected output of data access preflight check with problematic dataset without logging dataset details found"
         exit 1
     else
@@ -686,7 +695,7 @@ run_container_with_pulling () {
         echo "✅ Image pulled successfully"
     else
         echo "$OUTPUT"
-        echo "❌ Instructions on $EXPECTED_KEYWORDS missing"
+        echo "❌ Pulling image failed"
         exit 1
     fi
 
@@ -875,10 +884,13 @@ run_dummy_training_in_swarm () {
     done
     cd "$CWD"
 
+    sleep 15  # wait for evaluation of best and last global models after swarm training TODO use multiple attempts as above?
+
     # check for expected output in client log
     cd "$PROJECT_DIR"/prod_00/client_A/startup
     local CONSOLE_OUTPUT_FILE=combined_nohup.out
     cat nohup.out ../../client_B/startup/nohup.out > $CONSOLE_OUTPUT_FILE
+
     for EXPECTED_OUTPUT in 'sending training result to aggregation client' \
                            'Epoch 9: 100%' \
                            'val/AUC_ROC' \
@@ -889,7 +901,9 @@ run_dummy_training_in_swarm () {
                            'accepted learn request from client_.' \
                            'Contribution from client_. ACCEPTED by the aggregator at round .' \
                            'broadcasting learn task of round . to .*; aggregation happens on client_.' \
-                           'Best model checkpoint:';
+                           'Best model checkpoint:' \
+                           'Predicted batch for FL_global_model.pt' \
+                           'Predicted batch for best_FL_global_model.pt';
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found"
@@ -967,7 +981,9 @@ run_3dcnn_local_training () {
     local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
-                         "last_global_model.ckpt";
+                         "last_site_model_gt_and_classprob_test.csv" \
+                         "best_site_model_gt_and_classprob_test.csv" \
+                         "last.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -1078,13 +1094,20 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
     local FILES_PRESENT_SCRATCH=$(find "$SCRATCH_DIR"/client_A -type f -name "*.*")
     local FILES_PRESENT_CLIENT=$(find "$PROJECT_DIR"/prod_00/client_A/ -type f -name "*.*")
     local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
+
+    echo "  Testing that last_aggregated_model_gt_and_classprob_test.csv and  best_aggregated_model_gt_and_classprob_test.csv have been created NOT IMPLEMENTED YET"
+
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
+                         "last_site_model_gt_and_classprob_test.csv" \
+                         "best_site_model_gt_and_classprob_test.csv" \
                          "aggregated_model_gt_and_classprob_train.csv" \
                          "aggregated_model_gt_and_classprob_validation.csv" \
                          "custom/threedcnn_ptl.py" \
+                         "last.ckpt" \
                          "FL_global_model.pt" \
-                         "last_global_model.ckpt";
+                         "best_FL_global_model.pt" \
+                         ;
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -1471,7 +1494,8 @@ case "$1" in
         run_list_licenses
         run_docker_gpu_preflight_check
         run_data_access_preflight_check
-        run_data_access_preflight_check_log_details
+        run_data_access_preflight_check_with_problems
+        run_data_access_preflight_check_with_problems_log_details
         cleanup_synthetic_data
         run_data_access_preflight_check_without_data
         create_synthetic_data

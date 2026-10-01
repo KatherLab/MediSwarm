@@ -4,7 +4,7 @@ spawn ./docker.sh --no_pull
 expect "User Name: "
 send "admin@test.odelia\r"
 expect "> "
-send "submit_job MediSwarm/application/jobs/ODELIA_ternary_classification/\r"
+send "submit_job MediSwarm/application/jobs/challenge_1DivideAndConquer/\r"
 expect "> "
 send "sys_info client\r"
 expect "> "

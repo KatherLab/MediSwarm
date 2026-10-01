@@ -5,7 +5,7 @@ import torch.utils.data as data
 
 class MiniDatasetForTesting(data.Dataset):
     def __init__(self):
-        num_entries = 10
+        num_entries = 15
         self.data = [{'uid': str(uuid.uuid4()), 'source': self.dummy_image(index), 'target': index % 2} for index in range(num_entries)]
 
     @staticmethod

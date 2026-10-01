@@ -86,15 +86,24 @@ class VeryBasicModel(pl.LightningModule):
             json.dump({'best_model_epoch': Path(best_model_path).name}, f)
 
     @classmethod
-    def _get_best_checkpoint_path(cls, path_checkpoint_dir, **kwargs):
+    def _get_best_checkpoint_relative_path(cls, path_checkpoint_dir, **kwargs):
         with open(Path(path_checkpoint_dir) / 'best_checkpoint.json', 'r') as f:
             path_rel_best_checkpoint = Path(json.load(f)['best_model_epoch'])
+        return path_rel_best_checkpoint
+
+    @classmethod
+    def _get_best_checkpoint_path(cls, path_checkpoint_dir, **kwargs):
+        path_rel_best_checkpoint = cls._get_best_checkpoint_relative_path(path_checkpoint_dir, **kwargs)
         return Path(path_checkpoint_dir) / path_rel_best_checkpoint
 
     @classmethod
-    def load_best_checkpoint(cls, path_checkpoint_dir, **kwargs):
-        path_best_checkpoint = cls._get_best_checkpoint_path(path_checkpoint_dir)
-        return cls.load_from_checkpoint(path_best_checkpoint, **kwargs)
+    def load_checkpoint_from_file(cls, path_checkpoint, **kwargs):
+        return cls.load_from_checkpoint(path_checkpoint, **kwargs)
+
+    @classmethod
+    def load_best_checkpoint(cls, path_checkpoint_dir, path_run_dir, **kwargs):
+        rel_path_best_checkpoint = cls._get_best_checkpoint_relative_path(path_checkpoint_dir)
+        return cls.load_from_checkpoint(path_run_dir/rel_path_best_checkpoint, **kwargs)
 
     def load_pretrained(self, checkpoint_path, map_location=None, **kwargs):
         if checkpoint_path.is_dir():
