@@ -174,16 +174,21 @@ sync_daemon_log() {
 
 build_heartbeat() {
   export_sync_env
-  "$SCRIPT_DIR/build_heartbeat.sh" "$@"
+  # Through bash, not exec: a kit unzipped without the exec bit (UMCU_1, 25 Sep 2026)
+  # otherwise fails with "Permission denied" every cycle and never sends a heartbeat.
+  bash "$SCRIPT_DIR/build_heartbeat.sh" "$@"
 }
 
 find_latest_job_id() {
-  find "$KIT_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name startup ! -name local ! -name transfer 2>/dev/null | while read -r d; do
-    b="$(basename "$d")"
+  # Newest job directory by modification time. Job ids are random UUIDs, so sorting
+  # them by name picks an arbitrary job: on 30 Sep 2026 every site kept uploading the
+  # new job's logs under the previous job's id (79dfd8ce sorts after 644a5ee5).
+  find "$KIT_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name startup ! -name local ! -name transfer \
+      -printf '%T@ %f\n' 2>/dev/null | while read -r ts b; do
     case "$b" in
-      *-*-*-*-*) printf '%s\n' "$b" ;;
+      *-*-*-*-*) printf '%s %s\n' "$ts" "$b" ;;
     esac
-  done | sort | tail -n 1 || true
+  done | sort -n | tail -n 1 | cut -d' ' -f2 || true
 }
 
 extract_run_name_from_nohup() {

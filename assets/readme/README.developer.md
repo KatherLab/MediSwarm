@@ -236,7 +236,7 @@ To make sure your code is swarm-compatible and to isolate potential issues, we r
    * Debug, commit, rebuild containers, run until this succeeds.
    * Make sure the code stays NVFlare-compatible when making changes.
 7. Check if your code runs in an actual, local swarm.
-   * Adapt what is called from the `run_dummy_training_in_swarm` or `run_3dcnn_training_in_swarm` tests in [runIntegrationTests.sh](../../scripts/ci/runIntegrationTests.sh)
+   * Adapt what is called from the `run_dummy_training_in_swarm`, `run_one_productive_3dcnn_training_in_swarm`, or `run_all_models_training_in_swarm` tests in [runIntegrationTests.sh](../../scripts/ci/runIntegrationTests.sh).
      * Adapt [_submitDummyTraining.exp](../../tests/integration_tests/_submitDummyTraining.exp) or [_submit3DCNNTraining.exp](../../tests/integration_tests/_submit3DCNNTraining.exp) as needed
      * This will run two clients using the same GPU, you may run out of RAM even if a single training runs fine.
      * If the training fails, you may need to clean up docker containers continuing to run.

@@ -146,6 +146,7 @@ rather than editing by hand.
 | `EVALUATION_PITFALLS.md` | E1–E3 — the three ways our evaluation has misled us |
 | `SWARM_FAILURE_MODES.md` | F1–F10 operational failure catalogue |
 | `TIMEOUTS.md` | Per-site training sizes, and why to read them from the logs |
+| `PREPROCESSING_BENCHMARK_BREASTDIVIDER.md` | MEVIS BreastDivider crops against the current pipeline: frozen models, external data, trained from scratch |
 
 ## A note on the numbers
 
