@@ -527,6 +527,7 @@ run_data_access_preflight_check_with_problems () {
     done
 
     if grep -q  "ID_0" "$CONSOLE_OUTPUT_FILE" ; then
+        cat "$CONSOLE_OUTPUT_FILE"
         echo "❌ Unexpected output of data access preflight check with problematic dataset without logging dataset details found"
         exit 1
     else
