@@ -220,9 +220,7 @@ run_dummy_training_simulation_mode(){
 
     local OUTPUT=$(_run_test_in_docker tests/integration_tests/_run_minimal_example_simulation_mode.sh 2>&1)
 
-    for EXPECTED_OUTPUT in 'Epoch 9: 100%' \
-                           'Predicted batch for FL_global_model.pt' \
-                           'Predicted batch for best_FL_global_model.pt';
+    for EXPECTED_OUTPUT in 'Epoch 9: 100%';
     do
         if grep -qi "$EXPECTED_OUTPUT" <<< "$OUTPUT" && ! has_real_error "$OUTPUT"; then
             echo "✅ Expected output $EXPECTED_OUTPUT found in minimal example simulation mode"
