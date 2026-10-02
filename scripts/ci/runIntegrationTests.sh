@@ -974,7 +974,9 @@ run_3dcnn_local_training () {
     local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
-                         "last_global_model.ckpt";
+                         "last_site_model_gt_and_classprob_test.csv" \
+                         "best_site_model_gt_and_classprob_test.csv" \
+                         "last.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -1087,11 +1089,15 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
     local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
+                         "last_site_model_gt_and_classprob_test.csv" \
+                         "best_site_model_gt_and_classprob_test.csv" \
                          "aggregated_model_gt_and_classprob_train.csv" \
                          "aggregated_model_gt_and_classprob_validation.csv" \
                          "custom/threedcnn_ptl.py" \
+                         "last.ckpt" \
                          "FL_global_model.pt" \
-                         "last_global_model.ckpt";
+                         "last_global_model.ckpt"\
+                         "best_FL_global_model.pt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
