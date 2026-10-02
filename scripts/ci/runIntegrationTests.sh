@@ -442,7 +442,8 @@ run_data_access_preflight_check () {
                            "INFO:threedcnn_ptl:Total samples in validation set:"      \
                            "INFO:threedcnn_ptl:Total samples in test set:"            \
                            "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)" \
-                           "INFO:threedcnn_ptl:Total samples in test set:"            ;
+                           "INFO:threedcnn_ptl:Total samples in test set:"            \
+                           "INFO:threedcnn_ptl:Exporting prediction for test data, best local model";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT of data access preflight check with unproblematic dataset found"
