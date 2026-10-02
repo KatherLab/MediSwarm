@@ -60,7 +60,14 @@ class ResNet(BasicClassifier):
     """ResNet-based classifier using MONAI backbones."""
 
     def __init__(self, n_input_channels: int, num_classes: int, spatial_dims: int, resnet_variant: int, **kwargs):
-        super().__init__(n_input_channels, num_classes, spatial_dims, **kwargs)
+        in_ch = 'in_ch'
+        if in_ch in kwargs.keys():
+            assert(kwargs[in_ch] == n_input_channels)  # avoid discrepancy
+        out_ch = 'out_ch'
+        if out_ch in kwargs.keys():
+            assert(kwargs[out_ch] == num_classes)      # avoid discrepancy
+
+        super().__init__(n_input_channels, num_classes, spatial_dims, **{k:v for k, v in kwargs.items() if k not in {in_ch, out_ch}})
         self.model = _ResNet(n_input_channels, num_classes, spatial_dims, resnet_variant)
 
     def forward(self, x):

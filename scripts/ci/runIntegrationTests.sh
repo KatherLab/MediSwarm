@@ -442,7 +442,8 @@ run_data_access_preflight_check () {
                            "INFO:threedcnn_ptl:Total samples in validation set:"      \
                            "INFO:threedcnn_ptl:Total samples in test set:"            \
                            "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)" \
-                           "INFO:threedcnn_ptl:Total samples in test set:"            ;
+                           "INFO:threedcnn_ptl:Total samples in test set:"            \
+                           "INFO:threedcnn_ptl:Exporting prediction for test data, best local model";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT of data access preflight check with unproblematic dataset found"
@@ -588,8 +589,7 @@ run_data_access_preflight_check_without_data () {
     cd "$PROJECT_DIR"/prod_00
     cd client_P/startup
     local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
-    # also check that it finishes the single round within one minute
-    timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     if grep -Eq "No such file or directory: '/data/client_P/metadata_unilateral/(annotation|split)\.csv'" "$CONSOLE_OUTPUT_FILE" ; then
         echo "✅ Expected error output of data access preflight check found if no data is present"
@@ -974,7 +974,9 @@ run_3dcnn_local_training () {
     local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
-                         "last_global_model.ckpt";
+                         "last_site_model_gt_and_classprob_test.csv" \
+                         "best_site_model_gt_and_classprob_test.csv" \
+                         "last.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -1087,11 +1089,15 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
     local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
+                         "last_site_model_gt_and_classprob_test.csv" \
+                         "best_site_model_gt_and_classprob_test.csv" \
                          "aggregated_model_gt_and_classprob_train.csv" \
                          "aggregated_model_gt_and_classprob_validation.csv" \
                          "custom/threedcnn_ptl.py" \
+                         "last.ckpt" \
                          "FL_global_model.pt" \
-                         "last_global_model.ckpt";
+                         "last_global_model.ckpt"\
+                         "best_FL_global_model.pt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
