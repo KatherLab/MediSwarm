@@ -588,8 +588,7 @@ run_data_access_preflight_check_without_data () {
     cd "$PROJECT_DIR"/prod_00
     cd client_P/startup
     local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
-    # also check that it finishes the single round within one minute
-    timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     if grep -Eq "No such file or directory: '/data/client_P/metadata_unilateral/(annotation|split)\.csv'" "$CONSOLE_OUTPUT_FILE" ; then
         echo "✅ Expected error output of data access preflight check found if no data is present"
