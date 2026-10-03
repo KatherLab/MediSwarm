@@ -187,7 +187,14 @@ class BasicClassifier(BasicModel):
         aucroc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
         acc_kwargs.update({"task": "multiclass", 'num_classes': out_ch})
 
-        self.auc_roc = nn.ModuleDict({state: AUROC(**aucroc_kwargs) for state in ["train_", "val_", "test_"]})
+        # Per-class AUROC; {state}/AUC_ROC averages only the classes that are scorable this
+        # epoch (see compute_epoch_metrics). torchmetrics' macro average scores a class with
+        # no positives as 0, which at a site without benign cases (RUMC, VHIO) dragged the
+        # monitored value to 0.3-0.55 for models at 0.85+ malignant AUROC and made
+        # checkpoint selection follow noise (#617).
+        self.auc_roc = nn.ModuleDict({
+            state: AUROC(**{**aucroc_kwargs, "average": None}) for state in ["train_", "val_", "test_"]
+        })
         self.acc = nn.ModuleDict({state: Accuracy(**acc_kwargs) for state in ["train_", "val_", "test_"]})
 
         self.eval_tier = _eval_tier()
@@ -240,13 +247,19 @@ class BasicClassifier(BasicModel):
         because IntimeModelSelector selects the global model on `val/AUC_ROC`.
         """
         key = state + "_"
+        counts = self._support.get(key)
+        auc_value, auc_all, n_scored = self._macro_auroc_over_scorable_classes(key, counts)
         values = {
             f"{state}/ACC": self.acc[key].compute(),
-            f"{state}/AUC_ROC": self.auc_roc[key].compute(),
+            f"{state}/AUC_ROC": auc_value,
         }
+        if state != "train":
+            # The old all-classes macro value, kept for comparison with earlier runs,
+            # and how many classes the monitored value averages over.
+            values[f"{state}/AUC_ROC_all"] = auc_all
+            values[f"{state}/AUC_ROC_n_scored"] = torch.tensor(float(n_scored))
         # Emitted before the early return below, so support travels with the
         # metrics whether or not the extended tier is enabled.
-        counts = self._support.get(key)
         if counts is not None:
             # 0-dim tensors, matching every other value in this dict so callers
             # can treat the mapping uniformly (Lightning logs them either way).
@@ -269,6 +282,24 @@ class BasicClassifier(BasicModel):
             else:
                 values[f"{state}/{name}"] = computed
         return values
+
+    def _macro_auroc_over_scorable_classes(self, key, counts):
+        """Macro AUROC over the classes with at least one positive and one negative case.
+
+        Returns (value, all_classes_macro, number_of_classes_scored). A class absent from
+        the evaluated set has no defined one-vs-rest AUROC; averaging it in as 0 (what
+        torchmetrics does) measures the class mix, not the model. If no class is scorable
+        the all-classes value is returned unchanged, as before this fix.
+        """
+        per_class = self.auc_roc[key].compute()
+        auc_all = per_class.mean()
+        if counts is None:
+            return auc_all, auc_all, len(per_class)
+        total = sum(counts)
+        scorable = [index for index, count in enumerate(counts) if 0 < count < total]
+        if not scorable:
+            return auc_all, auc_all, 0
+        return per_class[scorable].mean(), auc_all, len(scorable)
 
     def _step(self, batch: dict, batch_idx: int, state: str, step: int):
         source = batch['source']
