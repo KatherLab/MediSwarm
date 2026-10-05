@@ -213,3 +213,52 @@ def test_support_ignores_out_of_range_labels(base_model, monkeypatch):
     model = _make(base_model, monkeypatch)
     values = _feed_labels(model, "val", torch.tensor([0, 1, 2, 7, -1]))
     assert values["val/n"].item() == pytest.approx(3.0)
+
+
+# ------------------------------------------------- #617: absent class in the evaluated set
+
+LOGITS_NO_BENIGN = torch.tensor([
+    [3.0, 0.0, 0.5],
+    [2.0, 0.1, 1.0],
+    [0.5, 0.0, 2.5],
+    [1.0, 0.2, 2.0],
+    [2.5, 0.1, 0.4],
+    [0.2, 0.1, 3.0],
+])
+TARGETS_NO_BENIGN = torch.tensor([0, 0, 2, 2, 0, 2])  # like RUMC/VHIO validation: no class 1
+
+
+def _feed_with(model, state, logits, targets):
+    key = state + "_"
+    model.acc[key].update(logits, targets)
+    model.auc_roc[key].update(logits, targets)
+    if key in model.extra_metrics:
+        for metric in model.extra_metrics[key].values():
+            metric.update(logits, targets)
+    model._update_support(state, targets)
+    return model.compute_epoch_metrics(state)
+
+
+def test_absent_class_is_not_averaged_in_as_zero(base_model, monkeypatch):
+    from torchmetrics.functional import auroc
+    values = _feed_with(_make(base_model, monkeypatch), "val", LOGITS_NO_BENIGN, TARGETS_NO_BENIGN)
+    per_class = auroc(LOGITS_NO_BENIGN, TARGETS_NO_BENIGN, task="multiclass", num_classes=NUM_CLASSES, average=None)
+    expected = (per_class[0] + per_class[2]) / 2
+    assert values["val/AUC_ROC"].item() == pytest.approx(expected.item())
+    assert values["val/AUC_ROC_n_scored"].item() == 2
+    # the old macro value counted the absent class as 0 and was lower
+    assert values["val/AUC_ROC_all"].item() == pytest.approx(per_class.mean().item())
+    assert values["val/AUC_ROC_all"].item() < values["val/AUC_ROC"].item()
+
+
+def test_all_classes_present_is_unchanged(base_model, monkeypatch):
+    values = _feed(_make(base_model, monkeypatch), "val")
+    assert values["val/AUC_ROC"].item() == pytest.approx(values["val/AUC_ROC_all"].item())
+    assert values["val/AUC_ROC_n_scored"].item() == NUM_CLASSES
+
+
+def test_single_class_falls_back_to_all_classes_value(base_model, monkeypatch):
+    targets = torch.zeros(6, dtype=torch.long)
+    values = _feed_with(_make(base_model, monkeypatch), "val", LOGITS_NO_BENIGN, targets)
+    assert values["val/AUC_ROC_n_scored"].item() == 0
+    assert values["val/AUC_ROC"].item() == pytest.approx(values["val/AUC_ROC_all"].item())
