@@ -1129,7 +1129,8 @@ _verify_all_model_preflight_check_output () {
     local WHICH_MODEL=$2
 
     for EXPECTED_OUTPUT in "$EXPECTED_OUTPUT_ABOUT_MODEL" \
-                           "Epoch 0: 100%";
+                           "Epoch 0: 100%" \
+                           "INFO:threedcnn_ptl:Training completed successfully";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" preflight check found"
