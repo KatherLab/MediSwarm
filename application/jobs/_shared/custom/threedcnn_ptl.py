@@ -800,8 +800,8 @@ def _save_last_checkpoint(logger, checkpointing, path_run_dir):
 def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
     _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir)
     _save_last_checkpoint(logger, checkpointing, path_run_dir)
-    if '2BCN_AIM' in env_vars['model_name']:
-        logger.warning('Cannot output ground truth and class probability csvs for test data for 2BCN_AIM model')
+    if '2BCN_AIM' in env_vars['model_name'] or '3agaldran' in env_vars['model_name'] or '4LME_ABMIL' in env_vars['model_name'] or '5Pimed' in env_vars['model_name']:
+        logger.warning('Cannot output ground truth and class probability csvs for test data for model ' + env_vars['model_name'])
         # /opt/conda/lib/python3.10/site-packages/pytorch_lightning/core/saving.py, line 165, _load_state causes TypeError: ModelWrapper.__init__() missing 1 required positional argument: 'backbone'
     else:
         _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir)
