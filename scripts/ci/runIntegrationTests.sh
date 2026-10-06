@@ -1003,7 +1003,7 @@ _run_3dcnn_training_in_swarm_for_odelia_or_challenge_model () {
     cd "$CWD"
 
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local timeout=$((15*60))  # minutes → seconds
+    local timeout=$((30*60))  # minutes → seconds
     local max_attempts=$((timeout/POLLING_INTERVAL))
     local attempt=0
     echo "  Waiting for 3DCNN swarm training to finish (checking every "$POLLING_INTERVAL"s, max "$((timeout/60))"min) ..."
