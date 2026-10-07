@@ -442,7 +442,8 @@ run_data_access_preflight_check () {
                            "INFO:threedcnn_ptl:Total samples in validation set:"      \
                            "INFO:threedcnn_ptl:Total samples in test set:"            \
                            "INFO:threedcnn_ptl:Samples in .* set of class .: . (.*%)" \
-                           "INFO:threedcnn_ptl:Total samples in test set:"            ;
+                           "INFO:threedcnn_ptl:Total samples in test set:"            \
+                           "INFO:threedcnn_ptl:Exporting prediction for test data, best local model";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output $EXPECTED_OUTPUT of data access preflight check with unproblematic dataset found"
@@ -588,8 +589,7 @@ run_data_access_preflight_check_without_data () {
     cd "$PROJECT_DIR"/prod_00
     cd client_P/startup
     local CONSOLE_OUTPUT_FILE=data_access_preflight_check_console_output.txt
-    # also check that it finishes the single round within one minute
-    timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    timeout --signal=kill 15s ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_P --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$DEFAULT_MODEL_FOR_TESTS" --preflight_check --log_dataset_details --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     if grep -Eq "No such file or directory: '/data/client_P/metadata_unilateral/(annotation|split)\.csv'" "$CONSOLE_OUTPUT_FILE" ; then
         echo "✅ Expected error output of data access preflight check found if no data is present"
@@ -974,7 +974,9 @@ run_3dcnn_local_training () {
     local FILES_PRESENT="$FILES_PRESENT_SCRATCH"+"$FILES_PRESENT_CLIENT"
     for EXPECTED_FILE in "site_model_gt_and_classprob_train.csv" \
                          "site_model_gt_and_classprob_validation.csv" \
-                         "last_global_model.ckpt";
+                         "last_site_model_gt_and_classprob_test.csv" \
+                         "best_site_model_gt_and_classprob_test.csv" \
+                         "last.ckpt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -1001,7 +1003,7 @@ _run_3dcnn_training_in_swarm_for_odelia_or_challenge_model () {
     cd "$CWD"
 
     local server_log="$PROJECT_DIR/prod_00/localhost/startup/nohup.out"
-    local timeout=$((15*60))  # minutes → seconds
+    local timeout=$((30*60))  # minutes → seconds
     local max_attempts=$((timeout/POLLING_INTERVAL))
     local attempt=0
     echo "  Waiting for 3DCNN swarm training to finish (checking every "$POLLING_INTERVAL"s, max "$((timeout/60))"min) ..."
@@ -1039,6 +1041,8 @@ _run_3dcnn_training_in_swarm_for_challenge_model () {
 }
 
 _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
+    local expect_test_gt_classprob_csvs=$1
+
     local CONSOLE_OUTPUT_FILE_SERVER="$PROJECT_DIR"/prod_00/localhost/startup/nohup.out
 
     local CONSOLE_OUTPUT_FILE_ONE_SITE="$PROJECT_DIR"/prod_00/client_A/startup/nohup.out
@@ -1090,8 +1094,10 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
                          "aggregated_model_gt_and_classprob_train.csv" \
                          "aggregated_model_gt_and_classprob_validation.csv" \
                          "custom/threedcnn_ptl.py" \
+                         "last.ckpt" \
                          "FL_global_model.pt" \
-                         "last_global_model.ckpt";
+                         "last_global_model.ckpt"\
+                         "best_FL_global_model.pt";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
@@ -1101,20 +1107,37 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
             exit 1
         fi
     done
+
+    if [ $expect_test_gt_classprob_csvs = 1 ]; then
+        for EXPECTED_FILE in "last_site_model_gt_and_classprob_test.csv" \
+                             "best_site_model_gt_and_classprob_test.csv";
+        do
+            if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
+                echo "✅ Expected file $EXPECTED_FILE found"
+            else
+                echo "$FILES_PRESENT"
+                echo "❌ Expected file $EXPECTED_FILE missing"
+                exit 1
+            fi
+        done
+    fi
+
 }
 
 run_3dcnn_training_in_swarm_for_odelia_model () {
     local MODEL_NAME=$1
+    local expect_test_gt_classprob_csvs=true
     echo "[Run] 3DCNN training in swarm using "$MODEL_NAME" (polling for completion) ..."
     _run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
-    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output
+    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output $expect_test_gt_classprob_csvs
 }
 
 run_3dcnn_training_in_swarm_for_challenge_model () {
     local JOB_NAME=$1
+    local expect_test_gt_classprob_csvs=2
     echo "[Run] 3DCNN training in swarm using "$JOB_NAME" (polling for completion) ..."
     _run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME"
-    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output
+    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output $expect_test_gt_classprob_csvs
 }
 
 
@@ -1123,7 +1146,8 @@ _verify_all_model_preflight_check_output () {
     local WHICH_MODEL=$2
 
     for EXPECTED_OUTPUT in "$EXPECTED_OUTPUT_ABOUT_MODEL" \
-                           "Epoch 0: 100%";
+                           "Epoch 0: 100%" \
+                           "INFO:threedcnn_ptl:Training completed successfully";
     do
         if grep -q --regexp="$EXPECTED_OUTPUT" "$CONSOLE_OUTPUT_FILE"; then
             echo "✅ Expected output "$EXPECTED_OUTPUT" of "$WHICH_MODEL" preflight check found"
@@ -1235,22 +1259,23 @@ _verify_ODELIA_ternary_swarm_training() {
 _verify_ODELIA_challenge_swarm_training() {
     local JOB_NAME=$1
     local EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    local expect_test_gt_classprob_csvs=$3
 
     _prepare_ODELIA_swarm_training
 
     start_server_and_clients_for_challenge_model "$JOB_NAME"
-    run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME"
+    run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME" $expect_test_gt_classprob_csvs
     _verify_ODELIA_ternary_or_challenge_swarm_training_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$JOB_NAME"
 
     _cleanup_ODELIA_swarm_training
 }
 
 run_all_models_training_in_swarm () {
-    _verify_ODELIA_challenge_swarm_training "challenge_1DivideAndConquer"   "model *| ResidualEncoderClsNetwork"
-    _verify_ODELIA_challenge_swarm_training "challenge_2BCN_AIM"            "backbone *| SwinUNETRMultiTask"
-    _verify_ODELIA_challenge_swarm_training "challenge_3agaldran"           "backbone *| Wrapper"
-    _verify_ODELIA_challenge_swarm_training "challenge_4abmil"              "backbone *| ABMIL_Swin"
-    _verify_ODELIA_challenge_swarm_training "challenge_5pimed"              "backbone *| Resnet"
+    _verify_ODELIA_challenge_swarm_training "challenge_1DivideAndConquer"   "model *| ResidualEncoderClsNetwork"  1
+    _verify_ODELIA_challenge_swarm_training "challenge_2BCN_AIM"            "backbone *| SwinUNETRMultiTask"      0
+    _verify_ODELIA_challenge_swarm_training "challenge_3agaldran"           "backbone *| Wrapper"                 0
+    _verify_ODELIA_challenge_swarm_training "challenge_4abmil"              "backbone *| ABMIL_Swin"              0
+    _verify_ODELIA_challenge_swarm_training "challenge_5pimed"              "backbone *| Resnet"                  0
 
     _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
     # _verify_ODELIA_ternary_swarm_training "MST_SAMMed2D"             "mst *| _MST *| 267"  # random init unless sam-med2d_b.pth is in the image

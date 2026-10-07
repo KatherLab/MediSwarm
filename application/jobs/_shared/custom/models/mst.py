@@ -162,7 +162,15 @@ class MST(BasicClassifier):
             optimizer_kwargs={'lr': 1e-6},
             **kwargs
     ):
-        super().__init__(n_input_channels, num_classes, spatial_dims, optimizer_kwargs=optimizer_kwargs, **kwargs)
+        in_ch = 'in_ch'
+        if in_ch in kwargs.keys():
+            assert(kwargs[in_ch] == n_input_channels)  # avoid discrepancy
+        out_ch = 'out_ch'
+        if out_ch in kwargs.keys():
+            assert(kwargs[out_ch] == num_classes)      # avoid discrepancy
+
+        super().__init__(n_input_channels, num_classes, spatial_dims, optimizer_kwargs=optimizer_kwargs, **{k:v for k, v in kwargs.items() if k not in {in_ch, out_ch}})
+
         self.mst = _MST(out_ch=num_classes, backbone_type=backbone_type, model_size=model_size,
                         slice_fusion_type=slice_fusion_type)
 
