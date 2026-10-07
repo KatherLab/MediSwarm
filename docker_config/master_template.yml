@@ -1070,11 +1070,15 @@ docker_cln_sh: |
 
   elif [ -n "$START_CLIENT" ]; then
       _start_live_sync swarm
+      # The container command clears the kit's lock files first: it only runs when the
+      # container (re)starts, so any lock present then is left over from a crash or power
+      # loss, and with --restart=unless-stopped start.sh would otherwise refuse ('There
+      # seems to be one instance') and the node stays silently offline (F3, Oct 2026).
       docker run -d -t --restart=unless-stopped \
       --health-cmd="nvidia-smi > /dev/null 2>&1 || exit 1" \
       --health-interval=120s --health-start-period=180s --health-retries=3 \
       $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
-      /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
+      /bin/bash -c "rm -f ../daemon_pid.fl ../pid.fl; nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
   elif [ -n "$EXTERNAL_VALIDATION" ]; then
       # Predict-only external validation (#412): run a delivered global model on this
@@ -1182,7 +1186,7 @@ docker_svr_sh: |
       docker run -d -t --restart=unless-stopped --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
-      /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
+      /bin/bash -c "rm -f ../daemon_pid.fl ../pid.fl; nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
   elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \

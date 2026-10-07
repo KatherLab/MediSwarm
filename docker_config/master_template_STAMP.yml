@@ -1014,7 +1014,7 @@ docker_cln_sh: |
       --health-cmd="nvidia-smi > /dev/null 2>&1 || exit 1" \
       --health-interval=120s --health-start-period=180s --health-retries=3 \
       $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
-      /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
+      /bin/bash -c "rm -f ../daemon_pid.fl ../pid.fl; nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
 
   elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME $DOCKER_IMAGE \
@@ -1091,7 +1091,7 @@ docker_svr_sh: |
       docker run -d -t --restart=on-failure:5 --name=$CONTAINER_NAME \
       -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
       --ipc=host $NETARG $DOCKER_IMAGE \
-      /bin/bash -c "nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
+      /bin/bash -c "rm -f ../daemon_pid.fl ../pid.fl; nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
   elif [ -n "$LIST_LICENSES" ]; then
       docker run --rm --name=$CONTAINER_NAME \
       $DOCKER_IMAGE \
