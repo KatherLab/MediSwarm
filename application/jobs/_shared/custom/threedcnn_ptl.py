@@ -18,6 +18,10 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 
+from nvflare.apis.event_type import EventType
+from nvflare.apis.fl_component import FLComponent
+from nvflare.apis.fl_context import FLContext
+
 from data.datasets import ODELIA_Dataset3D
 from data.datamodules import DataModule
 from loader_workers import cap_loader_workers
@@ -38,6 +42,8 @@ FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_valida
 
 FILENAME_GT_PREDPROB_LAST_SITE_MODEL_TEST = 'last_site_model_gt_and_classprob_test.csv'
 FILENAME_GT_PREDPROB_BEST_SITE_MODEL_TEST = 'best_site_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_LAST_AGGREGATED_MODEL_TEST = 'last_aggregated_model_gt_and_classprob_test.csv'
+FILENAME_GT_PREDPROB_BEST_AGGREGATED_MODEL_TEST = 'best_aggregated_model_gt_and_classprob_test.csv'
 
 OMP_THREAD_ENV_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
 
@@ -806,3 +812,36 @@ def finalize_training(logger, data_module, model, checkpointing, trainer, path_r
     else:
         _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir)
     logger.info('Training completed successfully.')
+
+
+def _evaluate_global_model_on_test_data(model_filename, csv_filename) -> None:
+    dummy_logger = logging.getLogger('_evaluate_global_models_on_test_data')  # are these log messages printed?
+
+    data_module, global_model, _, _ = prepare_training(dummy_logger)
+
+    nvflare_run_dir = os.path.dirname(os.path.abspath(__file__)) + '/..'   # TODO is there a better way to obtain the run directory here?
+    nvflare_run_dir = Path(os.path.abspath(nvflare_run_dir))
+    global_model_path = nvflare_run_dir/model_filename                     #      Or the location of the (best) global model?
+
+    print(f'Loading {model_filename} FOR FINAL EVALUATION')
+    loaded_pt = torch.load(global_model_path, weights_only=False)
+
+    with torch.autocast(device_type="cuda"):  # to avoid "RuntimeError: Input type (c10::Half) and bias type (float) should be the same" for this model
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        global_model.load_state_dict(loaded_pt["model"], strict=False)
+        global_model = global_model.to(device)
+        global_model.eval()
+
+        output_GT_and_classprobs_csv_test(
+            global_model,
+            data_module,
+            -1,  # todo think about what a meaningful epoch number could be
+            nvflare_run_dir/csv_filename,
+        )
+
+
+class EvaluatorOnTestData(FLComponent):
+    def handle_event(self, event_type: str, fl_ctx: FLContext):
+        if event_type == EventType.END_RUN:
+            _evaluate_global_model_on_test_data('FL_global_model.pt',      FILENAME_GT_PREDPROB_LAST_AGGREGATED_MODEL_TEST)
+            _evaluate_global_model_on_test_data('best_FL_global_model.pt', FILENAME_GT_PREDPROB_BEST_AGGREGATED_MODEL_TEST)
