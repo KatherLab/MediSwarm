@@ -329,11 +329,17 @@ def _import_job_module(custom_dir: Path, name: str):
     spec = importlib.util.spec_from_file_location(module_name, path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
+    # The module lives in the job being built: a __pycache__ written next to it would
+    # ship with the job and be hashed into the manifest as if it were job code.
+    write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
     try:
         spec.loader.exec_module(module)
     except Exception as exc:  # the job module may need packages this host lacks
         sys.modules.pop(module_name, None)
         return None, f"import failed ({type(exc).__name__}: {exc})"
+    finally:
+        sys.dont_write_bytecode = write_bytecode
     return module, ""
 
 
@@ -1037,6 +1043,65 @@ def _quoted_in(text: str, word: str) -> bool:
     return f'"{word}"' in text or f"'{word}'" in text
 
 
+def _string_list(node: ast.AST, consts: Dict[str, ast.AST], depth: int = 0) -> List[str]:
+    """Evaluate a tuple/list of string literals, possibly joined with + from other module constants."""
+    if depth > 8:
+        raise ValueError("constant chain too deep")
+    if isinstance(node, (ast.Tuple, ast.List)):
+        values = []
+        for elt in node.elts:
+            if not (isinstance(elt, ast.Constant) and isinstance(elt.value, str)):
+                raise ValueError("not a string literal")
+            values.append(elt.value)
+        return values
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _string_list(node.left, consts, depth + 1) + _string_list(node.right, consts, depth + 1)
+    if isinstance(node, ast.Name) and node.id in consts:
+        return _string_list(consts[node.id], consts, depth + 1)
+    raise ValueError(f"cannot evaluate {type(node).__name__}")
+
+
+def supported_model_names(models_config: Path) -> Optional[Tuple[List[str], Dict[str, str]]]:
+    """The model names the job's ``create_model()`` accepts, read statically from its models_config.py.
+
+    Mirrors ``get_supported_model_names()`` (#636: ``BUILTIN_MODEL_NAMES`` plus ``CHALLENGE_PREFIX`` +
+    each ``CHALLENGE_MODELS`` key) without importing it: models_config imports torch and every model
+    package, which the host that builds a job need not have. Returns ``(names, aliases)``, where
+    ``aliases`` maps the other spellings ``get_unified_model_name()`` accepts (a bare team name,
+    ``challenge``) to the name they become; None when the file predates #636 or its constants are no
+    longer plain literals (the caller then falls back to a text search).
+    """
+    try:
+        tree = ast.parse(models_config.read_text())
+    except (OSError, SyntaxError, ValueError):
+        return None
+    if not any(isinstance(n, ast.FunctionDef) and n.name == "get_supported_model_names" for n in tree.body):
+        return None
+    consts: Dict[str, ast.AST] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            consts[node.targets[0].id] = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
+            consts[node.target.id] = node.value
+    try:
+        builtin = _string_list(consts["BUILTIN_MODEL_NAMES"], consts)
+        prefix = consts["CHALLENGE_PREFIX"]
+        challenge = consts["CHALLENGE_MODELS"]
+        if not (isinstance(prefix, ast.Constant) and isinstance(prefix.value, str)):
+            raise ValueError("CHALLENGE_PREFIX is not a string literal")
+        if not isinstance(challenge, ast.Dict):
+            raise ValueError("CHALLENGE_MODELS is not a dict literal")
+        teams = [k.value for k in challenge.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)]
+        if len(teams) != len(challenge.keys):
+            raise ValueError("CHALLENGE_MODELS has non-literal keys")
+    except (KeyError, ValueError):
+        return None
+    aliases = {team: prefix.value + team for team in teams}
+    if teams:
+        aliases["challenge"] = prefix.value + teams[0]  # get_unified_model_name: the first challenge model
+    return builtin + [prefix.value + team for team in teams], aliases
+
+
 def code_support_problems(plan: Plan, custom_dir: Path) -> List[str]:
     """Reasons the job's own code would ignore or reject what this job asks for."""
     problems: List[str] = []
@@ -1053,9 +1118,25 @@ def code_support_problems(plan: Plan, custom_dir: Path) -> List[str]:
             )
 
     if BASE_JOBS[plan.base_job]["model_factory"] == MODEL_FACTORY_MST:
-        models_config = _python_corpus(custom_dir, ["models/models_config.py"])
-        if not _quoted_in(models_config, plan.model):
-            problems.append(f"model {plan.model!r} is not known to the job's models/models_config.py")
+        # create_model() raises for any other name since #636, at every site, at configure.
+        known = supported_model_names(custom_dir / "models" / "models_config.py")
+        if known is not None:
+            names, aliases = known
+            if plan.model in aliases:
+                plan.warnings.append(
+                    f"--model {plan.model}: the job's create_model() reads this as {aliases[plan.model]}; "
+                    "prefer that name, so the manifest and the persistor record what was built"
+                )
+            elif plan.model not in names:
+                problems.append(
+                    f"model {plan.model!r} is not known to the job's models/models_config.py "
+                    f"(get_supported_model_names: {', '.join(names)})"
+                )
+        else:
+            # Job code from before #636 has no list to read; a quoted mention is the best evidence.
+            models_config = _python_corpus(custom_dir, ["models/models_config.py"])
+            if not _quoted_in(models_config, plan.model):
+                problems.append(f"model {plan.model!r} is not known to the job's models/models_config.py")
 
     data_code = _python_corpus(custom_dir, ["data", "env_config.py"])
     if not _quoted_in(data_code, plan.config):
@@ -1350,7 +1431,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", required=True, help="job name: meta.conf name, folder name and default mirror suffix")
     p.add_argument("--base-job", default="ODELIA_ternary_classification", choices=sorted(BASE_JOBS))
     p.add_argument("--sites", default=",".join(DEFAULT_SITES), help="ordered CSV roster (default: the 7 active sites)")
-    p.add_argument("--model", help="MODEL_NAME (required for ODELIA_ternary_classification)")
+    p.add_argument(
+        "--model",
+        help="MODEL_NAME (required for ODELIA_ternary_classification); checked against the job code's "
+        "get_supported_model_names()",
+    )
     p.add_argument("--config", default="unilateral", choices=CONFIG_CHOICES, help="data format, pinned as CONFIG")
     p.add_argument("--rounds", type=int, required=True, help="training rounds N")
     group = p.add_mutually_exclusive_group()

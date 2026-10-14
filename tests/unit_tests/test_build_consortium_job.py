@@ -66,7 +66,19 @@ STUB_TRAINER = "\n".join(
         "ODELIA_ROUND_HOOKS",
     )
 )
-STUB_MODELS = "NAMES = ['MST', 'MST_SAMMed2D', '1DivideAndConquer']\n"
+# Shaped like models_config.py since #636: the builder reads these constants statically.
+STUB_MODELS = """
+CHALLENGE_MODELS = {"1DivideAndConquer": {"team_name": "1DivideAndConquer"}, "2BCN_AIM": {}}
+RESNET_MODEL_NAMES = ("ResNet18", "ResNet101")
+BUILTIN_MODEL_NAMES = ("MST", "MST_SAMMed2D", "MedicalNet") + RESNET_MODEL_NAMES
+CHALLENGE_PREFIX = "challenge_"
+
+
+def get_supported_model_names():
+    return list(BUILTIN_MODEL_NAMES) + [CHALLENGE_PREFIX + name for name in CHALLENGE_MODELS]
+"""
+# models_config.py before #636: no list to read, only quoted names.
+OLD_MODELS = "NAMES = ['MST', 'MST_SAMMed2D', '1DivideAndConquer']\n"
 STUB_DATA = "DATA = {'original': 'data', 'unilateral': 'data_unilateral', 'unilateral_BD': 'data_unilateral_BD'}\n"
 
 CLIENT_STREAMER = """
@@ -91,6 +103,7 @@ SERVER_ARCHIVE = """
 def make_tree(
     tmp_path,
     persistor=STUB_PERSISTOR,
+    models=STUB_MODELS,
     hooks=("round_hooks", "al_subset", "ms6_capture", "dp_noise"),
     ms6_components=True,
     data=STUB_DATA,
@@ -106,7 +119,7 @@ def make_tree(
     (custom / "warm_continue.py").write_text(persistor)
     (custom / "main.py").write_text(STUB_MAIN)
     (custom / "threedcnn_ptl.py").write_text(STUB_TRAINER)
-    (custom / "models" / "models_config.py").write_text(STUB_MODELS)
+    (custom / "models" / "models_config.py").write_text(models)
     (custom / "data" / "datasets" / "dataset_3d_odelia.py").write_text(data)
     (custom / "env_config.py").write_text("CONFIG = 'unilateral'\n")
     for hook in hooks:
@@ -412,6 +425,19 @@ def test_dp_budget_uses_the_jobs_own_accountant_when_present(tmp_path, capsys):
     assert "job code" in capsys.readouterr().err
 
 
+def test_importing_the_jobs_accountant_leaves_no_bytecode_in_the_job(tmp_path):
+    # dp_budget imports custom/privacy_accounting.py from the job being built; a __pycache__
+    # written there would ship with the job and be hashed into the manifest as job code.
+    job = build(
+        tmp_path, "--name", "dp_clean", "--model", "MST", "--rounds", "2",
+        "--dp-sigma", "2.4", "--dp-clip-norm", "1", "--dp-target-epsilon", "50",
+    )
+    manifest = json.loads((job / "job_manifest.json").read_text())
+    assert "import failed" not in manifest["dp"]["accountant"]  # the job's module was really imported
+    assert not list(job.rglob("__pycache__")) and not list(job.rglob("*.pyc"))
+    assert not [name for name in manifest["custom_files_sha256"] if name.endswith(".pyc")]
+
+
 # ── Warm start ────────────────────────────────────────────────────────────
 
 
@@ -541,6 +567,42 @@ def test_old_job_code_is_refused_with_reasons(tmp_path, capsys):
 
 def test_unknown_model_is_refused(tmp_path, capsys):
     build(tmp_path, "--name", "m", "--model", "NotAModel", "--rounds", "2", expect=2)
+    err = capsys.readouterr().err
+    assert "'NotAModel' is not known" in err
+    # The refusal lists what the job's code would accept (#636 get_supported_model_names).
+    assert "MST, MST_SAMMed2D, MedicalNet, ResNet18, ResNet101, challenge_1DivideAndConquer" in err
+
+
+@pytest.mark.parametrize("model", ["Swin3D", "MST_sammed2d", "challenge_NoSuchTeam"])
+def test_names_create_model_rejects_are_refused(tmp_path, capsys, model):
+    # Swin3D was removed in #636; a quoted mention elsewhere in the file must not count.
+    build(tmp_path, "--name", "m", "--model", model, "--rounds", "2", expect=2)
+    assert f"{model!r} is not known" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "alias, unified", [("2BCN_AIM", "challenge_2BCN_AIM"), ("challenge", "challenge_1DivideAndConquer")]
+)
+def test_unified_aliases_build_with_a_warning(tmp_path, alias, unified):
+    # create_model() unifies these spellings itself, so they work; the warning asks for the full name.
+    job = build(tmp_path, "--name", "alias", "--model", alias, "--rounds", "2")
+    manifest = json.loads((job / "job_manifest.json").read_text())
+    assert any(f"reads this as {unified}" in w for w in manifest["warnings"])
+
+
+def test_model_list_of_this_checkout_is_read_statically():
+    names, aliases = bcj.supported_model_names(JOBS_DIR / "_shared" / "custom" / "models" / "models_config.py")
+    assert {"MST", "MST_SAMMed2D", "MedicalNet", "ResNet101", "challenge_1DivideAndConquer"} <= set(names)
+    assert "Swin3D" not in names and len(names) == len(set(names))
+    assert aliases["1DivideAndConquer"] == "challenge_1DivideAndConquer"
+    assert aliases["challenge"] == "challenge_1DivideAndConquer"
+
+
+def test_model_check_falls_back_to_text_for_code_before_636(tmp_path, capsys):
+    tree = make_tree(tmp_path, models=OLD_MODELS)
+    assert bcj.supported_model_names(tree / "application/jobs/_shared/custom/models/models_config.py") is None
+    build(tmp_path, "--name", "old_ok", "--model", "MST_SAMMed2D", "--rounds", "2", tree=tree)
+    build(tmp_path, "--name", "old_bad", "--model", "NotAModel", "--rounds", "2", tree=tree, expect=2)
     assert "'NotAModel' is not known" in capsys.readouterr().err
 
 
