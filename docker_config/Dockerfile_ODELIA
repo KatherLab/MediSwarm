@@ -68,27 +68,38 @@ COPY ./nvflare_source /MediSwarm/docker_config/NVFlare
 # Stage 2: Python packages (expensive, rarely changes)
 # ---------------------------------------------------------------------------
 
-# uninstall conda to prevent usage and avoid potential repository license issues
-RUN python3 -m pip uninstall -y conda conda-package-handling conda_index
+# uninstall conda to prevent usage and avoid potential repository license issues.
+# pyOpenSSL (from the base image) goes as well: nothing imports it (urllib3 2.x
+# never injects it), and it holds cryptography below 43 and carries a HIGH CVE.
+RUN python3 -m pip uninstall -y conda conda-package-handling conda_index pyOpenSSL
 
-# Install specific versions of pip and setuptools
+# Install specific versions of pip, setuptools and wheel. setuptools 80.10 still
+# ships pkg_resources and vendors fixed jaraco.context/wheel copies; wheel 0.46
+# needs packaging >= 24, which is pinned with it.
 RUN python3 -m pip install --no-cache-dir \
     -U \
     pip==25.2 \
-    setuptools==80.8.0
+    setuptools==80.10.2 \
+    wheel==0.46.3 \
+    packaging==24.2
 
 # Install dependencies of NVFlare and application packages in a single layer.
 # Using --no-cache-dir avoids writing pip's download cache to the layer,
 # reducing image size and eliminating the need for a separate cache purge.
+#
+# NVFlare's wire stack (grpcio, protobuf, msgpack here; aiohttp below, which
+# carries the 'http' scheme the ODELIA kits use) stays EXACTLY as in 1.8.1: sites
+# move to a new image at different times and a run mixes both. Known CVEs in
+# them are accepted in .trivyignore, with the reason.
 RUN python3 -m pip install --no-cache-dir \
     --upgrade \
     psutil==7.0.0 \
     Flask==3.0.2 \
     Flask-JWT-Extended==4.6.0 \
     Flask-SQLAlchemy==3.1.1 \
-    PyJWT==2.10.1 \
+    PyJWT==2.14.0 \
     SQLAlchemy==2.0.16 \
-    Werkzeug==3.0.1 \
+    Werkzeug==3.0.6 \
     blinker==1.9.0 \
     docker==7.1.0 \
     greenlet==3.2.2 \
@@ -101,7 +112,11 @@ RUN python3 -m pip install --no-cache-dir \
     pyparsing==3.2.3 \
     websockets==15.0.1
 
-# Install additional Python packages for application code at defined versions
+# Install additional Python packages for application code at defined versions.
+# 1.9.0 removed wandb (its bundled wandb-core binary alone had 56 HIGH/CRITICAL
+# CVEs) and datasets, with the packages only they pulled in (GitPython, gitdb,
+# smmap, docker-pycreds, sentry-sdk, setproctitle; pyarrow, multiprocess, dill,
+# xxhash): no code in the image or in any job imports them.
 RUN python3 -m pip install --no-cache-dir \
     Deprecated==1.2.18 \
     SimpleITK==2.5.0 \
@@ -118,7 +133,6 @@ RUN python3 -m pip install --no-cache-dir \
     google-auth-oauthlib==1.2.2 \
     google-auth==2.40.2 \
     huggingface_hub==0.29.3 \
-    datasets==3.4.1 \
     coral_pytorch==1.4.0 \
     humanize==4.12.3 \
     joblib==1.5.1 \
@@ -139,8 +153,8 @@ RUN python3 -m pip install --no-cache-dir \
     # at import. Do not relax without moving the base image first.
     numpy==1.26.4 \
     pyasn1-modules==0.4.2 \
-    pyasn1==0.6.1 \
-    pydicom==3.0.1 \
+    pyasn1==0.6.4 \
+    pydicom==3.0.2 \
     python-dateutil==2.9.0.post0 \
     x-transformers==2.3.5 \
     pytorch-lightning==2.4.0 \
@@ -152,7 +166,6 @@ RUN python3 -m pip install --no-cache-dir \
     scikit-learn==1.5.2 \
     scipy==1.15.3 \
     seaborn==0.13.2 \
-    wandb==0.18.6 \
     einops==0.8.0 \
     shellingham==1.5.4 \
     tensorboard-data-server==0.7.2 \
@@ -174,27 +187,23 @@ RUN python3 -m pip install --no-cache-dir \
     yarl==1.20.0 \
     aiohappyeyeballs==2.6.1 \
     annotated-types==0.7.0 \
-    dill==0.3.8 \
-    docker-pycreds==0.4.0 \
     dynamic-network-architectures==0.4.3 \
     einx==0.3.0 \
     frozendict==2.4.6 \
-    gitdb==4.0.12 \
-    gitpython==3.1.44 \
     hf-xet==1.1.2 \
     importlib-resources==6.5.2 \
     loguru==0.7.3 \
-    multiprocess==0.70.16 \
     propcache==0.3.1 \
-    pyarrow==20.0.0 \
     pydantic==2.11.5 \
     pydantic-core==2.33.2 \
-    sentry-sdk==2.29.1 \
-    setproctitle==1.3.6 \
-    smmap==5.0.2 \
     typing-extensions==4.13.2 \
     typing-inspection==0.4.1 \
-    xxhash==3.5.0
+    # Fixed releases of packages that come with the base image (HIGH CVEs in the
+    # base versions). Only used by requests/huggingface_hub (urllib3, Brotli) and
+    # by leftovers of the removed conda (soupsieve).
+    urllib3==2.8.0 \
+    Brotli==1.2.0 \
+    soupsieve==2.8.4
 
 # Install packages needed for listing licenses and creating SBOM
 RUN python3 -m pip install --no-cache-dir \

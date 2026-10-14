@@ -40,6 +40,10 @@ jobs:
           echo "IMAGE=localhost:5000/odelia:$VERSION" >> $GITHUB_ENV
 
       - name: Build the image from current sources
+        # The runners hold no SAM-Med2D copy; a dev build may go without it (a release
+        # build may not, see scripts/build/_cacheAndCopyPretrainedModelWeights.sh).
+        env:
+          MEDISWARM_REQUIRE_SAMMED2D: "0"
         run: ./scripts/build/buildDockerImageAndStartupKits.sh -p tests/provision/dummy_project_for_testing.yml
 
       # The point of the old cron was "do current package versions still work?".
@@ -64,6 +68,9 @@ jobs:
           # Only fail on vulnerabilities that HAVE a fix -- those are the ones we can
           # act on. Unfixed CVEs in the CUDA base are reported, not blocking.
           ignore-unfixed: true
+          # Findings accepted on review, each with its reason and an expiry date
+          # (red every day since 9 Sep 2026 until the 1.9.0 review).
+          trivyignores: .trivyignore
           exit-code: '1'
 
       - name: Upload SBOM
