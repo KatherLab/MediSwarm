@@ -31,15 +31,26 @@ Typical usage after a swarm training run:
         --model-name MST \\
         --ensemble
 
+Every checkpoint must fit the architecture exactly: a missing or unexpected
+key or a different shape stops the evaluation of that checkpoint with an
+error naming the differences (a checkpoint loaded into the wrong model used
+to be evaluated silently with mostly random weights). Only the non-parameter
+buffers in NON_PARAMETER_STATE_KEYS may differ.
+
 Environment variables (same as normal MediSwarm training):
-    DATA_DIR          Path to the ODELIA dataset (or external test data)
+    DATA_DIR          Root of the dataset (default /data, as in the image)
     SCRATCH_DIR       Scratch/output directory for results
-    SITE_NAME         Site identifier (for dataset loading)
+    SITE_NAME         Site identifier (for dataset loading); INSTITUTION wins if set
+    MODEL_NAME        Architecture when --model-name is not given (default MST)
+    CONFIG            Dataset layout passed to the dataset (default unilateral), --config wins
+    FOLD              Cross-validation fold of the split (default 0), --fold wins
     MEDISWARM_VERSION (optional) Version string
 """
 
 import argparse
+import contextlib
 import csv
+import hashlib
 import importlib
 import json
 import logging
@@ -93,6 +104,114 @@ def _register_legacy_checkpoint_modules(model_name: str) -> None:
     sys.modules.setdefault("models.model", legacy_module)
 
 
+# Non-parameter buffers that may differ between the model built here and a checkpoint of the same
+# architecture: `_class_weight` exists only in a model built with class weights (the trainer's, not
+# this script's) and `loss.weight` appears at its first loss computation. Same list as
+# models/base_model.NON_PARAMETER_STATE_KEYS; repeated here because this script is also mounted
+# over older images whose job code does not have it.
+NON_PARAMETER_STATE_KEYS = frozenset({"_class_weight", "loss.weight"})
+
+
+class ArchitectureMismatchError(RuntimeError):
+    """The checkpoint does not hold the weights of the requested architecture."""
+
+
+def _first(keys, limit=5):
+    keys = list(keys)
+    return ", ".join(keys[:limit]) + (f", ... ({len(keys) - limit} more)" if len(keys) > limit else "")
+
+
+def describe_architecture_mismatch(model_state, checkpoint_state, ignore=NON_PARAMETER_STATE_KEYS):
+    """None if `checkpoint_state` holds exactly the tensors `model_state` needs, else what differs."""
+    missing = [key for key in model_state if key not in checkpoint_state and key not in ignore]
+    unexpected = [key for key in checkpoint_state if key not in model_state and key not in ignore]
+    reshaped = [
+        f"{key}: checkpoint {tuple(getattr(checkpoint_state[key], 'shape', ()))}, "
+        f"model {tuple(getattr(model_state[key], 'shape', ()))}"
+        for key in model_state
+        if key in checkpoint_state
+        and tuple(getattr(checkpoint_state[key], "shape", ())) != tuple(getattr(model_state[key], "shape", ()))
+    ]
+    problems = []
+    if missing:
+        problems.append(f"{len(missing)} of the model's {len(model_state)} keys missing ({_first(missing)})")
+    if unexpected:
+        problems.append(f"{len(unexpected)} unexpected keys ({_first(unexpected)})")
+    if reshaped:
+        problems.append(f"{len(reshaped)} keys with another shape ({_first(reshaped, 3)})")
+    return "; ".join(problems) or None
+
+
+def extract_state_dict(ckpt, checkpoint_type: str, checkpoint_path: str) -> Dict:
+    """The state dict inside a checkpoint: NVFlare persistor ('model'), Lightning ('state_dict') or bare."""
+    if not isinstance(ckpt, dict):
+        raise ValueError(f"Unexpected checkpoint format at {checkpoint_path}. Got type: {type(ckpt)}")
+    keys = ("state_dict", "model") if checkpoint_type == "lightning" else ("model", "state_dict")
+    for key in keys:
+        if isinstance(ckpt.get(key), dict):
+            return ckpt[key]
+    return ckpt  # a bare state dict
+
+
+def _recorded_architecture(ckpt) -> Optional[str]:
+    """The model class the NVFlare persistor recorded in the checkpoint's train_conf, if any."""
+    try:
+        return ckpt["train_conf"]["train"]["model"]
+    except (KeyError, TypeError):
+        return None
+
+
+def _architecture_only(model_name: str):
+    """Context in which create_model() skips pretrained weights that the checkpoint replaces anyway.
+
+    Only MST_SAMMed2D needs it: its constructor refuses to start without the 2.56 GB SAM-Med2D
+    file (models/mst.py), which an evaluation never uses. Every weight comes from the checkpoint,
+    and the architecture check in load_model() proves it. Older job code has no such context and
+    needs none.
+    """
+    if model_name != "MST_SAMMed2D":
+        return contextlib.nullcontext()
+    try:
+        from models import mst
+    except ImportError:
+        return contextlib.nullcontext()
+    skip = getattr(mst, "sam_med2d_architecture_only", None)
+    if skip is None:
+        return contextlib.nullcontext()
+    return skip("predict.py loads every weight from the evaluated checkpoint and checks that all keys match")
+
+
+def check_model_name(model_name: str) -> None:
+    """Fail before any data is read if create_model() cannot build `model_name`."""
+    import models_config
+
+    supported = getattr(models_config, "get_supported_model_names", None)
+    if supported is None:  # older job code: create_model() rejects unknown names itself
+        return
+    if models_config.get_unified_model_name(logger, model_name, {}) not in supported():
+        raise models_config.unsupported_model_error(model_name)
+
+
+def _fold(value) -> int:
+    """FOLD as the training code reads it (env_config._fold_from_env): an integer >= 0."""
+    raw = str(value).strip() or "0"
+    try:
+        fold = int(raw)
+    except ValueError:
+        raise ValueError(f"FOLD must be an integer, got {raw!r}")
+    if fold < 0:
+        raise ValueError(f"FOLD must be >= 0, got {fold}")
+    return fold
+
+
+def _sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(8 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 # ========================================================================== #
 #  Argument parsing                                                          #
 # ========================================================================== #
@@ -121,7 +240,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-name", type=str, default=None,
         help=(
-            "Model architecture name (e.g. MST, ResNet101, Swin3D, "
+            "Model architecture name (e.g. MST, MST_SAMMed2D, ResNet101, "
             "challenge_1DivideAndConquer).  If not given, reads MODEL_NAME "
             "from environment."
         ),
@@ -169,6 +288,15 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--num-classes", type=int, default=3,
         help="Number of output classes (default: 3).",
+    )
+    parser.add_argument(
+        "--config", type=str, default=os.environ.get("CONFIG", "unilateral"),
+        help="Dataset layout passed to the dataset, e.g. unilateral, unilateral_BD or original "
+             "(default: $CONFIG, else unilateral).",
+    )
+    parser.add_argument(
+        "--fold", type=str, default=os.environ.get("FOLD", "0"),
+        help="Cross-validation fold whose split is evaluated (default: $FOLD, else 0).",
     )
     return parser.parse_args()
 
@@ -238,6 +366,10 @@ def load_model(
     """
     Create a model and load a checkpoint into it.
 
+    The checkpoint must fit the architecture exactly, apart from NON_PARAMETER_STATE_KEYS.
+    This used to be a non-strict load that reported nothing: an August 1DivideAndConquer
+    global evaluated as MST matched none of its keys and was scored with random weights.
+
     Args:
         model_name: Architecture name for the model factory.
         checkpoint_path: Path to the checkpoint file.
@@ -247,40 +379,45 @@ def load_model(
 
     Returns:
         Model in eval mode on the specified device.
+
+    Raises:
+        ArchitectureMismatchError: the checkpoint holds the weights of another architecture.
     """
     from models_config import create_model
 
     logger.info(f"Creating model: {model_name}")
-    model = create_model(
-        logger=logger,
-        model_name=model_name,
-        num_classes=num_classes,
-    )
+    with _architecture_only(model_name):
+        model = create_model(
+            logger=logger,
+            model_name=model_name,
+            num_classes=num_classes,
+        )
 
     logger.info(f"Loading checkpoint: {checkpoint_path}")
     _register_legacy_checkpoint_modules(model_name)
-    ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    # Loaded to the CPU: a checkpoint loaded straight onto the GPU would stay there next to
+    # the model until this function returns (1 GB for MST_SAMMed2D).
+    ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    state_dict = extract_state_dict(ckpt, checkpoint_type, checkpoint_path)
+    recorded = _recorded_architecture(ckpt)
 
-    if checkpoint_type == "lightning":
-        # PyTorch Lightning checkpoint: state_dict is nested
-        if isinstance(ckpt, dict) and "state_dict" in ckpt:
-            model.load_state_dict(ckpt["state_dict"], strict=False)
-        else:
-            model.load_state_dict(ckpt, strict=False)
-    else:
-        # NVFlare PTFileModelPersistor: bare state_dict or nested
-        if isinstance(ckpt, dict) and "model" in ckpt:
-            model.load_state_dict(ckpt["model"], strict=False)
-        elif isinstance(ckpt, dict) and "state_dict" in ckpt:
-            model.load_state_dict(ckpt["state_dict"], strict=False)
-        elif isinstance(ckpt, dict):
-            # Try loading as a direct state dict
-            model.load_state_dict(ckpt, strict=False)
-        else:
-            raise ValueError(
-                f"Unexpected checkpoint format at {checkpoint_path}. "
-                f"Got type: {type(ckpt)}"
-            )
+    model_state = model.state_dict()
+    mismatch = describe_architecture_mismatch(model_state, state_dict)
+    if mismatch:
+        recorded_text = f"records model class {recorded!r}" if recorded else "records no model class"
+        raise ArchitectureMismatchError(
+            f"{checkpoint_path} does not hold {model_name} weights (model class {type(model).__name__}, "
+            f"{len(model_state)} tensors): {mismatch}. The checkpoint {recorded_text}. Pass the MODEL_NAME "
+            f"it was trained with as --model-name."
+        )
+    model.load_state_dict(state_dict, strict=False)  # only NON_PARAMETER_STATE_KEYS can differ, see above
+    ignored = sorted((set(state_dict) ^ set(model_state)) & NON_PARAMETER_STATE_KEYS)
+    logger.info(
+        f"Loaded all {len(model_state)} model tensors from {checkpoint_path}"
+        + (f" (non-parameter buffers not in both: {', '.join(ignored)})" if ignored else "")
+        + (f"; the checkpoint records model class {recorded}" if recorded else "")
+    )
+    del ckpt, state_dict
 
     model = model.to(device)
     model.eval()
@@ -460,38 +597,79 @@ def print_metrics(label: str, metrics: Dict) -> None:
     print()
 
 
+def print_run_settings(label: str, checkpoint_path: str, model_name: str, split: str, provenance: Dict) -> None:
+    """Print which checkpoint, architecture and data the metrics that follow belong to."""
+    print(f"\n{'=' * 60}")
+    print(f"  {label}: what is evaluated")
+    print(f"{'=' * 60}")
+    print(f"  Checkpoint:   {checkpoint_path}")
+    print(f"                sha256 {provenance['checkpoint_sha256']}")
+    print(
+        f"  Architecture: {model_name} (model class {provenance['model_class']}, "
+        f"{provenance['num_parameters'] / 1e6:.2f} M parameters, every tensor from the checkpoint)"
+    )
+    print(
+        f"  Data:         {provenance['institution']}, split {split}, CONFIG={provenance['config']}, "
+        f"FOLD={provenance['fold']}, DATA_DIR={provenance['data_dir']}"
+    )
+
+
 # ========================================================================== #
 #  Data loading                                                              #
 # ========================================================================== #
 
-def setup_dataloader(
-    split: str,
-    batch_size: int,
-) -> torch.utils.data.DataLoader:
-    """
-    Set up a DataLoader for the specified split using ODELIA_Dataset3D.
+def resolve_data_settings(config: str, fold) -> Dict:
+    """Institution, CONFIG, FOLD and data root, read the way the training code reads them.
 
-    Requires environment variables: DATA_DIR, SITE_NAME.
+    CONFIG is passed through unchanged: the dataset knows its layouts (unilateral,
+    unilateral_BD, original, ...) and rejects unknown ones.
     """
-    import torch.multiprocessing as mp
-    from data.datasets import ODELIA_Dataset3D
-
     institution = os.environ.get("INSTITUTION", os.environ.get("SITE_NAME"))
-    config = os.environ.get("CONFIG", "unilateral")
-
     if not institution:
         raise ValueError(
             "SITE_NAME (or INSTITUTION) environment variable must be set "
             "for dataset loading."
         )
+    return {
+        "institution": institution,
+        "config": config,
+        "fold": _fold(fold),
+        # Unset means the dataset's own default root, /data.
+        "data_dir": os.environ.get("DATA_DIR") or None,
+    }
 
-    logger.info(f"Loading {split} split for institution={institution}, config={config}")
 
-    ds = ODELIA_Dataset3D(
-        institutions=institution,
-        split=split,
-        config=config,
+def setup_dataloader(
+    split: str,
+    batch_size: int,
+    settings: Optional[Dict] = None,
+) -> torch.utils.data.DataLoader:
+    """
+    Set up a DataLoader for the specified split using ODELIA_Dataset3D.
+
+    `settings` comes from resolve_data_settings(); by default from SITE_NAME/INSTITUTION,
+    CONFIG, FOLD and DATA_DIR in the environment.
+    """
+    import torch.multiprocessing as mp
+    from data.datasets import ODELIA_Dataset3D
+
+    if settings is None:
+        settings = resolve_data_settings(os.environ.get("CONFIG", "unilateral"), os.environ.get("FOLD", "0"))
+
+    logger.info(
+        f"Loading {split} split for institution={settings['institution']}, config={settings['config']}, "
+        f"fold={settings['fold']}, data_dir={settings['data_dir'] or 'dataset default'}"
     )
+
+    dataset_kwargs = dict(
+        institutions=settings["institution"],
+        split=split,
+        config=settings["config"],
+        fold=settings["fold"],
+    )
+    if settings["data_dir"]:
+        dataset_kwargs["path_root"] = settings["data_dir"]
+    ds = ODELIA_Dataset3D(**dataset_kwargs)
 
     logger.info(f"Dataset size: {len(ds)} samples")
 
@@ -528,8 +706,10 @@ def main():
         os.environ.setdefault("MEDISWARM_ALLOW_CPU_MODEL", "1")
     logger.info(f"Using prediction device: {device}")
 
-    # Resolve model name
+    # Resolve model name and data settings; both are checked before any data is read.
     model_name = args.model_name or os.environ.get("MODEL_NAME", "MST")
+    check_model_name(model_name)
+    settings = resolve_data_settings(args.config, args.fold)
 
     # Determine output directory
     if args.output_dir:
@@ -569,7 +749,13 @@ def main():
     # ------------------------------------------------------------------ #
     #  Set up data                                                        #
     # ------------------------------------------------------------------ #
-    dataloader = setup_dataloader(split=args.split, batch_size=args.batch_size)
+    dataloader = setup_dataloader(split=args.split, batch_size=args.batch_size, settings=settings)
+    data_used = {
+        "institution": settings["institution"],
+        "config": settings["config"],
+        "fold": settings["fold"],
+        "data_dir": settings["data_dir"] or "dataset default (/data)",
+    }
 
     # ------------------------------------------------------------------ #
     #  Evaluate each checkpoint                                           #
@@ -591,6 +777,13 @@ def main():
                 num_classes=args.num_classes,
                 device=device,
             )
+            provenance = {
+                "checkpoint_sha256": _sha256(info["path"]),
+                "model_class": type(model).__name__,
+                "num_parameters": sum(p.numel() for p in model.parameters()),
+                **data_used,
+            }
+            print_run_settings(label, info["path"], model_name, args.split, provenance)
 
             probs, preds, targets, uids = predict_with_model(
                 model=model,
@@ -620,6 +813,7 @@ def main():
                 "kind": info["kind"],
                 "model_name": model_name,
                 "split": args.split,
+                **provenance,
                 "metrics": metrics,
                 "predictions_csv": str(csv_path),
             }
@@ -642,6 +836,7 @@ def main():
                 "kind": info["kind"],
                 "model_name": model_name,
                 "split": args.split,
+                **data_used,
                 "status": "error",
                 "error": str(e),
             })
@@ -676,6 +871,7 @@ def main():
             "kind": f"avg_{len(ensemble_probs)}_models",
             "model_name": model_name,
             "split": args.split,
+            **data_used,
             "metrics": ensemble_metrics,
             "predictions_csv": str(csv_path),
             "source_checkpoints": [info["path"] for info in checkpoint_infos],

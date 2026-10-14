@@ -281,8 +281,8 @@ models/challenge/my_team_name/my_model.py → create_model()
 
 #### Option B: Top-Level Model
 
-For models that should be first-class options alongside MST, ResNet, and
-Swin3D, add them directly to the `create_model()` function in
+For models that should be first-class options alongside MST and ResNet,
+add them directly to the `create_model()` function in
 `models_config.py`:
 
 ```python
@@ -815,9 +815,9 @@ export MODEL_NAME="challenge_my_resnet"
 | `MODEL_NAME` Value            | Description                              |
 |-------------------------------|------------------------------------------|
 | `MST`                         | Medical Swin Transformer (default)       |
+| `MST_SAMMed2D`                | MST slice fusion on the SAM-Med2D ViT-B encoder (CAM model); refuses to start without `sam-med2d_b.pth` (`SAM_MED2D_CHECKPOINT`) |
 | `ResNet101`                   | ResNet-101 via MONAI                     |
 | `ResNet50`                    | ResNet-50 via MONAI                      |
-| `Swin3D`                      | Swin Transformer 3D                      |
 | `MedicalNet`                  | MedicalNet 3D-ResNet34 (VHIO model); pretrained weights via `MEDICALNET_PRETRAINED_PATH`, not in the image |
 | `challenge_1DivideAndConquer` | Residual encoder network                 |
 | `challenge_2BCN_AIM`          | Swin UNETR architecture                  |
@@ -841,7 +841,6 @@ application/jobs/_shared/custom/
     models_config.py               # Model registry + create_model() factory
     resnet.py                      # Built-in ResNet variants
     mst.py                         # Medical Swin Transformer
-    swin3D.py                      # Swin Transformer 3D
     challenge/                     # Challenge model submissions
       1DivideAndConquer/
       2BCN_AIM/

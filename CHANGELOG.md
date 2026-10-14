@@ -4,6 +4,29 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
+### Model zoo (1.9.0)
+
+- **`MST_SAMMed2D` refuses to start without its pretrained SAM-Med2D weights** — only the
+  starting client seeds round 0, so one site without `sam-med2d_b.pth` used to start every site
+  from a random encoder with nothing but a warning in one log. A missing or unreadable file, or
+  one whose `image_encoder.*` tensors do not match exactly, now raises an error naming the paths
+  searched and the fix; a successful load logs path, size, sha256 and `loaded 249/249 encoder
+  tensors`. `SAM_MED2D_ALLOW_RANDOM_INIT=1` is the only override (tests, CI images without the
+  file).
+- **Unknown model names fail with the list of valid ones** — `get_model_config()` used to fall
+  back to MST, so a misspelled `MODEL_NAME` such as `challenge_4abmil` ended in an unrelated
+  import error.
+- **Swin3D removed (#562)** — it crashed on its first forward pass.
+- **Challenge models 2-5 reload from their Lightning checkpoints (#627)** — a trained model's
+  `load_checkpoint_from_file()` / `load_best_checkpoint()` now load the weights into a copy of the
+  model instead of rebuilding it through Lightning, which needs a `ModelWrapper`'s backbone, so
+  their test-set export no longer has to be switched off by model name.
+- **`predict.py` refuses a checkpoint of another architecture** (E2 in
+  `docs/EVALUATION_PITFALLS.md`): every key and shape must match `--model-name`, apart from
+  `_class_weight` and `loss.weight`. It also evaluates `MST_SAMMed2D` without the SAM-Med2D file,
+  honours `FOLD`, `CONFIG` and `DATA_DIR` (and `--fold`, `--config`), and records the checkpoint's
+  sha256, the architecture and the data settings in `prediction_results.json`.
+
 ### Fixed
 
 - **Live-sync daemon: one SSH connection per kit instead of one per upload (#602)** — every
@@ -27,7 +50,7 @@ All notable changes to MediSwarm are documented in this file.
   Cambridge) on branch `custom_cam_ZD` and ported onto `main`. Select with
   `MODEL_NAME=MST_SAMMed2D`. The SAM-Med2D weights (`sam-med2d_b.pth`) are not in the repo:
   place them in the build cache to ship them in the image, or set `SAM_MED2D_CHECKPOINT`;
-  without them the encoder starts from random weights and says so. Slices are resized from
+  without them the model refuses to start (see Model zoo above). Slices are resized from
   the dataset's 224 to 256 inside the model rather than by changing the shared data pipeline.
 
 ### Fixed

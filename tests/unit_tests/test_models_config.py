@@ -2,14 +2,13 @@
 Unit tests for the centralized model configuration module.
 
 Tests cover:
-  - CHALLENGE_MODELS / DEFAULT_MODEL dictionaries
-  - get_all_model_names()
-  - get_model_config()
-  - get_persistor_config()
+  - CHALLENGE_MODELS dictionary
+  - get_all_model_names() / get_supported_model_names()
+  - get_model_config() / get_persistor_config() (unknown names raise, no MST fallback)
   - get_unified_model_name()
-  - create_model() error paths (GPU guard)
+  - create_model() error paths (unknown names, GPU guard)
 
-models_config.py imports ``from models import ResNet, MST, Swin3D`` which
+models_config.py imports ``from models import ResNet, MST, MedicalNet`` which
 triggers imports of monai, einops, x_transformers, pytorch_lightning, etc.
 We mock the entire ``models`` package before importing models_config so that
 the tests run in CPU-only CI without any of those heavy dependencies.
@@ -22,6 +21,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+# models_config imports torch at module level. Importing it here, before any test runs, keeps it
+# out of the sys.modules snapshot that _patch_heavy_imports restores after each test: otherwise
+# the second test re-imports torch, which fails ("already has a docstring") when this file runs
+# on its own.
+import torch  # noqa: F401
 
 from conftest import SHARED_CUSTOM_DIR, MODELS_DIR, import_module_from_path
 
@@ -51,7 +56,7 @@ def _import_models_config():
 
     We need:
       1. ``env_config`` importable (models_config does ``from env_config import …``)
-      2. ``models`` package mocked (models_config does ``from models import ResNet, MST, Swin3D``)
+      2. ``models`` package mocked (models_config does ``from models import ResNet, MST, MedicalNet``)
     Both are set up by the autouse fixture below.
     """
     _clear_custom_modules()
@@ -72,18 +77,18 @@ def _setup_imports(_patch_heavy_imports):
             sys.path.insert(0, p)
 
     # Mock the ``models`` package so that
-    # ``from models import ResNet, MST, Swin3D`` resolves to MagicMock objects
+    # ``from models import ResNet, MST, MedicalNet`` resolves to MagicMock objects
     # instead of triggering the real __init__.py → resnet → monai/einops chain.
     mock_models_pkg = MagicMock()
     mock_models_pkg.ResNet = MagicMock()
     mock_models_pkg.MST = MagicMock()
-    mock_models_pkg.Swin3D = MagicMock()
+    mock_models_pkg.MedicalNet = MagicMock()
 
     # Also mock sub-modules that the package __init__.py would import
     saved = {}
     keys_to_mock = [
         "models", "models.base_model", "models.resnet",
-        "models.mst", "models.swin3D",
+        "models.mst", "models.medicalnet",
     ]
     for k in keys_to_mock:
         saved[k] = sys.modules.get(k)
@@ -155,18 +160,6 @@ class TestChallengeModelsDict:
         assert args["num_classes"] == 3
 
 
-class TestDefaultModel:
-    """Validate the DEFAULT_MODEL constant."""
-
-    def test_default_is_mst(self):
-        mc = _import_models_config()
-        assert "MST" in mc.DEFAULT_MODEL
-
-    def test_mst_has_persistor_path(self):
-        mc = _import_models_config()
-        assert mc.DEFAULT_MODEL["MST"]["persistor_path"] == "mst.MST"
-
-
 # ===================================================================
 # Tests for get_all_model_names()
 # ===================================================================
@@ -188,6 +181,22 @@ class TestGetAllModelNames:
             assert name in names
 
 
+class TestGetSupportedModelNames:
+    def test_lists_builtin_and_prefixed_challenge_names(self):
+        mc = _import_models_config()
+        names = mc.get_supported_model_names()
+        for name in ["MST", "MST_SAMMed2D", "MedicalNet", "ResNet10", "ResNet18", "ResNet34", "ResNet50",
+                     "ResNet101", "ResNet152", "challenge_1DivideAndConquer", "challenge_2BCN_AIM",
+                     "challenge_3agaldran", "challenge_4LME_ABMIL", "challenge_5Pimed"]:
+            assert name in names
+        assert len(names) == len(set(names)) == 14
+
+    def test_swin3d_is_gone(self):
+        """#562: Swin3D crashed on its first forward pass and was removed."""
+        mc = _import_models_config()
+        assert "Swin3D" not in mc.get_supported_model_names()
+
+
 # ===================================================================
 # Tests for get_model_config()
 # ===================================================================
@@ -199,11 +208,20 @@ class TestGetModelConfig:
         assert config is not None
         assert config["team_name"] == "3agaldran"
 
-    def test_unknown_model_falls_back_to_mst(self):
+    def test_unknown_model_raises_with_valid_names(self):
+        """No silent MST fallback: the old fallback turned typos into a relative-import error."""
         mc = _import_models_config()
-        config = mc.get_model_config(_logger(), "NonExistentModel")
-        assert config is not None
-        assert config["persistor_path"] == "mst.MST"
+        with pytest.raises(ValueError, match="NonExistentModel") as excinfo:
+            mc.get_model_config(_logger(), "NonExistentModel")
+        for name in mc.get_all_model_names():
+            assert name in str(excinfo.value)
+
+    @pytest.mark.parametrize("model_name", ["MST", "challenge_1DivideAndConquer", "4abmil", ""])
+    def test_non_team_names_raise(self, model_name):
+        """Built-in models, prefixed names and job-directory spellings are not team names."""
+        mc = _import_models_config()
+        with pytest.raises(ValueError, match="Valid challenge names"):
+            mc.get_model_config(_logger(), model_name)
 
     @pytest.mark.parametrize("model_name", [
         "1DivideAndConquer", "2BCN_AIM", "3agaldran", "4LME_ABMIL", "5Pimed",
@@ -227,11 +245,10 @@ class TestGetPersistorConfig:
         assert "persistor_path" in pc
         assert "persistor_args" in pc
 
-    def test_unknown_model_returns_mst_persistor(self):
+    def test_unknown_model_raises(self):
         mc = _import_models_config()
-        pc = mc.get_persistor_config(_logger(), "BogusModel")
-        assert pc is not None
-        assert pc["persistor_path"] == "mst.MST"
+        with pytest.raises(ValueError, match="BogusModel"):
+            mc.get_persistor_config(_logger(), "BogusModel")
 
 
 # ===================================================================
@@ -267,8 +284,8 @@ class TestGetUnifiedModelName:
     def test_variant_non_challenge_passthrough(self):
         mc = _import_models_config()
         env = {"model_name": "whatever"}
-        name = mc.get_unified_model_name(_logger(), "Swin3D", env)
-        assert name == "Swin3D"
+        name = mc.get_unified_model_name(_logger(), "ResNet18", env)
+        assert name == "ResNet18"
 
     def test_mst_sammed2d_passthrough(self):
         mc = _import_models_config()
@@ -303,6 +320,31 @@ class TestCreateModelErrorPaths:
                     model_name="TotallyBogusModel",
                     env_vars=mock_env_dict,
                 )
+
+    @pytest.mark.parametrize(
+        "model_name", ["TotallyBogusModel", "Swin3D", "challenge_4abmil", "challenge_Bogus", "mst"]
+    )
+    def test_unknown_name_lists_valid_names_before_the_gpu_check(self, mock_env_dict, model_name):
+        """The name is checked first: no GPU error, no import error, the valid names in the message.
+
+        challenge_4abmil is the job-directory spelling of challenge_4LME_ABMIL; it used to fall back
+        to the MST config and fail with 'attempted relative import with no known parent package'.
+        """
+        mc = _import_models_config()
+        with patch("torch.cuda.is_available", return_value=False):
+            with pytest.raises(ValueError, match="Unsupported model name") as excinfo:
+                mc.create_model(logger=_logger(), model_name=model_name, env_vars=mock_env_dict)
+        message = str(excinfo.value)
+        assert repr(model_name) in message
+        for name in ("MST", "MST_SAMMed2D", "MedicalNet", "ResNet18", "challenge_4LME_ABMIL", "challenge_5Pimed"):
+            assert name in message
+
+    def test_unknown_name_from_env_raises(self, mock_env_dict):
+        """MODEL_NAME (via env_vars) goes through the same check as an explicit name."""
+        mc = _import_models_config()
+        env = dict(mock_env_dict, model_name="ResNet19")
+        with pytest.raises(ValueError, match="Unsupported model name: 'ResNet19'"):
+            mc.create_model(logger=_logger(), env_vars=env)
 
     @pytest.mark.gpu
     def test_create_mst_with_gpu(self, mock_env_dict):

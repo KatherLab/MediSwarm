@@ -8,11 +8,11 @@ Outputs a comparison table with:
   - Training time per epoch
 
 Usage:
-    # Benchmark built-in models only (ResNet variants, MST, Swin3D):
+    # Benchmark built-in models only (ResNet variants, MST):
     python benchmark_models.py
 
     # Benchmark specific models:
-    python benchmark_models.py --models MST ResNet18 Swin3D
+    python benchmark_models.py --models MST ResNet18
 
     # Include challenge models:
     python benchmark_models.py --include-challenge
@@ -60,7 +60,7 @@ logger = logging.getLogger("benchmark")
 # ---------------------------------------------------------------------------
 BUILTIN_MODELS = [
     "ResNet10", "ResNet18", "ResNet34", "ResNet50",
-    "ResNet101", "ResNet152", "MST", "Swin3D",
+    "ResNet101", "ResNet152", "MST",
 ]
 
 

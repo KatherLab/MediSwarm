@@ -1,6 +1,10 @@
 from pathlib import Path
+import copy
+import functools
 import json
+import logging
 import os
+import types
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,6 +18,15 @@ from torchmetrics import (
     Recall,
     Specificity,
 )
+
+logger = logging.getLogger(__name__)
+
+# Non-parameter buffers that may legitimately differ between two state dicts of one architecture.
+# BasicClassifier registers `_class_weight` only when the model is built with class weights, and
+# CrossEntropyLoss gains `loss.weight` at the first compute_loss() with them: a checkpoint written
+# after training carries both, a freshly built model may carry neither. Any other difference means
+# a different architecture (or class count).
+NON_PARAMETER_STATE_KEYS = frozenset({"_class_weight", "loss.weight"})
 
 # Extended evaluation metrics (#410) are attached to these states only, so the
 # per-training-step cost of a run is unchanged.
@@ -37,6 +50,64 @@ def _bootstrap_samples():
         return max(2, int(os.environ.get("ODELIA_EVAL_BOOTSTRAP_N", "200")))
     except ValueError:
         return 200
+
+
+def _first(keys, limit=5):
+    keys = list(keys)
+    return ", ".join(keys[:limit]) + (f", ... ({len(keys) - limit} more)" if len(keys) > limit else "")
+
+
+def state_dict_mismatch(model_state, loaded_state, ignore=NON_PARAMETER_STATE_KEYS):
+    """None if `loaded_state` fits `model_state`, else a description of every difference.
+
+    Fits means: the same keys, apart from those in `ignore`, and the same shape for every key
+    both hold. A non-strict load_state_dict() would silently skip what does not fit.
+    """
+    missing = [key for key in model_state if key not in loaded_state and key not in ignore]
+    unexpected = [key for key in loaded_state if key not in model_state and key not in ignore]
+    reshaped = [
+        f"{key}: checkpoint {tuple(getattr(loaded_state[key], 'shape', ()))}, "
+        f"model {tuple(getattr(model_state[key], 'shape', ()))}"
+        for key in model_state
+        if key in loaded_state
+        and tuple(getattr(loaded_state[key], "shape", ())) != tuple(getattr(model_state[key], "shape", ()))
+    ]
+    problems = []
+    if missing:
+        problems.append(f"{len(missing)} of the model's {len(model_state)} keys missing ({_first(missing)})")
+    if unexpected:
+        problems.append(f"{len(unexpected)} unexpected keys ({_first(unexpected)})")
+    if reshaped:
+        problems.append(f"{len(reshaped)} keys with another shape ({_first(reshaped, 3)})")
+    return "; ".join(problems) or None
+
+
+def _state_dict_in(checkpoint, path):
+    """The state dict in a Lightning checkpoint ('state_dict'), a persistor file ('model') or a bare one."""
+    if isinstance(checkpoint, dict):
+        for key in ("state_dict", "model"):
+            if isinstance(checkpoint.get(key), dict):
+                return checkpoint[key]
+        if checkpoint and all(isinstance(value, torch.Tensor) for value in checkpoint.values()):
+            return checkpoint
+    raise RuntimeError(f"{path} holds no state dict (looked for 'state_dict', 'model' or tensors only)")
+
+
+class _instance_or_class_method:
+    """Like classmethod, but bound to the instance when called on one (see load_checkpoint_from_file).
+
+    The checkpoint loaders below were classmethods that rebuilt the model through Lightning's
+    load_from_checkpoint, also when called on a trained model -- which is how finalize_training
+    calls them, and why ModelWrapper models could not be reloaded (#627). Called on a model they
+    now copy that model; called on the class they still rebuild it, since there is nothing to copy.
+    """
+
+    def __init__(self, func):
+        self.__func__ = func
+        functools.update_wrapper(self, func)
+
+    def __get__(self, instance, owner=None):
+        return types.MethodType(self.__func__, owner if instance is None else instance)
 
 
 class VeryBasicModel(pl.LightningModule):
@@ -96,14 +167,53 @@ class VeryBasicModel(pl.LightningModule):
         path_rel_best_checkpoint = cls._get_best_checkpoint_relative_path(path_checkpoint_dir, **kwargs)
         return Path(path_checkpoint_dir) / path_rel_best_checkpoint
 
-    @classmethod
-    def load_checkpoint_from_file(cls, path_checkpoint, **kwargs):
-        return cls.load_from_checkpoint(path_checkpoint, **kwargs)
+    @_instance_or_class_method
+    def load_checkpoint_from_file(self_or_cls, path_checkpoint, **kwargs):
+        """Load a Lightning checkpoint written by this model's run.
 
-    @classmethod
-    def load_best_checkpoint(cls, path_checkpoint_dir, path_run_dir, **kwargs):
-        rel_path_best_checkpoint = cls._get_best_checkpoint_relative_path(path_checkpoint_dir)
-        return cls.load_from_checkpoint(path_run_dir/rel_path_best_checkpoint, **kwargs)
+        On a model (`model.load_checkpoint_from_file(path, strict=False)`, as after training) the
+        weights go into a copy of that model: see load_checkpoint_copy. On the class, Lightning
+        rebuilds the model from the hyperparameters saved in the checkpoint, which only works for
+        models whose constructor takes plain values -- not for ModelWrapper (#627).
+        """
+        if isinstance(self_or_cls, type):
+            return self_or_cls.load_from_checkpoint(path_checkpoint, **kwargs)
+        return self_or_cls.load_checkpoint_copy(path_checkpoint, **kwargs)
+
+    @_instance_or_class_method
+    def load_best_checkpoint(self_or_cls, path_checkpoint_dir, path_run_dir, **kwargs):
+        """Load the checkpoint recorded by save_best_checkpoint; same dispatch as load_checkpoint_from_file."""
+        rel_path_best_checkpoint = self_or_cls._get_best_checkpoint_relative_path(path_checkpoint_dir)
+        return self_or_cls.load_checkpoint_from_file(Path(path_run_dir) / rel_path_best_checkpoint, **kwargs)
+
+    def load_checkpoint_copy(self, path_checkpoint, strict=False, map_location="cpu"):
+        """A copy of this model with the weights of a checkpoint of the same architecture.
+
+        Lightning's load_from_checkpoint rebuilds the module from the hyperparameters saved in the
+        checkpoint. ModelWrapper (challenge models 2-5) cannot be rebuilt that way: its backbone is
+        an nn.Module, which save_hyperparameters keeps out of the checkpoint, so the rebuild fails
+        with "missing 1 required positional argument: 'backbone'" (#627). For every other model the
+        rebuild re-runs __init__ only to overwrite its result -- MST_SAMMed2D re-reads its 2.56 GB
+        SAM-Med2D file, MST loads DINOv2 through torch.hub. A deep copy of the model in memory
+        already has the architecture, however it was built.
+
+        Takes a Lightning checkpoint ('state_dict'), a persistor file ('model') or a bare state
+        dict. Every key and shape must match; with strict=False (the default) the non-parameter
+        buffers in NON_PARAMETER_STATE_KEYS may differ. Anything else raises RuntimeError, so a
+        checkpoint of another architecture is never half-loaded. The copy is returned in eval mode,
+        ready for inference; this model is not changed. The copy is made on this model's device:
+        after fit() Lightning has already moved the model to the CPU.
+        """
+        checkpoint = torch.load(path_checkpoint, map_location=map_location, weights_only=False)
+        state_dict = _state_dict_in(checkpoint, path_checkpoint)
+        ignore = frozenset() if strict else NON_PARAMETER_STATE_KEYS
+        mismatch = state_dict_mismatch(self.state_dict(), state_dict, ignore=ignore)
+        if mismatch:
+            raise RuntimeError(f"{path_checkpoint} does not fit this {type(self).__name__}: {mismatch}")
+        model = copy.deepcopy(self)  # LightningModule.__getstate__ leaves the trainer out of the copy
+        model.load_state_dict(state_dict, strict=False)  # differences were limited to `ignore` above
+        logger.info(f"Loaded {len(state_dict)} tensors from {path_checkpoint} into a copy of {type(self).__name__}")
+        return model.eval()
 
     def load_pretrained(self, checkpoint_path, map_location=None, **kwargs):
         if checkpoint_path.is_dir():
