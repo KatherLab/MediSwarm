@@ -109,21 +109,21 @@ def write_data_layout_record(path_run_dir, manifests) -> None:
     The log says the same, but the record stays next to the checkpoints it explains. It
     holds folder names and counts only, no UIDs. Best effort: provenance must not stop a run.
     """
-    record = {}
-    for institution, manifest in (manifests or {}).items():
-        layout = getattr(manifest, 'layout', None)
-        verdict = getattr(manifest, 'format_verdict', None)
-        record[institution] = {
-            'data_dir': str(getattr(manifest, 'path_data_root', '')),
-            'metadata_dir': str(getattr(manifest, 'path_metadata', '')),
-            'image_file': getattr(manifest, 'image_file', None),
-            'layout': layout.as_dict() if layout is not None else None,
-            'crop_format': verdict.as_dict() if verdict is not None else None,
-        }
     try:
+        record = {}
+        for institution, manifest in (manifests or {}).items():
+            layout = getattr(manifest, 'layout', None)
+            verdict = getattr(manifest, 'format_verdict', None)
+            record[institution] = {
+                'data_dir': str(getattr(manifest, 'path_data_root', '')),
+                'metadata_dir': str(getattr(manifest, 'path_metadata', '')),
+                'image_file': getattr(manifest, 'image_file', None),
+                'layout': layout.as_dict() if layout is not None else None,
+                'crop_format': verdict.as_dict() if verdict is not None else None,
+            }
         with open(Path(path_run_dir) / DATA_LAYOUT_RECORD, 'w', encoding='utf-8') as f:
             json.dump(record, f, indent=2, sort_keys=True)
-    except (OSError, TypeError, ValueError) as exc:
+    except Exception as exc:  # noqa: BLE001 -- see docstring
         logging.getLogger(__name__).warning(f"Could not write {DATA_LAYOUT_RECORD} to {path_run_dir}: {exc}")
 
 

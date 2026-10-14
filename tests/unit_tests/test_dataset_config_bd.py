@@ -226,3 +226,11 @@ def test_prepare_odelia_dataset_records_the_layout(synthetic_root, tmp_path, mon
     assert record["data_dir"].endswith("data_unilateral_BD") and record["metadata_dir"].endswith("metadata_unilateral_BD")
     assert record["crop_format"]["ok"] is True
     assert "ID_0" not in record_text
+
+
+def test_layout_record_is_best_effort(synthetic_root, tmp_path, caplog):
+    """Provenance must never stop a run."""
+    manifests = {SITE: _manifest(synthetic_root, "unilateral_BD")}
+    with caplog.at_level(logging.WARNING):
+        env_config.write_data_layout_record(tmp_path / "missing" / "run", manifests)
+    assert "Could not write data_layout.json" in caplog.text
