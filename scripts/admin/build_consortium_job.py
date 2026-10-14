@@ -42,8 +42,9 @@ callbacks are inserted directly before FLCallback in that same order (contract 3
 * ``al_subset`` first: it replaces the training set (``ctx.data_module``) before any
   other hook or the trainer reads it, so MS6 metadata and the step count that weights
   the aggregation both describe the subset that was actually trained.
-* ``ms6_capture`` before ``dp_noise``: its callback sees the site's own model W_r at the
-  end of training, before the update is clipped and noised.
+* ``ms6_capture`` before ``dp_noise``: ms6_capture keeps W_r in its after_round, after
+  FLCallback sent it, so the file is the released (clipped and noised) update in either
+  order; listed first, its after_round also runs before anything dp_noise does there.
 * ``dp_noise`` last: clipping and noise must be the final transformation of the
   outgoing weights. Its callback then sits directly before FLCallback, so no other hook
   can change the update after the noise was added (which would void the accounting).

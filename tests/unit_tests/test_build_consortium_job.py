@@ -13,6 +13,7 @@ import importlib.util
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -100,6 +101,15 @@ SERVER_ARCHIVE = """
   }"""
 
 
+def strip_component(text, component_id):
+    """Remove one component block (as the job templates write it) to model a template without it."""
+    block = re.compile(
+        r"\n[ \t]*\{[ \t]*\n(?:[ \t]*#[^\n]*\n)*[ \t]*id = \"%s\"\n.*?args \{.*?\}\n[ \t]*\}" % re.escape(component_id),
+        re.S,
+    )
+    return block.sub("", text, count=1)
+
+
 def make_tree(
     tmp_path,
     persistor=STUB_PERSISTOR,
@@ -143,6 +153,9 @@ def make_tree(
             client_text = client_text.replace("components = [", "components = [" + CLIENT_STREAMER, 1)
         if ms6_components and "ms6_global_archive" not in server_text:
             server_text = server_text.replace("components = [", "components = [" + SERVER_ARCHIVE, 1)
+        if not ms6_components:  # the 1.9.0 templates carry both components
+            client_text = strip_component(client_text, "ms6_global_streamer")
+            server_text = strip_component(server_text, "ms6_global_archive")
         (job / "app" / "config" / "config_fed_client.conf").write_text(client_text)
         (job / "app" / "config" / "config_fed_server.conf").write_text(server_text)
         (job / "app" / "custom").symlink_to("../../_shared/custom")
