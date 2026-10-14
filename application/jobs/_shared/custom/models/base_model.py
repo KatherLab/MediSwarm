@@ -333,6 +333,63 @@ class BasicClassifier(BasicModel):
         self.num_classes = out_ch
         self._support = {state: [0] * out_ch for state in ["train_", "val_", "test_"]}
 
+        # Which model a streamed number belongs to is told by its prefix (release 1.9.0, contract 3.4).
+        # The training loop sets these around an explicit evaluation (threedcnn_ptl.metric_labels), e.g.
+        # {"val": "global_val"} while the received global is validated; empty = log under the state name.
+        self._metric_prefixes = {}
+        self._metric_constants = {}
+        # Per-case rows of the listed evaluation states, filled by _step from the same forward pass the
+        # metrics are computed from (threedcnn_ptl.prediction_capture). None = not capturing.
+        self._prediction_capture = None
+
+    def set_metric_labels(self, prefixes=None, constants=None):
+        """Log the metrics of an evaluation state under another prefix until clear_metric_labels().
+
+        ``prefixes`` maps a state to the prefix its metrics stream under, e.g. ``{"val": "global_val"}``
+        while the received global is validated, or ``{"test": "final_test"}`` in the evaluation-only round.
+        ``constants`` (e.g. ``{"round": 3}``) are logged as ``<prefix>/<name>`` at the end of every
+        validation and test epoch, so each streamed record says which round it describes.
+
+        The original ``<state>/...`` key is still logged, but with ``logger=False``: it stays in
+        ``trainer.callback_metrics`` and never reaches a logger. Both halves matter. NVFlare's FLCallback
+        snapshots ``callback_metrics`` after the round's first validation and sends them as the result's
+        ``initial_metrics``, and CCWF's IntimeModelSelector picks the best global from
+        ``initial_metrics[key_metric]`` with ``key_metric = "val/AUC_ROC"``: renaming that key would switch
+        best-global selection off without an error. Streaming it, on the other hand, would file the
+        global's numbers under the local model, because the coordinator reads ``val/`` as the site's local
+        model (per_site_metrics.py).
+        """
+        self._metric_prefixes = dict(prefixes or {})
+        self._metric_constants = dict(constants or {})
+
+    def clear_metric_labels(self):
+        self._metric_prefixes = {}
+        self._metric_constants = {}
+
+    def start_prediction_capture(self, states=("val", "test")):
+        """Record (ground truth, class probabilities) of every case of the listed states, in loader order."""
+        self._prediction_capture = {state: [] for state in states}
+
+    def stop_prediction_capture(self):
+        """Stop recording and return {state: [{"GT": int, "pred_prob": [float, ...]}, ...]}."""
+        captured, self._prediction_capture = self._prediction_capture or {}, None
+        return captured
+
+    def _log_metric(self, state, name, value, **kwargs):
+        """self.log() for a ``<state>/...`` key, honouring set_metric_labels() (see there for why)."""
+        prefix = self._metric_prefixes.get(state)
+        if prefix is None:
+            self.log(name, value, **kwargs)
+            return
+        self.log(name, value, logger=False, **kwargs)
+        self.log(prefix + name[len(state):], value, **kwargs)
+
+    def _capture_predictions(self, state, logits, target_squeezed):
+        rows = self._prediction_capture[state]
+        probabilities = self.logits2probabilities(logits.detach().float()).cpu().tolist()
+        for gt, probs in zip(target_squeezed.detach().flatten().cpu().tolist(), probabilities):
+            rows.append({"GT": int(gt), "pred_prob": probs})
+
     def _build_extended_metrics(self, num_classes, state):
         """Metrics beyond ACC/AUROC. All accept raw logits (torchmetrics softmaxes)."""
         kwargs = {"task": "multiclass", "num_classes": num_classes}
@@ -435,8 +492,15 @@ class BasicClassifier(BasicModel):
             for metric in self.extra_metrics[state + "_"].values():
                 metric.update(pred, target_squeezed)
         self._update_support(state, target_squeezed)
+        if self._prediction_capture is not None and state in self._prediction_capture:
+            self._capture_predictions(state, pred, target_squeezed)
 
-        self.log(f"{state}/loss", loss_val, batch_size=batch_size, on_step=True, on_epoch=True)
+        # Per-step values for training only. Lightning hands every per-step value of a validation or test
+        # loop to the loggers, and ClientLogger streams it to the coordinator: at batch size 1 a per-step
+        # val/test loss is one case's loss, i.e. per-case data leaving the site without the opt-in that
+        # per_case_predictions.py requires. The epoch value is logged as "<state>/loss".
+        self._log_metric(state, f"{state}/loss", loss_val, batch_size=batch_size,
+                         on_step=(state == "train"), on_epoch=True)
         return loss_val
 
     def _update_support(self, state, target_squeezed):
@@ -457,13 +521,16 @@ class BasicClassifier(BasicModel):
         metric_values = self.compute_epoch_metrics(state)
         acc_value = metric_values[f"{state}/ACC"]
         auc_roc_value = metric_values[f"{state}/AUC_ROC"]
+        # "val/AUC_ROC", which ModelCheckpoint monitors, is one of these keys (compute_epoch_metrics keeps
+        # it verbatim), so it needs no second log call.
         for name, value in metric_values.items():
-            self.log(name, value, batch_size=self.batch_size, on_step=False, on_epoch=True)
-        # For ModelCheckpoint, also log as "val/AUC_ROC" if state == "val"
-        if state == "val":
-            self.log("val/AUC_ROC", auc_roc_value, batch_size=self.batch_size, on_step=False, on_epoch=True)
+            self._log_metric(state, name, value, batch_size=self.batch_size, on_step=False, on_epoch=True)
+        label = self._metric_prefixes.get(state, state)
+        if state != "train":
+            for name, value in self._metric_constants.items():
+                self.log(f"{label}/{name}", float(value), batch_size=self.batch_size, on_step=False, on_epoch=True)
         # print some debug information
-        print(f"Epoch {self.current_epoch} - {state} ACC: {acc_value:.4f}, AUC_ROC: {auc_roc_value:.4f}")
+        print(f"Epoch {self.current_epoch} - {label} ACC: {acc_value:.4f}, AUC_ROC: {auc_roc_value:.4f}")
         self.acc[state + "_"].reset()
         self.auc_roc[state + "_"].reset()
         if state + "_" in self.extra_metrics:

@@ -152,13 +152,76 @@ def test_initialize_clears_state_between_runs(module):
     assert second.events == []
 
 
-def test_model_owner_is_recorded(module):
-    c = _collector(module, model_owner="swarm_global")
+def test_local_validation_is_published_as_the_site_local_model(module):
+    """val/* is the site's own model (validation inside trainer.fit), never the global (1.9.0)."""
+    c = _collector(module)
     ctx = FakeCtx()
     c.initialize(ctx)
     c.save(ctx, _metric(module, "val/AUC_ROC", 0.82), "UKA_1")
     c.finalize(ctx)
-    assert ctx.events[0][1]["_model_owner_"] == "swarm_global"
+    assert [props["_model_owner_"] for _, props in ctx.events] == ["site_local_model"]
+
+
+def _by_owner(ctx):
+    from nvflare.apis.dxo import from_shareable
+
+    out = {}
+    for _, props in ctx.events:
+        out.setdefault(props["_data_client_"], {})[props["_model_owner_"]] = from_shareable(
+            props["_validation_result_"]).data
+    return out
+
+
+def test_each_model_is_published_under_its_own_owner(module):
+    """The three models a site reports on never share an owner, whatever order they stream in."""
+    c = _collector(module)
+    ctx = FakeCtx()
+    c.initialize(ctx)
+    # round 3: global validated, then the local epochs; round 4 (evaluation only): the final global
+    c.save(ctx, _metrics_batch(module, {"global_val/AUC_ROC": 0.70, "global_val/round": 3.0,
+                                        "global_val/n": 41.0}, step=300), "UMCU_1")
+    c.save(ctx, _metrics_batch(module, {"val/AUC_ROC": 0.91, "val/round": 3.0, "val/n": 41.0,
+                                        "epoch": 7.0}, step=310), "UMCU_1")
+    c.save(ctx, _metrics_batch(module, {"final_val/AUC_ROC": 0.74, "final_val/round": 4.0}, step=320), "UMCU_1")
+    c.save(ctx, _metrics_batch(module, {"final_test/AUC_ROC": 0.72, "final_test/n": 1897.0,
+                                        "final_test/round": 4.0}, step=320), "UMCU_1")
+    c.finalize(ctx)
+
+    published = _by_owner(ctx)["UMCU_1"]
+    assert set(published) == {"site_local_model", "swarm_global_received", "swarm_global"}
+    assert published["site_local_model"] == {"val/AUC_ROC": 0.91, "val/round": 3.0, "val/n": 41.0,
+                                             "_last_step": 310}
+    assert published["swarm_global_received"]["global_val/AUC_ROC"] == pytest.approx(0.70)
+    assert published["swarm_global_received"]["global_val/round"] == 3.0
+    final = published["swarm_global"]
+    assert final["final_val/AUC_ROC"] == pytest.approx(0.74)
+    assert final["final_test/AUC_ROC"] == pytest.approx(0.72)
+    assert final["final_test/n"] == 1897.0 and final["final_val/round"] == 4.0
+    # no local value under a global owner, and the other way round
+    assert not any(k.startswith("val/") for k in final) and not any(
+        k.startswith("val/") for k in published["swarm_global_received"])
+    assert all(k.startswith("val/") or k == "_last_step" for k in published["site_local_model"])
+
+
+def test_without_an_evaluation_round_there_is_no_swarm_global_record(module):
+    """The final global is only evaluated in the evaluation-only round; the label is not borrowed."""
+    c = _collector(module)
+    ctx = FakeCtx()
+    c.initialize(ctx)
+    c.save(ctx, _metrics_batch(module, {"global_val/AUC_ROC": 0.70}), "MHA_1")
+    c.save(ctx, _metrics_batch(module, {"val/AUC_ROC": 0.88}), "MHA_1")
+    c.finalize(ctx)
+    assert set(_by_owner(ctx)["MHA_1"]) == {"site_local_model", "swarm_global_received"}
+
+
+def test_prefix_owners_can_be_configured(module):
+    c = _collector(module, prefix_owners={"val/": "local", "test/": "local"})
+    ctx = FakeCtx()
+    c.initialize(ctx)
+    c.save(ctx, _metrics_batch(module, {"val/ACC": 0.5, "test/ACC": 0.6, "global_val/ACC": 0.7}), "RSH_1")
+    c.finalize(ctx)
+    assert _by_owner(ctx) == {"RSH_1": {"local": {"val/ACC": 0.5, "test/ACC": 0.6, "_last_step": 0}}}
+
 
 def _metrics_batch(module, values, step=0):
     """The shape MLflowWriter.log_metrics sends: a dict under the tag "metrics".
