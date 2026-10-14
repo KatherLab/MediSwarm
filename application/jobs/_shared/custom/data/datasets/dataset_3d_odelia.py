@@ -20,6 +20,19 @@ from data.augmentation.augmentations_3d import (
     CropOrPad,
     DegenerateImageError,
 )
+from data_layout import (
+    CONFIG_FOLDERS,
+    DEFAULT_IMAGE_FILE,
+    CropFormatVerdict,
+    DataLayout,
+    canonical_config,
+    check_crop_format,
+    describe_layout,
+    enforce_crop_format,
+    metadata_fallback_warning,
+    requested_layout,
+    resolve_site_layout,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +52,12 @@ class ODELIAInstitutionManifest:
     _uids_in_images: List[str] = field(init=False, repr=False)
     _uids_in_split_cache: Dict[Tuple[int, str | None], List[str]] = field(default_factory=dict, repr=False)
     _dataframe_cache: Dict[Tuple[int, str | None], pd.DataFrame] = field(default_factory=dict, repr=False)
+    # Which file of each exam folder is the input (ODELIA_IMAGE_FILE), how data_dir/meta_dir
+    # were chosen (CONFIG, overrides, metadata fallback) and what the crop-format guard found.
+    # build_manifests fills all three; a hand-built manifest keeps the defaults.
+    image_file: str = DEFAULT_IMAGE_FILE
+    layout: DataLayout | None = None
+    format_verdict: CropFormatVerdict | None = None
 
     def __post_init__(self):
         self.image_uids_set = set(self.image_uids)
@@ -84,16 +103,23 @@ class ODELIAInstitutionManifest:
             self._uids_in_split_cache[cache_key] = sorted(df_split['UID'].tolist())
         return list(self._uids_in_split_cache[cache_key])
 
-    def image_path(self, uid: str, filename: str = 'Sub_1.nii.gz') -> Path:
-        return self.path_data_root / uid / filename
+    def image_path(self, uid: str, filename: str | None = None) -> Path:
+        return self.path_data_root / uid / (self.image_file if filename is None else filename)
 
 
 class ODELIAStaticVolumeCache:
-    """Optional scratch-side cache for decoded ODELIA NIfTI volumes."""
+    """Optional scratch-side cache for decoded ODELIA NIfTI volumes.
 
-    def __init__(self, cache_root: str | Path, config: str, version: str = "v1"):
+    Entries live under ``<cache_root>/<namespace>/<institution>/<uid>.npz``. The namespace
+    defaults to the config name; the loader passes DataLayout.cache_namespace, which also
+    covers the image folder and file, so standard and BreastDivider crops of the same UID
+    never share an entry.
+    """
+
+    def __init__(self, cache_root: str | Path, config: str, version: str = "v1", namespace: str | None = None):
         self.cache_root = Path(cache_root)
         self.config = config
+        self.namespace = namespace or config
         self.version = version
 
     def load_or_create(self, institution: str, uid: str, path_img: Path, loader) -> tio.ScalarImage:
@@ -108,7 +134,7 @@ class ODELIAStaticVolumeCache:
         return image
 
     def _cache_paths(self, institution: str, uid: str) -> Tuple[Path, Path]:
-        cache_dir = self.cache_root / self.config / institution
+        cache_dir = self.cache_root / self.namespace / institution
         data_path = cache_dir / f"{uid}.npz"
         meta_path = cache_dir / f"{uid}.json"
         return data_path, meta_path
@@ -174,14 +200,11 @@ class ODELIAStaticVolumeCache:
 class ODELIA_Dataset3D(data.Dataset):
     PATH_ROOT = Path('/data')
     ALL_INSTITUTIONS = ['CAM', 'MHA', 'RSH', 'UKA', 'UMCU', 'VHIO', 'RUMC', 'USZ']
-    DATA_DIR = {
-        'original': 'data',
-        'unilateral': 'data_unilateral'
-    }
-    META_DIR = {
-        'original': 'metadata',
-        'unilateral': 'metadata_unilateral'
-    }
+    # Default folders per CONFIG (see data_layout.py). The loader resolves the effective
+    # folders with resolve_site_layout(), which also applies the ODELIA_* overrides and the
+    # unilateral_BD metadata fallback; these maps stay for callers that look them up.
+    DATA_DIR = {config: folders[0] for config, folders in CONFIG_FOLDERS.items()}
+    META_DIR = {config: folders[1] for config, folders in CONFIG_FOLDERS.items()}
     CLASS_LABELS = {
         'original': {
             'Lesion_Left': ['No', 'Benign', 'Malignant'],
@@ -189,7 +212,11 @@ class ODELIA_Dataset3D(data.Dataset):
         },
         'unilateral': {
             'Lesion': ['No', 'Benign', 'Malignant'],
-        }
+        },
+        # Same unilateral crops and labels, only cut by BreastDivider: same transforms too.
+        'unilateral_BD': {
+            'Lesion': ['No', 'Benign', 'Malignant'],
+        },
     }
 
     # Degenerate / corrupt input handling (see DegenerateImageError + find_degenerate_inputs).
@@ -222,10 +249,13 @@ class ODELIA_Dataset3D(data.Dataset):
     ):
         self.path_root = Path(self.PATH_ROOT if path_root is None else path_root)
         self.split = split
+        # Validates CONFIG (unknown -> ValueError naming the valid values); None reads $CONFIG.
+        config = canonical_config(config)
         self.config = config
+        requested = requested_layout(config)
         self.class_labels = self.CLASS_LABELS[config]
-        self.meta_dir = self.META_DIR[config]
-        self.data_dir = self.DATA_DIR[config]
+        self.meta_dir = requested.metadata_folder
+        self.data_dir = requested.data_folder
         self.labels = list(self.class_labels.keys()) if labels is None else labels
         self.class_labels_num = [len(self.class_labels[l]) for l in self.labels]
         self.institutions = self._normalize_institutions(institutions)
@@ -278,10 +308,12 @@ class ODELIA_Dataset3D(data.Dataset):
             enable_preprocess_cache = False
 
         if enable_preprocess_cache and preprocess_cache_dir:
+            layouts = [m.layout for m in self.manifests.values() if getattr(m, 'layout', None) is not None]
             self.preprocess_cache = ODELIAStaticVolumeCache(
                 cache_root=preprocess_cache_dir,
                 config=config,
                 version=preprocess_cache_version,
+                namespace=(layouts[0] if layouts else requested).cache_namespace,
             )
         else:
             self.preprocess_cache = None
@@ -409,25 +441,59 @@ class ODELIA_Dataset3D(data.Dataset):
         return list(institutions)
 
     @classmethod
-    def build_manifests(cls, path_root=None, institutions=None, config='unilateral') -> Dict[str, ODELIAInstitutionManifest]:
+    def build_manifests(cls, path_root=None, institutions=None, config=None) -> Dict[str, ODELIAInstitutionManifest]:
+        """Read each institution's metadata and list its exam folders.
+
+        This is the one place that decides which folders and file are read (CONFIG plus the
+        ODELIA_DATA_FOLDER / ODELIA_METADATA_FOLDER / ODELIA_IMAGE_FILE overrides, see
+        data_layout.py), so it also logs that choice and runs the crop-format guard -- once per
+        institution and setup, and for every caller: training, preflight and predict.py.
+        ``config=None`` reads $CONFIG.
+        """
         path_root = Path(cls.PATH_ROOT if path_root is None else path_root)
+        config = canonical_config(config)
         normalized_institutions = cls._normalize_institutions(institutions)
         manifests: Dict[str, ODELIAInstitutionManifest] = {}
 
         for institution in normalized_institutions:
-            path_metadata = path_root / institution / cls.META_DIR[config]
+            site_dir = path_root / institution
+            layout = resolve_site_layout(site_dir, config)
+            if layout.metadata_fallback:
+                logger.warning(metadata_fallback_warning(site_dir, layout))
+            # Metadata first: a site without any data must still get the error that names
+            # its metadata CSV (the CI preflight without data relies on it).
+            path_metadata = site_dir / layout.metadata_folder
             annotation_df = pd.read_csv(path_metadata / 'annotation.csv', dtype={'UID': str, 'PatientID': str})
             split_df = pd.read_csv(path_metadata / 'split.csv', dtype={'UID': str})
-            image_uids = cls.run_item_crawler(path_root / institution / cls.DATA_DIR[config])
+            path_images = site_dir / layout.data_folder
+            if not path_images.is_dir():
+                if path_images.is_symlink():
+                    hint = ("It is a symlink whose target is not visible inside the container; mount the target "
+                            "too, e.g. MEDISWARM_DOCKER_OPTIONS=\"-v /abs/target:/abs/target:ro\".")
+                elif config == 'unilateral_BD':
+                    hint = ("BreastDivider crops belong in data_unilateral_BD next to data_unilateral, see "
+                            "docs/BREASTDIVIDER_SITE_GUIDE.md.")
+                else:
+                    hint = "Check --data_dir and the CONFIG / ODELIA_DATA_FOLDER of the run."
+                raise FileNotFoundError(
+                    f"ODELIA: image folder {path_images} does not exist ({describe_layout(site_dir, layout)}). {hint}"
+                )
+            image_uids = cls.run_item_crawler(path_images)
+            logger.info(f"ODELIA data for {institution}: {describe_layout(site_dir, layout, len(image_uids))}")
+            verdict = check_crop_format(path_images, config, image_uids, layout.image_file)
+            enforce_crop_format(verdict, logger, institution)
             manifests[institution] = ODELIAInstitutionManifest(
                 institution=institution,
                 path_root=path_root,
                 config=config,
-                data_dir=cls.DATA_DIR[config],
-                meta_dir=cls.META_DIR[config],
+                data_dir=layout.data_folder,
+                meta_dir=layout.metadata_folder,
                 annotation_df=annotation_df,
                 split_df=split_df,
                 image_uids=image_uids,
+                image_file=layout.image_file,
+                layout=layout,
+                format_verdict=verdict,
             )
 
         return manifests
@@ -557,7 +623,8 @@ class ODELIA_Dataset3D(data.Dataset):
             institutions=None,
             fold=0,
             log_dataset_details=False,
-            manifests: Dict[str, ODELIAInstitutionManifest] | None = None) -> None:
+            manifests: Dict[str, ODELIAInstitutionManifest] | None = None,
+            config: str | None = None) -> None:
 
         def _log_duplicates(uids: List[str], where: str, logger, log_dataset_details) -> None:
             if len(uids) != len(set(uids)):
@@ -627,7 +694,8 @@ class ODELIA_Dataset3D(data.Dataset):
                     logger.error(f'The following exams are present in {where_a} and {where_b}: ' + ', '.join(joint_exam_ids))
 
 
-        config = 'unilateral'
+        # Only used when no manifests are passed in; None reads $CONFIG (it used to be
+        # hard-coded to 'unilateral', which would have scanned the wrong folders for BD runs).
         normalized_institutions = cls._normalize_institutions(institutions)
         if manifests is None:
             manifests = cls.build_manifests(path_root=path_root, institutions=normalized_institutions, config=config)

@@ -1,9 +1,14 @@
+import json
+import logging
 import os
 import torch.multiprocessing as mp
 from datetime import datetime
 from pathlib import Path
 
 from data.datasets import ODELIA_Dataset3D
+from data_layout import canonical_config
+
+DATA_LAYOUT_RECORD = 'data_layout.json'
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -88,11 +93,38 @@ def resolve_odelia_runtime_settings(env_vars=None):
     return {
         'institution': os.environ.get('INSTITUTION', env_vars['site_name']),
         'model_name': os.environ.get('MODEL_NAME', env_vars['model_name']),
-        'config': os.environ.get('CONFIG', 'unilateral'),
+        # original / unilateral / unilateral_BD; an unknown value fails here, before any
+        # data is read, with the list of valid values (data_layout.canonical_config).
+        'config': canonical_config(os.environ.get('CONFIG', 'unilateral')),
         'fold': env_vars['fold'],
         'data_dir': env_vars['data_dir'],
         'scratch_dir': env_vars['scratch_dir'],
     }
+
+
+def write_data_layout_record(path_run_dir, manifests) -> None:
+    """Record in the run directory which folders and image file each institution was read
+    from (after overrides and the metadata fallback) and what the crop-format guard found.
+
+    The log says the same, but the record stays next to the checkpoints it explains. It
+    holds folder names and counts only, no UIDs. Best effort: provenance must not stop a run.
+    """
+    record = {}
+    for institution, manifest in (manifests or {}).items():
+        layout = getattr(manifest, 'layout', None)
+        verdict = getattr(manifest, 'format_verdict', None)
+        record[institution] = {
+            'data_dir': str(getattr(manifest, 'path_data_root', '')),
+            'metadata_dir': str(getattr(manifest, 'path_metadata', '')),
+            'image_file': getattr(manifest, 'image_file', None),
+            'layout': layout.as_dict() if layout is not None else None,
+            'crop_format': verdict.as_dict() if verdict is not None else None,
+        }
+    try:
+        with open(Path(path_run_dir) / DATA_LAYOUT_RECORD, 'w', encoding='utf-8') as f:
+            json.dump(record, f, indent=2, sort_keys=True)
+    except (OSError, TypeError, ValueError) as exc:
+        logging.getLogger(__name__).warning(f"Could not write {DATA_LAYOUT_RECORD} to {path_run_dir}: {exc}")
 
 
 def build_odelia_manifests(env_vars=None):
@@ -120,6 +152,7 @@ def prepare_odelia_dataset(logger, log_dataset_details: bool = False, manifests=
     run_name = f'{model}_{config}_fold{fold}_{current_time}'
     path_run_dir = Path(settings['scratch_dir']) / 'runs' / institution / run_name
     path_run_dir.mkdir(parents=True, exist_ok=True)
+    write_data_layout_record(path_run_dir, manifests)
 
     ds_train = ODELIA_Dataset3D(
         path_root=settings['data_dir'],
