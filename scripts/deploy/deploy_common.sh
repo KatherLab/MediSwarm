@@ -13,7 +13,10 @@
 #   WORKSPACE_DIR  build workspace dir         (used by find_latest_prod)
 #   DEPLOY_BASE    server/admin deploy dir     (used by resolve_server_startup_dir)
 #   SERVER_NAME    server participant name     (optional; defaults to dl3.tud.de)
-# and per-site variables <SITE>_HOST / _USER / _PASS (used by site_var lookups).
+# and per-site variables <SITE>_HOST / _USER (used by site_var lookups). The
+# password comes from <SITE>_PASS, or the environment variable named by
+# <SITE>_PASS_ENV, or the first line of the file <SITE>_PASS_FILE (see site_pass);
+# with none of them set, ssh uses keys only.
 # This file defines no `set` options and runs no code beyond definitions.
 # ============================================================================
 
@@ -33,20 +36,49 @@ step()  { echo -e "\n${BOLD}=== $* ===${NC}" >&2; }
 
 # ── Helper functions ──────────────────────────────────────────────────────
 
+# Optional per-site variables (INSTITUTION, DOCKER_OPTIONS, IMAGE, PASS_ENV, ...)
+# may be absent from a conf. The '-' default keeps `set -u` callers alive: a bare
+# ${!name} of an unset variable aborts the whole harness with "unbound variable".
 site_var() {
     local site=$1 var=$2
     local full_var="${site}_${var}"
-    echo "${!full_var}"
+    printf '%s\n' "${!full_var-}"
 }
 
+# site_pass <site>: the site's SSH/sudo password, from <SITE>_PASS, else the
+# environment variable named by <SITE>_PASS_ENV, else the first line of the file
+# <SITE>_PASS_FILE. Empty when none is set, which means key-based SSH. Keeping the
+# secret in the environment or a 0600 file lets a conf be shared without it.
+site_pass() {
+    local site=$1 pass env_name file
+    pass=$(site_var "$site" PASS)
+    if [[ -z "$pass" ]]; then
+        env_name=$(site_var "$site" PASS_ENV)
+        [[ -n "$env_name" ]] && pass="${!env_name-}"
+    fi
+    if [[ -z "$pass" ]]; then
+        file=$(site_var "$site" PASS_FILE)
+        if [[ -n "$file" && -r "$file" ]]; then
+            IFS= read -r pass < "$file" || true
+        fi
+    fi
+    printf '%s' "$pass"
+}
+
+# The password reaches sshpass through SSHPASS (sshpass -e), never through argv:
+# `sshpass -p <secret>` is readable by every user of the host in `ps`.
 remote_exec() {
     local site=$1; shift
     local host user pass
     host=$(site_var "$site" HOST)
     user=$(site_var "$site" USER)
-    pass=$(site_var "$site" PASS)
+    pass=$(site_pass "$site")
 
-    sshpass -p "$pass" ssh $SSH_OPTS "$user@$host" "$@"
+    if [[ -n "$pass" ]]; then
+        SSHPASS="$pass" sshpass -e ssh $SSH_OPTS "$user@$host" "$@"
+    else
+        ssh -o BatchMode=yes $SSH_OPTS "$user@$host" "$@"
+    fi
 }
 
 remote_copy() {
@@ -54,9 +86,57 @@ remote_copy() {
     local host user pass
     host=$(site_var "$site" HOST)
     user=$(site_var "$site" USER)
-    pass=$(site_var "$site" PASS)
+    pass=$(site_pass "$site")
 
-    sshpass -p "$pass" scp $SSH_OPTS "$src" "$user@$host:$dst"
+    if [[ -n "$pass" ]]; then
+        SSHPASS="$pass" sshpass -e scp $SSH_OPTS "$src" "$user@$host:$dst"
+    else
+        scp -o BatchMode=yes $SSH_OPTS "$src" "$user@$host:$dst"
+    fi
+}
+
+# remote_fetch <site> <remote path> <local path>: copy a file back from a site.
+remote_fetch() {
+    local site=$1 src=$2 dst=$3
+    local host user pass
+    host=$(site_var "$site" HOST)
+    user=$(site_var "$site" USER)
+    pass=$(site_pass "$site")
+
+    if [[ -n "$pass" ]]; then
+        SSHPASS="$pass" sshpass -e scp $SSH_OPTS "$user@$host:$src" "$dst"
+    else
+        scp -o BatchMode=yes $SSH_OPTS "$user@$host:$src" "$dst"
+    fi
+}
+
+# kit_script_with_image <startup_dir> <image>: write a copy of the kit's docker.sh
+# whose built-in DOCKER_IMAGE line names <image>, next to the original (the script
+# derives its kit directory from its own location), and print its path.
+#
+# Why: the server and admin templates pin the image their kit was built with and
+# read neither image.conf nor an --image flag. To run a candidate image with the
+# sites' existing kits (sites keep their 1.8.1 kits; only the image moves), the
+# test must start the server and the admin on that image too, and the admin must
+# submit the candidate's job code. Only the first plain assignment is replaced;
+# client kits' later DOCKER_IMAGE="${CLI_IMAGE:-...}" lines contain '$' and stay.
+kit_script_with_image() {
+    local startup_dir=$1 image=$2
+    local src="$startup_dir/docker.sh" out="$startup_dir/.docker_image_override.sh"
+    [[ -f "$src" ]] || { err "kit_script_with_image: $src not found"; return 1; }
+    [[ "$image" =~ ^[A-Za-z0-9._/:@-]+$ ]] || { err "kit_script_with_image: invalid image '$image'"; return 1; }
+    awk -v img="$image" '
+        !done && /^[[:space:]]*DOCKER_IMAGE=[^$"]*$/ {
+            match($0, /^[[:space:]]*/)
+            print substr($0, 1, RLENGTH) "DOCKER_IMAGE=" img
+            done = 1
+            next
+        }
+        { print }
+        END { exit done ? 0 : 1 }
+    ' "$src" > "$out" || { err "kit_script_with_image: no DOCKER_IMAGE= line in $src"; rm -f "$out"; return 1; }
+    chmod +x "$out"
+    printf '%s\n' "$out"
 }
 
 find_latest_prod() {
@@ -118,21 +198,23 @@ ensure_local_dns() {
     warn "  $server_fqdn resolves to '${current:-nothing}' here (expected $cosmos_ip) — fixing /etc/hosts"
 
     local -a sudo_cmd
+    local cosmos_pass
+    cosmos_pass=$(site_pass COSMOS)  # COSMOS_PASS, COSMOS_PASS_ENV or COSMOS_PASS_FILE
     if sudo -n true 2>/dev/null; then
         sudo_cmd=(sudo)
-    elif [[ -n "${COSMOS_PASS:-}" ]]; then
+    elif [[ -n "$cosmos_pass" ]]; then
         sudo_cmd=(sudo -S -p '')
     else
-        err "  Cannot edit /etc/hosts (no sudo, no COSMOS_PASS). Add this line and re-run:"
+        err "  Cannot edit /etc/hosts (no sudo, no COSMOS_PASS[_ENV|_FILE]). Add this line and re-run:"
         err "      $cosmos_ip $server_fqdn"
         return 1
     fi
 
     if [[ -n "$current" ]]; then
-        printf '%s\n' "${COSMOS_PASS:-}" | "${sudo_cmd[@]}" \
+        printf '%s\n' "$cosmos_pass" | "${sudo_cmd[@]}" \
             sed -i "s|^.*\\b${server_fqdn}\\b.*\$|${cosmos_ip} ${server_fqdn}|" /etc/hosts
     else
-        printf '%s\n' "${COSMOS_PASS:-}" | "${sudo_cmd[@]}" \
+        printf '%s\n' "$cosmos_pass" | "${sudo_cmd[@]}" \
             bash -c "echo '${cosmos_ip} ${server_fqdn}' >> /etc/hosts"
     fi
 

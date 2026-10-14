@@ -27,6 +27,21 @@
 #
 # The Docker image and startup kits must be built BEFORE running this script:
 #   ./scripts/build/buildDockerImageAndStartupKits.sh -p application/provision/project_deploy_test_4site.yml
+#
+# Testing a candidate image with EXISTING kits (the way sites will run a release:
+# they keep their 1.8.1 kits and only the image moves):
+#   MEDISWARM_IMAGE_VERSION=<version the kits were built as>   # selects the kit workspace
+#   ./scripts/deploy/run_deploy_test.sh --image jefftud/odelia:<candidate> --model MST --job ... --conf ...
+# Clients get the image through the kit's own --image flag; the server and the admin
+# run through a copy of their docker.sh with the image line rewritten (their templates
+# have no image override), so the job code submitted is the candidate's as well. Each
+# container's image id is checked against the candidate and recorded in the result.
+# A conf may give one client another image with <SITE>_IMAGE (mixed-version test).
+# --no-pull (or MEDISWARM_TEST_IMAGE_NO_PULL=1) uses images already on the hosts,
+# e.g. a local *-local build on dl3; --cleanup-only removes this kit's containers.
+#
+# Container cleanup only ever touches this kit's containers for this conf's sites
+# (container_scope.sh): the test hosts also run other projects' containers.
 # ============================================================================
 
 set -euo pipefail
@@ -37,12 +52,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Shared colour/logging + SSH/workspace helpers (#276).
 # shellcheck source=scripts/deploy/deploy_common.sh
 source "$SCRIPT_DIR/deploy_common.sh"
-
-# Shares a host with the self-hosted CI runner: same GPU, same Docker daemon,
-# same 8002/8003. Queue behind any other GPU/Docker job rather than interleaving
-# and failing an unrelated PR (#448, root cause behind #388).
-. "$SCRIPT_DIR/../ci/host_gpu_lock.sh"
-acquire_host_lock "ODELIA deploy test" || exit 1
+# shellcheck source=scripts/deploy/container_scope.sh
+source "$SCRIPT_DIR/container_scope.sh"
 
 # ── Parse arguments ────────────────────────────────────────────────────────
 RUN_ALL=false
@@ -53,6 +64,9 @@ SKIP_BUILD=false
 SKIP_EVAL=false
 RESULTS_DIR_OVERRIDE=""
 TIMEOUT_MINUTES=10080   # Per-model training timeout (7 days)
+TEST_IMAGE="${MEDISWARM_TEST_IMAGE:-}"
+NO_PULL="${MEDISWARM_TEST_IMAGE_NO_PULL:-}"
+CLEANUP_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -64,8 +78,15 @@ while [[ $# -gt 0 ]]; do
         --skip-eval)    SKIP_EVAL=true ;;
         --results-dir)  RESULTS_DIR_OVERRIDE="$2"; shift ;;
         --timeout)      TIMEOUT_MINUTES="$2"; shift ;;
+        --image)        TEST_IMAGE="$2"; shift ;;
+        --no-pull)      NO_PULL=1 ;;
+        --cleanup-only) CLEANUP_ONLY=true ;;
         -h|--help)
             echo "Usage: $0 [--all | --model NAME --job JOB_DIR] --conf CONF_FILE [--skip-build] [--skip-eval] [--results-dir DIR] [--timeout MINUTES]"
+            echo "          [--image REF] [--no-pull] [--cleanup-only]"
+            echo "  --image REF     run server, admin and clients on REF with the existing kits (env MEDISWARM_TEST_IMAGE)"
+            echo "  --no-pull       use images already present on the hosts (env MEDISWARM_TEST_IMAGE_NO_PULL=1)"
+            echo "  --cleanup-only  remove this kit's containers for this conf's sites (keeps files), then exit"
             exit 0
             ;;
         *)
@@ -75,6 +96,15 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# Shares a host with the self-hosted CI runner: same GPU, same Docker daemon,
+# same 8002/8003. Queue behind any other GPU/Docker job rather than interleaving
+# and failing an unrelated PR (#448, root cause behind #388). --cleanup-only
+# touches nothing but this kit's own containers, so it does not queue.
+if [[ "$CLEANUP_ONLY" != true ]]; then
+    . "$SCRIPT_DIR/../ci/host_gpu_lock.sh"
+    acquire_host_lock "ODELIA deploy test" || exit 1
+fi
 
 # Resolve conf file path
 if [[ -z "$CONF_FILE" ]]; then
@@ -92,7 +122,7 @@ if [[ ! -f "$CONF_FILE" ]]; then
 fi
 
 # Validate arguments
-if [[ "$RUN_ALL" == false && -z "$SINGLE_MODEL" ]]; then
+if [[ "$CLEANUP_ONLY" != true && "$RUN_ALL" == false && -z "$SINGLE_MODEL" ]]; then
     err "Must specify --all or --model NAME --job JOB_DIR"
     exit 1
 fi
@@ -101,14 +131,26 @@ fi
 # shellcheck source=/dev/null
 source "$CONF_FILE"
 
+# VERSION names the kit workspace (and is the image tag of a normal build-and-test
+# run). With --image the image under test is decoupled from it: the kits stay the
+# ones built as VERSION, which is how a release candidate meets the sites' kits.
 VERSION=$("$REPO_ROOT/scripts/build/getVersionNumber.sh")
+KIT_VERSION="$VERSION"
 # Recorded in the result JSON only. Must not kill the run when the harness is
 # executed from an exported tree (no .git) -- it did exactly that once, one line
 # after MEDISWARM_IMAGE_VERSION had been honoured, and the whole run died before
 # stop_all with nothing but "fatal: not a git repository" in the log.
 GIT_SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
-DOCKER_IMAGE="jefftud/odelia:$VERSION"
-NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-'
+if [[ -n "$TEST_IMAGE" ]]; then
+    if [[ ! "$TEST_IMAGE" =~ ^[A-Za-z0-9._/:@-]+$ ]]; then
+        err "Invalid --image '$TEST_IMAGE'"
+        exit 1
+    fi
+    DOCKER_IMAGE="$TEST_IMAGE"
+else
+    DOCKER_IMAGE="jefftud/odelia:$VERSION"
+fi
+MAX_RETRIES="${MAX_RETRIES:-2}"  # from the conf if it sets one; total attempts = 1 + MAX_RETRIES
 
 PROJECT_NAME=$(grep "^name: " "$REPO_ROOT/$PROJECT_FILE" \
     | sed 's/^name: //' \
@@ -199,16 +241,18 @@ fix_remote_dns() {
             continue
         fi
 
+        # The sudo password travels on stdin, not inside the remote command line,
+        # where any user of the remote host could read it with `ps`.
         if [[ -n "$current_ip" ]]; then
             info "  $host maps $server_fqdn → $current_ip (wrong, updating to $cosmos_ip)"
             # Replace the existing entry
-            remote_exec "$site" \
-                "echo '$(site_var "$site" PASS)' | sudo -S sed -i 's|^.*\\b${server_fqdn}\\b.*\$|${cosmos_ip} ${server_fqdn}|' /etc/hosts" \
+            printf '%s\n' "$(site_pass "$site")" | remote_exec "$site" \
+                "sudo -S -p '' sed -i 's|^.*\\b${server_fqdn}\\b.*\$|${cosmos_ip} ${server_fqdn}|' /etc/hosts" \
                 2>/dev/null
         else
             info "  $host has no entry for $server_fqdn (adding)"
-            remote_exec "$site" \
-                "echo '$(site_var "$site" PASS)' | sudo -S bash -c 'echo \"${cosmos_ip} ${server_fqdn}\" >> /etc/hosts'" \
+            printf '%s\n' "$(site_pass "$site")" | remote_exec "$site" \
+                "sudo -S -p '' bash -c 'echo \"${cosmos_ip} ${server_fqdn}\" >> /etc/hosts'" \
                 2>/dev/null
         fi
 
@@ -237,52 +281,75 @@ fix_remote_dns() {
 #
 # Every built startup kit hardcodes its container names as
 #   odelia_swarm_{client,server}_<name>_<git-short-hash>
-# so the trailing hash identifies the kit this test drives. Scope the filter to it.
-# If it cannot be derived we warn loudly and fall back to the broad pattern -- a
-# silently no-op cleanup would leave containers behind and break later runs.
+# so the trailing hash identifies the kit this test drives. The filter matches only
+# this kit's client containers for this conf's sites, its server and its admin
+# (container_scope.sh). When the hash cannot be derived the harness refuses to
+# remove anything: the old fallback ('odelia_swarm|nvflare|^swarm-') also matched
+# the other project's swarm-*-node containers that run on dl0/dl2/dl3.
 KIT_CONTAINER_SUFFIX=""
 KIT_SUFFIX_RESOLVED=false
+
+client_site_names() {
+    local site
+    for site in "${CLIENT_SITES[@]}"; do
+        site_var "$site" SITE_NAME
+    done
+}
 
 resolve_kit_container_suffix() {
     [[ "$KIT_SUFFIX_RESOLVED" == true ]] && return 0
     KIT_SUFFIX_RESOLVED=true
 
-    local prod_dir docker_sh
+    local prod_dir
     prod_dir=$(find_latest_prod 2>/dev/null || true)
-    [[ -n "$prod_dir" && -d "$prod_dir" ]] || return 0
-
-    docker_sh=$(find "$prod_dir" -mindepth 3 -maxdepth 3 -path '*/startup/docker.sh' 2>/dev/null | head -1)
-    [[ -n "$docker_sh" ]] || return 0
-
-    KIT_CONTAINER_SUFFIX=$(grep -hoE '^ *CONTAINER_NAME=odelia_swarm_.*_[0-9a-f]{7,40}$' "$docker_sh" 2>/dev/null \
-        | head -1 | sed -E 's/.*_([0-9a-f]{7,40})$/\1/')
+    KIT_CONTAINER_SUFFIX=$(kit_container_suffix "$prod_dir" odelia_swarm || true)
 
     if [[ -n "$KIT_CONTAINER_SUFFIX" ]]; then
         info "Container cleanup scoped to this kit: *_${KIT_CONTAINER_SUFFIX} (#472)"
     else
-        warn "Could not derive this kit's container suffix — cleanup falls back to the"
-        warn "  broad 'odelia_swarm|nvflare' filter, which can tear down a PRODUCTION"
-        warn "  swarm running on these hosts (#472)."
+        err "Could not derive this kit's container suffix from ${prod_dir:-<no prod dir>}/*/startup/docker.sh;"
+        err "  refusing to remove containers by a broad pattern (other projects run on these hosts)."
     fi
 }
 
-# Extended-regex matching only this test's containers (or the broad legacy filter).
+# Anchored extended regex matching only this test's containers; fails without a suffix.
 container_filter() {
     resolve_kit_container_suffix
-    if [[ -n "$KIT_CONTAINER_SUFFIX" ]]; then
-        printf 'odelia_swarm_.*_%s$' "$KIT_CONTAINER_SUFFIX"
-    else
-        printf '%s' "$NVFLARE_CONTAINER_RE"
-    fi
+    [[ -n "$KIT_CONTAINER_SUFFIX" ]] || return 1
+    local -a names
+    mapfile -t names < <(client_site_names)
+    kit_container_filter odelia_swarm "$KIT_CONTAINER_SUFFIX" "${names[@]}"
+}
+
+# This kit's server container only (the liveness check must not be satisfied by a
+# client container that runs on the same host, as on the dl3-local test bed).
+server_container_filter() {
+    resolve_kit_container_suffix
+    [[ -n "$KIT_CONTAINER_SUFFIX" ]] || return 1
+    kit_server_container_filter odelia_swarm "$KIT_CONTAINER_SUFFIX"
+}
+
+client_container_name() {
+    resolve_kit_container_suffix
+    [[ -n "$KIT_CONTAINER_SUFFIX" ]] || return 1
+    printf 'odelia_swarm_client_%s_%s\n' "$1" "$KIT_CONTAINER_SUFFIX"
 }
 
 # ── Stop all containers ───────────────────────────────────────────────────
+# stop_all [--keep-files]: --keep-files leaves the server's deploy dir (its job store
+# and logs) in place, for --cleanup-only after a run someone still wants to read.
 stop_all() {
-    info "Stopping all NVFlare containers..."
+    local filter keep_files=false
+    [[ "${1:-}" == --keep-files ]] && keep_files=true
+    filter=$(container_filter) || {
+        err "Not stopping containers: no kit-scoped filter (see above)."
+        return 1
+    }
+    info "Stopping this kit's NVFlare containers (filter: $filter)..."
 
     # Stop local containers on Cosmos (server + admin)
     local local_containers
-    local_containers=$(docker ps -a --format '{{.Names}}' | grep -E "$(container_filter)" || true)
+    local_containers=$(docker ps -a --format '{{.Names}}' | grep -E "$filter" || true)
     if [[ -n "$local_containers" ]]; then
         echo "$local_containers" | xargs docker rm -f 2>/dev/null || true
     fi
@@ -298,7 +365,7 @@ stop_all() {
         fi
         visited_hosts[$host]=1
         remote_exec "$site" \
-            "docker ps -a --format '{{.Names}}' | grep -E '$(container_filter)' | xargs -r docker rm -f 2>/dev/null" \
+            "docker ps -a --format '{{.Names}}' | grep -E '$filter' | xargs -r docker rm -f 2>/dev/null" \
             2>/dev/null || warn "  Could not stop containers on $host"
     done
 
@@ -307,7 +374,7 @@ stop_all() {
     # that non-root users can't delete.  This blocks the next deploy_kits() run.
     local server_name="${SERVER_NAME:-dl3.tud.de}"
     local server_dir="$DEPLOY_BASE/$server_name"
-    if [[ -d "$server_dir" ]]; then
+    if [[ "$keep_files" != true && -d "$server_dir" ]]; then
         # Remove the entire server dir (deploy_kits will re-create it).
         # Needs sudo/docker because NVFlare creates root-owned workspace files.
         sudo rm -rf "$server_dir" 2>/dev/null \
@@ -337,29 +404,71 @@ clean_local_deploy_dir() {
 }
 
 # ── Pre-pull Docker image on all remote machines ─────────────────────────
+# Image a client runs: <SITE>_IMAGE from the conf (mixed-version tests), else the
+# image under test.
+site_image() {
+    local image
+    image=$(site_var "$1" IMAGE)
+    printf '%s\n' "${image:-$DOCKER_IMAGE}"
+}
+
 pre_pull_images() {
     step "Pre-pulling Docker image on remote machines"
-    info "Image: $DOCKER_IMAGE"
+    info "Image: $DOCKER_IMAGE${NO_PULL:+ (no pull: must already be on every host)}"
 
-    # Track unique hosts to avoid pulling on the same machine twice
-    local -A visited_hosts=()
+    # Track unique host+image pairs to avoid pulling the same image twice
+    local -A visited=()
     for site in "${CLIENT_SITES[@]}"; do
-        local host
+        local host image
         host=$(site_var "$site" HOST)
-        if [[ -n "${visited_hosts[$host]:-}" ]]; then
+        image=$(site_image "$site")
+        if [[ ! "$image" =~ ^[A-Za-z0-9._/:@-]+$ ]]; then
+            err "Invalid image for $site: '$image'"
+            exit 1
+        fi
+        local key="$host|$image"
+        if [[ -n "${visited[$key]:-}" ]]; then
             continue
         fi
-        visited_hosts[$host]=1
+        visited[$key]=1
 
-        info "Pulling $DOCKER_IMAGE on $host ..."
-        remote_exec "$site" "docker pull '$DOCKER_IMAGE'" || {
+        if [[ -n "$NO_PULL" ]]; then
+            remote_exec "$site" "docker image inspect '$image' >/dev/null 2>&1" || {
+                err "Image $image is not on $host (--no-pull)"
+                exit 1
+            }
+            ok "  $image present on $host"
+            continue
+        fi
+        info "Pulling $image on $host ..."
+        remote_exec "$site" "docker pull '$image'" || {
             err "Failed to pull image on $host"
             exit 1
         }
         ok "  Image pulled on $host"
     done
 
+    # The server and admin run here with --no_pull. A normal run built the image on
+    # this host; a candidate image may have to be fetched first.
+    if [[ -n "$TEST_IMAGE" ]]; then
+        if [[ -z "$NO_PULL" ]]; then
+            docker pull "$DOCKER_IMAGE" >/dev/null || { err "Failed to pull $DOCKER_IMAGE on this host"; exit 1; }
+        fi
+        docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1 || { err "$DOCKER_IMAGE is not on this host"; exit 1; }
+        ok "  $DOCKER_IMAGE present on this (server/admin) host"
+    fi
+
     ok "Docker image available on all remote machines"
+}
+
+# Image id an image reference resolves to on a site's host (or on this host).
+image_id_on() {
+    local site=$1 image=$2
+    if [[ -z "$site" ]]; then
+        docker image inspect --format '{{.Id}}' "$image" 2>/dev/null
+    else
+        remote_exec "$site" "docker image inspect --format '{{.Id}}' '$image' 2>/dev/null"
+    fi
 }
 
 # ── Deploy startup kits ───────────────────────────────────────────────────
@@ -453,32 +562,66 @@ start_server() {
     # Record which dir was actually used so wait functions can find nohup.out
     _server_startup_dir="$server_startup"
 
+    # nohup.out is appended across every server start in this kit directory. Remember
+    # where this session begins, so the registration check cannot be satisfied by a
+    # 'New client' line of an earlier session (#599: the harness once submitted a job
+    # to an empty swarm and then waited out its whole timeout).
+    SERVER_LOG_OFFSET=0
+    if [[ -f "$server_startup/nohup.out" ]]; then
+        SERVER_LOG_OFFSET=$(wc -l < "$server_startup/nohup.out" 2>/dev/null || echo 0)
+    fi
+
+    local script="./docker.sh"
+    if [[ -n "$TEST_IMAGE" ]]; then
+        script=$(kit_script_with_image "$server_startup" "$DOCKER_IMAGE") || return 1
+        info "Server runs the image under test: $DOCKER_IMAGE (kit built as $KIT_VERSION)"
+    fi
+
     info "Starting server from: $server_startup"
     cd "$server_startup"
-    ./docker.sh --no_pull --start_server
+    "$script" --no_pull --start_server
     cd "$REPO_ROOT"
+    [[ "$script" == ./docker.sh ]] || rm -f "$script"
 
     info "Waiting 15s for server to initialize..."
     sleep 15
 
-    if docker ps --format '{{.Names}}' | grep -qE "$(container_filter)"; then
-        ok "Server container is running"
-    else
+    local server_ctr filter
+    filter=$(server_container_filter) || return 1
+    server_ctr=$(docker ps --format '{{.Names}}' | grep -E "$filter" | head -1 || true)
+    if [[ -z "$server_ctr" ]]; then
         warn "Server container not detected — it may still be starting"
+        return 0
+    fi
+    ok "Server container is running: $server_ctr"
+    SERVER_IMAGE_ID=$(docker inspect --format '{{.Image}}' "$server_ctr" 2>/dev/null || true)
+    local want
+    want=$(image_id_on "" "$DOCKER_IMAGE" || true)
+    if [[ -n "$want" && "$SERVER_IMAGE_ID" != "$want" ]]; then
+        err "Server container runs image $SERVER_IMAGE_ID, not $DOCKER_IMAGE ($want)"
+        return 1
     fi
 }
 
+# Server log lines written since this server session started.
+server_log_this_session() {
+    local log="${_server_startup_dir}/nohup.out"
+    [[ -f "$log" ]] || return 0
+    tail -n +"$(( ${SERVER_LOG_OFFSET:-0} + 1 ))" "$log" 2>/dev/null || true
+}
+
 # ── Start clients (all remote) ───────────────────────────────────────────
+CLIENT_IMAGE_IDS=()   # "<site name>=<image id>" of every started client, for the result JSON
+
 start_clients() {
     local model_name="${1:-}"
-    local model_flag=""
     if [[ -n "$model_name" ]]; then
-        model_flag="--model_name '$model_name'"
         info "Starting clients with MODEL_NAME=$model_name"
     fi
+    CLIENT_IMAGE_IDS=()
 
     for site in "${CLIENT_SITES[@]}"; do
-        local site_name host deploy_dir datadir scratchdir gpu institution docker_opts
+        local site_name host deploy_dir datadir scratchdir gpu institution docker_opts image container
         site_name=$(site_var "$site" SITE_NAME)
         host=$(site_var "$site" HOST)
         deploy_dir=$(site_var "$site" DEPLOY_DIR)
@@ -490,30 +633,54 @@ start_clients() {
         # the project YAML), so the data folder must be named explicitly.
         # Optional per site: <SITE>_INSTITUTION=<folder under DATADIR>.
         institution=$(site_var "$site" INSTITUTION)
-        # Optional per site: <SITE>_DOCKER_OPTIONS, passed to docker run via
-        # MEDISWARM_DOCKER_OPTIONS -- e.g. "--env ODELIA_RETURN_PER_CASE=1".
+        # Optional per site: <SITE>_DOCKER_OPTIONS, extra `docker run` options --
+        # e.g. "--env ODELIA_RETURN_PER_CASE=1". Passed with the kit's own
+        # --docker_options flag (which wins over image.conf, like the env var did).
         docker_opts=$(site_var "$site" DOCKER_OPTIONS)
-        local inst_flag=""
-        [[ -n "$institution" ]] && inst_flag="--institution '$institution'"
+        image=$(site_image "$site")
+        container=$(client_container_name "$site_name") || return 1
 
         info "Starting client: $site_name @ $host"
 
-        # Pin the image this test actually built. Client kits ship startup/image.conf
+        # Pin the image this test actually tests. Client kits ship startup/image.conf
         # pinning the ':current' release channel, and docker.sh's precedence is
         # --image > MEDISWARM_IMAGE > image.conf > built-in default. Without --image,
         # image.conf won and every client ran ':current' -- i.e. the last released
         # image, NOT the build under test, so the deploy test silently validated
-        # something else. pre_pull_images() has already pulled $DOCKER_IMAGE on the
+        # something else. pre_pull_images() has already pulled the image on the
         # remote, so --no_pull stays correct.
-        remote_exec "$site" \
-            "cd '$deploy_dir/$site_name/startup' && \
-             export SITE_NAME='$site_name' && \
-             export DATADIR='$datadir' && \
-             export SCRATCHDIR='$scratchdir' && \
-             export MEDISWARM_DOCKER_OPTIONS='$docker_opts' && \
-             ./docker.sh --no_pull --image '$DOCKER_IMAGE' --data_dir '$datadir' --scratch_dir '$scratchdir' --GPU '$gpu' $inst_flag $model_flag --start_client"
+        #
+        # Every value is quoted with printf %q for the remote shell (#599: options
+        # spliced into a hand-quoted string broke the client start on dl3 while the
+        # harness still printed OK).
+        local -a args=(--no_pull --image "$image" --data_dir "$datadir" --scratch_dir "$scratchdir" --GPU "$gpu")
+        [[ -n "$institution" ]] && args+=(--institution "$institution")
+        [[ -n "$model_name" ]] && args+=(--model_name "$model_name")
+        [[ -n "$docker_opts" ]] && args+=(--docker_options "$docker_opts")
+        args+=(--start_client)
+        local cmd
+        cmd="cd $(printf '%q' "$deploy_dir/$site_name/startup")"
+        cmd+=" && export SITE_NAME=$(printf '%q' "$site_name") DATADIR=$(printf '%q' "$datadir")"
+        cmd+=" SCRATCHDIR=$(printf '%q' "$scratchdir")"
+        cmd+=" && ./docker.sh$(printf ' %q' "${args[@]}")"
+        remote_exec "$site" "$cmd" || warn "  docker.sh exited non-zero for $site_name"
 
-        ok "  Client started: $site_name"
+        # docker.sh does not pass docker run's failure on, so look at the result.
+        local running got want
+        running=$(remote_exec "$site" "docker ps --format '{{.Names}}' | grep -Fx $(printf '%q' "$container")" \
+            2>/dev/null || true)
+        if [[ "$running" != "$container" ]]; then
+            err "  Client container $container is not running on $host"
+            return 1
+        fi
+        got=$(remote_exec "$site" "docker inspect --format '{{.Image}}' $(printf '%q' "$container")" 2>/dev/null || true)
+        want=$(image_id_on "$site" "$image" || true)
+        if [[ -z "$got" || "$got" != "$want" ]]; then
+            err "  $container runs image '${got:-?}', expected $image (${want:-not on $host})"
+            return 1
+        fi
+        CLIENT_IMAGE_IDS+=("$site_name=$got")
+        ok "  Client started: $site_name ($image)"
     done
 
     ok "All clients started"
@@ -526,16 +693,14 @@ verify_client_model_env() {
 
     info "Verifying client containers use MODEL_NAME=$model_name"
     for site in "${CLIENT_SITES[@]}"; do
-        local site_name host
+        local site_name host container
         site_name=$(site_var "$site" SITE_NAME)
         host=$(site_var "$site" HOST)
+        container=$(client_container_name "$site_name") || return 1
 
-        remote_exec "$site" "
-            container=\$(docker ps --filter 'name=odelia_swarm_client_${site_name}_' --format '{{.Names}}' | head -1)
-            test -n \"\$container\"
-            docker inspect \"\$container\" --format '{{range .Config.Env}}{{println .}}{{end}}' \
-                | grep -Fx 'MODEL_NAME=$model_name' >/dev/null
-        " || {
+        remote_exec "$site" \
+            "docker inspect $(printf '%q' "$container") --format '{{range .Config.Env}}{{println .}}{{end}}' \
+                | grep -Fx $(printf '%q' "MODEL_NAME=$model_name") >/dev/null" || {
             err "MODEL_NAME=$model_name not found in running client container for $site_name @ $host"
             return 1
         }
@@ -552,16 +717,22 @@ wait_for_client_registration() {
     local expected_clients=("${CLIENT_SITES[@]}")
 
     info "Waiting for all ${#expected_clients[@]} clients to register (timeout: ${max_wait}s)"
-    info "Server log: $server_log"
+    info "Server log: $server_log (lines after $((${SERVER_LOG_OFFSET:-0})), i.e. this server session only)"
 
+    # Registered = a 'New client <SITE>@' line in THIS session; earlier sessions in
+    # the same nohup.out do not count (#599).
+    _registered() {
+        grep -q "New client ${1}@" <<< "$session" 2>/dev/null
+    }
+
+    local session
     while [[ $elapsed -lt $max_wait ]]; do
+        session=$(server_log_this_session)
         local all_registered=true
         for site in "${expected_clients[@]}"; do
             local site_name
             site_name=$(site_var "$site" SITE_NAME)
-            if [[ -f "$server_log" ]] && grep -q "New client ${site_name}@" "$server_log" 2>/dev/null; then
-                :  # Client registered
-            else
+            if ! _registered "$site_name"; then
                 all_registered=false
                 break
             fi
@@ -580,10 +751,11 @@ wait_for_client_registration() {
         if (( elapsed % 60 == 0 )); then
             # Show which clients are registered so far
             local registered=0
+            session=$(server_log_this_session)
             for site in "${expected_clients[@]}"; do
                 local site_name
                 site_name=$(site_var "$site" SITE_NAME)
-                if [[ -f "$server_log" ]] && grep -q "New client ${site_name}@" "$server_log" 2>/dev/null; then
+                if _registered "$site_name"; then
                     registered=$((registered + 1))
                 fi
             done
@@ -593,10 +765,11 @@ wait_for_client_registration() {
 
     # Timeout: show which clients are missing
     warn "Timed out waiting for client registration. Status:"
+    session=$(server_log_this_session)
     for site in "${expected_clients[@]}"; do
         local site_name
         site_name=$(site_var "$site" SITE_NAME)
-        if [[ -f "$server_log" ]] && grep -q "New client ${site_name}@" "$server_log" 2>/dev/null; then
+        if _registered "$site_name"; then
             ok "    $site_name — registered"
         else
             err "    $site_name — NOT registered"
@@ -635,13 +808,21 @@ submit_job() {
     fi
     info "Submitting job: $job_name (path: $job_path)"
 
+    # With --image the admin runs the image under test too: a job given by name is
+    # read from the admin container's /MediSwarm tree, and that must be the
+    # candidate's job code, not the code of the image the kit was built with.
+    local admin_script="./docker.sh"
+    if [[ -n "$TEST_IMAGE" ]]; then
+        admin_script=$(kit_script_with_image "$admin_startup" "$DOCKER_IMAGE") || return 1
+    fi
+
     # Generate expect script
     local expect_script
     expect_script=$(mktemp /tmp/mediswarm_deploy_test_XXXXXX.exp)
     cat > "$expect_script" <<EXPECT_EOF
 #!/usr/bin/env expect
 set timeout 120
-spawn ./docker.sh --no_pull
+spawn $admin_script --no_pull
 expect "User Name: "
 send "$ADMIN_USER\r"
 expect "> "
@@ -665,10 +846,12 @@ EXPECT_EOF
     cd "$REPO_ROOT"
 
     rm -f "$expect_script"
+    [[ "$admin_script" == ./docker.sh ]] || rm -f "$admin_script"
 
-    # Only a real job id proves the submission landed (deploy_common.sh).
+    # Only a real job id proves the submission landed (deploy_common.sh). A failed
+    # submission fails this attempt (the retry loop decides), not the whole run.
     local job_id
-    job_id=$(assert_job_submitted "$submit_log" "$job_name") || exit 1
+    job_id=$(assert_job_submitted "$submit_log" "$job_name") || return 1
     ok "Job submitted: $job_name (id: $job_id)"
 }
 
@@ -773,28 +956,25 @@ wait_for_completion() {
         # Periodically show client nohup.out status so we can detect hangs early
         if (( attempt % 4 == 0 && attempt > 0 )); then
             for site in "${CLIENT_SITES[@]}"; do
-                local site_name client_host client_user client_pass client_deploy_dir
+                local site_name client_deploy_dir
                 site_name=$(site_var "$site" SITE_NAME)
-                client_host=$(site_var "$site" HOST)
-                client_user=$(site_var "$site" USER)
-                client_pass=$(site_var "$site" PASS)
                 client_deploy_dir=$(site_var "$site" DEPLOY_DIR)
                 local client_nohup="$client_deploy_dir/$site_name/startup/nohup.out"
                 local last_line
-                last_line=$(sshpass -p "$client_pass" ssh $SSH_OPTS "$client_user@$client_host" \
+                last_line=$(remote_exec "$site" \
                     "tail -1 '$client_nohup' 2>/dev/null || echo '(no nohup.out yet)'" 2>/dev/null || echo "(SSH failed)")
                 info "  Client $site_name last log: $last_line"
                 # A worker that dies at launch leaves the client "healthy" and the
                 # coordinator waiting for a site that never configures. Name it (#596).
                 local worker_death
-                worker_death=$(sshpass -p "$client_pass" ssh $SSH_OPTS "$client_user@$client_host" \
+                worker_death=$(remote_exec "$site" \
                     "grep -hoE 'OMP: Error #[0-9]+.{0,60}|child worker process finished with RC [1-9][0-9]*' '$client_nohup' 2>/dev/null | tail -1" 2>/dev/null || true)
                 [[ -n "$worker_death" ]] && warn "  Client $site_name WORKER DIED: $worker_death"
             done
         fi
 
         # Also check if the server container died
-        if ! docker ps --format '{{.Names}}' | grep -qE "$(container_filter)"; then
+        if ! docker ps --format '{{.Names}}' | grep -qE "$(server_container_filter)"; then
             # Container is gone — do a final check on the log
             if [[ -f "$server_log" ]]; then
                 local new_lines
@@ -907,13 +1087,11 @@ save_server_artifacts() {
     # worked on 12 Sep (aborted) and found nothing on 13 Sep (20 rounds, clean).
     # The server role runs on this host, so read the store with docker cp.
     if [[ -n "$want_job" && ! -d "$dest_root/$want_job/cross_site_val" ]]; then
-        resolve_kit_container_suffix
-        local server_ctr
-        if [[ -n "$KIT_CONTAINER_SUFFIX" ]]; then
-            server_ctr=$(docker ps --format '{{.Names}}' | grep -E "^odelia_swarm_server_.*_${KIT_CONTAINER_SUFFIX}$" | head -1 || true)
-        else
-            server_ctr=$(docker ps --format '{{.Names}}' | grep -E '^odelia_swarm_server_' | head -1 || true)
-        fi
+        local server_ctr filter
+        # Only this kit's server: an unscoped '^odelia_swarm_server_' would read the job
+        # store of whatever ODELIA server runs on this host (the coordinator on agh1).
+        filter=$(server_container_filter) || return 0
+        server_ctr=$(docker ps --format '{{.Names}}' | grep -E "$filter" | head -1 || true)
         if [[ -z "$server_ctr" ]]; then
             warn "No cross_site_val for job $want_job and no running server container to read the job store from"
             return 0
@@ -985,12 +1163,10 @@ collect_checkpoints() {
     local found_any=false
 
     for site in "${CLIENT_SITES[@]}"; do
-        local site_name host deploy_dir user pass
+        local site_name host deploy_dir
         site_name=$(site_var "$site" SITE_NAME)
         host=$(site_var "$site" HOST)
         deploy_dir=$(site_var "$site" DEPLOY_DIR)
-        user=$(site_var "$site" USER)
-        pass=$(site_var "$site" PASS)
 
         # Build the expected path on the remote machine
         local remote_base="$deploy_dir/$site_name"
@@ -1008,10 +1184,8 @@ collect_checkpoints() {
         local remote_files
         if [[ "$host" == "localhost" || "$host" == "127.0.0.1" ]]; then
             remote_files=$(eval "$search_cmd" 2>/dev/null || true)
-        elif [[ -n "$pass" ]]; then
-            remote_files=$(sshpass -p "$pass" ssh $SSH_OPTS "$user@$host" "$search_cmd" 2>/dev/null || true)
         else
-            remote_files=$(ssh $SSH_OPTS "$user@$host" "$search_cmd" 2>/dev/null || true)
+            remote_files=$(remote_exec "$site" "$search_cmd" 2>/dev/null || true)
         fi
 
         if [[ -z "$remote_files" ]]; then
@@ -1038,13 +1212,8 @@ collect_checkpoints() {
                         continue
                     }
                 }
-            elif [[ -n "$pass" ]]; then
-                sshpass -p "$pass" scp $SSH_OPTS "$user@$host:$remote_file" "$local_app_dir/$basename_file" || {
-                    warn "    Failed to SCP $remote_file from $host"
-                    continue
-                }
             else
-                scp $SSH_OPTS "$user@$host:$remote_file" "$local_app_dir/$basename_file" || {
+                remote_fetch "$site" "$remote_file" "$local_app_dir/$basename_file" || {
                     warn "    Failed to SCP $remote_file from $host"
                     continue
                 }
@@ -1149,50 +1318,74 @@ record_result() {
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-    cat > "$result_file" <<EOF
-{
-    "model_name": "$model_name",
-    "job_name": "$job_name",
-    "job_id": "$job_id",
-    "training_status": "$train_status",
-    "evaluation_status": "$eval_status",
-    "checkpoint_status": "$checkpoint_status",
-    "duration_seconds": $duration_seconds,
-    "timestamp": "$timestamp",
-    "docker_image": "$DOCKER_IMAGE",
-    "version": "$VERSION",
-    "git_sha": "$GIT_SHA",
-    "project_file": "$PROJECT_FILE",
-    "workspace_dir": "$WORKSPACE_DIR",
-    "client_sites": $(printf '%s\n' "${CLIENT_SITES[@]}" | jq -R . | jq -s .)
-}
-EOF
+    # Which image was really exercised: the reference, its local id and digests,
+    # the id the server container ran and the id each client container ran.
+    local image_id repo_digests clients_json
+    image_id=$(docker image inspect --format '{{.Id}}' "$DOCKER_IMAGE" 2>/dev/null || true)
+    repo_digests=$(docker image inspect --format '{{json .RepoDigests}}' "$DOCKER_IMAGE" 2>/dev/null || echo '[]')
+    clients_json=$(printf '%s\n' "${CLIENT_IMAGE_IDS[@]:-}" | jq -R 'select(length > 0) | split("=") | {(.[0]): .[1]}' \
+        | jq -s 'add // {}')
+
+    jq -n \
+        --arg model_name "$model_name" \
+        --arg job_name "$job_name" \
+        --arg job_id "$job_id" \
+        --arg training_status "$train_status" \
+        --arg evaluation_status "$eval_status" \
+        --arg checkpoint_status "$checkpoint_status" \
+        --argjson duration_seconds "$duration_seconds" \
+        --arg timestamp "$timestamp" \
+        --arg docker_image "$DOCKER_IMAGE" \
+        --arg docker_image_id "$image_id" \
+        --argjson docker_image_repo_digests "${repo_digests:-[]}" \
+        --arg test_image "$TEST_IMAGE" \
+        --arg kit_version "$KIT_VERSION" \
+        --arg version "$VERSION" \
+        --arg git_sha "$GIT_SHA" \
+        --arg project_file "$PROJECT_FILE" \
+        --arg workspace_dir "$WORKSPACE_DIR" \
+        --arg server_image_id "${SERVER_IMAGE_ID:-}" \
+        --argjson client_image_ids "$clients_json" \
+        --argjson client_sites "$(printf '%s\n' "${CLIENT_SITES[@]}" | jq -R . | jq -s .)" \
+        '{model_name: $model_name, job_name: $job_name, job_id: $job_id,
+          training_status: $training_status, evaluation_status: $evaluation_status,
+          checkpoint_status: $checkpoint_status, duration_seconds: $duration_seconds,
+          timestamp: $timestamp, docker_image: $docker_image, docker_image_id: $docker_image_id,
+          docker_image_repo_digests: $docker_image_repo_digests,
+          test_image: (if $test_image == "" then null else $test_image end),
+          kit_version: $kit_version, version: $version, git_sha: $git_sha,
+          project_file: $project_file, workspace_dir: $workspace_dir,
+          server_image_id: $server_image_id, client_image_ids: $client_image_ids,
+          client_sites: $client_sites}' > "$result_file"
 
     info "Result recorded: $result_file"
 }
 
 # ── Run one training attempt ──────────────────────────────────────────────
+# Runs inside `if`, where `set -e` is suspended, so every step's failure must be
+# returned explicitly. Before #599 a failed MODEL_NAME check or registration wait
+# fell through to submit_job and the run waited out its timeout on an empty swarm.
 _run_training_attempt() {
     local job_name="$1"
     local model_name="$2"
 
     # 1. Stop any existing containers
-    stop_all
+    stop_all || return 1
 
     # 2. Start server on Cosmos
-    start_server
+    start_server || return 1
 
     # 3. Start clients on remote machines
-    start_clients "$model_name"
+    start_clients "$model_name" || return 1
 
     # 4. Verify the selected model was propagated to every client container
-    verify_client_model_env "$model_name"
+    verify_client_model_env "$model_name" || return 1
 
     # 5. Wait for ALL clients to register with the server
-    wait_for_client_registration
+    wait_for_client_registration || return 1
 
     # 6. Submit job via admin on Cosmos
-    submit_job "$job_name"
+    submit_job "$job_name" || return 1
 
     # 7. Wait for training completion
     if wait_for_completion "$model_name"; then
@@ -1203,7 +1396,9 @@ _run_training_attempt() {
 }
 
 # ── Run one model through the full cycle ──────────────────────────────────
-MAX_RETRIES=2  # Total attempts = 1 + MAX_RETRIES
+# MAX_RETRIES is set near the top from the conf (default 2); total attempts =
+# 1 + MAX_RETRIES. It used to be reassigned here, after the conf was sourced, so a
+# conf's MAX_RETRIES=1 was silently ignored (#599).
 
 run_single_model() {
     local job_name="$1"
@@ -1344,7 +1539,9 @@ generate_summary() {
     "failed": $failed,
     "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
     "version": "$VERSION",
+    "kit_version": "$KIT_VERSION",
     "docker_image": "$DOCKER_IMAGE",
+    "test_image": "$TEST_IMAGE",
     "git_sha": "$GIT_SHA",
     "project_file": "$PROJECT_FILE",
     "workspace_dir": "$WORKSPACE_DIR",
@@ -1378,6 +1575,22 @@ if [[ ! -d "$WORKSPACE_DIR" ]]; then
     err "Build startup kits first:"
     err "  ./scripts/build/buildDockerImageAndStartupKits.sh -p $PROJECT_FILE"
     exit 1
+fi
+
+# Resolve the kit's container suffix once, here: the filters are later built in
+# $(...) subshells, which would otherwise each look it up again.
+resolve_kit_container_suffix
+if [[ -z "$KIT_CONTAINER_SUFFIX" ]]; then
+    err "Cannot scope container cleanup to this kit; refusing to run (see above)."
+    exit 1
+fi
+if [[ -n "$TEST_IMAGE" ]]; then
+    info "Image under test: $DOCKER_IMAGE; kits: $WORKSPACE_DIR (built as $KIT_VERSION)"
+fi
+
+if [[ "$CLEANUP_ONLY" == true ]]; then
+    stop_all --keep-files
+    exit $?
 fi
 
 # Clean up any leftover containers and root-owned files from previous runs

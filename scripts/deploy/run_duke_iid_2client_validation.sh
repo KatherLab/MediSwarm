@@ -186,7 +186,8 @@ SSH_SERVER_ALIVE_COUNT_MAX="${SSH_SERVER_ALIVE_COUNT_MAX:-2}"
 START_CLIENT_ATTEMPTS="${START_CLIENT_ATTEMPTS:-12}"
 START_CLIENT_RETRY_SLEEP="${START_CLIENT_RETRY_SLEEP:-30}"
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=$SSH_CONNECT_TIMEOUT -o ServerAliveInterval=$SSH_SERVER_ALIVE_INTERVAL -o ServerAliveCountMax=$SSH_SERVER_ALIVE_COUNT_MAX"
-NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-'
+# shellcheck source=scripts/deploy/container_scope.sh
+source "$SCRIPT_DIR/container_scope.sh"
 
 mkdir -p "$RESULTS_DIR"
 
@@ -331,19 +332,33 @@ clean_local_deploy_dir() {
         || warn "Could not fully clean $target"
 }
 
+# Only this kit's containers for this conf's sites (container_scope.sh): the test
+# hosts also run other projects' containers, which 'odelia_swarm|nvflare|^swarm-'
+# used to match. Before the kits are built nothing of ours can be running.
 stop_all() {
+    local prod_dir suffix filter
+    local -a names=()
+    local site host
+    prod_dir="$(find_latest_prod 2>/dev/null || true)"
+    if ! suffix="$(kit_container_suffix "$prod_dir" odelia_swarm)"; then
+        warn "No built kit to scope container cleanup to; not removing any container"
+        return 0
+    fi
+    for site in "${CLIENT_SITES[@]}"; do
+        names+=("$(site_var "$site" SITE_NAME)")
+    done
+    filter="$(kit_container_filter odelia_swarm "$suffix" "${names[@]}")" || return 1
     docker ps -a --format '{{.Names}}' \
-        | grep -E "$NVFLARE_CONTAINER_RE" \
+        | grep -E "$filter" \
         | xargs -r docker rm -f >/dev/null 2>&1 || true
 
     local -A visited=()
-    local site host
     for site in "${CLIENT_SITES[@]}"; do
         host="$(site_var "$site" HOST)"
         [[ -n "${visited[$host]+set}" ]] && continue
         visited[$host]=1
         remote_exec "$site" \
-            "docker ps -a --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare|^swarm-' | xargs -r docker rm -f >/dev/null 2>&1" \
+            "docker ps -a --format '{{.Names}}' | grep -E '$filter' | xargs -r docker rm -f >/dev/null 2>&1" \
             >/dev/null 2>&1 || true
     done
 }

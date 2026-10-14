@@ -217,6 +217,10 @@ jobs:
       - name: Kill orphaned containers (cleanup)
         if: always()
         run: |
-          # Stop and remove any lingering containers from this test run
-          docker ps --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker kill 2>/dev/null || true
-          docker ps -a --format '{{.Names}}' | grep -E 'odelia|stamp|nvflare' | xargs -r docker rm -f 2>/dev/null || true
+          # Remove only this run's containers: this kit's server, admin and the conf's
+          # clients, on this host and on every client host (scripts/deploy/container_scope.sh).
+          # The runner hosts also run other projects' containers, which the old
+          # 'odelia|stamp|nvflare' filter matched. Without a conf nothing was started.
+          if [[ -n "${DEPLOY_CONF_FILE:-}" && -f "$DEPLOY_CONF_FILE" ]]; then
+            ./scripts/deploy/run_deploy_test.sh --conf "$DEPLOY_CONF_FILE" --cleanup-only || true
+          fi

@@ -122,7 +122,8 @@ EVAL_DEVICE="${EVAL_DEVICE:-cpu}"
 EVAL_GPU="${EVAL_GPU:-device=0}"
 CLIENT_COUNT="${#CLIENT_SITES[@]}"
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
-NVFLARE_CONTAINER_RE='odelia_swarm|nvflare|^swarm-'
+# shellcheck source=scripts/deploy/container_scope.sh
+source "$SCRIPT_DIR/container_scope.sh"
 
 if [[ -z "$RESULTS_DIR" ]]; then
     RESULTS_DIR="$REPO_ROOT/workspace/warm_continue_results/$RUN_ID"
@@ -250,9 +251,23 @@ clean_local_deploy_dir() {
         || warn "Could not fully clean $target"
 }
 
+# Only this kit's containers for this conf's sites (container_scope.sh): the test
+# hosts also run other projects' containers, which 'odelia_swarm|nvflare|^swarm-'
+# used to match. Before the kits are built nothing of ours can be running.
 stop_all() {
-    info "Stopping local and remote NVFlare containers"
-    docker ps -a --format '{{.Names}}' | grep -E "$NVFLARE_CONTAINER_RE" | xargs -r docker rm -f 2>/dev/null || true
+    local prod_dir suffix filter site
+    local -a names=()
+    prod_dir="$(find_latest_prod 2>/dev/null || true)"
+    if ! suffix="$(kit_container_suffix "$prod_dir" odelia_swarm)"; then
+        warn "No built kit to scope container cleanup to; not removing any container"
+        return 0
+    fi
+    for site in "${CLIENT_SITES[@]}"; do
+        names+=("$(site_var "$site" SITE_NAME)")
+    done
+    filter="$(kit_container_filter odelia_swarm "$suffix" "${names[@]}")" || return 1
+    info "Stopping this kit's containers (filter: $filter)"
+    docker ps -a --format '{{.Names}}' | grep -E "$filter" | xargs -r docker rm -f 2>/dev/null || true
 
     local -A visited=()
     for site in "${CLIENT_SITES[@]}"; do
@@ -261,7 +276,7 @@ stop_all() {
         [[ -n "${visited[$host]+set}" ]] && continue
         visited[$host]=1
         remote_exec "$site" \
-            "docker ps -a --format '{{.Names}}' | grep -E 'odelia_swarm|nvflare|^swarm-' | xargs -r docker rm -f 2>/dev/null" \
+            "docker ps -a --format '{{.Names}}' | grep -E '$filter' | xargs -r docker rm -f 2>/dev/null" \
             >/dev/null 2>&1 || warn "Could not stop containers on $host"
     done
 }
