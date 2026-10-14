@@ -21,24 +21,51 @@ ENV NVF_BRANCH=${NVF_VERSION}
 ENV KMP_DUPLICATE_LIB_OK=TRUE
 
 # ===========================================================================
-# Layer ordering strategy for Docker build cache efficiency:
+# Layer ordering strategy (build cache and download size):
 #
-# 1. pip installs FIRST (most expensive to rebuild, change least often)
-# 2. apt installs AFTER (change more often due to CVE version bumps, but
-#    are fast to rebuild)
-# 3. COPY pretrained weights (rarely change, but multi-GB layers)
-# 4. NVFlare from source + master_template.yml (the template is stamped with
-#    this build's version/commit hash, so it is a cache miss on EVERY commit --
+# 1. Static content FIRST: pretrained weights, the torch.hub and Hugging Face
+#    caches, the NVFlare source. ~3.7 GB that changes only when a weight or the
+#    NVFlare pin changes. Each is its own COPY layer at the bottom, so with the
+#    docker cache (--use-docker-cache) a pip, apt or code change neither rebuilds
+#    nor re-ships it. Before 1.9.0 the weights rode in the per-commit code layer.
+# 2. pip installs (expensive to rebuild, change rarely)
+# 3. apt installs (change more often due to CVE version bumps, but are fast to
+#    rebuild)
+# 4. NVFlare install + master_template.yml (the template is stamped with this
+#    build's version/commit hash, so it is a cache miss on EVERY commit --
 #    nothing cacheable may sit below it; see the CACHE NOTE at that stage)
 # 5. COPY source code (changes every build — must be last)
 #
 # The base pytorch image already includes python3 + pip, so pip installs
 # don't depend on the apt python packages below — those are just security
 # version updates.
+#
+# The final filesystem is the one earlier layouts produced; only the layer an
+# item lives in moved.
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
-# Stage 1: Python packages (expensive, rarely changes)
+# Stage 1: static content (multi-GB, rarely changes)
+# ---------------------------------------------------------------------------
+
+# scripts/build/_cacheAndCopyPretrainedModelWeights.sh fills these build-context
+# directories from the build cache after checking every file's SHA-256. The
+# challenge weights (and SAM-Med2D for MST_SAMMed2D) stay OUT of the job folders:
+# NVFlare ships a whole job folder to every client on submit.
+COPY ./pretrained_weights /MediSwarm/pretrained_weights
+COPY ./torch_home_cache /torch_home
+# Already world-writable in the build context (huggingface_hub writes lock files
+# into the cache at load time and the containers run as the site's user). A
+# 'RUN chmod -R' here used to store the whole tree a second time.
+COPY ./hf_home_cache /huggingface_home
+
+# The NVFlare fork's source as shipped at /MediSwarm/docker_config/NVFlare (also
+# what stage 4 installs). The build script moves it out of MediSwarm/ in the
+# build context so the per-commit code layer no longer carries it a second time.
+COPY ./nvflare_source /MediSwarm/docker_config/NVFlare
+
+# ---------------------------------------------------------------------------
+# Stage 2: Python packages (expensive, rarely changes)
 # ---------------------------------------------------------------------------
 
 # uninstall conda to prevent usage and avoid potential repository license issues
@@ -179,7 +206,7 @@ RUN python3 -m pip install --no-cache-dir \
     semantic-version==2.10.0
 
 # ---------------------------------------------------------------------------
-# Stage 2: apt packages (deliberately UNPINNED)
+# Stage 3: apt packages (deliberately UNPINNED)
 # ---------------------------------------------------------------------------
 # apt installs the current patch version on purpose. Exact pins here gave us
 # neither reproducibility (the base image floats unless pinned by digest -- see
@@ -285,18 +312,6 @@ RUN apt update && apt install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# Stage 3: Pretrained weights (rarely change — must stay ABOVE anything that
-# carries this build's version/commit identifier, see the note in Stage 4)
-# ---------------------------------------------------------------------------
-
-# These are the multi-GB layers. Keep them above master_template.yml so a plain
-# code commit does not re-create them.
-COPY ./torch_home_cache /torch_home
-COPY ./hf_home_cache /huggingface_home
-RUN chmod a+rwX /huggingface_home -R
-# permissions only needed for huggingface directory
-
-# ---------------------------------------------------------------------------
 # Stage 4: NVFlare from source (changes with NVFlare updates)
 # ---------------------------------------------------------------------------
 #
@@ -307,12 +322,15 @@ RUN chmod a+rwX /huggingface_home -R
 # Both embed the commit hash, so the file's CONTENT differs on every commit and
 # this COPY is a genuine cache miss -- not an mtime artefact (Docker excludes
 # mtime from COPY checksums). Everything below this line therefore rebuilds on
-# every commit, which is precisely why the weight layers now sit above it.
+# every commit, which is precisely why the static layers sit at the top.
 
-# install ODELIA fork of NVFlare from local source
+# install ODELIA fork of NVFlare from the source shipped in stage 1. Built from a
+# scratch copy at the path earlier images used, so the installed package (and its
+# recorded source URL) is unchanged and the shipped tree gets no build artefacts.
 WORKDIR /workspace/
-COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
-RUN python3 -m pip install --no-cache-dir /workspace/nvflare && rm -rf /workspace/nvflare
+RUN cp -r /MediSwarm/docker_config/NVFlare /workspace/nvflare \
+    && python3 -m pip install --no-cache-dir /workspace/nvflare \
+    && rm -rf /workspace/nvflare
 ## Override with MediSwarm master_template.yml (contains version placeholders injected by build script)
 COPY ./MediSwarm/docker_config/master_template.yml /tmp/master_template.yml
 RUN mv /tmp/master_template.yml $(python3 -c "import nvflare.lighter,os;print(os.path.dirname(nvflare.lighter.__file__))")/templates/master_template.yml
@@ -322,6 +340,7 @@ RUN mv /tmp/master_template.yml $(python3 -c "import nvflare.lighter,os;print(os
 # ---------------------------------------------------------------------------
 
 # Copy the source code for local training and deploying to the swarm
+# (without pretrained_weights/ and docker_config/NVFlare/, which stage 1 added)
 COPY ./MediSwarm /MediSwarm
 # Replace symlinks with actual copies so NVFlare's os.walk()-based job signing
 # and zip utilities can traverse all directories (os.walk does not follow symlinks)

@@ -119,6 +119,10 @@ fi
 # otherwise data is stored in a temporary folder deleted after building.
 if [[ "$DOCKERFILE" != *"Dockerfile_STAMP"* ]]; then
     ./scripts/build/_cacheAndCopyPretrainedModelWeights.sh "$CLEAN_SOURCE_DIR"
+    # Dockerfile_ODELIA ships the NVFlare source in its own layer below the code
+    # (stage 1), so it leaves MediSwarm/ here; the per-commit code layer would
+    # otherwise carry the same 150 MB again. Dockerfile_STAMP still expects it inside.
+    mv "$CLEAN_SOURCE_DIR/MediSwarm/docker_config/NVFlare" "$CLEAN_SOURCE_DIR/nvflare_source"
 fi
 cd $CWD
 

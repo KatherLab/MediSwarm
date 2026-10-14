@@ -158,16 +158,20 @@ copy_files() {
     fi
     chmod a+rX "$TARGET_DIR/torch_home_cache" -R
 
-    # Copy ResNet18 pre-trained weights
+    # Copy ResNet18 pre-trained weights. World-writable as before: huggingface_hub creates lock
+    # files in the cache at load time and the containers run as the site's user. Setting the mode
+    # here, in the build context, replaces a 'RUN chmod -R' in the Dockerfile that stored the
+    # whole tree a second time in its own layer.
     cp -r "$CACHE_DIR/hf_home_cache" "$TARGET_DIR/hf_home_cache"
-    chmod a+rX "$TARGET_DIR/hf_home_cache" -R
+    chmod a+rwX "$TARGET_DIR/hf_home_cache" -R
 
     # Copy challenge model weights to a SEPARATE directory outside the job folders.
     # This is critical: NVFlare packages the entire job folder when submitting a job,
     # so .pth files inside job dirs would be transferred over the network to every client.
     # Instead we store them at /MediSwarm/pretrained_weights/ in the Docker image, and
-    # the model code falls back to that path at runtime.
-    WEIGHTS_DIR="$TARGET_DIR/MediSwarm/pretrained_weights"
+    # the model code falls back to that path at runtime. The context directory sits next to
+    # MediSwarm/ (not inside it) so the image gets it as its own layer.
+    WEIGHTS_DIR="$TARGET_DIR/pretrained_weights"
     mkdir -p "$WEIGHTS_DIR"
     echo "Copy pretrained model weights to $WEIGHTS_DIR/ ..."
 
