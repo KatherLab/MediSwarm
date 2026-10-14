@@ -32,10 +32,12 @@ Every ODELIA and STAMP job aggregates with `InTimeAccumulateWeightedAggregator` 
 size-weighted mean of client updates. A weighted mean has a **breakdown point of zero**:
 there is no bound on how far one participant can move it.
 
-The `PercentilePrivacy` filter currently wired into every job does **not** help. It
-clips small diffs for privacy reasons; it does not bound the norm of a contribution, so
-it neither provides a privacy guarantee (see `DIFFERENTIAL_PRIVACY.md`) nor limits
-influence.
+The `PercentilePrivacy` filter that every job config listed until 1.9.0 did **not** help. It
+clipped each coordinate of a diff for privacy reasons; it did not bound the norm of a
+contribution, so it neither provided a privacy guarantee (see `DIFFERENTIAL_PRIVACY.md`) nor
+limited influence. It also never ran in swarm mode (result filters on the learn task are
+bypassed) and was removed in 1.9.0. The L2 clipping of the `dp_noise` round hook (DP jobs only)
+does not bound influence either: it runs at the sending site, so an attacking site skips it.
 
 Measured, at `scripts/adversarial/attack_simulation.py`:
 
@@ -144,5 +146,5 @@ before running, so the figures cannot drift from the per-site record in
 | Doc | Holds |
 |---|---|
 | `AGGREGATION_STRATEGIES.md` | FedAvg/FedProx/FedOpt/Scaffold — convergence, not robustness |
-| `DIFFERENTIAL_PRIVACY.md` | T3.3, and why `PercentilePrivacy` carries no guarantee |
+| `DIFFERENTIAL_PRIVACY.md` | T3.3: the `dp_noise` mechanism, and why `PercentilePrivacy` was removed |
 | `SWARM_FAILURE_MODES.md` | F1–F10, accidental failures rather than adversarial ones |

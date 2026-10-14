@@ -38,7 +38,8 @@ The platform provides:
 - **Swarm learning** via NVFlare's `SwarmServerController` / `SwarmClientController`
 - **Peer-to-peer aggregation** (no single point of failure)
 - **Cross-site evaluation** for comparing model performance across institutions
-- **Differential privacy** via percentile-based gradient clipping
+- **Optional client-level differential privacy** per job: the `dp_noise` round hook clips each
+  site's update and adds calibrated Gaussian noise ([DIFFERENTIAL_PRIVACY.md](DIFFERENTIAL_PRIVACY.md))
 - **PyTorch Lightning integration** for clean training loops
 - A **centralized model factory** that dynamically loads any registered model
 
@@ -436,20 +437,7 @@ example:
     }
   ]
 
-  task_result_filters = [
-    {
-      tasks = ["train"]
-      filters = [
-        {
-          path = "nvflare.app_common.filters.percentile_privacy.PercentilePrivacy"
-          args {
-            percentile = 10
-            gamma = 0.01
-          }
-        }
-      ]
-    }
-  ]
+  task_result_filters = []
 }
 ```
 
@@ -460,7 +448,10 @@ example:
   centralized factory reads `MODEL_NAME` from the environment).
 - For a challenge model, set the environment variable
   `MODEL_NAME=challenge_<team_name>` at runtime.
-- `task_result_filters` with `PercentilePrivacy` adds differential privacy.
+- Leave `task_result_filters` empty. In swarm mode the learn task bypasses task filters, so a
+  result filter on `train` never runs (the `PercentilePrivacy` filter that the job configs listed
+  until 1.9.0 never executed). Client-level DP noise is the `dp_noise` round hook, set in the
+  launcher line ([DIFFERENTIAL_PRIVACY.md](DIFFERENTIAL_PRIVACY.md)).
 
 #### config_fed_server.conf
 
@@ -861,7 +852,7 @@ application/jobs/_shared/custom/
 | `components[persistor].model.path`        | Dotted path to your `create_model()` function      |
 | `components[persistor].model.args`        | Kwargs passed to `create_model()`                 |
 | `components[model_selector].args.key_metric` | Metric for best-model selection (`"accuracy"`)  |
-| `task_result_filters`                     | Privacy/quality filters on model updates          |
+| `task_result_filters`                     | Keep empty: never applied to the swarm learn task |
 
 #### config_fed_server.conf — Key Fields
 
