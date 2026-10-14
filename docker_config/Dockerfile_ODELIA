@@ -34,7 +34,7 @@ ENV KMP_DUPLICATE_LIB_OK=TRUE
 # 4. NVFlare install + master_template.yml (the template is stamped with this
 #    build's version/commit hash, so it is a cache miss on EVERY commit --
 #    nothing cacheable may sit below it; see the CACHE NOTE at that stage)
-# 5. COPY source code (changes every build — must be last)
+# 5. COPY source code + entrypoint (changes every build — must be last)
 #
 # The base pytorch image already includes python3 + pip, so pip installs
 # don't depend on the apt python packages below — those are just security
@@ -363,3 +363,12 @@ RUN mkdir -p /fl_admin/transfer && ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 
 # allow creating home directory for local user inside container if needed
 RUN chmod a+rwx /home
+
+# Clears a stale NVFlare lock when a kit's client/server container restarts, for
+# the 1.8.1 kits that cannot get #630 (see the script), then execs the command
+# unchanged. Outside /MediSwarm on purpose: a site that mounts code over
+# /MediSwarm must not lose or replace it.
+COPY --chmod=755 ./MediSwarm/docker_config/mediswarm_entrypoint.sh /usr/local/bin/mediswarm_entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/mediswarm_entrypoint.sh"]
+# An ENTRYPOINT discards the CMD inherited from the base image; keep its default.
+CMD ["/bin/bash"]
