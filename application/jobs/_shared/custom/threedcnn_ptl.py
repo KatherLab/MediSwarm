@@ -39,6 +39,21 @@ FILENAME_GT_PREDPROB_SITE_MODEL_VALIDATION = 'site_model_gt_and_classprob_valida
 FILENAME_GT_PREDPROB_LAST_SITE_MODEL_TEST = 'last_site_model_gt_and_classprob_test.csv'
 FILENAME_GT_PREDPROB_BEST_SITE_MODEL_TEST = 'best_site_model_gt_and_classprob_test.csv'
 
+# Evaluation-only final round (ODELIA_FINAL_EVAL_ROUND=1): the final global on the validation and test split.
+# These carry a header and a row_index that matches the rows returned with ODELIA_RETURN_PER_CASE=1. No uid:
+# kit_live_sync uploads every *_model_gt_and_classprob_*.csv of the run directory.
+FILENAME_GT_PREDPROB_FINAL_GLOBAL_MODEL_VALIDATION = 'final_global_model_gt_and_classprob_validation.csv'
+FILENAME_GT_PREDPROB_FINAL_GLOBAL_MODEL_TEST = 'final_global_model_gt_and_classprob_test.csv'
+
+# Streamed metric prefixes (release contract 3.4). "val/" stays the site's local model (validation inside
+# trainer.fit); the coordinator files each prefix under its own owner in cross_val_results.json.
+GLOBAL_VAL_PREFIX = "global_val"   # the global received at the start of every training round
+FINAL_VAL_PREFIX = "final_val"     # the final global, evaluation-only round, validation split
+FINAL_TEST_PREFIX = "final_test"   # the final global, evaluation-only round, test split
+
+FINAL_EVAL_ROUND_ENV = "ODELIA_FINAL_EVAL_ROUND"
+EXPORT_TRAIN_PREDICTIONS_ENV = "ODELIA_EXPORT_TRAIN_PREDICTIONS"
+
 OMP_THREAD_ENV_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
 
 # Default matches the `key_metric` of every job that uses this training script
@@ -46,6 +61,45 @@ OMP_THREAD_ENV_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREA
 # selector metric as a KEY_METRIC=... prefix on the launcher command, which the
 # SubprocessLauncher strips into the environment.
 DEFAULT_KEY_METRIC = "val/AUC_ROC"
+
+
+_TRUE_VALUES = ("1", "true", "yes", "on")
+_FALSE_VALUES = ("0", "false", "no", "off")
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    """Read a 0/1 switch from the launcher environment; anything unrecognisable stops the job.
+
+    A typo such as ODELIA_FINAL_EVAL_ROUND=l must not silently turn the evaluation round into a training
+    round (or the other way round), so main.py reads both switches once before prepare_training().
+    """
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    if raw in _TRUE_VALUES:
+        return True
+    if raw in _FALSE_VALUES:
+        return False
+    raise ValueError(f"{name}={os.environ.get(name)!r} is not a switch; use 1 or 0")
+
+
+def final_eval_round_enabled() -> bool:
+    """ODELIA_FINAL_EVAL_ROUND=1: the job's last round only evaluates the final global (contract 3.3).
+
+    The job then runs num_rounds = training rounds + 1; the job builder sets both.
+    """
+    return _env_flag(FINAL_EVAL_ROUND_ENV, False)
+
+
+def export_train_predictions_enabled() -> bool:
+    """ODELIA_EXPORT_TRAIN_PREDICTIONS=0 skips the train-split inference of the prediction CSV exports.
+
+    That pass covers the whole (augmented, randomly ordered, unidentified) training split and costs as much
+    as an epoch at the large sites (#542: 12 min per epoch at UKA_1 with MST, up to 135 min at UMCU_1 with
+    1DC); validation rows are still written and, with ODELIA_RETURN_PER_CASE=1, returned. It applies to the
+    per-epoch export and to the aggregated-model export alike. Default 1 keeps the behaviour of <= 1.8.
+    """
+    return _env_flag(EXPORT_TRAIN_PREDICTIONS_ENV, True)
 
 
 def resolve_key_metric():
@@ -459,20 +513,37 @@ def create_run_directory(env_vars):
     )
 
 
+@contextmanager
+def eval_mode(model):
+    """Run an export pass in eval mode, then restore every submodule's own training flag (#618).
+
+    The exports are called from inside trainer.fit() (on_train_epoch_end runs with the module in train
+    mode), so without this BatchNorm would normalise with batch statistics and update its running stats,
+    and Dropout would drop activations, in every exported probability. The flags are restored one module
+    at a time rather than with model.train(): a submodule that was deliberately frozen in eval mode stays so.
+    """
+    modules = list(model.modules())
+    flags = [module.training for module in modules]
+    model.eval()
+    try:
+        yield model
+    finally:
+        for module, flag in zip(modules, flags):
+            module.training = flag
+
+
 def _determine_GT_and_classprobs(model, data_loader: torch.utils.data.dataloader.DataLoader, device: torch.device):
     results = []
-    for batch in data_loader:
-        source, target = batch['source'], batch['target']
-
-        with torch.no_grad():
+    with eval_mode(model), torch.no_grad():
+        for batch in data_loader:
+            source, target = batch['source'], batch['target']
             logits = model(source.to(device))
+            pred_prob = model.logits2probabilities(logits).detach().cpu()
 
-        pred_prob = model.logits2probabilities(logits).detach().cpu()
-
-        for b in range(pred_prob.size(0)):
-            results.append({'GT': target[b].tolist(),
-                            'pred_prob': pred_prob[b].tolist(),
-                            })
+            for b in range(pred_prob.size(0)):
+                results.append({'GT': target[b].tolist(),
+                                'pred_prob': pred_prob[b].tolist(),
+                                })
     return results
 
 
@@ -484,17 +555,21 @@ def _output_GT_and_classprobs_csv(results, epoch: int, csv_filename) -> None:
             datawriter.writerow(output_data)
 
 
-def output_GT_and_classprobs_csv_train_val(model, data_module: DataModule, epoch: int, csv_filename_train, csv_filename_validation) -> None:
+def output_GT_and_classprobs_csv_train_val(model, data_module: DataModule, epoch: int, csv_filename_train,
+                                           csv_filename_validation):
+    """Append train and validation predictions to the two CSVs; return the validation results.
+
+    ``csv_filename_train=None`` skips the train-split pass (ODELIA_EXPORT_TRAIN_PREDICTIONS=0).
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
 
-    train_loader = data_module.train_dataloader()
-    val_loader = data_module.val_dataloader()
-
-    results_train = _determine_GT_and_classprobs(model, train_loader, device)
-    _output_GT_and_classprobs_csv(results_train, epoch, csv_filename_train)
-    results_validation = _determine_GT_and_classprobs(model, val_loader, device)
+    if csv_filename_train is not None:
+        results_train = _determine_GT_and_classprobs(model, data_module.train_dataloader(), device)
+        _output_GT_and_classprobs_csv(results_train, epoch, csv_filename_train)
+    results_validation = _determine_GT_and_classprobs(model, data_module.val_dataloader(), device)
     _output_GT_and_classprobs_csv(results_validation, epoch, csv_filename_validation)
+    return results_validation
 
 
 def output_GT_and_classprobs_csv_test(model, data_module: DataModule, epoch: int, csv_filename_test) -> None:
@@ -507,18 +582,47 @@ def output_GT_and_classprobs_csv_test(model, data_module: DataModule, epoch: int
     _output_GT_and_classprobs_csv(results_test, epoch, csv_filename_test)
 
 
+def return_per_case_rows(metric_writer, results, split: str, model_kind: str, round_num=None, epoch=None) -> int:
+    """Send per-case rows to the coordinator if this site opted in (ODELIA_RETURN_PER_CASE=1).
+
+    ``results`` are dicts with 'GT' (a label, or a one-element list as the CSV exports keep it) and
+    'pred_prob'. Wrapped whole: returning predictions is an extra, and a failure here must never cost a
+    round that has already succeeded. Returns the number of chunks sent.
+    """
+    if metric_writer is None:
+        return 0
+    try:
+        from per_case_predictions import emit_per_case_predictions
+
+        ground_truth = [r['GT'][0] if isinstance(r['GT'], (list, tuple)) else r['GT'] for r in results]
+        sent = emit_per_case_predictions(
+            metric_writer, ground_truth, [r['pred_prob'] for r in results],
+            split=split, model_kind=model_kind, round_num=round_num, epoch=epoch,
+        )
+        if sent:
+            logging.getLogger(__name__).info(
+                f"Returned {len(results)} per-case {split} rows of the {model_kind} model "
+                f"(round {round_num}) in {sent} chunk(s)")
+        return sent
+    except Exception as exc:
+        logging.getLogger(__name__).warning(f"Per-case prediction return failed, training unaffected: {exc}")
+        return 0
+
+
 class GT_PredProb_Output_Callback(Callback):
     """Write per-case ground truth and class probabilities to local CSV.
 
     Optionally also returns the *validation* rows to the coordinator, so that
     D2.5's paired comparison and D3.2's uncertainty ranking can be computed
     centrally instead of requiring a 722 MB checkpoint to leave the hospital
-    (#526, #527, #528).
+    (#526, #527, #528). They are the site's LOCAL model after this epoch and are
+    tagged so (model_kind site_local, split val, the swarm round).
 
     The return is off unless the site sets ODELIA_RETURN_PER_CASE=1, and it
     carries a row index rather than any identifier -- see per_case_predictions.
     Training rows are never returned: they are the larger set and nothing in
-    the deliverables needs them.
+    the deliverables needs them. ODELIA_EXPORT_TRAIN_PREDICTIONS=0 skips them
+    locally as well.
     """
 
     def __init__(self, data_module, csv_filename_train, csv_filename_validation,
@@ -527,49 +631,22 @@ class GT_PredProb_Output_Callback(Callback):
         self.csv_filename_train = csv_filename_train
         self.csv_filename_validation = csv_filename_validation
         self.metric_writer = metric_writer
+        # Swarm round of the local model being trained; train_local_model() sets it every round.
+        self.current_round = None
         super().__init__()
 
     def on_train_epoch_end(self, trainer, pl_module):
-        output_GT_and_classprobs_csv_train_val(pl_module,
-                                               self.data_module,
-                                               trainer.current_epoch,
-                                               self.csv_filename_train,
-                                               self.csv_filename_validation)
-        self._maybe_return_validation_rows(pl_module)
-
-    def _maybe_return_validation_rows(self, pl_module):
-        """Send validation rows to the coordinator if this site has opted in.
-
-        Wrapped whole: returning predictions is an extra, and a failure here
-        must never cost a training round that has already succeeded.
-        """
-        if self.metric_writer is None:
-            return
-        try:
-            from per_case_predictions import emit_per_case_predictions
-
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            results = []
-            model = pl_module.to(device)
-            for batch in self.data_module.val_dataloader():
-                source, target = batch['source'], batch['target']
-                with torch.no_grad():
-                    probs = model.logits2probabilities(model(source.to(device))).detach().cpu()
-                for b in range(probs.size(0)):
-                    results.append((target[b].tolist()[0], probs[b].tolist()))
-
-            sent = emit_per_case_predictions(
-                self.metric_writer,
-                [gt for gt, _ in results],
-                [p for _, p in results],
-                split="val",
-            )
-            if sent:
-                logging.getLogger(__name__).info(
-                    f"Returned {len(results)} per-case validation rows in {sent} chunk(s)")
-        except Exception as exc:
-            logging.getLogger(__name__).warning(
-                f"Per-case prediction return failed, training unaffected: {exc}")
+        # One validation pass feeds both the CSV and the per-case return, so the returned rows are exactly
+        # the rows written locally (before #618 the return ran a third pass, in train mode).
+        results_validation = output_GT_and_classprobs_csv_train_val(
+            pl_module,
+            self.data_module,
+            trainer.current_epoch,
+            self.csv_filename_train if export_train_predictions_enabled() else None,
+            self.csv_filename_validation,
+        )
+        return_per_case_rows(self.metric_writer, results_validation, split="val", model_kind="site_local",
+                             round_num=self.current_round, epoch=trainer.current_epoch)
 
 
 def prepare_training(logger, max_epochs: int, site_name: str = None,
@@ -715,6 +792,10 @@ def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
         unset / 0 -> final round only (default)
         1         -> every round (legacy behaviour)
         N (>1)    -> every Nth round, plus the final round
+
+    With ODELIA_FINAL_EVAL_ROUND=1 the final round is the evaluation-only round, so the default export
+    moves there (it then covers the final global) and the last training round no longer pays for it
+    (#542). ODELIA_EXPORT_TRAIN_PREDICTIONS=0 drops the train-split half of the export.
     """
     try:
         every_n = int(os.environ.get("ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS", "0") or "0")
@@ -731,16 +812,80 @@ def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
 STAGE_TIMING_HEADING = "ODELIA execution stage timings:"
 
 
+@contextmanager
+def metric_labels(model, prefixes=None, constants=None):
+    """Within the block, stream ``model``'s metrics of a state under another prefix (BasicClassifier).
+
+    E.g. ``metric_labels(model, {"val": "global_val"}, {"round": 3})``. A LightningModule without the
+    labelling API (not a BasicClassifier) logs as before.
+    """
+    if not hasattr(model, "set_metric_labels"):
+        yield
+        return
+    model.set_metric_labels(prefixes, constants)
+    try:
+        yield
+    finally:
+        model.clear_metric_labels()
+
+
+@contextmanager
+def prediction_capture(model, states):
+    """Collect the per-case rows the model's own evaluation steps see (BasicClassifier).
+
+    Yields a dict {state: rows} that is filled when the block exits; rows come from the very forward pass
+    the epoch metrics are computed from, so AUROC recomputed from them reproduces the streamed value. For a
+    model without the capture API the dict stays empty.
+    """
+    captured = {state: [] for state in states}
+    if not hasattr(model, "start_prediction_capture"):
+        yield captured
+        return
+    model.start_prediction_capture(states)
+    try:
+        yield captured
+    finally:
+        captured.update(model.stop_prediction_capture())
+
+
+def _per_case_writer(trainer):
+    """The metric writer that carries per-case rows (attached to the CSV callback in swarm mode), or None."""
+    for callback in trainer.callbacks:
+        if isinstance(callback, GT_PredProb_Output_Callback):
+            return callback.metric_writer
+    return None
+
+
+def _scalar_callback_metrics(trainer) -> Dict[str, float]:
+    """Plain floats of trainer.callback_metrics, as NVFlare's FLCallback extracts them."""
+    metrics = {}
+    for key, value in trainer.callback_metrics.items():
+        try:
+            metrics[key] = value.item() if hasattr(value, "item") else float(value)
+        except (TypeError, ValueError):
+            continue
+    return metrics
+
+
 def validate_global_model(logger, data_module, model, trainer, path_run_dir,
-                          output_GT_and_classprob_aggregated_model=True, stage_timings=None) -> None:
+                          output_GT_and_classprob_aggregated_model=True, stage_timings=None,
+                          metric_prefix=None, current_round=None, stage_name="Validation") -> None:
     """First half of a round: validate the received global (in swarm mode FLCallback loads it into
     ``model`` on this first validate()) and optionally export its predictions.
 
     Split from the fit so main.py can run the before_fit round hooks in between (round_hooks.py).
+
+    ``metric_prefix`` (swarm: "global_val", or "final_val" in the evaluation-only round) streams the
+    validation metrics under that prefix together with ``<prefix>/round``; "val/" stays reserved for the
+    local model validated inside trainer.fit(). See BasicClassifier.set_metric_labels for why the original
+    "val/" keys still reach FLCallback (CCWF best-global selection reads them).
     """
-    with timed_stage(logger, "Validation", stage_timings):
+    prefixes = {"val": metric_prefix} if metric_prefix else None
+    constants = {"round": current_round} if metric_prefix and current_round is not None else None
+    with timed_stage(logger, stage_name, stage_timings):
         logger.info("--- Validate global model ---")
-        trainer.validate(model, datamodule=data_module)
+        with metric_labels(model, prefixes, constants):
+            trainer.validate(model, datamodule=data_module)
 
     if output_GT_and_classprob_aggregated_model:
         with timed_stage(logger, "Aggregated prediction export", stage_timings):
@@ -748,19 +893,137 @@ def validate_global_model(logger, data_module, model, trainer, path_run_dir,
                 model,
                 data_module,
                 trainer.current_epoch,
-                path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN,
+                _aggregated_train_csv(path_run_dir),
                 path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION,
             )
 
 
-def train_local_model(logger, data_module, model, trainer, stage_timings=None) -> None:
-    """Second half of a round: local training. In swarm mode FLCallback.on_train_end sends the result."""
+def _aggregated_train_csv(path_run_dir):
+    """Train-split CSV of the aggregated-model export, or None with ODELIA_EXPORT_TRAIN_PREDICTIONS=0."""
+    return path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_TRAIN if export_train_predictions_enabled() else None
+
+
+def train_local_model(logger, data_module, model, trainer, stage_timings=None, current_round=None) -> None:
+    """Second half of a round: local training. In swarm mode FLCallback.on_train_end sends the result.
+
+    ``current_round`` tags what the fit reports about the local model: "val/round" next to the in-fit
+    validation metrics, and the round of per-case rows returned by the CSV callback.
+    """
+    for callback in trainer.callbacks:
+        if isinstance(callback, GT_PredProb_Output_Callback):
+            callback.current_round = current_round
+    constants = {"round": current_round} if current_round is not None else None
     with timed_stage(logger, "Fit", stage_timings):
         logger.info("--- Train new model ---")
-        trainer.fit(model, datamodule=data_module)
+        with metric_labels(model, None, constants):
+            trainer.fit(model, datamodule=data_module)
+
+
+def _write_final_global_csv(rows, current_round, csv_filename) -> None:
+    """Local CSV of the final global's predictions: one header line, then one line per case.
+
+    ``row_index`` is the case's position in the (unshuffled) split, the same index the returned per-case
+    rows carry, so a site can line both up. No uid: this file matches kit_live_sync's upload pattern.
+    """
+    num_probs = max((len(r['pred_prob']) for r in rows), default=0)
+    with open(csv_filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['round', 'row_index', 'ground_truth'] + [f'prob_class_{k}' for k in range(num_probs)])
+        for index, row in enumerate(rows):
+            writer.writerow([current_round, index, row['GT']] + row['pred_prob'])
+
+
+def evaluate_final_global_model(logger, data_module, model, trainer, path_run_dir, current_round,
+                                output_GT_and_classprob_aggregated_model=False, stage_timings=None) -> Dict[str, float]:
+    """Evaluation-only final round (ODELIA_FINAL_EVAL_ROUND=1, release contract 3.3); no training.
+
+    1. Validate the received global (FLCallback loads it on this first validate(); it IS the final global
+       of the job) on the validation split, streamed as final_val/*.
+    2. Evaluate it on the test split with trainer.test(), streamed as final_test/*. Same metric code and
+       same forward pass as everywhere else, so the final_test numbers compare with every other figure.
+    3. Write the local CSVs (validation and test) and, if the site opted in, return the per-case rows,
+       tagged model_kind final_global. Both come from the forward passes of steps 1 and 2.
+    4. Optionally the aggregated-model export (train + validation CSVs of this global, the final-round
+       default of ODELIA_PREDICTION_EXPORT_EVERY_N_ROUNDS, which with this round enabled no longer runs in
+       the last training round).
+
+    Returns the metrics of the validation in step 1, exactly what FLCallback recorded for this round; the
+    caller sends them with the unchanged weights so CCWF's best-global selection sees the final global.
+
+    Only step 1 may fail the round: FLCallback loads the global there and the result needs its metrics.
+    Steps 2-4 produce outputs only, so a failure in one of them is logged as an error (see best_effort) and
+    the round goes on; the site then has no final_test/* values in cross_val_results.json.
+    """
+    with prediction_capture(model, ("val",)) as captured_val:
+        validate_global_model(logger, data_module, model, trainer, path_run_dir,
+                              output_GT_and_classprob_aggregated_model=False, stage_timings=stage_timings,
+                              metric_prefix=FINAL_VAL_PREFIX, current_round=current_round,
+                              stage_name="Final global validation")
+    metrics = _scalar_callback_metrics(trainer)
+
+    captured_test = {"test": []}
+
+    def _test():
+        with timed_stage(logger, "Final global test", stage_timings):
+            logger.info("--- Test final global model ---")
+            with prediction_capture(model, ("test",)) as captured, \
+                    metric_labels(model, {"test": FINAL_TEST_PREFIX}, {"round": current_round}):
+                trainer.test(model, datamodule=data_module, verbose=False)
+        # Only a completed test pass counts: rows of an aborted one would be a silently truncated split.
+        captured_test.update(captured)
+
+    best_effort(logger, "Final global test", _test)
+
+    def _write_and_return():
+        with timed_stage(logger, "Final global prediction CSVs and per-case return", stage_timings):
+            writer = _per_case_writer(trainer)
+            for split, rows, filename in (
+                    ("val", captured_val["val"], FILENAME_GT_PREDPROB_FINAL_GLOBAL_MODEL_VALIDATION),
+                    ("test", captured_test["test"], FILENAME_GT_PREDPROB_FINAL_GLOBAL_MODEL_TEST)):
+                if not rows:
+                    logger.warning(f"No per-case {split} predictions of the final global (empty or failed split, "
+                                   f"or a model without prediction capture); {filename} is not written")
+                    continue
+                _write_final_global_csv(rows, current_round, path_run_dir / filename)
+                return_per_case_rows(writer, rows, split=split, model_kind="final_global", round_num=current_round)
+
+    best_effort(logger, "Final global prediction CSVs", _write_and_return)
+
+    if output_GT_and_classprob_aggregated_model:
+        def _export():
+            with timed_stage(logger, "Aggregated prediction export", stage_timings):
+                output_GT_and_classprobs_csv_train_val(
+                    model,
+                    data_module,
+                    trainer.current_epoch,
+                    _aggregated_train_csv(path_run_dir),
+                    path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION,
+                )
+
+        best_effort(logger, "Aggregated prediction export", _export)
+    return metrics
+
+
+def best_effort(logger, what: str, func, *args, **kwargs):
+    """Run an output-only step of the evaluation-only round; log its failure instead of raising.
+
+    That round must end with the received global sent back unchanged. If an output step (the test split,
+    a CSV, a local checkpoint export) raised instead, this site's result would be missing, and with every
+    site required the job's last round, after all of its training, would wait for the learn-task timeout.
+    The error and its traceback stay in the site log, and the missing final_test/* values in
+    cross_val_results.json show it centrally. Returns func's result, or None after a failure.
+    """
+    try:
+        return func(*args, **kwargs)
+    except Exception:
+        logger.exception(f"{what} failed in the evaluation-only round; this output is missing, the received "
+                         f"global is still returned unchanged")
+        return None
 
 
 def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
+    """Preflight and local training: validate the initial model, then train. Metrics stay "val/*" here,
+    since there is no swarm global; only main.py's swarm loop labels the received global "global_val"."""
     stage_timings: Dict[str, float] = {}
     validate_global_model(logger, data_module, model, trainer, path_run_dir,
                           output_GT_and_classprob_aggregated_model, stage_timings)
@@ -816,9 +1079,12 @@ def _save_last_checkpoint(logger, checkpointing, path_run_dir):
 def finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars) -> None:
     _save_best_checkpoint(logger, data_module, model, checkpointing, trainer, path_run_dir)
     _save_last_checkpoint(logger, checkpointing, path_run_dir)
-    if '2BCN_AIM' in env_vars['model_name'] or '3agaldran' in env_vars['model_name'] or '4LME_ABMIL' in env_vars['model_name'] or '5Pimed' in env_vars['model_name']:
-        logger.warning('Cannot output ground truth and class probability csvs for test data for model ' + env_vars['model_name'])
-        # /opt/conda/lib/python3.10/site-packages/pytorch_lightning/core/saving.py, line 165, _load_state causes TypeError: ModelWrapper.__init__() missing 1 required positional argument: 'backbone'
+    if not checkpointing.last_model_path:
+        # Nothing was trained in this process: a job whose only round is the evaluation-only round (it
+        # scores the round-0 global, e.g. a warm-start baseline). There is no local model to export.
+        logger.warning('No local checkpoint exists; skipping the test-split export of the local models.')
     else:
+        # Every model, the challenge models 2-5 included: called on the model, the checkpoint loaders fill a
+        # copy of it instead of rebuilding it through Lightning, which cannot rebuild a ModelWrapper (#627).
         _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir)
     logger.info('Training completed successfully.')
