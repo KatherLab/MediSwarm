@@ -17,7 +17,8 @@
 # Permits ONLY:
 #   - `echo ok`                                     (connectivity check)
 #   - `mkdir -p '<path under /srv/mediswarm/live>'`  (ensure_remote_dir)
-#   - `rsync --server ...`  -> rrsync -wo /          (upload; write-only, no exfil)
+#   - `rsync --server ...`  -> rrsync -wo /          (upload; write-only, no exfil,
+#                                                     files above 1500M skipped)
 # Everything else is rejected and logged to syslog (tag: mediswarm-upload-guard).
 set -u
 
@@ -53,6 +54,14 @@ fi
 #    filters dangerous rsync options (e.g. --rsync-path).
 if [[ "$cmd" == "rsync --server "* ]]; then
     log allow-rsync
+    # Cap the size of any single uploaded file. --max-size is a receiver-side option, so
+    # adding it here takes effect without any change at the sites, and rrsync accepts it.
+    # Oversized files are skipped silently (rsync exits 0, so live_sync records no error).
+    # Why: the CAM model's Lightning checkpoints are 3.2 GB and live_sync re-sends them every
+    # epoch, competing with the swarm's own 1 GB model transfers on the sites' VPN uplinks.
+    # The default lets MST (~0.3 GB) and 1DivideAndConquer (1.1 GB) checkpoints through.
+    SSH_ORIGINAL_COMMAND="rsync --server --max-size=${MEDISWARM_UPLOAD_MAX_SIZE:-1500M} ${cmd#rsync --server }"
+    export SSH_ORIGINAL_COMMAND
     # -no-lock: rrsync otherwise takes an exclusive flock() on the restricted root
     # (here "/"), which serialises uploads across the WHOLE account. With several
     # sites live-syncing every 30s, the first site's daemon holds the lock and every
