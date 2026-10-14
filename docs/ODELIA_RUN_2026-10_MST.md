@@ -57,8 +57,14 @@ module; hold the driver package with `apt-mark hold`).
 
 - The final-round global model scores at least as well as the best-validation one on the
   external challenge test split; release both, recommend the final one.
-- At four sites the final model's top-1 prediction on the validation split is "no lesion" for
-  every case, so per-site accuracy equals the no-lesion share. Read AUROC there, not accuracy.
+- The per-site metrics returned to the coordinator (`cross_val_results.json`, labelled
+  `swarm_global`) are NOT the aggregated global model: the collector keeps the last streamed
+  `val/*` values, which come from each site's local model after its last local epoch of the
+  final round. The aggregated final global was never evaluated at the sites; only the central
+  external test evaluates the global models. Fixed in 1.9.0 (evaluation-only final round,
+  separate labels for local and global metrics).
+- At four sites the final local model's top-1 prediction on the validation split is "no lesion"
+  for every case, so per-site accuracy equals the no-lesion share. Read AUROC there, not accuracy.
 - RUMC_1's clock runs about 1 h 56 min ahead of the coordinator, which offsets its timestamps
   in the server log.
 - USZ_1 still uploads no logs to the monitor (#615).
