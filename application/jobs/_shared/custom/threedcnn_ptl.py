@@ -728,9 +728,16 @@ def should_export_aggregated_predictions(current_round, total_rounds) -> bool:
     return is_final or (current_round % every_n == 0)
 
 
-def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
-    stage_timings: Dict[str, float] = {}
+STAGE_TIMING_HEADING = "ODELIA execution stage timings:"
 
+
+def validate_global_model(logger, data_module, model, trainer, path_run_dir,
+                          output_GT_and_classprob_aggregated_model=True, stage_timings=None) -> None:
+    """First half of a round: validate the received global (in swarm mode FLCallback loads it into
+    ``model`` on this first validate()) and optionally export its predictions.
+
+    Split from the fit so main.py can run the before_fit round hooks in between (round_hooks.py).
+    """
     with timed_stage(logger, "Validation", stage_timings):
         logger.info("--- Validate global model ---")
         trainer.validate(model, datamodule=data_module)
@@ -745,11 +752,20 @@ def validate_and_train(logger, data_module, model, trainer, path_run_dir, output
                 path_run_dir/FILENAME_GT_PREDPROB_AGGREGATED_MODEL_VALIDATION,
             )
 
+
+def train_local_model(logger, data_module, model, trainer, stage_timings=None) -> None:
+    """Second half of a round: local training. In swarm mode FLCallback.on_train_end sends the result."""
     with timed_stage(logger, "Fit", stage_timings):
         logger.info("--- Train new model ---")
         trainer.fit(model, datamodule=data_module)
 
-    log_stage_timing_summary(logger, stage_timings, "ODELIA execution stage timings:")
+
+def validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=True) -> None:
+    stage_timings: Dict[str, float] = {}
+    validate_global_model(logger, data_module, model, trainer, path_run_dir,
+                          output_GT_and_classprob_aggregated_model, stage_timings)
+    train_local_model(logger, data_module, model, trainer, stage_timings)
+    log_stage_timing_summary(logger, stage_timings, STAGE_TIMING_HEADING)
 
 
 def _output_GT_and_classprobs_csv_test(logger, data_module, model, checkpointing, trainer, path_run_dir):
