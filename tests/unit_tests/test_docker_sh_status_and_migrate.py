@@ -717,6 +717,17 @@ def test_migrate_without_an_old_container_asks_for_the_folders(host, tmp_path):
     assert any(c[0] == "run" and "-d" in c for c in host.calls())
 
 
+def test_migrate_into_a_kit_without_image_conf_keeps_the_old_pin_behind(host, tmp_path):
+    old_kit, daemon = _old_181(host, tmp_path)
+    (host.new_kit / "startup" / "image.conf").unlink()
+    result = host.run("--migrate_from", str(old_kit), "--yes")
+    assert result.returncode == 0, result.stdout
+    assert "is missing in this kit and is created with the old kit's settings" in result.stdout
+    created = (host.new_kit / "startup" / "image.conf").read_text()
+    assert "MEDISWARM_IMAGE" not in created, "the old image pin must not come back through a missing file"
+    assert 'MEDISWARM_DOCKER_OPTIONS="--cpus 8' in created and "ODELIA_NUM_WORKERS=4" in created
+
+
 def test_migrate_refuses_another_sites_kit_and_this_kit_itself(host, tmp_path):
     other = host.make_kit(tmp_path / "kits" / "OTHER_1", "1.8.1", "old1234", TEMPLATE.read_text(), site="OTHER_1")
     result = host.run("--migrate_from", str(other), "--yes")

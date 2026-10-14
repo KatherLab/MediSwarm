@@ -1231,11 +1231,8 @@ docker_cln_sh: |
           echo "   startup/$f: not in the old kit, nothing to carry"
           return 0
       fi
-      if [ ! -f "$newf" ]; then
-          cp -p "$oldf" "$merged"
-          echo "   startup/$f: missing in this kit, so the old kit's file is copied"
-          return 0
-      fi
+      # A file missing in this kit is merged like an empty one, so the variables in $3 (the old
+      # image pin) stay behind even then.
       if ! _merge_conf "$oldf" "$newf" "$merged" "$3" "$old_root"; then
           echo "   startup/$f: no site settings to carry (this kit's file already has them)"
           return 0
@@ -1245,7 +1242,12 @@ docker_cln_sh: |
           echo "   startup/$f: [!] the merged file would not be valid shell; carry your settings over by hand"
           return 0
       fi
-      echo "   startup/$f (lines from the old kit are appended; the last assignment wins):"
+      if [ -f "$newf" ]; then
+          echo "   startup/$f (lines from the old kit are appended; the last assignment wins):"
+      else
+          echo "   startup/$f is missing in this kit and is created with the old kit's settings:"
+          newf=/dev/null
+      fi
       diff -u --label "startup/$f (this kit now)" --label "startup/$f (after --yes)" "$newf" "$merged" | sed 's/^/     /'
   }
 
