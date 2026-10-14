@@ -180,12 +180,34 @@ def test_challenge_model_reloads_from_its_lightning_checkpoints(name, tmp_path, 
     assert model.training
 
 
-def test_class_level_call_still_rebuilds_through_lightning(tmp_path, monkeypatch):
-    """Called on the class there is nothing to copy: Lightning's rebuild, and its #627 failure, remain."""
+def test_class_level_call_still_goes_to_lightning(tmp_path, monkeypatch):
+    """Called on the class there is nothing to copy, so Lightning's load_from_checkpoint does the work."""
+    calls = []
+
+    def lightning_rebuild(cls, path, **kwargs):
+        calls.append((cls, path, kwargs))
+        return "rebuilt by Lightning"
+
+    monkeypatch.setattr(ModelWrapper, "load_from_checkpoint", classmethod(lightning_rebuild))
+    assert ModelWrapper.load_checkpoint_from_file("x.ckpt", strict=False) == "rebuilt by Lightning"
+    assert calls == [(ModelWrapper, "x.ckpt", {"strict": False})]
+    model = _tiny()
+    torch.save({"state_dict": model.state_dict()}, tmp_path / "w.ckpt")
+    assert isinstance(model.load_checkpoint_from_file(tmp_path / "w.ckpt"), ModelWrapper)
+    assert len(calls) == 1  # the call on the instance copied the model instead
+
+
+def test_lightning_cannot_rebuild_a_trained_wrapper(tmp_path, monkeypatch):
+    """Why the copy exists (#627): Lightning's rebuild of a trained ModelWrapper fails."""
     model = _build_challenge_model("5Pimed", monkeypatch)
     checkpointing = _train_one_step(model, CHALLENGE_CASES["5Pimed"]["shape"], tmp_path)
-    with pytest.raises(TypeError, match="backbone"):
-        type(model).load_checkpoint_from_file(checkpointing.last_model_path)
+    with pytest.raises(Exception) as excinfo:
+        type(model).load_from_checkpoint(checkpointing.last_model_path)
+    # torch 2.2 / Lightning 2.4 (the image): "missing 1 required positional argument: 'backbone'".
+    # Newer torch loads with weights_only=True by default and already refuses the pickled
+    # hyperparameters (the optimizer class) -- which would break the rebuild for every model.
+    message = str(excinfo.value)
+    assert "backbone" in message or "weights only" in message.lower(), message
 
 
 # --- the copy helper itself, on a model small enough to build in milliseconds -----------------------
