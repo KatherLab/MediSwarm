@@ -27,15 +27,28 @@ Evaluates one or more trained MediSwarm global model checkpoints on an external 
 - **Ensemble**: Average class probabilities across multiple models for improved predictions
 - **Per-sample CSV**: Output individual predictions with UIDs, ground truth, predicted class, and class probabilities
 - **Comprehensive metrics**: Accuracy, AUC-ROC (macro + per-class), F1 (per-class, macro, weighted), precision, recall, confusion matrix
+- **Architecture guard**: every checkpoint must fit `--model-name` exactly (same keys, same shapes; only the
+  non-parameter buffers `_class_weight` and `loss.weight` may differ). A checkpoint of another architecture
+  is reported as an error naming the missing, unexpected and reshaped keys and the model class the
+  checkpoint records, instead of being scored with mostly random weights (`docs/EVALUATION_PITFALLS.md`, E2)
+- **Every model of the zoo**: any name `create_model()` accepts, including `MST_SAMMed2D`. For
+  `MST_SAMMed2D` the 2.56 GB pretrained SAM-Med2D file is not read: every weight comes from the checkpoint
+- **Provenance**: before each model's metrics it prints the checkpoint (path, sha256), the architecture
+  (model class, parameter count) and the data used (institution, split, `CONFIG`, `FOLD`, `DATA_DIR`);
+  `prediction_results.json` records the same fields
 
 ### Prerequisites
 
 - **CUDA GPU** required
 - Environment variables:
-  - `DATA_DIR` -- Path to the ODELIA dataset (or external test data)
-  - `SITE_NAME` -- Site identifier (for dataset loading)
+  - `DATA_DIR` -- Root of the dataset (default `/data`, as in the image)
+  - `SITE_NAME` -- Site identifier (for dataset loading); `INSTITUTION` wins if set
   - `SCRATCH_DIR` -- Scratch/output directory (for default output path)
   - `MODEL_NAME` -- (optional) Model architecture, can also use `--model-name` flag
+  - `CONFIG` -- (optional) dataset layout passed to the dataset (`unilateral` by default; e.g.
+    `unilateral_BD`, `original`), can also use `--config`
+  - `FOLD` -- (optional) cross-validation fold whose split is evaluated (default 0), can also use `--fold`.
+    The training job's `FOLD` decides which cases were held out; evaluate with the same value
 
 ### Usage
 
@@ -86,6 +99,12 @@ python predict.py \
     --checkpoint /path/to/model.ckpt \
     --model-name MST \
     --checkpoint-type lightning
+
+# A model trained on fold 2 of the BreastDivider crops:
+python predict.py \
+    --checkpoint /path/to/FL_global_model.pt \
+    --model-name 1DivideAndConquer \
+    --config unilateral_BD --fold 2
 ```
 
 ### Workspace Structure

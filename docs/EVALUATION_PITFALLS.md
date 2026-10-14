@@ -61,6 +61,12 @@ shortcut learning. Re-run against the correct architecture, every metric roughly
 **Do instead.** Read `train_conf` out of the checkpoint and check it against `--model-name` before
 trusting any output. The evaluation script should refuse the mismatch rather than proceed.
 
+**Now (1.9.0).** `predict.py` refuses it: every key and shape of the checkpoint must match the
+architecture (only the non-parameter buffers `_class_weight` and `loss.weight` may differ), and the
+error names the differences and the model class recorded in `train_conf`. The class name alone
+cannot tell `MST` from `MST_SAMMed2D`, or one `ModelWrapper` challenge model from another; the key
+check can.
+
 ## E3 — Accuracy hides the operating point
 
 **What happened.** Pooled accuracy 0.752 alongside malignant-vs-rest AUROC 0.887 looked

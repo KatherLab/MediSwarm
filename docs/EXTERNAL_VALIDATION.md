@@ -57,7 +57,13 @@ directly comparable to the swarm's internal results.
 
 ## Notes
 
-- `--model_name` must match the released model's architecture, or the checkpoint won't
-  load. The board's kit registry names the model for each released global model.
+- `--model_name` must match the released model's architecture: from 1.9.0 `predict.py`
+  refuses a checkpoint whose keys or shapes do not match and names the differences (older
+  images loaded it silently and scored random weights). The board's kit registry names the
+  model for each released global model.
+- `--config` and `--fold` reach `predict.py` (as `CONFIG` and `FOLD`) from 1.9.0: use the values
+  the model was trained with, e.g. `--config unilateral_BD` for a model trained on BreastDivider
+  crops. `prediction_results.json` records the checkpoint's sha256, the architecture and these
+  settings next to the metrics.
 - Data is mounted **read-only** at `/data`; scratch is writable at `/scratch`. Nothing
   leaves the container except what you choose to share from `prediction_results.json`.
