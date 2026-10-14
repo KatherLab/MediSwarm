@@ -372,3 +372,15 @@ COPY --chmod=755 ./MediSwarm/docker_config/mediswarm_entrypoint.sh /usr/local/bi
 ENTRYPOINT ["/usr/local/bin/mediswarm_entrypoint.sh"]
 # An ENTRYPOINT discards the CMD inherited from the base image; keep its default.
 CMD ["/bin/bash"]
+
+# Image identity, passed by buildDockerImageAndStartupKits.sh. Declared last so a
+# new value never invalidates a cached layer. MEDISWARM_VERSION inside a container
+# is the KIT's version; ODELIA_IMAGE_VERSION is the image's.
+ARG ODELIA_IMAGE_VERSION=unknown
+ARG ODELIA_IMAGE_REVISION=unknown
+ARG NVFLARE_REVISION=unknown
+ENV ODELIA_IMAGE_VERSION=${ODELIA_IMAGE_VERSION}
+LABEL org.opencontainers.image.version="${ODELIA_IMAGE_VERSION}" \
+      org.opencontainers.image.revision="${ODELIA_IMAGE_REVISION}" \
+      org.opencontainers.image.source="https://github.com/KatherLab/MediSwarm" \
+      mediswarm.nvflare.revision="${NVFLARE_REVISION}"
