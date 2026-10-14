@@ -91,9 +91,33 @@ def test_unilateral_bd_reads_the_bd_folders(synthetic_root, caplog):
 
 def test_config_env_selects_bd_and_items_load_on_cpu(synthetic_root, monkeypatch):
     monkeypatch.setenv("CONFIG", "unilateral_BD")
-    ds = ODELIA_Dataset3D(path_root=synthetic_root, institutions=SITE, split="train", config=None, fold=0)
+    ds = ODELIA_Dataset3D(path_root=synthetic_root, institutions=SITE, split="train", config=None, fold=0,
+                          transform="USE_UNPROCESSED_IMAGES")
     assert ds.config == "unilateral_BD" and ds.data_dir == "data_unilateral_BD"
     assert len(ds) == 18
+    item = ds[0]
+    path = ds.get_image_path(item["uid"], SITE)
+    assert path.parent.parent.name == "data_unilateral_BD"
+    image = item["source"]
+    assert tuple(image.shape) == (1, 256, 256, 32)
+    # the BD crop itself was read: its header spacing, not the 1 x 1 x 1 mm of the standard crop
+    assert image.spacing == pytest.approx(data_layout.read_nifti_spacing(path), abs=1e-4)
+    assert image.spacing != pytest.approx((1.0, 1.0, 1.0))
+
+
+def _croporpad_matches_this_repo():
+    """The repo's CropOrPad subclass relies on torchio < 1.0 internals (compute_crop_or_pad).
+    The image pins torchio==0.20.1 (Dockerfile_ODELIA); the GitHub unit-test job installs the
+    latest torchio, where that attribute is gone."""
+    import torchio as tio
+    return hasattr(tio.CropOrPad((4, 4, 4)), "compute_crop_or_pad")
+
+
+def test_bd_items_go_through_the_training_transform(synthetic_root):
+    if not _croporpad_matches_this_repo():
+        pytest.skip("torchio >= 1.0 lacks CropOrPad.compute_crop_or_pad; the image pins torchio==0.20.1")
+    ds = ODELIA_Dataset3D(path_root=synthetic_root, institutions=SITE, split="train", config="unilateral_BD",
+                          random_flip=True, random_rotate=True, noise=True)
     item = ds[0]
     assert tuple(item["source"].shape) == (1, 32, 224, 224)
     assert "data_unilateral_BD" in str(ds.get_image_path(item["uid"], SITE))
@@ -173,14 +197,17 @@ def test_folder_and_image_file_overrides(site_copy, monkeypatch):
             (case / "Sub_1.nii.gz").rename(case / "Sub_2.nii.gz")
     monkeypatch.setenv("ODELIA_DATA_FOLDER", "data_unilateral_enh")
     monkeypatch.setenv("ODELIA_IMAGE_FILE", "Sub_2.nii.gz")
-    ds = ODELIA_Dataset3D(path_root=site_copy, institutions=SITE, split="val", config="unilateral")
+    ds = ODELIA_Dataset3D(path_root=site_copy, institutions=SITE, split="val", config="unilateral",
+                          transform="USE_UNPROCESSED_IMAGES")
     manifest = ds.manifests[SITE]
     assert (manifest.data_dir, manifest.meta_dir, manifest.image_file) == (
         "data_unilateral_enh", "metadata_unilateral", "Sub_2.nii.gz")
     assert set(manifest.layout.overrides) == {"ODELIA_DATA_FOLDER", "ODELIA_IMAGE_FILE"}
     assert manifest.format_verdict.ok
     item = ds[0]
-    assert ds.get_image_path(item["uid"], SITE).name == "Sub_2.nii.gz"
+    path = ds.get_image_path(item["uid"], SITE)
+    assert (path.parent.parent.name, path.name) == ("data_unilateral_enh", "Sub_2.nii.gz")
+    assert tuple(item["source"].shape) == (1, 256, 256, 32)
 
 
 def test_metadata_override(site_copy, monkeypatch):
@@ -192,13 +219,17 @@ def test_metadata_override(site_copy, monkeypatch):
 
 def test_preprocess_cache_is_keyed_by_the_layout(synthetic_root, tmp_path):
     cache = tmp_path / "cache"
+    spacings = {}
     for config in ("unilateral", "unilateral_BD"):
         ds = ODELIA_Dataset3D(path_root=synthetic_root, institutions=SITE, split="val", config=config,
                               enable_preprocess_cache=True, preprocess_cache_dir=cache)
-        ds[0]
+        uid = ds.df.loc[0, "UID"]
+        ds._load_source_image(ds.get_image_path(uid, SITE), SITE, uid)          # fills the cache
+        spacings[config] = ds._load_source_image(ds.get_image_path(uid, SITE), SITE, uid).spacing   # cache hit
     assert (cache / "unilateral" / SITE).is_dir() and (cache / "unilateral_BD" / SITE).is_dir()
     assert {p.name for p in (cache / "unilateral" / SITE).glob("*.npz")} == {
-        p.name for p in (cache / "unilateral_BD" / SITE).glob("*.npz")}           # same UIDs, separate entries
+        p.name for p in (cache / "unilateral_BD" / SITE).glob("*.npz")}           # same UID, separate entries
+    assert spacings["unilateral"] != pytest.approx(spacings["unilateral_BD"])     # and never each other's volume
 
 
 def test_log_uid_discrepancies_follows_config(synthetic_root, monkeypatch, caplog):
