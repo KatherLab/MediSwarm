@@ -9,17 +9,19 @@ Both ODELIA and STAMP jobs use **FedAvg** (Federated Averaging):
 
 - **Aggregator**: `InTimeAccumulateWeightedAggregator` with `WEIGHT_DIFF` transfer
 - **Workflow**: `SwarmServerController` / `SwarmClientController` (peer-to-peer swarm)
-- **Privacy filter**: `PercentilePrivacy` (percentile=10, gamma=0.01) on client results
+- **Privacy**: no filter on the updates. The `PercentilePrivacy` result filter the job configs listed
+  until 1.9.0 never ran in swarm mode and was removed; optional client-level DP noise is the `dp_noise`
+  round hook (`DIFFERENTIAL_PRIVACY.md`)
 - **Topology**: Decentralised — one client acts as aggregator per round (no central server aggregation)
 
 ### How FedAvg Works in MediSwarm
 
 1. Each client trains locally for N epochs
-2. Weight **diffs** (not full weights) are sent to the aggregation client
-3. `PercentilePrivacy` clips small diffs before transmission
-4. The aggregator averages diffs weighted by contribution count
-5. The averaged diff is applied to produce the new global model
-6. The global model is broadcast to all clients for the next round
+2. Weight **diffs** (not full weights) are sent to the aggregation client (in a DP job the `dp_noise`
+   round hook clips each diff and adds Gaussian noise first)
+3. The aggregator averages diffs weighted by contribution count
+4. The averaged diff is applied to produce the new global model
+5. The global model is broadcast to all clients for the next round
 
 ## Available Strategies
 
@@ -133,7 +135,8 @@ FedProx is the clear choice for MediSwarm v1.3.0:
 1. **Zero infrastructure change** — only adds a loss wrapper on the client side
 2. **Compatible with swarm topology** — no server/workflow changes
 3. **Compatible with WEIGHT_DIFF** — no transfer mode changes
-4. **Compatible with PercentilePrivacy** — privacy filter is unaffected
+4. **Update path unchanged** — the diff leaves the site as before (this item used to cite
+   `PercentilePrivacy`, which never ran in swarm mode and was removed in 1.9.0)
 5. **Configurable via environment variable** — can be enabled/disabled per deployment
 6. **Medical imaging evidence** — published results show FedProx improves convergence
    for federated medical imaging tasks with heterogeneous site data

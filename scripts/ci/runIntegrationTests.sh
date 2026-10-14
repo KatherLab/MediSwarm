@@ -1290,10 +1290,10 @@ _verify_ODELIA_challenge_swarm_training() {
 
 run_all_models_training_in_swarm () {
     _verify_ODELIA_challenge_swarm_training "challenge_1DivideAndConquer"   "model *| ResidualEncoderClsNetwork"  1
-    _verify_ODELIA_challenge_swarm_training "challenge_2BCN_AIM"            "backbone *| SwinUNETRMultiTask"      0
-    _verify_ODELIA_challenge_swarm_training "challenge_3agaldran"           "backbone *| Wrapper"                 0
-    _verify_ODELIA_challenge_swarm_training "challenge_4abmil"              "backbone *| ABMIL_Swin"              0
-    _verify_ODELIA_challenge_swarm_training "challenge_5pimed"              "backbone *| Resnet"                  0
+    _verify_ODELIA_challenge_swarm_training "challenge_2BCN_AIM"            "backbone *| SwinUNETRMultiTask"      1
+    _verify_ODELIA_challenge_swarm_training "challenge_3agaldran"           "backbone *| Wrapper"                 1
+    _verify_ODELIA_challenge_swarm_training "challenge_4abmil"              "backbone *| ABMIL_Swin"              1
+    _verify_ODELIA_challenge_swarm_training "challenge_5pimed"              "backbone *| Resnet"                  1
 
     _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
     # _verify_ODELIA_ternary_swarm_training "MST_SAMMed2D"             "mst *| _MST *| 267"  # needs sam-med2d_b.pth in the image (or SAM_MED2D_ALLOW_RANDOM_INIT=1)

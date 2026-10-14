@@ -31,11 +31,16 @@ paired.
 Usage
 -----
     compare_regional_finetune.py --baseline <dir> --finetuned <dir> \
-        --sites RUMC_1 UMCU_1 --label "Dutch cohort" [--bootstrap 10000]
+        --sites RUMC_1 UMCU_1 --label "Dutch cohort" [--bootstrap 10000] \
+        [--split test --model-kind final_global]
 
-Each directory is a per-site tree of ``<SITE>/predictions_*.csv`` with columns
-uid, ground_truth, prediction, prob_class_0..2 -- the layout
-``scripts/evaluation/predict.py`` already writes.
+Each directory is either a per-site tree of ``<SITE>/predictions_*.csv`` with
+columns uid, ground_truth, prediction, prob_class_0..2 -- the layout
+``scripts/evaluation/predict.py`` already writes -- or the coordinator's
+``cross_site_val/per_case_predictions`` directory of a swarm job, with one file
+per site, split and model kind (``<SITE>__<split>__<model_kind>.csv``, 1.9.0).
+``--split``/``--model-kind`` pick which of those files is read; a site with
+several candidates and no choice is an error, never a silent mix.
 """
 
 import argparse
@@ -73,16 +78,36 @@ def auroc(scores, labels):
     return (rsum - pos * (pos + 1) / 2.0) / (pos * neg)
 
 
-def load(base, sites):
+def _returned_files(base, site, split=None, model_kind=None):
+    """Per-case files a swarm job returned for ``site``, narrowed by split and model kind.
+
+    1.9.0 writes ``<SITE>__<split>__<model_kind>.csv``. Up to 1.8 the job wrote one ``<SITE>.csv``, which held
+    the local model's validation rows; it is read only where that is what was asked for.
+    """
+    pattern = f"{glob.escape(site)}__{split or '*'}__{model_kind or '*'}.csv"
+    found = sorted(glob.glob(os.path.join(glob.escape(base), pattern)))
+    if len(found) > 1:
+        names = ", ".join(os.path.basename(f) for f in found)
+        raise SystemExit(f"{base}: several per-case files for {site} ({names}); "
+                         "choose one with --split and --model-kind")
+    legacy = os.path.join(base, f"{site}.csv")
+    if not found and split in (None, "val") and model_kind in (None, "site_local") and os.path.exists(legacy):
+        found = [legacy]
+    return found
+
+
+def load(base, sites, split=None, model_kind=None):
     """Load per-case rows for the given sites, keyed by a stable case key.
 
     Two layouts are read, because the rows reach us two ways:
 
     * ``<site>/predictions_*.csv`` from ``scripts/evaluation/predict.py``, which
       has a ``uid`` column;
-    * ``<site>.csv`` returned through the swarm by ``per_case_predictions``,
-      which deliberately has **no** identifier and carries ``row_index``
-      instead -- a position within that site's own validation split.
+    * per-case rows returned through the swarm by ``per_case_predictions``,
+      which deliberately have **no** identifier and carry ``row_index``
+      instead -- a position within that site's own split. Since 1.9.0 there is
+      one file per split and model kind (see ``_returned_files``), with a ``#``
+      provenance header; ``split``/``model_kind`` select the file.
 
     Either way the key is namespaced by site, so two sites that both start
     their row indices at 0 cannot collide and silently pair a Radboud case
@@ -91,10 +116,10 @@ def load(base, sites):
     rows = {}
     for site in sites:
         found = sorted(glob.glob(os.path.join(base, site, "predictions_*.csv")))
-        found += sorted(glob.glob(os.path.join(base, f"{site}.csv")))
+        found += _returned_files(base, site, split, model_kind)
         for f in found:
             with open(f) as fh:
-                for r in csv.DictReader(fh):
+                for r in csv.DictReader(line for line in fh if not line.startswith("#")):
                     key = r.get("uid") or r.get("row_index")
                     if key is None:
                         continue
@@ -163,10 +188,14 @@ def main():
     ap.add_argument("--bootstrap", type=int, default=10000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--json-out", default=None)
+    ap.add_argument("--split", choices=("val", "test"), default=None,
+                    help="split of the per-case files returned through the swarm (1.9.0 layout)")
+    ap.add_argument("--model-kind", choices=("site_local", "final_global"), default=None,
+                    help="model kind of the per-case files returned through the swarm (1.9.0 layout)")
     args = ap.parse_args()
 
-    base_rows = load(args.baseline, args.sites)
-    fine_rows = load(args.finetuned, args.sites)
+    base_rows = load(args.baseline, args.sites, args.split, args.model_kind)
+    fine_rows = load(args.finetuned, args.sites, args.split, args.model_kind)
     uids = sorted(set(base_rows) & set(fine_rows))
     if not uids:
         raise SystemExit("no overlapping cases between the two prediction sets")
