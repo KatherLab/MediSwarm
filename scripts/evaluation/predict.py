@@ -121,7 +121,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-name", type=str, default=None,
         help=(
-            "Model architecture name (e.g. MST, ResNet101, Swin3D, "
+            "Model architecture name (e.g. MST, MST_SAMMed2D, ResNet101, "
             "challenge_1DivideAndConquer).  If not given, reads MODEL_NAME "
             "from environment."
         ),

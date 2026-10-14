@@ -72,7 +72,6 @@ sequences used for ternary classification of breast lesions:
 | ResNet34 | - | - | - | - | - |
 | ResNet50 | - | - | - | - | - |
 | MST | - | - | - | - | - |
-| Swin3D | - | - | - | - | - |
 
 ### Swarm vs Local Comparison
 

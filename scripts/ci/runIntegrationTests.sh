@@ -1202,8 +1202,6 @@ run_all_models_preflight_check () {
     _verify_ODELIA_ternary_preflight_check "ResNet50"                 "model *| _ResNet *| 46"
     _verify_ODELIA_ternary_preflight_check "ResNet101"                "model *| _ResNet *| 85"
     _verify_ODELIA_ternary_preflight_check "ResNet152"                "model *| _ResNet *| 117"
-    # _verify_ODELIA_ternary_preflight_check "Swin3D"                   "model *| TODO"  # currently does not work
-    echo "❗ Swin3D currently does not work, preflight check not executed"
     cd "$CWD"
 }
 
@@ -1279,15 +1277,13 @@ run_all_models_training_in_swarm () {
 
     _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
     # _verify_ODELIA_ternary_swarm_training "MST_SAMMed2D"             "mst *| _MST *| 267"  # random init unless sam-med2d_b.pth is in the image
-    echo "❗ Swin3D needs too much GPU memory for two clients on CI server, swarm training check not executed"
+    echo "❗ MST_SAMMed2D needs too much GPU memory for two clients on one CI GPU, swarm training check not executed"
     _verify_ODELIA_ternary_swarm_training "ResNet10"                 "model *| _ResNet *| 14"
     _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
     _verify_ODELIA_ternary_swarm_training "ResNet34"                 "model *| _ResNet *| 63"
     _verify_ODELIA_ternary_swarm_training "ResNet50"                 "model *| _ResNet *| 46"
     _verify_ODELIA_ternary_swarm_training "ResNet101"                "model *| _ResNet *| 85"
     _verify_ODELIA_ternary_swarm_training "ResNet152"                "model *| _ResNet *| 117"
-    # _verify_ODELIA_ternary_swarm_training "Swin3D"                   "model *| TODO"  # currently does not work
-    echo "❗ Swin3D currently does not work, swarm training check not executed"
 
     cleanup_temporary_data
 }

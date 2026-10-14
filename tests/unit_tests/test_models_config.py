@@ -9,7 +9,7 @@ Tests cover:
   - get_unified_model_name()
   - create_model() error paths (GPU guard)
 
-models_config.py imports ``from models import ResNet, MST, Swin3D`` which
+models_config.py imports ``from models import ResNet, MST, MedicalNet`` which
 triggers imports of monai, einops, x_transformers, pytorch_lightning, etc.
 We mock the entire ``models`` package before importing models_config so that
 the tests run in CPU-only CI without any of those heavy dependencies.
@@ -51,7 +51,7 @@ def _import_models_config():
 
     We need:
       1. ``env_config`` importable (models_config does ``from env_config import …``)
-      2. ``models`` package mocked (models_config does ``from models import ResNet, MST, Swin3D``)
+      2. ``models`` package mocked (models_config does ``from models import ResNet, MST, MedicalNet``)
     Both are set up by the autouse fixture below.
     """
     _clear_custom_modules()
@@ -72,18 +72,18 @@ def _setup_imports(_patch_heavy_imports):
             sys.path.insert(0, p)
 
     # Mock the ``models`` package so that
-    # ``from models import ResNet, MST, Swin3D`` resolves to MagicMock objects
+    # ``from models import ResNet, MST, MedicalNet`` resolves to MagicMock objects
     # instead of triggering the real __init__.py → resnet → monai/einops chain.
     mock_models_pkg = MagicMock()
     mock_models_pkg.ResNet = MagicMock()
     mock_models_pkg.MST = MagicMock()
-    mock_models_pkg.Swin3D = MagicMock()
+    mock_models_pkg.MedicalNet = MagicMock()
 
     # Also mock sub-modules that the package __init__.py would import
     saved = {}
     keys_to_mock = [
         "models", "models.base_model", "models.resnet",
-        "models.mst", "models.swin3D",
+        "models.mst", "models.medicalnet",
     ]
     for k in keys_to_mock:
         saved[k] = sys.modules.get(k)
@@ -267,8 +267,8 @@ class TestGetUnifiedModelName:
     def test_variant_non_challenge_passthrough(self):
         mc = _import_models_config()
         env = {"model_name": "whatever"}
-        name = mc.get_unified_model_name(_logger(), "Swin3D", env)
-        assert name == "Swin3D"
+        name = mc.get_unified_model_name(_logger(), "ResNet18", env)
+        assert name == "ResNet18"
 
     def test_mst_sammed2d_passthrough(self):
         mc = _import_models_config()

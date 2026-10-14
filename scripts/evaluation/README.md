@@ -192,7 +192,7 @@ The script:
 
 ## `benchmark_models.py`
 
-Trains and evaluates all available MediSwarm models (ResNet variants, MST, Swin3D, and optionally challenge models) on a consistent data split, producing a comparison table with accuracy, AUC-ROC, per-class F1 scores, confusion matrices, and training time.
+Trains and evaluates all available MediSwarm models (ResNet variants, MST, and optionally challenge models) on a consistent data split, producing a comparison table with accuracy, AUC-ROC, per-class F1 scores, confusion matrices, and training time.
 
 ### Prerequisites
 
@@ -207,11 +207,11 @@ Trains and evaluates all available MediSwarm models (ResNet variants, MST, Swin3
 ### Usage
 
 ```bash
-# Benchmark all built-in models (ResNet10/18/34/50/101/152, MST, Swin3D):
+# Benchmark all built-in models (ResNet10/18/34/50/101/152, MST):
 python benchmark_models.py
 
 # Benchmark specific models only:
-python benchmark_models.py --models MST ResNet18 Swin3D
+python benchmark_models.py --models MST ResNet18
 
 # Include challenge models alongside built-in ones:
 python benchmark_models.py --include-challenge
@@ -337,7 +337,7 @@ End-to-end benchmark pipeline for the Duke Breast MRI dataset on the TUD compute
 ./run_duke_benchmark.sh --collect-only
 
 # Custom models and epochs:
-./run_duke_benchmark.sh --models MST ResNet18 Swin3D --local-epochs 10
+./run_duke_benchmark.sh --models MST ResNet18 --local-epochs 10
 
 # Dry run (print configuration only):
 ./run_duke_benchmark.sh --dry-run

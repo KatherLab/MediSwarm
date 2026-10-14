@@ -7,7 +7,7 @@ from env_config import load_environment_variables
 from pathlib import Path
 import importlib.util
 import logging
-from models import ResNet, MST, Swin3D, MedicalNet
+from models import ResNet, MST, MedicalNet
 
 # MedicalNet 3D-ResNet34 (VHIO model): the Tencent 23-dataset checkpoint is NOT shipped in
 # the image. Point MEDICALNET_PRETRAINED_PATH at resnet_34_23dataset.pth
@@ -208,12 +208,6 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
                     backbone_type="sammed2d",
                     loss_kwargs=loss_kwargs,
                     **scheduler_kwargs)
-    elif model_name == "Swin3D":
-        model = Swin3D(n_input_channels=1,
-                        num_classes=num_classes,
-                        spatial_dims=3,
-                        loss_kwargs=loss_kwargs,
-                        **scheduler_kwargs)
     elif model_name == 'MedicalNet':
         # VHIO model: MedicalNet 3D-ResNet34 with dilated stages 3 and 4 (original Tencent
         # backbone), global average pooling and a linear head; pretrained on 23 datasets.
