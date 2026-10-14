@@ -815,6 +815,7 @@ export MODEL_NAME="challenge_my_resnet"
 | `MODEL_NAME` Value            | Description                              |
 |-------------------------------|------------------------------------------|
 | `MST`                         | Medical Swin Transformer (default)       |
+| `MST_SAMMed2D`                | MST slice fusion on the SAM-Med2D ViT-B encoder (CAM model); refuses to start without `sam-med2d_b.pth` (`SAM_MED2D_CHECKPOINT`) |
 | `ResNet101`                   | ResNet-101 via MONAI                     |
 | `ResNet50`                    | ResNet-50 via MONAI                      |
 | `MedicalNet`                  | MedicalNet 3D-ResNet34 (VHIO model); pretrained weights via `MEDICALNET_PRETRAINED_PATH`, not in the image |

@@ -1173,12 +1173,32 @@ _verify_challenge_preflight_check() {
 _verify_ODELIA_ternary_preflight_check() {
     local MODEL_NAME=$1
     local EXPECTED_OUTPUT_ABOUT_MODEL=$2
+    local EXTRA_DOCKER_OPTIONS=${3:-}  # optional, passed to docker.sh --docker_options
     local CONSOLE_OUTPUT_FILE=preflight_check_console_output_$MODEL_NAME.txt
-    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$MODEL_NAME" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
+    local DOCKER_OPTIONS_ARGS=()
+    if [ -n "$EXTRA_DOCKER_OPTIONS" ]; then
+        DOCKER_OPTIONS_ARGS=(--docker_options "$EXTRA_DOCKER_OPTIONS")
+    fi
+    timeout --signal=kill 5m ./docker.sh --data_dir "$SYNTHETIC_DATA_DIR" --scratch_dir "$SCRATCH_DIR"/client_A --GPU "$GPU_FOR_TESTING" --job ODELIA_ternary_classification --model_name "$MODEL_NAME" "${DOCKER_OPTIONS_ARGS[@]}" --preflight_check --no_pull 2>&1 | tee $CONSOLE_OUTPUT_FILE
 
     _verify_all_model_preflight_check_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "ODELIA_ternary_classification/$MODEL_NAME"
 
     sleep 5
+}
+
+_verify_MST_SAMMed2D_preflight_check() {
+    # MST_SAMMed2D refuses to start without its pretrained SAM-Med2D weights (models/mst.py). An image
+    # that ships them must load them; a CI image built without them in the build cache can only run
+    # the preflight on random weights, through the test-only override.
+    local WEIGHTS=/MediSwarm/pretrained_weights/sam-med2d_b.pth
+    local CONSOLE_OUTPUT_FILE=preflight_check_console_output_MST_SAMMed2D.txt
+    if docker run --rm --entrypoint test "$DOCKER_IMAGE" -f "$WEIGHTS"; then
+        _verify_ODELIA_ternary_preflight_check "MST_SAMMed2D" "mst *| _MST *| 267"
+        _verify_all_model_preflight_check_output "SAM-Med2D backbone weights: $WEIGHTS" "ODELIA_ternary_classification/MST_SAMMed2D"
+    else
+        echo "❗ $DOCKER_IMAGE has no $WEIGHTS: MST_SAMMed2D preflight runs on random weights (SAM_MED2D_ALLOW_RANDOM_INIT=1)"
+        _verify_ODELIA_ternary_preflight_check "MST_SAMMed2D" "mst *| _MST *| 267" "--env SAM_MED2D_ALLOW_RANDOM_INIT=1"
+    fi
 }
 
 
@@ -1195,8 +1215,8 @@ run_all_models_preflight_check () {
     _verify_challenge_preflight_check "challenge_5pimed"              "backbone *| Resnet"
 
     _verify_ODELIA_ternary_preflight_check "MST"                      "mst *| _MST *| 23"
-    _verify_ODELIA_ternary_preflight_check "MST_SAMMed2D"             "mst *| _MST *| 267"  # random init unless sam-med2d_b.pth is in the image
-    _verify_ODELIA_ternary_preflight_check "ResNet10"                 "model *| _ResNet *| 14"
+    _verify_MST_SAMMed2D_preflight_check
+    _verify_ODELIA_ternary_preflight_check "ResNet10"                "model *| _ResNet *| 14"
     _verify_ODELIA_ternary_preflight_check "ResNet18"                 "model *| _ResNet *| 33"
     _verify_ODELIA_ternary_preflight_check "ResNet34"                 "model *| _ResNet *| 63"
     _verify_ODELIA_ternary_preflight_check "ResNet50"                 "model *| _ResNet *| 46"
@@ -1276,7 +1296,7 @@ run_all_models_training_in_swarm () {
     _verify_ODELIA_challenge_swarm_training "challenge_5pimed"              "backbone *| Resnet"                  0
 
     _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
-    # _verify_ODELIA_ternary_swarm_training "MST_SAMMed2D"             "mst *| _MST *| 267"  # random init unless sam-med2d_b.pth is in the image
+    # _verify_ODELIA_ternary_swarm_training "MST_SAMMed2D"             "mst *| _MST *| 267"  # needs sam-med2d_b.pth in the image (or SAM_MED2D_ALLOW_RANDOM_INIT=1)
     echo "❗ MST_SAMMed2D needs too much GPU memory for two clients on one CI GPU, swarm training check not executed"
     _verify_ODELIA_ternary_swarm_training "ResNet10"                 "model *| _ResNet *| 14"
     _verify_ODELIA_ternary_swarm_training "ResNet18"                 "model *| _ResNet *| 33"
