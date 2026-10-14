@@ -86,7 +86,7 @@ while [[ $# -gt 0 ]]; do
             echo "          [--image REF] [--no-pull] [--cleanup-only]"
             echo "  --image REF     run server, admin and clients on REF with the existing kits (env MEDISWARM_TEST_IMAGE)"
             echo "  --no-pull       use images already present on the hosts (env MEDISWARM_TEST_IMAGE_NO_PULL=1)"
-            echo "  --cleanup-only  remove this kit's containers for this conf's sites, then exit"
+            echo "  --cleanup-only  remove this kit's containers for this conf's sites (keeps files), then exit"
             exit 0
             ;;
         *)
@@ -336,8 +336,11 @@ client_container_name() {
 }
 
 # ── Stop all containers ───────────────────────────────────────────────────
+# stop_all [--keep-files]: --keep-files leaves the server's deploy dir (its job store
+# and logs) in place, for --cleanup-only after a run someone still wants to read.
 stop_all() {
-    local filter
+    local filter keep_files=false
+    [[ "${1:-}" == --keep-files ]] && keep_files=true
     filter=$(container_filter) || {
         err "Not stopping containers: no kit-scoped filter (see above)."
         return 1
@@ -371,7 +374,7 @@ stop_all() {
     # that non-root users can't delete.  This blocks the next deploy_kits() run.
     local server_name="${SERVER_NAME:-dl3.tud.de}"
     local server_dir="$DEPLOY_BASE/$server_name"
-    if [[ -d "$server_dir" ]]; then
+    if [[ "$keep_files" != true && -d "$server_dir" ]]; then
         # Remove the entire server dir (deploy_kits will re-create it).
         # Needs sudo/docker because NVFlare creates root-owned workspace files.
         sudo rm -rf "$server_dir" 2>/dev/null \
@@ -1586,7 +1589,7 @@ if [[ -n "$TEST_IMAGE" ]]; then
 fi
 
 if [[ "$CLEANUP_ONLY" == true ]]; then
-    stop_all
+    stop_all --keep-files
     exit $?
 fi
 

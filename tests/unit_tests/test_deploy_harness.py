@@ -9,6 +9,7 @@ existing kits (server and admin included).
 
 import os
 import re
+import shutil
 import stat
 import subprocess
 from pathlib import Path
@@ -143,6 +144,86 @@ def test_no_harness_removes_containers_by_a_broad_pattern():
             code = line.split("#", 1)[0] if not line.lstrip().startswith("#") else ""
             assert "^swarm-" not in code, f"{path.name}:{number}"
             assert "odelia_swarm|nvflare" not in code, f"{path.name}:{number}"
+
+
+def _stub(path, body):
+    path.write_text("#!/bin/bash\n" + body)
+    path.chmod(0o755)
+
+
+def _harness_tree(tmp_path, kit_lines=None):
+    """A repo-shaped copy of the harness with a built 2-client test kit, stub tools and a conf."""
+    repo = tmp_path / "repo"
+    for rel in ("scripts/deploy/run_deploy_test.sh", "scripts/deploy/deploy_common.sh",
+                "scripts/deploy/container_scope.sh", "scripts/build/getVersionNumber.sh",
+                "application/provision/project_deploy_test_4site.yml"):
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(REPO_ROOT / rel, repo / rel)
+    prod = make_prod(tmp_path / "kits", kits=("TEST_A_1", "TEST_B_1", "dl3.tud.de"))
+    workspace = repo / "workspace" / "odelia_deploy_test_1.9.0-test_model_test"
+    shutil.copytree(prod, workspace / "prod_01")
+    if kit_lines is not None:
+        for docker_sh in (workspace / "prod_01").glob("*/startup/docker.sh"):
+            docker_sh.write_text(kit_lines)
+    deploy_base = tmp_path / "deploy"
+    (deploy_base / "dl3.tud.de").mkdir(parents=True)
+    (deploy_base / "dl3.tud.de" / "job_store.txt").write_text("keep me")
+
+    fake = tmp_path / "bin"
+    fake.mkdir()
+    _stub(fake / "docker", f'''case "$1" in
+  ps) printf '%s\\n' {" ".join(MATCH + NO_MATCH)} ;;
+  rm) shift; [[ "$1" == -f ]] && shift; printf '%s\\n' "$@" >> "$DOCKER_RM_LOG" ;;
+esac
+''')
+    # ssh runs the remote command here, as if every client host were this one.
+    _stub(fake / "ssh", 'for last; do :; done\necho "$*" >> "$SSH_LOG"\nbash -c "$last"\n')
+    for tool in ("sshpass", "expect", "jq", "sleep"):
+        _stub(fake / tool, "exit 0\n")
+    _stub(fake / "sudo", "echo sudo called >&2; exit 1\n")
+
+    conf = tmp_path / "deploy_sites_test.conf"
+    conf.write_text(f"""CLIENT_SITES=(A B)
+A_HOST=host-a
+A_USER=swarm
+A_SITE_NAME=TEST_A_1
+B_HOST=host-b
+B_USER=swarm
+B_SITE_NAME=TEST_B_1
+COSMOS_DEPLOY_DIR={deploy_base}
+PROJECT_FILE=application/provision/project_deploy_test_4site.yml
+SERVER_NAME=dl3.tud.de
+""")
+    env = {
+        "PATH": f"{fake}:/usr/bin:/bin",
+        "MEDISWARM_IMAGE_VERSION": "1.9.0-test",
+        "DOCKER_RM_LOG": str(tmp_path / "rm.log"),
+        "SSH_LOG": str(tmp_path / "ssh.log"),
+    }
+    return repo, conf, env, deploy_base
+
+
+def test_cleanup_only_removes_exactly_this_kits_containers_everywhere(tmp_path):
+    """The path the deploy-test workflow's always() cleanup step runs (it used 'odelia|stamp|nvflare')."""
+    repo, conf, env, deploy_base = _harness_tree(tmp_path)
+    r = bash(f'"{repo}/scripts/deploy/run_deploy_test.sh" --conf "{conf}" --cleanup-only', env=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    removed = (tmp_path / "rm.log").read_text().split()
+    # Once here (server/admin host) and once per client host, nothing else.
+    assert sorted(removed) == sorted(MATCH * 3)
+    hosts = (tmp_path / "ssh.log").read_text()
+    assert "swarm@host-a" in hosts and "swarm@host-b" in hosts
+    # The server's job store survives a cleanup-only call.
+    assert (deploy_base / "dl3.tud.de" / "job_store.txt").read_text() == "keep me"
+    assert "sudo called" not in r.stderr
+
+
+def test_cleanup_only_refuses_without_a_kit_suffix(tmp_path):
+    repo, conf, env, _ = _harness_tree(tmp_path, kit_lines="CONTAINER_NAME=odelia_swarm_client_TEST_A_1\n")
+    r = bash(f'"{repo}/scripts/deploy/run_deploy_test.sh" --conf "{conf}" --cleanup-only', env=env)
+    assert r.returncode != 0
+    assert not (tmp_path / "rm.log").exists()
+    assert "refusing" in (r.stdout + r.stderr)
 
 
 # ── deploy_common.sh: variables and credentials ──────────────────────────
