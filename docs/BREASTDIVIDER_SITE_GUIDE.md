@@ -21,7 +21,8 @@ the crops exactly as described here, and send us the check results before the ru
 - **Docker with GPU access on the host** for step 1. The first run pulls the model image
   `ykirchhoff/breastdivider` (14.4 GB).
 - **Time.** On our benchmark machine about 6 s per exam: 2 s of GPU segmentation and 4.5 s of
-  cropping with 14 CPU workers, so 1,000 exams took under two hours. Fewer workers take longer.
+  cropping with 14 CPU workers (456 exams in 47 minutes), so 1,000 exams take a little under two
+  hours. Fewer workers take longer.
 - **A GPU that is free.** Step 1 and the preflight check use the GPU your swarm client needs, so
   run them outside swarm run windows.
 - **Your bilateral images** in `<site folder>/data/<CaseID>/Pre.nii.gz` and `Post_1.nii.gz`, the same
