@@ -15,7 +15,9 @@ from pathlib import Path
 import pytest
 
 torch = pytest.importorskip("torch")
-for _module in ("sklearn", "pytorch_lightning", "torchmetrics", "monai", "einops", "x_transformers"):
+# predict.py needs sklearn; the model registry imports the models package and the dataset module.
+for _module in ("sklearn", "pytorch_lightning", "torchmetrics", "monai", "einops", "x_transformers", "torchio",
+                "pandas"):
     pytest.importorskip(_module)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

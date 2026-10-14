@@ -1216,7 +1216,7 @@ run_all_models_preflight_check () {
 
     _verify_ODELIA_ternary_preflight_check "MST"                      "mst *| _MST *| 23"
     _verify_MST_SAMMed2D_preflight_check
-    _verify_ODELIA_ternary_preflight_check "ResNet10"                "model *| _ResNet *| 14"
+    _verify_ODELIA_ternary_preflight_check "ResNet10"                 "model *| _ResNet *| 14"
     _verify_ODELIA_ternary_preflight_check "ResNet18"                 "model *| _ResNet *| 33"
     _verify_ODELIA_ternary_preflight_check "ResNet34"                 "model *| _ResNet *| 63"
     _verify_ODELIA_ternary_preflight_check "ResNet50"                 "model *| _ResNet *| 46"
