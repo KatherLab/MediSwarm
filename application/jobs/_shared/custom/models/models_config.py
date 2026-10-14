@@ -88,16 +88,12 @@ CHALLENGE_MODELS = {
         }
     }
 }
-DEFAULT_MODEL = {
-    "MST": {
-        "persistor_path": "mst.MST",
-        "persistor_args": {
-            "n_input_channels": 1,
-            "num_classes": 3, 
-            "spatial_dims": 3
-        }
-    }
-}
+
+# Models create_model() builds itself (challenge models come from CHALLENGE_MODELS).
+RESNET_MODEL_NAMES = ("ResNet10", "ResNet18", "ResNet34", "ResNet50", "ResNet101", "ResNet152")
+BUILTIN_MODEL_NAMES = ("MST", "MST_SAMMed2D", "MedicalNet") + RESNET_MODEL_NAMES
+CHALLENGE_PREFIX = "challenge_"
+
 
 def set_up_logging():
     logging.basicConfig(level=logging.INFO)
@@ -105,26 +101,45 @@ def set_up_logging():
     return logger
 
 def get_model_config(logger, model_name: str):
-    """Get configuration for a specific model."""
-    if model_name in get_all_model_names():
-        return CHALLENGE_MODELS.get(model_name) 
-    else: 
-        logger.info(f"No Configuration for model {model_name} found. Use default model <MST>")
-        return DEFAULT_MODEL.get("MST")
+    """Configuration of a challenge model, looked up by its team name (a key of CHALLENGE_MODELS).
+
+    An unknown name raises. It used to fall back to an MST entry, so a misspelled challenge name
+    (e.g. the job-directory spelling '4abmil') ended in a misleading relative-import error from
+    loading mst.py by file path instead of saying that the name is wrong.
+    """
+    if model_name in CHALLENGE_MODELS:
+        return CHALLENGE_MODELS[model_name]
+    raise ValueError(
+        f"No challenge model named {model_name!r}. Valid challenge names: {', '.join(get_all_model_names())}. "
+        f"Built-in models ({', '.join(BUILTIN_MODEL_NAMES)}) have no challenge configuration."
+    )
 
 def get_all_model_names():
-    """Get list of all available model names."""
+    """Team names of the challenge models (the keys of CHALLENGE_MODELS); see get_supported_model_names()."""
     return list(CHALLENGE_MODELS.keys())
 
+def get_supported_model_names():
+    """Every model name create_model() accepts after get_unified_model_name().
+
+    A challenge model may also be given by its bare team name (MODEL_NAME=1DivideAndConquer) and
+    'challenge' selects the first one; both are mapped onto the names listed here.
+    """
+    return list(BUILTIN_MODEL_NAMES) + [CHALLENGE_PREFIX + name for name in get_all_model_names()]
+
+def unsupported_model_error(model_name) -> ValueError:
+    """The error for a model name create_model() cannot build, listing every valid name."""
+    return ValueError(
+        f"Unsupported model name: {model_name!r}. Valid names: {', '.join(get_supported_model_names())} "
+        f"(a challenge model may also be given without the '{CHALLENGE_PREFIX}' prefix, e.g. 1DivideAndConquer)."
+    )
+
 def get_persistor_config(logger, model_name: str):
-    """Get persistor configuration for a specific model."""
+    """Persistor path and arguments of a challenge model (team name); unknown names raise ValueError."""
     config = get_model_config(logger, model_name)
-    if config:
-        return {
-            "persistor_path": config["persistor_path"],
-            "persistor_args": config["persistor_args"]
-        }
-    return None
+    return {
+        "persistor_path": config["persistor_path"],
+        "persistor_args": config["persistor_args"]
+    }
 
 def get_unified_model_name(logger, model_variant: str, env_vars):
     logger.info(f"Environment variables: {env_vars}")
@@ -160,6 +175,10 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
     if env_vars == None:
         env_vars = load_environment_variables()
     model_name = get_unified_model_name(logger, model_name, env_vars)
+    # Checked before anything slow or hardware-dependent, so a misspelled MODEL_NAME is reported
+    # as such (with the valid names) rather than as a missing GPU or a failed import.
+    if model_name not in get_supported_model_names():
+        raise unsupported_model_error(model_name)
 
     allow_cpu_model = os.environ.get("MEDISWARM_ALLOW_CPU_MODEL", "").lower() in {
         "1",
@@ -186,7 +205,7 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
     )
 
     model = None
-    if model_name in ['ResNet10', 'ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']:
+    if model_name in RESNET_MODEL_NAMES:
         resnet_variant = int(model_name[6:])
         model = ResNet(n_input_channels=1,
                         num_classes=num_classes,
@@ -217,8 +236,8 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
                            pretrained_path=resolve_medicalnet_weights(logger),
                            loss_kwargs=loss_kwargs,
                            **scheduler_kwargs)
-    elif "challenge_" in model_name:
-        team_name = "_".join(model_name.split('_')[1:])
+    elif model_name.startswith(CHALLENGE_PREFIX):
+        team_name = model_name[len(CHALLENGE_PREFIX):]
         config = get_model_config(logger, team_name)
         
         persistor_path = config["persistor_path"]
@@ -267,5 +286,6 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
         logger.info(f"Now access {persistor_args} from module {module}")
         return factory_fn(**persistor_args)
     else:
-        raise ValueError(f"Unsupported model name: {model_name}.")
+        # Only reachable if get_supported_model_names() lists a name no branch above builds.
+        raise unsupported_model_error(model_name)
     return model
