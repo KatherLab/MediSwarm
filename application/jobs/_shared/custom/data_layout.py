@@ -257,14 +257,18 @@ class ProcessingLog:
     """What a processing.log next to the crops says about the tool that wrote them."""
 
     path: str
-    tool: str                          # 'breastdivider', 'unilateralize' (MEVIS' standard-crop script) or 'unknown'
+    tool: str                          # 'breastdivider', 'unilateralize' (MEVIS' standard-crop script),
+                                       # 'unknown', or 'unreadable' (then `error` says why)
     package_version: str | None = None
     git_commit: str | None = None
     mode: str | None = None
     xy_resolution: str | None = None
     untrusted_fallbacks: int | None = None
+    error: str | None = None
 
     def describe(self) -> str:
+        if self.tool == "unreadable":
+            return f"{PROCESSING_LOG} unreadable ({self.error})"
         if self.tool == "unknown":
             return f"{PROCESSING_LOG} from an unknown tool"
         name = "BreastDivider" if self.tool == "breastdivider" else "unilateralize.py"
@@ -314,7 +318,10 @@ def read_processing_log(images_dir) -> ProcessingLog | None:
     path = Path(images_dir) / PROCESSING_LOG
     if not path.is_file():
         return None
-    text = _head_and_tail(path)
+    try:
+        text = _head_and_tail(path)
+    except OSError as exc:
+        return ProcessingLog(path=str(path), tool="unreadable", error=f"{type(exc).__name__}: {exc.strerror or exc}")
     if "BD_unilateralize" in text or "BD_main.py" in text:
         tool = "breastdivider"
     elif re.search(r"\bunilateralize\.py\b", text):
@@ -396,7 +403,9 @@ def sample_spacing(images_dir, uids: Sequence[str], image_file: str = DEFAULT_IM
             continue
         try:
             spacing = read_nifti_spacing(path)
-        except (OSError, ValueError, EOFError, struct.error):
+        except Exception:  # noqa: BLE001 -- OSError, EOFError, zlib.error, ValueError, ...: all just "unreadable"
+            # The loader skips a corrupt input and aborts only past a budget; one bad file
+            # must not turn this check into a crash of the whole setup.
             unreadable += 1
             continue
         if spacing is None:
@@ -422,10 +431,11 @@ class CropFormatVerdict:
     def summary(self) -> str:
         if not self.checked:
             return f"not checked for CONFIG={self.config}"
-        evidence = [self.processing_log.describe() if self.processing_log else f"no {PROCESSING_LOG}"]
-        if self.spacing is not None:
-            evidence.append(self.spacing.describe())
         verdict = "ok" if self.ok else f"{len(self.issues)} issue(s)"
+        if self.spacing is None:                  # the check could not gather its evidence
+            return verdict
+        evidence = [self.processing_log.describe() if self.processing_log else f"no {PROCESSING_LOG}",
+                    self.spacing.describe()]
         return f"{verdict}; " + "; ".join(evidence)
 
     def as_dict(self) -> dict:
@@ -438,6 +448,8 @@ def _breastdivider_issues(images_dir: Path, log: ProcessingLog | None, spacing: 
     if log is None:
         issues.append(f"no {PROCESSING_LOG} in {images_dir}: nothing shows these are BreastDivider crops "
                       f"(BD_main.py writes one next to its crops)")
+    elif log.tool == "unreadable":
+        issues.append(f"could not read {log.path} ({log.error}), so nothing shows these are BreastDivider crops")
     elif log.tool != "breastdivider":
         issues.append(f"{log.path} does not name BD_unilateralize, so these crops were not written by BreastDivider"
                       + (" (it names unilateralize.py, which writes the standard crops)" if log.tool == "unilateralize"
@@ -486,8 +498,12 @@ def check_crop_format(images_dir, config: str, uids: Sequence[str], image_file: 
     images_dir = Path(images_dir)
     if config == "original":
         return CropFormatVerdict(config, str(images_dir), checked=False)
-    log = read_processing_log(images_dir)
-    spacing = sample_spacing(images_dir, uids, image_file, sample_size)
+    try:
+        log = read_processing_log(images_dir)
+        spacing = sample_spacing(images_dir, uids, image_file, sample_size)
+    except Exception as exc:  # noqa: BLE001 -- a check that cannot run is an issue, not a crash
+        return CropFormatVerdict(config, str(images_dir), True,
+                                 (f"the crop-format check could not run on {images_dir}: {type(exc).__name__}: {exc}",))
     issues = []
     if spacing.missing:
         issues.append(f"{spacing.missing} of {spacing.requested} sampled exam folders in {images_dir} have no "

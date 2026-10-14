@@ -410,6 +410,50 @@ def test_unreadable_and_non_nifti_files_are_counted_not_fatal(tmp_path):
     assert verdict.ok and verdict.spacing.unreadable == 1 and verdict.spacing.read == 2
 
 
+def test_corrupt_gzip_counts_as_unreadable(tmp_path):
+    """A broken deflate stream raises zlib.error, which is not an OSError; the loader skips such
+    an input, so the guard must not crash the setup over it."""
+    import zlib
+    images = tmp_path / "data_unilateral"
+    uids = _crops(images, [(1.0, 1.0, 1.0)] * 3)
+    path = images / uids[0] / "Sub_1.nii.gz"
+    data = gzip.compress(_nifti1((1.0, 1.0, 1.0)))         # no file name: the deflate stream starts at byte 10
+    path.write_bytes(data[:10] + b"\xff" + data[11:])      # reserved deflate block type
+    with pytest.raises(zlib.error):
+        dl.read_nifti_spacing(path)
+    verdict = dl.check_crop_format(images, "unilateral", uids)
+    assert verdict.spacing.unreadable == 1 and verdict.ok
+
+
+def test_unreadable_processing_log_is_an_issue_for_bd_only(tmp_path, monkeypatch):
+    def denied(path, size=0):
+        raise PermissionError(13, "Permission denied")
+    monkeypatch.setattr(dl, "_head_and_tail", denied)
+    for config, folder in (("unilateral_BD", "data_unilateral_BD"), ("unilateral", "data_unilateral")):
+        images = tmp_path / folder
+        uids = _crops(images, _bd_spacings(6) if config == "unilateral_BD" else [(1.0, 1.0, 1.0)] * 6)
+        (images / "processing.log").write_text(BD_LOG)
+        verdict = dl.check_crop_format(images, config, uids)
+        assert verdict.processing_log.tool == "unreadable"
+        assert "unreadable (PermissionError: Permission denied)" in verdict.summary()
+        if config == "unilateral_BD":
+            assert any("could not read" in issue for issue in verdict.issues)
+        else:
+            assert verdict.ok
+
+
+def test_a_check_that_cannot_run_is_an_issue_not_a_crash(tmp_path, monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(dl, "sample_spacing", boom)
+    verdict = dl.check_crop_format(tmp_path, "unilateral", ["EXAM000_left"])
+    assert verdict.issues == (f"the crop-format check could not run on {tmp_path}: RuntimeError: boom",)
+    assert verdict.summary() == "1 issue(s)"
+    dl.enforce_crop_format(verdict, logging.getLogger("t"), env={})                       # warns
+    with pytest.raises(dl.CropFormatError):
+        dl.enforce_crop_format(verdict, logging.getLogger("t"), env={"ODELIA_STRICT_DATA_FORMAT": "1"})
+
+
 def test_original_config_is_not_checked(tmp_path):
     verdict = dl.check_crop_format(tmp_path, "original", [])
     assert not verdict.checked and verdict.ok and "not checked" in verdict.summary()
