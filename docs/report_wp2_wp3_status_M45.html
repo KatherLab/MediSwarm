@@ -420,7 +420,7 @@
           <tr>
             <td class="id">T3.3</td><td class="id">T3.3</td><td class="id">M54</td><td class="num">9 mo</td>
             <td><span class="chip flight">Phase 2 built</span></td>
-            <td>Calibrated-noise filter and an RDP accountant (#563). The guarantee is now a number the consortium can choose, not a claim. Phase 3 (record-level) not started.</td>
+            <td>Calibrated-noise filter and an RDP accountant (#563). The guarantee is now a number the consortium can choose, not a claim. Phase 3 (record-level) not started. <em>Correction (Oct 2026): #563 shipped the accountant only; the noise mechanism is the <code>dp_noise</code> round hook of 1.9.0.</em></td>
           </tr>
           <tr>
             <td class="id">D3.5</td><td class="id">T3.4</td><td class="id">M60</td><td class="num">15 mo</td>
@@ -581,6 +581,13 @@
         clips each site's update to a known L2 norm and adds Gaussian noise scaled to it, plus a
         self-contained Rényi-DP accountant — self-contained because Opacus is not in the ODELIA
         image and adding it would force a rebuild and redistribution to all eight sites.
+      </p>
+      <p>
+        <em>Correction (October 2026): the filter described above was not in the code at the time;
+        #563 shipped the accountant only. The mechanism is the <code>dp_noise</code> round hook of 1.9.0,
+        which adds the noise inside the training process, because NVFlare task result filters never
+        run in swarm mode. For the same reason <code>PercentilePrivacy</code> never executed in any
+        swarm run; 1.9.0 removes it from the job configs (docs/DIFFERENTIAL_PRIVACY.md).</em>
       </p>
       <p>
         Over a 20-round run at δ&nbsp;=&nbsp;10⁻⁵, the cost of each guarantee is:

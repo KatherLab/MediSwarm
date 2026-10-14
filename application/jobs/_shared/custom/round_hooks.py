@@ -24,6 +24,10 @@ Rules
   ``ODELIA_TRAIN_INCLUDE_LIST``) that is present while the module acting on it is not listed fails the
   job before any data is touched. A requested feature that silently does nothing must be impossible;
   for DP it would mean updates leaving the site without the noise the protocol promised.
+* Implicit hooks: ``ODELIA_SEED`` and ``ODELIA_WARM_START_SHA256`` are pins of the run, not optional
+  experiments, and the job builder sets them without listing a module (scripts/admin/build_consortium_job.py,
+  CODE_READ_ENV). Whenever one is present, load_hooks adds the module acting on it (IMPLICIT_HOOKS) ahead
+  of the listed hooks, so the seed is set and the round-0 global is checked before any other hook runs.
 * Hooks are active only in ``TRAINING_MODE=swarm``. Preflight and local training get no hooks (a
   feature that needs local mode has to extend ``load_hooks`` and the local path in main.py).
 * Hooks run in list order. An exception in a hook fails the round: nothing is swallowed here, so a
@@ -71,6 +75,11 @@ FEATURE_VARIABLES: Tuple[Tuple[str, str], ...] = (
     ("ODELIA_DP_", "dp_noise"),
     ("ODELIA_AL_", "al_subset"),
     ("ODELIA_TRAIN_INCLUDE_LIST", "al_subset"),
+)
+
+# Modules load_hooks adds by itself (first, unless listed) whenever one of their variables is present.
+IMPLICIT_HOOKS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    ("reproducibility", ("ODELIA_SEED", "ODELIA_WARM_START_SHA256")),
 )
 
 # Methods of RoundHook that call_hooks() may dispatch to (lightning_callbacks is collected by start_hooks).
@@ -227,12 +236,15 @@ def load_hooks(env: Optional[Mapping[str, str]] = None, logger=None) -> List[Rou
     mode = env.get("TRAINING_MODE", "")
     if mode != SWARM_MODE:
         ignored = ([HOOKS_ENV] if env.get(HOOKS_ENV, "").strip() else []) + [var for var, _ in feature_variables(env)]
+        ignored += [var for _, variables in IMPLICIT_HOOKS for var in variables if var in env]
         if ignored:
             log.warning(f"Round hooks only run in swarm mode; ignoring {', '.join(ignored)} in TRAINING_MODE={mode!r}")
         return []
 
     names = parse_hook_names(env.get(HOOKS_ENV, ""))
     check_feature_variables(env, names)
+    implicit = [m for m, variables in IMPLICIT_HOOKS if m not in names and any(var in env for var in variables)]
+    names = implicit + names
 
     hooks: List[RoundHook] = []
     for name in names:

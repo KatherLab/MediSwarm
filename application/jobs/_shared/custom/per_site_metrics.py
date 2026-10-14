@@ -22,6 +22,26 @@ Metrics are recorded with the support counts emitted alongside them by
 per-class metric must never travel without its support: ranking centres by a
 bare macro AUROC, where one class had two positives, is what produced a wrong
 conclusion about UMCU. See ``docs/EVALUATION_PITFALLS.md`` (E1).
+
+Which model a number belongs to (release 1.9.0)
+-----------------------------------------------
+Up to 1.8 every ``val/*`` value was filed under one owner, ``swarm_global``,
+and the last value per key won. The received global and the local model logged
+the same keys, so the published numbers were each site's LOCAL model after its
+last epoch, labelled as the global (October run 7a678d9a). The training code
+now streams each model under its own prefix, and this collector files each
+prefix under its own owner in ``cross_val_results.json``:
+
+    site_local_model       val/*                       the site's own model, validated inside the fit
+                                                       (last epoch of the last training round)
+    swarm_global_received  global_val/*                the global each site received, validated at the
+                                                       start of a round (the last round seen)
+    swarm_global           final_val/*, final_test/*   the job's final global, scored by every site in the
+                                                       evaluation-only round (ODELIA_FINAL_EVAL_ROUND=1)
+
+Each owner carries ``<prefix>/round`` (the round its last values come from) and
+``_last_step``. ``swarm_global`` is absent unless the job ran the evaluation-only
+round: without it the final global is never evaluated at the sites.
 """
 
 from threading import Lock
@@ -35,28 +55,42 @@ from nvflare.app_common.app_constant import AppConstants
 from nvflare.app_common.app_event_type import AppEventType
 from nvflare.app_common.widgets.streaming import AnalyticsReceiver
 
-GLOBAL_MODEL_OWNER = "swarm_global"
+SITE_LOCAL_OWNER = "site_local_model"
+GLOBAL_RECEIVED_OWNER = "swarm_global_received"
+FINAL_GLOBAL_OWNER = "swarm_global"
+
+# Metric-key prefix -> owner. Keys with any other prefix (train/*, epoch, ...) are dropped so the
+# published summary stays readable.
+DEFAULT_PREFIX_OWNERS = {
+    "val/": SITE_LOCAL_OWNER,
+    "global_val/": GLOBAL_RECEIVED_OWNER,
+    "final_val/": FINAL_GLOBAL_OWNER,
+    "final_test/": FINAL_GLOBAL_OWNER,
+}
 
 
 class PerSiteMetricCollector(AnalyticsReceiver):
     """Accumulate streamed per-site metrics and publish them at end of run.
 
     Args:
-        model_owner: label recorded as the owner of the evaluated model. In a
-            swarm every site evaluates the shared model on its own data, so the
-            default is a single global label rather than a peer's name.
-        metric_prefixes: only metrics whose key starts with one of these are
-            kept. Defaults to validation and test; training-time noise is
-            dropped so the published summary stays readable.
+        prefix_owners: metric-key prefix -> owner label it is published under. Defaults to
+            DEFAULT_PREFIX_OWNERS (see the module docstring). A key matching no prefix is dropped.
     """
 
-    def __init__(self, model_owner: str = GLOBAL_MODEL_OWNER, metric_prefixes=None):
+    def __init__(self, prefix_owners=None):
         super().__init__()
-        self._model_owner = model_owner
-        self._prefixes = tuple(metric_prefixes or ("val/", "test/"))
+        owners = dict(prefix_owners or DEFAULT_PREFIX_OWNERS)
+        # Longest prefix first, so a prefix that extends another one wins.
+        self._prefix_owners = tuple(sorted(owners.items(), key=lambda item: -len(item[0])))
         self._metrics = {}
         self._published = False
         self._lock = Lock()
+
+    def _owner_of(self, key: str):
+        for prefix, owner in self._prefix_owners:
+            if key.startswith(prefix):
+                return owner
+        return None
 
     def initialize(self, fl_ctx: FLContext):
         with self._lock:
@@ -107,7 +141,9 @@ class PerSiteMetricCollector(AnalyticsReceiver):
         silently discard everything the Lightning trainer reports.
 
         Later values for the same key overwrite earlier ones, so what is
-        published is each site's final value rather than its first.
+        published is each site's final value rather than its first. Values are
+        kept per owner (see the module docstring), so the local model's values
+        can never overwrite or stand in for a global's.
         """
         try:
             data = AnalyticsData.from_dxo(from_shareable(shareable))
@@ -119,39 +155,42 @@ class PerSiteMetricCollector(AnalyticsReceiver):
             return
 
         if isinstance(data.value, dict):
-            incoming = {
-                str(k): self._as_scalar(v)
-                for k, v in data.value.items()
-                if str(k).startswith(self._prefixes)
-            }
-            incoming = {k: v for k, v in incoming.items() if v is not None}
+            pairs = [(str(k), self._as_scalar(v)) for k, v in data.value.items()]
         else:
-            tag = str(data.tag or "")
-            value = self._as_scalar(data.value)
-            incoming = {tag: value} if tag.startswith(self._prefixes) and value is not None else {}
+            pairs = [(str(data.tag or ""), self._as_scalar(data.value))]
 
+        incoming = {}
+        for key, value in pairs:
+            owner = self._owner_of(key)
+            if owner is not None and value is not None:
+                incoming.setdefault(owner, {})[key] = value
         if not incoming:
             return
 
         with self._lock:
             site = self._metrics.setdefault(record_origin, {})
-            site.update(incoming)
-            if data.step is not None:
-                site["_last_step"] = data.step
+            for owner, values in incoming.items():
+                record = site.setdefault(owner, {})
+                record.update(values)
+                if data.step is not None:
+                    record["_last_step"] = data.step
 
     def finalize(self, fl_ctx: FLContext):
-        """Publish one validation record per site.
+        """Publish one validation record per (site, owner).
 
         ``ValidationJsonGenerator`` catches these and writes
         ``cross_site_val/cross_val_results.json`` as
-        ``{site: {model_owner: metrics}}``.
+        ``{site: {owner: metrics}}``, owners as in the module docstring.
         """
         if self._published:
             return
         self._published = True
 
         with self._lock:
-            collected = {site: dict(values) for site, values in self._metrics.items()}
+            collected = {
+                site: {owner: dict(values) for owner, values in owners.items()}
+                for site, owners in self._metrics.items()
+            }
 
         if not collected:
             self.log_warning(
@@ -163,17 +202,19 @@ class PerSiteMetricCollector(AnalyticsReceiver):
             )
             return
 
-        for site, values in collected.items():
-            dxo = DXO(data_kind=DataKind.METRICS, data=values)
-            fl_ctx.set_prop(AppConstants.MODEL_OWNER, self._model_owner, private=True, sticky=False)
-            fl_ctx.set_prop(AppConstants.DATA_CLIENT, site, private=True, sticky=False)
-            fl_ctx.set_prop(
-                AppConstants.VALIDATION_RESULT, dxo.to_shareable(), private=True, sticky=False
-            )
-            self.fire_event(AppEventType.VALIDATION_RESULT_RECEIVED, fl_ctx)
+        for site, owners in sorted(collected.items()):
+            for owner, values in sorted(owners.items()):
+                dxo = DXO(data_kind=DataKind.METRICS, data=values)
+                fl_ctx.set_prop(AppConstants.MODEL_OWNER, owner, private=True, sticky=False)
+                fl_ctx.set_prop(AppConstants.DATA_CLIENT, site, private=True, sticky=False)
+                fl_ctx.set_prop(
+                    AppConstants.VALIDATION_RESULT, dxo.to_shareable(), private=True, sticky=False
+                )
+                self.fire_event(AppEventType.VALIDATION_RESULT_RECEIVED, fl_ctx)
 
         self.log_info(
             fl_ctx,
-            f"Published metrics for {len(collected)} site(s): {', '.join(sorted(collected))}",
+            f"Published metrics for {len(collected)} site(s): "
+            + "; ".join(f"{site} ({', '.join(sorted(owners))})" for site, owners in sorted(collected.items())),
             fire_event=False,
         )

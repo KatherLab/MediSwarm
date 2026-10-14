@@ -4,6 +4,40 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
+### Evaluation outputs (1.9.0)
+
+See `docs/SWARM_EVALUATION_OUTPUTS.md`.
+
+- **Evaluation-only final round (`ODELIA_FINAL_EVAL_ROUND=1`)** — with `num_rounds` = training
+  rounds + 1, every site validates and tests the job's final global in the last round, writes local
+  CSVs, returns per-case rows if it opted in, runs `finalize_training`, and sends the received weights
+  back unchanged (`NUM_STEPS_CURRENT_ROUND=1`), which the DIFF exchange turns into a zero update, so the
+  final global stays identical and remains a candidate for best global. Until now the final global was
+  never evaluated at the sites. No training, no DP noise and no local capture in that round. Its test
+  split, CSVs and local checkpoint exports are best effort: a failure there is logged and the round
+  still completes.
+- **Honest metric labels** — `val/*` is the site's local model, `global_val/*` the global received at
+  the start of a training round, `final_val/*` and `final_test/*` the final global.
+  `cross_val_results.json` files them under `site_local_model`, `swarm_global_received` and
+  `swarm_global`; up to 1.8 `swarm_global` held each site's LOCAL model after its last epoch. CCWF
+  best-global selection still reads `val/AUC_ROC` of the received global. Validation and test losses
+  are streamed per epoch only (`val/loss` instead of `val/loss_step`/`val/loss_epoch`): a per-step
+  value at batch size 1 is one case's loss.
+- **Per-case rows tagged by split, model kind and round** — the coordinator writes
+  `cross_site_val/per_case_predictions/<SITE>__<split>__<model_kind>.csv` with `#` provenance lines,
+  one file per (site, split, model kind) from the newest complete emission, instead of one `<site>.csv`
+  in which rows of different emissions could overwrite each other. `compare_regional_finetune.py` reads
+  them with `--split` / `--model-kind`.
+- **Exports in eval mode (#618)** — every prediction export runs the model in eval mode and restores
+  each submodule's own mode; the returned per-case rows come from the same pass as the local CSV.
+- **`ODELIA_EXPORT_TRAIN_PREDICTIONS=0`** skips the train-split pass of the per-epoch and the
+  aggregated-model export (#542: up to 135 min per epoch at UMCU_1). Default `1` (unchanged). With the
+  evaluation round enabled, the default final-round aggregated export runs there instead of in the last
+  training round.
+- **Challenge models 2-5 export test predictions of their local checkpoints** — the model-name
+  exclusion in `finalize_training` is gone (the reload was fixed in #627); the weekly integration test
+  now expects their test CSVs.
+
 ### Model zoo (1.9.0)
 
 - **`MST_SAMMed2D` refuses to start without its pretrained SAM-Med2D weights** — only the

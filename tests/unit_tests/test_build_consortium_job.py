@@ -423,7 +423,8 @@ def test_dp_budget_refuses_too_many_rounds(tmp_path, capsys):
     )
     dp = json.loads((ok / "job_manifest.json").read_text())["dp"]
     assert dp["max_training_rounds"] >= 20 and dp["target_epsilon"] == 10.0
-    assert "builder copy" in dp["accountant"]  # this checkout's privacy_accounting has no cap helper yet
+    # The cap comes from the job's own privacy_accounting.max_rounds_for_budget (#593): 20 rounds for epsilon 10.
+    assert "job code" in dp["accountant"] and dp["max_training_rounds"] == 20
 
 
 def test_dp_budget_uses_the_jobs_own_accountant_when_present(tmp_path, capsys):

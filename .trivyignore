@@ -1,0 +1,86 @@
+# Accepted Trivy findings for the ODELIA image (jefftud/odelia); used by the gate in
+# .github/workflows/daily-image-verify.yml (HIGH/CRITICAL that have a fix).
+#
+# Reviewed 2026-10-14 for release 1.9.0 against Trivy 0.70.0 and its DB of that day.
+# Every entry expires on 2027-04-30 (exp:): the gate turns red again then and the list
+# must be reviewed, not extended blindly. Each ID has the one-line reason above it; IDs
+# match image-wide, so each is listed under the package that carries it today.
+#
+# Fixed in 1.9.0 instead of listed: wandb (incl. its wandb-core binary, 56 findings) and
+# datasets removed with their exclusive dependencies (GitPython, pyarrow, ...); PyJWT
+# 2.14.0, Werkzeug 3.0.6, pyasn1 0.6.4, pydicom 3.0.2, urllib3 2.8.0, Brotli 1.2.0,
+# soupsieve 2.8.4, wheel 0.46.3, setuptools 80.10.2 (vendored jaraco.context, wheel);
+# pyOpenSSL removed.
+#
+# Threat model behind the reasons: the image runs inside a site's network, reads only
+# that site's data and the consortium's own models, and talks only to the coordinator and
+# its peers over mutually authenticated TLS.
+
+# --- torch 2.2.2 (PyTorch base image): torch >= 2.6 is a base-image move, out of scope for 1.9.0.
+# torch.load(weights_only=True) RCE; sites load only their own checkpoints and the image's hash-checked weights.
+CVE-2025-32434 exp:2027-04-30
+
+# --- monai 1.4.0: version frozen with the training stack; ODELIA uses only networks and transforms on NIfTI.
+# Path traversal when extracting downloaded bundles; ODELIA downloads no MONAI bundles.
+CVE-2025-58755 exp:2027-04-30
+# Unsafe torch.load in bundle/checkpoint utilities; not called by ODELIA code.
+CVE-2025-58756 exp:2027-04-30
+# Pickle deserialisation in MONAI utilities; ODELIA unpickles nothing through MONAI.
+CVE-2025-58757 exp:2027-04-30
+# Pickle RCE through unsafe helpers (auto3dseg algo objects); auto3dseg is not used.
+GHSA-89gg-p5r5-q6r4 exp:2027-04-30
+# algo_from_pickle() RCE (incomplete fix of the above); auto3dseg is not used.
+GHSA-qxq5-qhx6-94qw exp:2027-04-30
+# OS command injection in MONAI tooling outside the networks/transforms ODELIA imports.
+GHSA-rghg-q7wp-9767 exp:2027-04-30
+# NumpyReader unpickles crafted .npy files; ODELIA reads NIfTI only.
+GHSA-wg9g-w2j2-8pgr exp:2027-04-30
+
+# --- NVFlare wire stack, identical to 1.8.1 while sites run both images in one swarm; DoS needs an mTLS peer.
+# protobuf 4.24.4: unbounded recursion while parsing; only authenticated peers send messages.
+CVE-2025-4565 exp:2027-04-30
+# protobuf 4.24.4: recursion-depth bypass DoS; only authenticated peers send messages.
+CVE-2026-0994 exp:2027-04-30
+# msgpack 1.1.0: out-of-bounds read when an Unpacker is reused after an error; NVFlare does not reuse one.
+GHSA-6v7p-g79w-8964 exp:2027-04-30
+# aiohttp 3.11.18 (transport of the kits' 'http' scheme): zip bomb via auto_decompress; peers are authenticated.
+CVE-2025-69223 exp:2027-04-30
+# aiohttp 3.11.18: DoS through malformed HTTP responses; the only servers it talks to are the coordinator and peers.
+CVE-2026-69244 exp:2027-04-30
+
+# --- cryptography 42.0.5 (base image): NVFlare certificates and job signing; 42 -> 46+ needs that path revalidated.
+# Missing subgroup validation for SECT (binary) curves; the kits use RSA certificates.
+CVE-2026-26007 exp:2027-04-30
+# Exponential path building with duplicate self-signed intermediates; chains are the consortium's own CA.
+CVE-2026-69249 exp:2027-04-30
+# OpenSSL bundled in cryptography wheels; this conda build links the image's OpenSSL.
+GHSA-537c-gmf6-5ccf exp:2027-04-30
+
+# --- fsspec 2024.3.1 (base image): on Lightning's checkpoint path, so no two-year jump for the final release.
+# Code execution via crafted reference-filesystem documents; ODELIA never opens reference filesystems.
+CVE-2026-104851 exp:2027-04-30
+
+# --- pillow 10.2.0 (base image): ODELIA decodes no 2D images with PIL, it only writes matplotlib ROC PNGs.
+# Fixes need Pillow 12 (torchvision 0.17.2 and matplotlib 3.9 revalidation); 10.3/10.4 add three more findings.
+# Buffer overflow in _imagingcms; no ICC profile handling in ODELIA.
+CVE-2024-28219 exp:2027-04-30
+# Crafted McIdas AREA image; never opened.
+CVE-2026-54058 exp:2027-04-30
+# Crafted PCF font data; no fonts are loaded through PIL.
+CVE-2026-54059 exp:2027-04-30
+# Excessive allocation for font files; no fonts are loaded through PIL.
+CVE-2026-54060 exp:2027-04-30
+# Crafted BDF font file; no fonts are loaded through PIL.
+CVE-2026-55379 exp:2027-04-30
+# Crafted GD 2.x image; never opened.
+CVE-2026-55380 exp:2027-04-30
+# Native heap out-of-bounds write on crafted input; ODELIA feeds PIL only its own plots.
+CVE-2026-59197 exp:2027-04-30
+# Out-of-bounds write in image processing of crafted input; ODELIA feeds PIL only its own plots.
+CVE-2026-59199 exp:2027-04-30
+# Crafted PDF stream; never opened.
+CVE-2026-59200 exp:2027-04-30
+# Crafted JPEG2000 image; never opened.
+CVE-2026-59204 exp:2027-04-30
+# Heap corruption in ImageCms.ImageCmsTransform.apply; ImageCms is not used.
+CVE-2026-59205 exp:2027-04-30

@@ -16,6 +16,7 @@ DOCKER_BUILD_ARGS="--no-cache --progress=plain";
 DOCKERFILE="docker_config/Dockerfile_ODELIA"
 NUM_ROUNDS_OVERRIDE=""
 MIN_CLIENTS_OVERRIDE=""
+BUILD_ONLY=""
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -24,19 +25,23 @@ while [[ "$#" -gt 0 ]]; do
         --use-docker-cache)  DOCKER_BUILD_ARGS="";;
         --num-rounds)        NUM_ROUNDS_OVERRIDE="$2"; shift ;;
         --min-clients)       MIN_CLIENTS_OVERRIDE="$2"; shift ;;
+        --build-only)        BUILD_ONLY="1";;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
 done
 
 if [ -z "$PROJECT_FILE" ]; then
-    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [-d <Dockerfile>] [--use-docker-cache] [--num-rounds N] [--min-clients N]"
+    echo "Usage: buildDockerImageAndStartupKits.sh -p <swarm_project.yml> [-d <Dockerfile>] [--use-docker-cache] [--num-rounds N] [--min-clients N] [--build-only]"
     echo "  -d  Dockerfile to use (default: docker_config/Dockerfile_ODELIA)"
     echo "      For STAMP builds, use: -d docker_config/Dockerfile_STAMP"
     echo "  --num-rounds  Override num_rounds in all config_fed_server.conf (for CI/CD testing)"
     echo "  --min-clients Override min_clients / configure_min_clients to match the test site count."
     echo "                Required for any deploy test with fewer sites than the productive job"
     echo "                assumes, else the run aborts in 30s with min_clients exceeds ..."
+    echo "  --build-only  Build the image only; provision no startup kits. The project file"
+    echo "                still names the image. Use it for a release candidate: provisioning"
+    echo "                the production project mints kits (and, in a fresh workspace, a CA)."
     exit 1
 fi
 
@@ -53,6 +58,7 @@ acquire_host_lock "image build ($(basename "$PROJECT_FILE"))" || exit 1
 
 VERSION=`"$SCRIPT_DIR/getVersionNumber.sh"`
 CONTAINER_VERSION_ID=`git rev-parse --short HEAD`
+GIT_REVISION=`git rev-parse HEAD`
 
 # prepare clean version of source code repository clone for building Docker image
 
@@ -70,6 +76,7 @@ mkdir "$CLEAN_SOURCE_DIR/MediSwarm"
 git archive --format=tar HEAD | tar x -C "$CLEAN_SOURCE_DIR/MediSwarm/"
 cd docker_config/NVFlare
 git archive --format=tar HEAD | tar x -C "$CLEAN_SOURCE_DIR/MediSwarm/docker_config/NVFlare"
+NVFLARE_REVISION=`git rev-parse HEAD`
 cd ../..
 
 cd $CLEAN_SOURCE_DIR/MediSwarm
@@ -116,9 +123,18 @@ fi
 # Only cache pretrained model weights for ODELIA builds (STAMP uses pre-extracted
 # H5 features and doesn't need DINOv2/challenge weights in the Docker image)
 # If an environment variable MEDISWARM_BUILD_CACHE_DIR is set, it will be used as a persistent cache,
-# otherwise data is stored in a temporary folder deleted after building.
+# otherwise data is stored in a temporary folder deleted after building. Release builds
+# (MEDISWARM_IMAGE_VERSION without -dev.) need the SAM-Med2D weights in that cache; see the script.
+IMAGE_IDENTITY_ARGS=()
 if [[ "$DOCKERFILE" != *"Dockerfile_STAMP"* ]]; then
     ./scripts/build/_cacheAndCopyPretrainedModelWeights.sh "$CLEAN_SOURCE_DIR"
+    # Dockerfile_ODELIA ships the NVFlare source in its own layer below the code
+    # (stage 1), so it leaves MediSwarm/ here; the per-commit code layer would
+    # otherwise carry the same 150 MB again. Dockerfile_STAMP still expects it inside.
+    mv "$CLEAN_SOURCE_DIR/MediSwarm/docker_config/NVFlare" "$CLEAN_SOURCE_DIR/nvflare_source"
+    IMAGE_IDENTITY_ARGS=(--build-arg "ODELIA_IMAGE_VERSION=$VERSION"
+                         --build-arg "ODELIA_IMAGE_REVISION=$GIT_REVISION"
+                         --build-arg "NVFLARE_REVISION=$NVFLARE_REVISION")
 fi
 cd $CWD
 
@@ -126,7 +142,7 @@ cd $CWD
 CONTAINER_NAME=`grep "      docker_image: " $PROJECT_FILE | sed 's/      docker_image: //' | sed 's#__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__#'$VERSION'#'`
 echo $CONTAINER_NAME
 
-docker build $DOCKER_BUILD_ARGS -t $CONTAINER_NAME $CLEAN_SOURCE_DIR -f $DOCKERFILE
+docker build $DOCKER_BUILD_ARGS "${IMAGE_IDENTITY_ARGS[@]}" -t $CONTAINER_NAME $CLEAN_SOURCE_DIR -f $DOCKERFILE
 
 # #479: the startup kits generated below get an image.conf on the ':current'
 # channel (see _injectLiveSyncIntoStartupKits.sh), so docker.sh in the kits
@@ -140,9 +156,13 @@ if [[ "$CONTAINER_NAME" == localhost:5000/* ]]; then
 fi
 
 echo "Docker image $CONTAINER_NAME built successfully"
-echo "scripts/build/_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME"
-"$SCRIPT_DIR/_buildStartupKits.sh" $PROJECT_FILE $VERSION $CONTAINER_NAME
-echo "Startup kits built successfully"
+if [[ -n "$BUILD_ONLY" ]]; then
+    echo "--build-only: no startup kits provisioned"
+else
+    echo "scripts/build/_buildStartupKits.sh $PROJECT_FILE $VERSION $CONTAINER_NAME"
+    "$SCRIPT_DIR/_buildStartupKits.sh" $PROJECT_FILE $VERSION $CONTAINER_NAME
+    echo "Startup kits built successfully"
+fi
 
 rm -rf "$CLEAN_SOURCE_DIR"
 CLEAN_SOURCE_DIR=""

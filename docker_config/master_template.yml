@@ -732,10 +732,33 @@ docker_cln_sh: |
           --external_validation) EXTERNAL_VALIDATION="1" ;;
           --checkpoint)          CLI_CHECKPOINT="$2"; shift ;;
           --split)               CLI_SPLIT="$2"; shift ;;
+          --status)              STATUS_MODE="1" ;;
+          --migrate_from)        MIGRATE_FROM="$2"; shift ;;
+          --yes)                 MIGRATE_YES="1" ;;
+          --start)               MIGRATE_START="1" ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
   done
+  CONTAINER_NAME_FROM_CLI="${CONTAINER_NAME:-}"
+
+  # --status and --migrate_from never start a training container: they look at (or retire)
+  # what runs on this host. They skip the data/scratch/GPU prompts, the scratch chmod, the
+  # lock clearing and the image pull below, so --status really is read-only.
+  HOST_ONLY_MODE=""
+  if [[ -n "${STATUS_MODE:-}" || -n "${MIGRATE_FROM:-}" ]]; then
+      HOST_ONLY_MODE="1"
+      if [[ -n "${STATUS_MODE:-}" && -n "${MIGRATE_FROM:-}" ]]; then
+          echo "Use --status and --migrate_from one at a time."; exit 1
+      fi
+      if [[ -n "$DUMMY_TRAINING$PREFLIGHT_CHECK$LOCAL_TRAINING$START_CLIENT$LIST_LICENSES$INTERACTIVE$SCRIPT_TO_RUN$EXTERNAL_VALIDATION" ]]; then
+          echo "--status and --migrate_from do not combine with a run mode (to start the client after"
+          echo "migrating, add --yes --start to --migrate_from)."; exit 1
+      fi
+  fi
+  if [[ ( -n "${MIGRATE_YES:-}" || -n "${MIGRATE_START:-}" ) && -z "${MIGRATE_FROM:-}" ]]; then
+      echo "--yes and --start only apply to --migrate_from <old kit folder>."; exit 1
+  fi
 
   # Default job for preflight_check and local_training
   : ${JOB_NAME:="challenge_1DivideAndConquer"}
@@ -762,17 +785,17 @@ docker_cln_sh: |
   fi
 
   # Prompt for parameters if missing
-  if [[ -z "$DUMMY_TRAINING" && -z "$LIST_LICENSES" && -z "$MY_DATA_DIR" ]]; then
+  if [[ -z "$HOST_ONLY_MODE" && -z "$DUMMY_TRAINING" && -z "$LIST_LICENSES" && -z "$MY_DATA_DIR" ]]; then
       read -p "Enter the path to your data directory (default: /home/flclient/data): " user_data_dir
       : ${MY_DATA_DIR:="${user_data_dir:-/home/flclient/data}"}
   fi
 
-  if [[ -z "$MY_SCRATCH_DIR" && -z "$LIST_LICENSES" ]]; then
+  if [[ -z "$HOST_ONLY_MODE" && -z "$MY_SCRATCH_DIR" && -z "$LIST_LICENSES" ]]; then
       read -p "Enter the path to your scratch directory (default: /mnt/scratch): " user_scratch_dir
       : ${MY_SCRATCH_DIR:="${user_scratch_dir:-/mnt/scratch}"}
   fi
 
-  if [[ -z "$GPU2USE" && -z "$LIST_LICENSES" ]]; then
+  if [[ -z "$HOST_ONLY_MODE" && -z "$GPU2USE" && -z "$LIST_LICENSES" ]]; then
       read -p "Enter the GPU index to use or 'all' (default: device=0): " user_gpu
       : ${GPU2USE:="${user_gpu:-device=0}"}
   fi
@@ -780,14 +803,16 @@ docker_cln_sh: |
   # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-  if [ -n "$MY_SCRATCH_DIR" ]; then
+  if [ -n "$MY_SCRATCH_DIR" ] && [ -z "$HOST_ONLY_MODE" ]; then
       mkdir -p "$MY_SCRATCH_DIR"
       chmod -R 777 "$MY_SCRATCH_DIR"
   fi
 
   # Networking & Cleanup
   NETARG="--net=host"
-  rm -rf ../pid.fl ../daemon_pid.fl
+  if [ -z "$HOST_ONLY_MODE" ]; then
+      rm -rf ../pid.fl ../daemon_pid.fl
+  fi
 
   # Docker image and container name
   #
@@ -820,13 +845,710 @@ docker_cln_sh: |
   # env > image.conf. Appended last below so a site option can override a built-in.
   MEDISWARM_DOCKER_OPTIONS="${ENV_DOCKER_OPTIONS:-${MEDISWARM_DOCKER_OPTIONS:-}}"
   EXTRA_DOCKER_OPTIONS="${CLI_DOCKER_OPTIONS:-${MEDISWARM_DOCKER_OPTIONS:-}}"
+  if [[ -z "$CONTAINER_NAME" ]]; then
+     CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
+  fi
+
+  # ── Host helpers: --status, --migrate_from and the pre-run checks ───────
+  # --status and a --migrate_from dry run only READ host state (docker inspect/ps/top, ps,
+  # nvidia-smi, the kit's files). Only --migrate_from --yes changes anything, and it never
+  # deletes data, scratch or kit folders.
+  KIT_VERSION="__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__"
+  KIT_SITE="{~~client_name~~}"
+  KIT_DIR_ROOT="$(cd "$DIR/.." && pwd)"
+  # Every kit names its client container odelia_swarm_client_<SITE>_<build id> (1.6.0 and
+  # 1.8.1 did too), so this prefix also finds the clients that older kits left running.
+  SITE_CONTAINER_PREFIX="odelia_swarm_client_${KIT_SITE}_"
+  # Host variables docker.sh forwards into the client container (keep in sync with the
+  # ODELIA_* forwarding block below); --migrate_from carries them as env prefixes.
+  MIGRATE_ENV_KNOBS="ODELIA_NUM_WORKERS ODELIA_HASH_NUM_WORKERS ODELIA_THREADS_PER_WORKER ODELIA_INTEROP_THREADS ODELIA_HASH_CACHE_DIR ODELIA_ENABLE_PREPROCESS_CACHE ODELIA_PREPROCESS_CACHE_DIR ODELIA_PREPROCESS_CACHE_VERSION ODELIA_ALLOW_EMPTY_SPLITS"
+  # Variables docker.sh itself sets in the container (any kit since 1.6.0) plus the knobs.
+  DOCKER_SH_CONTAINER_ENV="SITE_NAME DATA_DIR SCRATCH_DIR TORCH_HOME HF_HOME GPU_DEVICE MODEL_NAME NUM_EPOCHS FOLD CONFIG MEDISWARM_VERSION TORCH_MULTIPROCESSING_SHARING_STRATEGY NVFLARE_TENSOR_MIN_DOWNLOAD_TIMEOUT TRAINING_MODE INSTITUTION LOG_DATASET_DETAILS EV_CHECKPOINT EV_SPLIT $MIGRATE_ENV_KNOBS"
+
+  REPORT_FAILS=0
+  REPORT_WARNS=0
+  _report_ok()   { echo "  [OK]   $*"; }
+  _report_info() { echo "         $*"; }
+  _report_warn() { echo "  [WARN] $*"; REPORT_WARNS=$((REPORT_WARNS + 1)); }
+  _report_fail() { echo "  [FAIL] $*"; REPORT_FAILS=$((REPORT_FAILS + 1)); }
+
+  _physical_dir() { [ -n "$1" ] && (cd "$1" 2>/dev/null && pwd -P); }
+  _short_digest() { local d="${1##*@}"; d="${d#sha256:}"; echo "${d:0:12}"; }
+  _json_str() { sed -n 's/^[[:space:]]*"'"$2"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1" 2>/dev/null | head -1; }
+  _conf_mentions() { grep -v '^[[:space:]]*#' "$1" 2>/dev/null | grep -qF -- "$2"; }
+  _conf_value() {
+      # Last value assigned to variable $2 in the shell conf file $1, quotes stripped
+      sed -n "s/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}$2=//p" "$1" 2>/dev/null | tail -1 \
+          | sed "s/^[\"']//; s/[\"'][[:space:]]*$//"
+  }
+  _is_odelia_client_kit() { grep -q 'odelia_swarm_client_' "$1/startup/docker.sh" 2>/dev/null; }
+
+  _since() {
+      # "2d 3h" / "4h 12m" / "7m" since a date(1) time (ISO 8601 or @epoch); empty if unknown
+      local t s
+      t="$(date -d "$1" +%s 2>/dev/null)" || return 0
+      [ "$t" -gt 0 ] 2>/dev/null || return 0                 # Docker's 0001-01-01: never started
+      s=$(( $(date +%s) - t )); [ "$s" -ge 0 ] || s=0
+      if [ "$s" -ge 86400 ]; then echo "$((s / 86400))d $((s % 86400 / 3600))h"
+      elif [ "$s" -ge 3600 ]; then echo "$((s / 3600))h $((s % 3600 / 60))m"
+      else echo "$((s / 60))m"; fi
+  }
+
+  _pid_args() { [ -n "$1" ] && ps -o args= -p "$1" 2>/dev/null; }
+  _pid_alive() {
+      # kill -0 also succeeds for a zombie, which has already exited; ps shows its state as Z
+      local s; s="$(ps -o stat= -p "$1" 2>/dev/null)"
+      [ -n "$s" ] && [[ "$s" != Z* ]]
+  }
+  _live_sync_daemons() {
+      # "pid|site|kit root|mode" of every live_sync.sh daemon on this host, whichever kit started it
+      local pid args
+      ps -eo pid=,args= 2>/dev/null | while read -r pid args; do
+          case "$args" in *live_sync.sh*--kit-root*) ;; *) continue ;; esac
+          printf '%s|%s|%s|%s\n' "$pid" \
+              "$(sed -n 's/.*--site-name \([^ ]*\).*/\1/p' <<< "$args")" \
+              "$(sed -n 's/.*--kit-root \([^ ]*\).*/\1/p' <<< "$args")" \
+              "$(sed -n 's/.*--mode \([^ ]*\).*/\1/p' <<< "$args")"
+      done
+  }
+  _stop_daemon() {
+      # SIGTERM lets live_sync run its final upload (trap EXIT); after a minute it gets SIGKILL
+      local pid="$1" i
+      _pid_args "$pid" | grep -q 'live_sync\.sh' || return 0     # gone already (or the PID was reused)
+      kill "$pid" 2>/dev/null || return 1
+      for i in $(seq 1 60); do
+          _pid_alive "$pid" || return 0
+          sleep 1
+      done
+      kill -9 "$pid" 2>/dev/null
+      sleep 1
+      ! _pid_alive "$pid"
+  }
+
+  _site_containers_except_this_kit() {
+      # Client containers of this site that belong to another kit (container names on stdin)
+      local n
+      while read -r n; do
+          [[ -n "$n" && "$n" == "$SITE_CONTAINER_PREFIX"* && "$n" != "$CONTAINER_NAME" ]] || continue
+          [[ "${n#"$SITE_CONTAINER_PREFIX"}" == *_* ]] && continue   # another site, e.g. <SITE>_2
+          echo "$n"
+      done
+  }
+  _container_summary() {
+      # state|health|restarts|started|image ref|image id|user|exit code|kit folder (/startupkit mount)
+      docker inspect --format '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}|{{.RestartCount}}|{{.State.StartedAt}}|{{.Config.Image}}|{{.Image}}|{{.Config.User}}|{{.State.ExitCode}}|{{range .Mounts}}{{if eq .Destination "/startupkit"}}{{.Source}}{{end}}{{end}}' "$1" 2>/dev/null
+  }
+  _container_env() { docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$1" 2>/dev/null; }
+  _container_mounts() { docker inspect --format '{{range .Mounts}}{{.Source}}|{{.Destination}}|{{.RW}}{{println}}{{end}}' "$1" 2>/dev/null; }
+  _container_gpu_request() { docker inspect --format '{{range .HostConfig.DeviceRequests}}{{.Count}}|{{join .DeviceIDs ","}}{{end}}' "$1" 2>/dev/null; }
+  _container_runs_job() {
+      # An NVFlare job process (or the training script) in the client means a run is in progress
+      docker top "$1" 2>/dev/null | grep -qE 'worker_process|custom/main\.py'
+  }
+
+  _registry_digest() {
+      # Digest the registry serves for an image reference right now: a manifest lookup, no pull
+      # and no download. Prints nothing when it cannot ask. MEDISWARM_STATUS_REGISTRY_CHECK=0 skips it.
+      local ref="$1" name first last repo tag token
+      [ "${MEDISWARM_STATUS_REGISTRY_CHECK:-1}" != "0" ] || return 0
+      case "$ref" in *@sha256:*) return 0 ;; esac                # pinned by digest: cannot move
+      if docker buildx version >/dev/null 2>&1; then
+          timeout 40 docker buildx imagetools inspect "$ref" 2>/dev/null | sed -n 's/^Digest:[[:space:]]*//p' | head -1
+          return 0
+      fi
+      # Without buildx: Docker Hub's registry API (anonymous token; a HEAD does not count as a pull)
+      command -v curl >/dev/null 2>&1 || return 0
+      name="${ref#docker.io/}"; name="${name#index.docker.io/}"; first="${name%%/*}"
+      if [[ "$name" == */* && ( "$first" == *.* || "$first" == *:* || "$first" == localhost ) ]]; then
+          return 0                                              # another registry
+      fi
+      last="${name##*/}"; repo="$name"; tag="latest"
+      if [[ "$last" == *:* ]]; then tag="${last##*:}"; repo="${name%:*}"; fi
+      [[ "$repo" == */* ]] || repo="library/$repo"
+      token="$(curl -fsS --max-time 15 "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" 2>/dev/null \
+               | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+      [ -n "$token" ] || return 0
+      curl -fsSI --max-time 15 -H "Authorization: Bearer $token" \
+          -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json" \
+          "https://registry-1.docker.io/v2/${repo}/manifests/${tag}" 2>/dev/null \
+          | tr -d '\r' | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest:[[:space:]]*//p' | head -1
+  }
+
+  NVIDIA_SMI_OUTPUT=""
+  _nvidia_driver_mismatch() {
+      # True when the host's nvidia-smi reports 'Driver/library version mismatch' (F18): an
+      # update replaced the NVIDIA user-space libraries while the old kernel module stays loaded.
+      command -v nvidia-smi >/dev/null 2>&1 || return 1
+      NVIDIA_SMI_OUTPUT="$(timeout 30 nvidia-smi 2>&1)"
+      grep -qi 'driver/library version mismatch' <<< "$NVIDIA_SMI_OUTPUT"
+  }
+  _explain_driver_mismatch() {
+      local tag="$1" pad="${2:-       }" module lib pkgs
+      module="$(sed -n 's/.*Kernel Module.*[[:space:]]\([0-9]\{2,\}\.[0-9][0-9.]*\)[[:space:]].*/\1/p' /proc/driver/nvidia/version 2>/dev/null | head -1)"
+      lib="$(sed -n 's/.*NVML library version:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' <<< "$NVIDIA_SMI_OUTPUT" | head -1)"
+      # The packages to hold: installed nvidia-*/libnvidia-* except the container toolkit, which
+      # should keep getting its security updates.
+      pkgs="$(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 'nvidia-*' 'libnvidia-*' 2>/dev/null \
+              | awk '$1 ~ /^.i/ && $2 !~ /container/ {printf "%s ", $2}')"
+      echo "$tag NVIDIA driver/library version mismatch (nvidia-smi: 'Driver/library version mismatch')."
+      echo "${pad}An update replaced the NVIDIA user-space libraries${lib:+ (now $lib)} while the kernel still"
+      echo "${pad}runs the old driver module${module:+ ($module)}. Running containers keep their GPU, but every"
+      echo "${pad}NEW container, this client included, starts without one (docs: F18)."
+      echo "${pad}Fix:     reboot this host (it loads the new module), then start the client again."
+      echo "${pad}Prevent: hold the driver packages so automatic upgrades cannot replace them during a run:"
+      echo "${pad}           sudo apt-mark hold ${pkgs:-<the installed nvidia-* and libnvidia-* packages>}"
+      echo "${pad}         and upgrade them on purpose between runs (apt-mark unhold, upgrade, reboot)."
+  }
+  _docker_cgroup_driver() { docker info --format '{{.CgroupDriver}}' 2>/dev/null; }
+  CGROUPFS_FIX_HINT="scripts/client_node_setup/fix_docker_cgroupfs.sh (also in the image: /MediSwarm/scripts/client_node_setup/)"
+
+  _coordinator_endpoints() {
+      # "host port role" lines for the coordinator this client dials, from startup/fed_client.json:
+      # provisioned kits carry sp_end_point = host:fl_port:admin_port; a plain "target" is host:port.
+      local f="$DIR/fed_client.json" ep host rest
+      [ -f "$f" ] || return 0
+      ep="$(_json_str "$f" sp_end_point)"
+      if [ -n "$ep" ]; then
+          host="${ep%%:*}"; rest="${ep#*:}"
+          echo "$host ${rest%%:*} FL"
+          [ "${rest#*:}" = "$rest" ] || echo "$host ${rest#*:} admin"
+          return 0
+      fi
+      ep="$(_json_str "$f" target)"
+      [ -z "$ep" ] || echo "${ep%:*} ${ep##*:} FL"
+  }
+  _tcp_reachable() { timeout 6 bash -c "</dev/tcp/$1/$2" 2>/dev/null; }
+
+  # ── ./docker.sh --status ────────────────────────────────────────────────
+  _report_image() {
+      # Which image the client runs, and whether its tag moved since the container started
+      local cref="$1" cid="$2" digests local_id remote
+      digests="$(docker image inspect --format '{{join .RepoDigests " "}}' "$cid" 2>/dev/null)"
+      _report_info "runs ${cref}, image id $(_short_digest "$cid")${digests:+, registry digest $(_short_digest "${digests%% *}")}"
+      if [ "$cref" != "$DOCKER_IMAGE" ]; then
+          _report_warn "the container runs ${cref}, but this kit is now configured for ${DOCKER_IMAGE}: restart the client to switch"
+      fi
+      local_id="$(docker image inspect --format '{{.Id}}' "$DOCKER_IMAGE" 2>/dev/null)"
+      if [ -n "$local_id" ] && [ "$local_id" != "$cid" ]; then
+          _report_warn "${DOCKER_IMAGE} was pulled again after the container started (now $(_short_digest "$local_id")); restart the client to run that image"
+      elif [ -n "$local_id" ]; then
+          _report_ok "the container runs the image that ${DOCKER_IMAGE} points to on this host"
+      fi
+      remote="$(_registry_digest "$DOCKER_IMAGE")"
+      if [ -z "$remote" ]; then
+          _report_info "registry not asked (offline, no buildx or curl, another registry, or MEDISWARM_STATUS_REGISTRY_CHECK=0)"
+      elif [ -z "$digests" ]; then
+          _report_info "the running image has no registry digest (built or loaded locally): cannot compare with the registry"
+      elif [[ " $digests " == *"@${remote} "* ]]; then
+          _report_ok "${DOCKER_IMAGE} has not moved on the registry since the running image was pulled"
+      else
+          _report_warn "${DOCKER_IMAGE} moved on the registry (now $(_short_digest "$remote")): restart the client to run it (--start_client pulls it)"
+      fi
+  }
+
+  _kit_status() {
+      REPORT_FAILS=0; REPORT_WARNS=0
+      local names="" docker_ok=1 st="" health restarts started cref cid cuser cexit ckit src since_txt gpus
+      echo "MediSwarm client status of ${KIT_SITE} (read-only: nothing is changed)"
+      echo "Kit"
+      _report_info "kit ${KIT_VERSION} at ${KIT_DIR_ROOT}"
+      src="the kit default"
+      if [ -n "${CLI_IMAGE:-}" ]; then src="--image"
+      elif [ -n "${ENV_IMAGE:-}" ]; then src="MEDISWARM_IMAGE in the environment"
+      elif [ -n "${MEDISWARM_IMAGE:-}" ]; then src="startup/image.conf"; fi
+      _report_info "configured image ${DOCKER_IMAGE} (from ${src})"
+
+      echo "Client container ${CONTAINER_NAME}"
+      if ! names="$(docker ps -a --format '{{.Names}}' 2>/dev/null)"; then
+          docker_ok=0
+          _report_fail "cannot talk to Docker (is this user in the docker group?); container checks skipped"
+      elif grep -qxF "$CONTAINER_NAME" <<< "$names"; then
+          IFS='|' read -r st health restarts started cref cid cuser cexit ckit <<< "$(_container_summary "$CONTAINER_NAME")"
+          since_txt="${started%%.*}"; since_txt="${since_txt%Z}Z"
+          if [ "$st" = running ]; then
+              _report_ok "running, health ${health}, ${restarts} restart(s), up $(_since "$started") (since ${since_txt})"
+          else
+              _report_warn "the container is ${st} (exit code ${cexit}): this site is not in the swarm"
+          fi
+          [ "$health" != unhealthy ] || _report_warn "its health check (nvidia-smi inside) fails: GPU lost (F2) or driver update (F18)"
+          [ "${restarts:-0}" = 0 ] || _report_warn "Docker restarted it ${restarts} time(s); see startup/nohup.out and log.txt"
+          _report_image "$cref" "$cid"
+          if [ "$st" = running ]; then
+              gpus="$(timeout 30 docker exec "$CONTAINER_NAME" nvidia-smi -L 2>&1)"
+              if grep -q '^GPU ' <<< "$gpus"; then
+                  _report_ok "GPU visible inside the container: $(grep -m1 '^GPU ' <<< "$gpus" | sed 's/ (UUID.*//')"
+              else
+                  _report_fail "no GPU inside the running container ($(head -1 <<< "$gpus")). 'NVML: Unknown Error' is F2 ($CGROUPFS_FIX_HINT, then recreate the client); a version mismatch is F18 (reboot)"
+              fi
+          fi
+      else
+          _report_warn "this kit has no client container yet: ./docker.sh --data_dir ... --scratch_dir ... --GPU ... --start_client"
+      fi
+
+      if [ "$docker_ok" = 1 ]; then
+          local others n ost oref okit
+          others="$(_site_containers_except_this_kit <<< "$names")"
+          if [ -n "$others" ]; then
+              echo "Client containers of other kits for ${KIT_SITE}"
+              while read -r n; do
+                  IFS='|' read -r ost _ _ _ oref _ _ _ okit <<< "$(_container_summary "$n")"
+                  if [ "$ost" = running ]; then
+                      _report_warn "${n} is running (${oref}, kit ${okit:-unknown}): only one client per site can join the swarm. Retire it: ./docker.sh --migrate_from ${okit:-<old kit folder>}"
+                  else
+                      _report_info "${n} is ${ost} (kit ${okit:-unknown}); ./docker.sh --migrate_from ${okit:-<old kit folder>} removes it"
+                  fi
+              done <<< "$others"
+          fi
+      fi
+
+      echo "Live sync"
+      local pidf="$DIR/.mediswarm_sync/swarm_sync.pid" lpid="" alive=0 this_phys dpid dsite droot dmode ours=""
+      this_phys="$(_physical_dir "$KIT_DIR_ROOT")"
+      if [ ! -f "$DIR/live_sync.sh" ]; then
+          _report_info "no live_sync.sh in this kit: nothing is uploaded to the monitor"
+      else
+          [ -f "$pidf" ] && lpid="$(cat "$pidf" 2>/dev/null)"
+          if [ -n "$lpid" ] && _pid_args "$lpid" | grep -q 'live_sync\.sh'; then
+              alive=1
+              _report_ok "daemon running (PID ${lpid})"
+          elif [ "$st" = running ]; then
+              _report_warn "no live_sync daemon although the client runs: the monitor gets no heartbeat (--start_client starts it)"
+          else
+              _report_info "no live_sync daemon (the client is not running either)"
+          fi
+          local hb hb_epoch hb_status hb_sync hb_job
+          hb="$(ls -t "$DIR/.mediswarm_sync/swarm_heartbeat.json" "$DIR/.mediswarm_sync/swarm_active_heartbeat.json" 2>/dev/null | head -1)"
+          if [ -n "$hb" ]; then
+              hb_epoch="$(stat -c %Y "$hb" 2>/dev/null)"
+              hb_status="$(_json_str "$hb" status)"; hb_sync="$(_json_str "$hb" sync_status)"; hb_job="$(_json_str "$hb" job_id)"
+              _report_info "last heartbeat $(_since "@${hb_epoch:-0}") ago: status ${hb_status:-?}, upload ${hb_sync:-?}${hb_job:+, job ${hb_job}}"
+              if [ "$alive" = 1 ] && [ $(( $(date +%s) - ${hb_epoch:-0} )) -gt 900 ]; then
+                  _report_warn "no heartbeat for more than 15 minutes although the daemon runs: see startup/.mediswarm_sync/live_sync_daemon.log"
+              fi
+              [ "$hb_sync" != error ] || _report_warn "the last upload failed: $(_json_str "$hb" sync_error | cut -c1-160)"
+          else
+              _report_info "no heartbeat written yet"
+          fi
+      fi
+      while IFS='|' read -r dpid dsite droot dmode; do
+          [ -n "$dpid" ] && [ "$dsite" = "$KIT_SITE" ] || continue
+          if [ "$(_physical_dir "$droot")" = "$this_phys" ]; then ours="$ours $dpid"; continue; fi
+          if _is_odelia_client_kit "$droot"; then
+              _report_warn "live_sync PID ${dpid} (${dmode}) of the kit ${droot} still uploads for ${KIT_SITE} and can clobber this kit's uploads (F16). Retire it: ./docker.sh --migrate_from ${droot}"
+          else
+              _report_info "live_sync PID ${dpid} (${dmode}) uploads for ${KIT_SITE} from ${droot}, which is not an ODELIA client kit (gone, or another consortium)"
+          fi
+      done <<< "$(_live_sync_daemons)"
+      if [ "$(wc -w <<< "$ours")" -gt 1 ]; then
+          _report_warn "more than one live_sync daemon runs for this kit (PIDs${ours}); keep only PID ${lpid:-of startup/.mediswarm_sync/swarm_sync.pid}"
+      fi
+
+      echo "Host"
+      if ! command -v nvidia-smi >/dev/null 2>&1; then
+          _report_warn "nvidia-smi is not installed on the host: is the NVIDIA driver installed?"
+      elif _nvidia_driver_mismatch; then
+          REPORT_FAILS=$((REPORT_FAILS + 1))
+          _explain_driver_mismatch "  [FAIL]" "         "
+      elif ! grep -q 'Driver Version' <<< "$NVIDIA_SMI_OUTPUT"; then
+          _report_fail "nvidia-smi fails on the host: $(head -1 <<< "$NVIDIA_SMI_OUTPUT")"
+      else
+          _report_ok "NVIDIA driver $(sed -n 's/.*Driver Version: *\([0-9.]*\).*/\1/p' <<< "$NVIDIA_SMI_OUTPUT" | head -1) answers on the host"
+      fi
+      local cg; cg="$(_docker_cgroup_driver)"
+      case "$cg" in
+          systemd) _report_warn "Docker cgroup driver is systemd: a 'systemctl daemon-reload' (e.g. by apt) can strip the GPU from running containers (F2). Fix: $CGROUPFS_FIX_HINT" ;;
+          "")      _report_info "Docker cgroup driver unknown (docker info failed)" ;;
+          *)       _report_ok "Docker cgroup driver is ${cg}" ;;
+      esac
+
+      echo "Coordinator"
+      local host port role any=0
+      while read -r host port role; do
+          [ -n "$host" ] || continue
+          any=1
+          if [[ ! "$host" =~ ^[0-9.]+$ ]] && ! getent hosts "$host" >/dev/null 2>&1; then
+              _report_fail "${host} does not resolve on this host: check /etc/hosts and the VPN (F6)"
+          elif _tcp_reachable "$host" "$port"; then
+              _report_ok "${host}:${port} (${role} port) reachable"
+          elif [ "$role" = FL ]; then
+              _report_fail "${host}:${port} (FL port) not reachable: check the VPN and the firewall (F6)"
+          else
+              _report_warn "${host}:${port} (${role} port) not reachable; a client only needs the FL port"
+          fi
+      done <<< "$(_coordinator_endpoints)"
+      [ "$any" = 1 ] || _report_warn "no coordinator address found in startup/fed_client.json"
+
+      echo "Lock files"
+      local lk found=0
+      for lk in daemon_pid.fl pid.fl; do
+          [ -e "$KIT_DIR_ROOT/$lk" ] || continue
+          found=1
+          if [ "$st" = running ]; then
+              _report_info "${lk} present (normal while the client runs)"
+          else
+              _report_warn "stale ${lk} in ${KIT_DIR_ROOT} (the client is not running); --start_client clears it (F3)"
+          fi
+      done
+      [ "$found" = 1 ] || _report_ok "no lock files"
+
+      echo "Summary: ${REPORT_FAILS} problem(s), ${REPORT_WARNS} warning(s)."
+      [ "$REPORT_FAILS" -eq 0 ]
+  }
+
+  # ── ./docker.sh --migrate_from <old kit folder> [--yes] [--start] ───────
+  _merge_conf() {
+      # Carry the site's settings from an old kit's shell conf ($1) into this kit's ($2); write the
+      # result to $3. Every active line of the old file that the new file does not contain verbatim
+      # is appended at the end, so a site value overrides the new kit's default when the file is
+      # sourced, while every other default of the new kit stays. Assignments to the variables
+      # listed in $4 are never carried. $5 names the old kit in the header. Returns 1 if nothing to carry.
+      local old="$1" new="$2" out="$3" skip=" ${4:-} " line acc="" var newtext=""
+      local -a carried=()
+      [ -f "$new" ] && newtext="$(cat "$new")"
+      while IFS= read -r line || [ -n "$line" ]; do
+          if [ -z "$acc" ] && [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]]; then continue; fi
+          acc="${acc:+$acc$'\n'}$line"
+          [[ "$line" == *\\ ]] && continue                      # continued on the next line
+          var=""
+          [[ "$acc" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)= ]] && var="${BASH_REMATCH[2]}"
+          if [ -n "$var" ] && [[ "$skip" == *" $var "* ]]; then acc=""; continue; fi
+          if [[ $'\n'"$newtext"$'\n' == *$'\n'"$acc"$'\n'* ]]; then acc=""; continue; fi
+          carried+=("$acc"); acc=""
+      done < "$old"
+      [ "${#carried[@]}" -gt 0 ] || return 1
+      {
+          [ -z "$newtext" ] || printf '%s\n' "$newtext"
+          printf '\n# Site settings carried over from %s by ./docker.sh --migrate_from (%s)\n' "$5" "$(date -u +%Y-%m-%d)"
+          printf '%s\n' "${carried[@]}"
+      } > "$out"
+  }
+
+  _plan_conf() {
+      # Plan (dry run) or prepare the carry-over of startup/$1 from the old kit $2; never carries
+      # the variables in $3. The merged file is left in $MIGRATE_TMP for --yes to install.
+      local f="$1" old_root="$2" oldf="$2/startup/$1" newf="$DIR/$1" merged="$MIGRATE_TMP/$1"
+      if [ ! -f "$oldf" ]; then
+          echo "   startup/$f: not in the old kit, nothing to carry"
+          return 0
+      fi
+      # A file missing in this kit is merged like an empty one, so the variables in $3 (the old
+      # image pin) stay behind even then.
+      if ! _merge_conf "$oldf" "$newf" "$merged" "$3" "$old_root"; then
+          echo "   startup/$f: no site settings to carry (this kit's file already has them)"
+          return 0
+      fi
+      if ! bash -n "$merged" 2>/dev/null; then
+          rm -f "$merged"
+          echo "   startup/$f: [!] the merged file would not be valid shell; carry your settings over by hand"
+          return 0
+      fi
+      if [ -f "$newf" ]; then
+          echo "   startup/$f (lines from the old kit are appended; the last assignment wins):"
+      else
+          echo "   startup/$f is missing in this kit and is created with the old kit's settings:"
+          newf=/dev/null
+      fi
+      diff -u --label "startup/$f (this kit now)" --label "startup/$f (after --yes)" "$newf" "$merged" | sed 's/^/     /'
+  }
+
+  _migrate_command() {
+      # Rebuild the --start_client command line of the old client container $1 (empty: none found)
+      # into MIG_ARGS (flags), MIG_ENV (env prefix), MIG_MISSING and MIG_NOTES. Flags given on this
+      # command line win. $2 is the old kit's image.conf: what it sets is carried with that file.
+      local c="$1" old_conf="$2" line src dst rw k v data="" scratch="" gpu="" cid="" cuser="" req count ids
+      local -A cenv=() imgenv=()
+      local -a mounts=() extra_mounts=() extra_env=()
+      MIG_ARGS=(); MIG_ENV=(); MIG_MISSING=(); MIG_NOTES=(); MIG_SUDO=0; MIG_OTHER_USER=0
+      if [ -n "$c" ]; then
+          while IFS= read -r line; do [ -n "$line" ] && cenv["${line%%=*}"]="${line#*=}"; done <<< "$(_container_env "$c")"
+          while IFS= read -r line; do [ -n "$line" ] && mounts+=("$line"); done <<< "$(_container_mounts "$c")"
+          for line in "${mounts[@]}"; do
+              IFS='|' read -r src dst rw <<< "$line"
+              case "$dst" in /data) data="$src" ;; /scratch) scratch="$src" ;; esac
+          done
+          for line in "${mounts[@]}"; do
+              IFS='|' read -r src dst rw <<< "$line"
+              case "$dst" in /data|/scratch|/startupkit|/etc/passwd|/etc/group) continue ;; esac
+              [ "$src" = "$data" ] && [ "$dst" = "$data" ] && continue      # docker.sh's own second data mount (#478)
+              _conf_mentions "$old_conf" "$src" && continue                 # from image.conf, carried with it
+              extra_mounts+=("-v $src:$dst$([ "$rw" = false ] && echo ':ro')")
+          done
+          gpu="${cenv[GPU_DEVICE]:-}"
+          if [ -z "$gpu" ]; then                                            # GPU_DEVICE is set by every kit; fallback only
+              req="$(_container_gpu_request "$c")"; count="${req%%|*}"; ids="${req#*|}"
+              if [ -n "$req" ] && [ -n "$ids" ]; then gpu="device=$ids"; [[ "$ids" == *,* ]] && gpu="\"$gpu\""
+              elif [ "$count" = "-1" ]; then gpu="all"
+              elif [ -n "$count" ]; then gpu="$count"; fi
+          fi
+          IFS='|' read -r _ _ _ _ _ cid cuser _ _ <<< "$(_container_summary "$c")"
+          if [ -n "$cid" ] && line="$(docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$cid" 2>/dev/null)"; then
+              while IFS= read -r v; do [ -n "$v" ] && imgenv["${v%%=*}"]="${v#*=}"; done <<< "$line"
+          fi
+          # Variables neither docker.sh nor the image set. An image always sets PATH, so with no
+          # image env to compare against this says nothing rather than guess.
+          if [ "${#imgenv[@]}" -gt 0 ]; then
+              for k in "${!cenv[@]}"; do
+                  [[ " $DOCKER_SH_CONTAINER_ENV " == *" $k "* ]] && continue
+                  [ "${imgenv[$k]+set}" = set ] && [ "${imgenv[$k]}" = "${cenv[$k]}" ] && continue
+                  _conf_mentions "$old_conf" "$k" && continue
+                  extra_env+=("$k")
+              done
+          fi
+      fi
+      data="${MY_DATA_DIR:-$data}"; scratch="${MY_SCRATCH_DIR:-$scratch}"; gpu="${GPU2USE:-$gpu}"
+      if [ -n "$data" ]; then MIG_ARGS+=(--data_dir "$data"); else MIG_MISSING+=("--data_dir <your data folder>"); fi
+      if [ -n "$scratch" ]; then MIG_ARGS+=(--scratch_dir "$scratch"); else MIG_MISSING+=("--scratch_dir <your scratch folder>"); fi
+      if [ -n "$gpu" ]; then MIG_ARGS+=(--GPU "$gpu"); else MIG_MISSING+=("--GPU <e.g. device=0>"); fi
+      v="${CLI_INSTITUTION:-${cenv[INSTITUTION]:-}}";      [ -z "$v" ] || MIG_ARGS+=(--institution "$v")
+      v="${CLI_MODEL_NAME:-${cenv[MODEL_NAME]:-MST}}";     [ "$v" = MST ] || MIG_ARGS+=(--model_name "$v")
+      v="${CLI_NUM_EPOCHS:-${cenv[NUM_EPOCHS]:-100}}";     [ "$v" = 100 ] || MIG_ARGS+=(--num_epochs "$v")
+      v="${CLI_FOLD:-${cenv[FOLD]:-0}}";                   [ "$v" = 0 ] || MIG_ARGS+=(--fold "$v")
+      v="${CLI_CONFIG:-${cenv[CONFIG]:-unilateral}}";      [ "$v" = unilateral ] || MIG_ARGS+=(--config "$v")
+      if [ -n "${LOG_DATASET_DETAILS:-}" ] || [ "${cenv[LOG_DATASET_DETAILS]:-}" = 1 ]; then MIG_ARGS+=(--log_dataset_details); fi
+      [ -z "${CLI_IMAGE:-}" ] || MIG_ARGS+=(--image "$CLI_IMAGE")
+      [ -z "${NOPULL:-}" ] || MIG_ARGS+=(--no_pull)
+      [ -z "${CONTAINER_NAME_FROM_CLI:-}" ] || MIG_ARGS+=(--container_name "$CONTAINER_NAME_FROM_CLI")
+      if [ -n "${CLI_DOCKER_OPTIONS:-}" ]; then
+          MIG_ARGS+=(--docker_options "$CLI_DOCKER_OPTIONS")
+      elif [ "${#extra_mounts[@]}" -gt 0 ]; then
+          MIG_ARGS+=(--docker_options "${extra_mounts[*]}")
+          # Mounts that image.conf does not explain came from a one-off --docker_options, which
+          # replaces image.conf's MEDISWARM_DOCKER_OPTIONS in the old and the new docker.sh alike.
+          MIG_NOTES+=("the old client was started with --docker_options (mounts not in image.conf), so they are passed again; add any other --docker_options settings you used (e.g. --cpus): a container does not reveal them")
+      fi
+      MIG_ARGS+=(--start_client)
+      for k in $MIGRATE_ENV_KNOBS TORCH_MULTIPROCESSING_SHARING_STRATEGY; do
+          v="${cenv[$k]:-}"
+          [ -n "$v" ] || continue
+          [ "$k" != TORCH_MULTIPROCESSING_SHARING_STRATEGY ] || [ "$v" != file_system ] || continue
+          _conf_mentions "$old_conf" "$k" && continue                       # set in image.conf, carried with it
+          MIG_ENV+=("$k=$v")
+      done
+      if [ "${#extra_env[@]}" -gt 0 ]; then
+          MIG_NOTES+=("the old container also had $(printf '%s\n' "${extra_env[@]}" | sort | xargs), set outside docker.sh and image.conf (e.g. a one-off --docker_options); add them to MEDISWARM_DOCKER_OPTIONS in startup/image.conf if you still need them")
+      fi
+      k="${cuser%%:*}"
+      if [ -n "$k" ] && [ "$k" != "$(id -u)" ]; then
+          if [ "$k" = 0 ]; then
+              MIG_SUDO=1
+              MIG_NOTES+=("the old client ran as root (started with sudo), so the command uses sudo as well")
+          else
+              MIG_OTHER_USER=1
+              MIG_NOTES+=("the old client ran as uid ${k}; run the command as that user")
+          fi
+      fi
+  }
+
+  _migration_command_line() {
+      local out a
+      out="cd $(printf '%q' "$DIR") &&"
+      [ "$MIG_SUDO" != 1 ] || out+=" sudo"
+      if [ "${#MIG_ENV[@]}" -gt 0 ]; then
+          out+=" env"
+          for a in "${MIG_ENV[@]}"; do out+=" $(printf '%q' "$a")"; done
+      fi
+      out+=" ./docker.sh"
+      for a in "${MIG_ARGS[@]}"; do
+          [ "$a" = --start_client ] && [ "${#MIG_MISSING[@]}" -gt 0 ] && out+=" ${MIG_MISSING[*]}"
+          out+=" $(printf '%q' "$a")"
+      done
+      echo "$out"
+  }
+
+  _migrate_from_old_kit() {
+      local old="$MIGRATE_FROM" old_root old_phys new_phys old_ver old_site vkey skey names n entry
+      local st cref ckit cmode score best=0 src_c="" busy=0 rc=0 still=0
+      local dpid dsite droot dmode old_pidf opid oimg nimg lk f record
+      local -a old_containers=() daemons=() old_locks=()
+      if [ -f "$old/startup/docker.sh" ]; then
+          old_root="$(cd "$old" && pwd)"
+      elif [ -f "$old/docker.sh" ] && [ "$(basename "$(_physical_dir "$old")")" = startup ]; then
+          old_root="$(cd "$old/.." && pwd)"
+      else
+          echo "[ABORT] ${old} is not a startup kit folder (no startup/docker.sh in it)."
+          return 1
+      fi
+      old_phys="$(_physical_dir "$old_root")"; new_phys="$(_physical_dir "$KIT_DIR_ROOT")"
+      if [ "$old_phys" = "$new_phys" ]; then
+          echo "[ABORT] ${old} is this kit itself. Unpack the new kit into a folder of its own and run this there."
+          return 1
+      fi
+      # The variable names are split on purpose: build_heartbeat.sh takes the kit version of THIS
+      # file from the first assignment to MEDISWARM_VERSION in it, which must stay the --env line.
+      vkey="MEDISWARM""_VERSION"; skey="SITE""_NAME"
+      old_ver="$(sed -n "s/.*--env ${vkey}=\([^[:space:]\"]*\).*/\1/p" "$old_root/startup/docker.sh" | head -1)"
+      old_site="$(sed -n "s/.*--env ${skey}=\([^[:space:]\"]*\).*/\1/p" "$old_root/startup/docker.sh" | head -1)"
+      [ -n "$old_site" ] || old_site="$(_json_str "$old_root/startup/fed_client.json" fqsn)"
+      if [ "$old_site" != "$KIT_SITE" ]; then
+          echo "[ABORT] ${old_root} is the kit of '${old_site:-an unknown site}'; this kit is ${KIT_SITE}."
+          return 1
+      fi
+      if ! names="$(docker ps -a --format '{{.Names}}' 2>/dev/null)"; then
+          echo "[ABORT] cannot talk to Docker (is this user in the docker group?)."
+          return 1
+      fi
+      while read -r n; do [ -z "$n" ] || old_containers+=("$n"); done <<< "$(_site_containers_except_this_kit <<< "$names")"
+      while IFS='|' read -r dpid dsite droot dmode; do
+          [ -n "$dpid" ] && [ "$dsite" = "$KIT_SITE" ] || continue
+          [ "$(_physical_dir "$droot")" != "$new_phys" ] || continue      # this kit's own daemon stays
+          _is_odelia_client_kit "$droot" || continue                      # e.g. a DECADE kit of the same site
+          daemons+=("$dpid|$droot|$dmode")
+      done <<< "$(_live_sync_daemons)"
+      old_pidf="$old_root/startup/.mediswarm_sync/swarm_sync.pid"
+      opid="$(cat "$old_pidf" 2>/dev/null)"
+      if [ -n "$opid" ] && _pid_args "$opid" | grep -q 'live_sync\.sh' && [[ " ${daemons[*]} " != *" $opid|"* ]]; then
+          daemons+=("$opid|$old_root|swarm")
+      fi
+      for lk in daemon_pid.fl pid.fl; do [ ! -e "$old_root/$lk" ] || old_locks+=("$old_root/$lk"); done
+
+      echo "Migrating ${KIT_SITE} to this kit (${KIT_VERSION}, ${KIT_DIR_ROOT})"
+      echo "from the old kit ${old_root} (kit ${old_ver:-version unknown})."
+      echo
+      echo "1. Stop and remove the old client container(s):"
+      [ "${#old_containers[@]}" -gt 0 ] || echo "   none (no container named ${SITE_CONTAINER_PREFIX}* besides this kit's)"
+      for n in "${old_containers[@]}"; do
+          IFS='|' read -r st _ _ _ cref _ _ _ ckit <<< "$(_container_summary "$n")"
+          cmode="$(_container_env "$n" | sed -n 's/^TRAINING_MODE=//p' | head -1)"
+          echo "   - ${n}: ${st}, image ${cref}, kit ${ckit:-unknown}${cmode:+, TRAINING_MODE=${cmode}}"
+          if [ "$st" = running ] && _container_runs_job "$n"; then
+              echo "     [!] a job is running in it: stopping it now drops ${KIT_SITE} from that run"
+              busy=1
+          fi
+          # The command is rebuilt from the old kit's own client, the running one if possible
+          score=1
+          [ "$(_physical_dir "$ckit")" != "$old_phys" ] || score=$((score + 2))
+          [ "$st" != running ] || score=$((score + 1))
+          if [ "$score" -gt "$best" ]; then best=$score; src_c="$n"; fi
+      done
+      echo "2. Stop the live_sync daemon(s) of old ${KIT_SITE} kits (F16):"
+      [ "${#daemons[@]}" -gt 0 ] || echo "   none running"
+      for entry in "${daemons[@]}"; do
+          IFS='|' read -r dpid droot dmode <<< "$entry"
+          echo "   - PID ${dpid} (${dmode:-swarm}) of the kit ${droot}"
+      done
+      echo "3. Remove the old kit's stale lock files (F3):"
+      [ "${#old_locks[@]}" -gt 0 ] || echo "   none"
+      for lk in "${old_locks[@]}"; do echo "   - ${lk}"; done
+      echo "4. Carry the site's settings over (the new kit's defaults stay for everything else):"
+      MIGRATE_TMP="$(mktemp -d "${TMPDIR:-/tmp}/mediswarm_migrate.XXXXXX")" || return 1
+      trap 'rm -rf "$MIGRATE_TMP"' EXIT
+      _plan_conf image.conf "$old_root" MEDISWARM_IMAGE
+      oimg="$(_conf_value "$old_root/startup/image.conf" MEDISWARM_IMAGE)"
+      nimg="$(_conf_value "$DIR/image.conf" MEDISWARM_IMAGE)"
+      if [ -n "$oimg" ] && [ "$oimg" != "${nimg:-$DOCKER_IMAGE}" ]; then
+          echo "     Not carried: the old kit's MEDISWARM_IMAGE=${oimg}. This kit runs ${nimg:-$DOCKER_IMAGE};"
+          echo "     pin an image in startup/image.conf by hand only if TUD asks you to."
+      fi
+      _plan_conf sync.conf "$old_root" ""
+      _migrate_command "$src_c" "$old_root/startup/image.conf"
+      echo "5. Start the new client${src_c:+ (rebuilt from ${src_c})}:"
+      echo "   $(_migration_command_line)"
+      for n in "${MIG_NOTES[@]}"; do echo "   Note: ${n}"; done
+      if [ -z "$src_c" ] && [ -f "$DIR/.migrated_from_old_kit" ]; then
+          echo "   The previous migration recorded: $(sed -n 's/^start command: //p' "$DIR/.migrated_from_old_kit" | head -1)"
+      fi
+      echo "The old kit folder, your data and your scratch folder are never deleted."
+      echo
+      if [ -z "${MIGRATE_YES:-}" ]; then
+          echo "Dry run: nothing was changed. Run again with --yes to apply this plan (add --start to also start the new client)."
+          return 0
+      fi
+      if [ "$busy" = 1 ]; then
+          echo "[ABORT] A job is running in an old client container. Let the run finish (or, if TUD asked you to"
+          echo "        switch now, stop it yourself with  docker stop <name>) and run this again. Nothing was changed."
+          return 3
+      fi
+      if [ -n "${MIGRATE_START:-}" ] && [ "${#MIG_MISSING[@]}" -gt 0 ]; then
+          echo "[ABORT] --start needs ${MIG_MISSING[*]}: there is no old client container to read them from."
+          echo "        Add them to this command. Nothing was changed."
+          return 1
+      fi
+      if [ -n "${MIGRATE_START:-}" ] && { [ "$MIG_SUDO" = 1 ] || [ "$MIG_OTHER_USER" = 1 ]; }; then
+          echo "[ABORT] --start: the old client ran as another user (see the note above); run this as that user."
+          echo "        Nothing was changed."
+          return 1
+      fi
+
+      echo "Applying:"
+      for n in "${old_containers[@]}"; do
+          # PID 1 of a client container is bash, which ignores SIGTERM: a long grace period
+          # would only delay the SIGKILL that docker stop sends anyway.
+          echo "   stopping ${n} ..."
+          if docker stop -t 10 "$n" >/dev/null 2>&1 && docker rm "$n" >/dev/null 2>&1; then
+              echo "   removed the container ${n}"
+          else
+              echo "   [!] could not stop/remove ${n}; try  docker rm -f ${n}"
+              still=1; rc=1
+          fi
+      done
+      for entry in "${daemons[@]}"; do
+          IFS='|' read -r dpid droot dmode <<< "$entry"
+          if _stop_daemon "$dpid"; then
+              echo "   stopped live_sync PID ${dpid} (${droot})"
+          else
+              echo "   [!] could not stop live_sync PID ${dpid} (another user's?); run  sudo kill ${dpid}"
+              rc=1
+          fi
+      done
+      if [ -f "$old_pidf" ] && ! _pid_alive "$(cat "$old_pidf" 2>/dev/null)"; then
+          rm -f "$old_pidf" && echo "   removed the old kit's startup/.mediswarm_sync/swarm_sync.pid"
+      fi
+      if [ "$still" = 0 ]; then
+          for lk in "${old_locks[@]}"; do rm -f "$lk" && echo "   removed ${lk}"; done
+      elif [ "${#old_locks[@]}" -gt 0 ]; then
+          echo "   [!] kept the old kit's lock files: an old container could not be removed"
+      fi
+      for f in image.conf sync.conf; do
+          [ -f "$MIGRATE_TMP/$f" ] || continue
+          [ ! -f "$DIR/$f" ] || cp -p "$DIR/$f" "$DIR/$f.before_migration.$(date +%Y%m%d%H%M%S)"
+          if cat "$MIGRATE_TMP/$f" > "$DIR/$f"; then
+              echo "   updated startup/$f (the previous version is kept next to it as $f.before_migration.*)"
+          else
+              echo "   [!] could not write startup/$f"; rc=1
+          fi
+      done
+      record="$(_migration_command_line)"
+      if [ "${#MIG_MISSING[@]}" -eq 0 ]; then                    # keep a complete command for later reruns
+          { echo "migrated from: ${old_root} (kit ${old_ver:-unknown})"
+            echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "start command: ${record}"; } > "$DIR/.migrated_from_old_kit" 2>/dev/null || true
+      fi
+      echo "Start the new client with:"
+      echo "   ${record}"
+
+      if [ -n "${MIGRATE_START:-}" ]; then
+          if [ "$rc" != 0 ]; then
+              echo "[ABORT] not starting the new client: fix the [!] items above first."
+              return "$rc"
+          fi
+          if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qxF "$CONTAINER_NAME"; then
+              echo "This kit's client container ${CONTAINER_NAME} exists already; not starting a second one."
+              return 0
+          fi
+          echo "Starting the new client:"
+          rm -rf "$MIGRATE_TMP"; trap - EXIT
+          cd "$DIR" || return 1
+          local -a unset_env=()
+          # Values only image.conf set (it was sourced above) must not shadow the merged file.
+          [ -n "${ENV_IMAGE:-}" ] || unset_env+=(-u MEDISWARM_IMAGE)
+          [ -n "${ENV_DOCKER_OPTIONS:-}" ] || unset_env+=(-u MEDISWARM_DOCKER_OPTIONS)
+          exec env "${unset_env[@]}" "${MIG_ENV[@]}" "$DIR/docker.sh" "${MIG_ARGS[@]}"
+      fi
+      return "$rc"
+  }
+
+  if [ -n "${STATUS_MODE:-}" ]; then
+      _kit_status
+      exit $?
+  fi
+  if [ -n "${MIGRATE_FROM:-}" ]; then
+      _migrate_from_old_kit
+      exit $?
+  fi
+
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull "$DOCKER_IMAGE"
-  fi
-
-  if [[ -z "$CONTAINER_NAME" ]]; then
-     CONTAINER_NAME=odelia_swarm_client_{~~client_name~~}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
   fi
   DOCKER_NOFILE_LIMIT="${DOCKER_NOFILE_LIMIT:-65536}"
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE --ulimit nofile=${DOCKER_NOFILE_LIMIT}:${DOCKER_NOFILE_LIMIT} --shm-size=16g -u $(id -u):$(id -g)"
@@ -840,9 +1562,12 @@ docker_cln_sh: |
       # its own host path makes any link that stays WITHIN the tree resolve. Targets
       # outside $MY_DATA_DIR still need an explicit extra mount, e.g. via
       # MEDISWARM_DOCKER_OPTIONS="-v /abs/target:/abs/target:ro" in startup/image.conf.
-      if ! [[ "$MY_DATA_DIR" =~ "/data" ]]; then
-          DOCKER_MOUNTS+=" -v $MY_DATA_DIR:$MY_DATA_DIR:ro"
-      fi
+      # #522: a path-prefix test. The former  =~ "/data"  was a substring match and also
+      # skipped this mount for e.g. /mnt/database or /home/u/data_backup.
+      case "$MY_DATA_DIR" in
+          /data|/data/*) ;;                                       # already the /data mount itself
+          *) DOCKER_MOUNTS+=" -v $MY_DATA_DIR:$MY_DATA_DIR:ro" ;;
+      esac
   fi
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
   DOCKER_OPTIONS="${DOCKER_OPTIONS_A} ${DOCKER_MOUNTS} ${DOCKER_OPTIONS_B} ${EXTRA_DOCKER_OPTIONS}"
@@ -979,8 +1704,14 @@ docker_cln_sh: |
       local fail=0
       echo "──────────────── Pre-run checks ────────────────"
 
+      # F18: after an unattended NVIDIA update the host reports a driver/library version
+      # mismatch and no NEW container gets a GPU until a reboot, so refuse with the fix (the
+      # container GPU check below would only fail later with the misleading F2 advice).
+      if _nvidia_driver_mismatch; then
+          _explain_driver_mismatch "[FAIL]"
+          fail=1
       # F2: GPU usable inside a container (catches 'NVML: Unknown Error')
-      if timeout 90 docker run --rm --gpus=$GPU2USE $DOCKER_IMAGE nvidia-smi -L >/dev/null 2>&1; then
+      elif timeout 90 docker run --rm --gpus=$GPU2USE $DOCKER_IMAGE nvidia-smi -L >/dev/null 2>&1; then
           echo "[PASS] GPU usable inside the container."
       else
           echo "[FAIL] GPU NOT usable inside the container (likely 'NVML: Unknown Error')."
@@ -989,11 +1720,11 @@ docker_cln_sh: |
       fi
 
       # F2 (preventive): systemd cgroup driver -> daemon-reload can strip the GPU mid-run
-      local cgdrv; cgdrv=$(docker info 2>/dev/null | sed -n 's/.*Cgroup Driver: //p' | head -1)
+      local cgdrv; cgdrv=$(_docker_cgroup_driver)
       if [ "$cgdrv" = "systemd" ]; then
           echo "[WARN] Docker cgroup driver is 'systemd'. A daily 'systemctl daemon-reload' (e.g. apt"
           echo "       auto-upgrade) can strip the GPU from RUNNING containers mid-run. Recommended:"
-          echo "       scripts/client_node_setup/fix_docker_cgroupfs.sh  (switches to cgroupfs; docs: F2)."
+          echo "       $CGROUPFS_FIX_HINT  (switches to cgroupfs; docs: F2)."
       fi
 
       # F4: preprocessing cache must be writable and NOT under the read-only /data mount
@@ -1009,17 +1740,17 @@ docker_cln_sh: |
 
       # Checks that only matter when actually joining the swarm
       if [ -n "$START_CLIENT" ]; then
-          # F6: swarm server reachable over the VPN (best-effort parse of host:port from kit config)
-          local ep host port
-          ep=$(grep -hoE '[A-Za-z0-9][A-Za-z0-9.-]+\.[A-Za-z]{2,}:80[0-9][0-9]' "$DIR"/*.json 2>/dev/null | head -1)
-          if [ -n "$ep" ]; then
-              host=${ep%%:*}; port=${ep##*:}
-              if timeout 6 bash -c "</dev/tcp/$host/$port" 2>/dev/null; then
-                  echo "[PASS] Swarm server $ep reachable."
+          # F6: swarm server reachable over the VPN (the FL port from startup/fed_client.json;
+          # IP addresses and any port work, unlike the former hostname:80xx pattern)
+          local host port role
+          while read -r host port role; do
+              [ "$role" = FL ] || continue
+              if _tcp_reachable "$host" "$port"; then
+                  echo "[PASS] Swarm server $host:$port reachable."
               else
-                  echo "[WARN] Swarm server $ep NOT reachable — check the VPN and /etc/hosts (docs: F6)."
+                  echo "[WARN] Swarm server $host:$port NOT reachable — check the VPN and /etc/hosts (docs: F6)."
               fi
-          fi
+          done <<< "$(_coordinator_endpoints)"
           # F3: a stale daemon_pid.fl blocks start.sh ("one instance running") after an unclean stop
           local lock="$DIR/../daemon_pid.fl"
           if [ -f "$lock" ]; then
@@ -1113,6 +1844,13 @@ docker_cln_sh: |
       echo "--interactive            drop into interactive container (for debugging)"
       echo "--run_script             execute script in container (for testing)"
       echo "--log_dataset_details    log detailed dataset information (UIDs, hashes)"
+      echo "--status                 read-only health report: kit and image versions, client container,"
+      echo "                         live sync, NVIDIA driver, cgroup driver, coordinator, lock files"
+      echo "--migrate_from <folder>  retire this site's client of an older kit (1.6.0, 1.8.1): stop its"
+      echo "                         container and live_sync daemon, clear its locks, carry the settings"
+      echo "                         of startup/image.conf and sync.conf over and print the matching"
+      echo "                         --start_client command. A dry run unless --yes is given; --start"
+      echo "                         then also starts the new client. Never deletes data or kit folders."
       echo ""
       echo "Optional:"
       echo "--job <name>             select job/model for preflight_check or local_training"
@@ -1157,6 +1895,7 @@ docker_svr_sh: |
           --list_licenses)  LIST_LICENSES="1";;
           --interactive)    INTERACTIVE="1";;
           --svr_name)       CLI_SVR_NAME="$2"; shift ;;
+          --image)          CLI_IMAGE="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -1169,7 +1908,26 @@ docker_svr_sh: |
   # or to expose specific ports, use line below
   #NETARG="-p {~~admin_port~~}:{~~admin_port~~} -p {~~fed_learn_port~~}:{~~fed_learn_port~~}"
 
+  # Server settings that must survive a re-run of this script go into the optional
+  # startup/server.conf, sourced here:
+  #   MEDISWARM_SERVER_STATE_DIR=<host dir>  NVFlare job store etc. (default: <kit>/server_state)
+  #   MEDISWARM_ARCHIVE_DIR=<host dir>       /archive, MS6 per-round globals (default: <kit>/archive)
+  #   MEDISWARM_IMAGE=<image>                run this image instead of the provisioned one
+  # An exported MEDISWARM_SERVER_STATE_DIR / MEDISWARM_ARCHIVE_DIR wins over the file,
+  # --image wins over both. Unlike a client, the server never reads startup/image.conf:
+  # the coordinator moves to a new image when the operator decides
+  # (docs/RELEASE_RUNBOOK.md), never because :current was re-tagged.
+  ENV_SERVER_STATE_DIR="${MEDISWARM_SERVER_STATE_DIR:-}"
+  ENV_ARCHIVE_DIR="${MEDISWARM_ARCHIVE_DIR:-}"
+  unset MEDISWARM_IMAGE
+  if [ -f "$DIR/server.conf" ]; then
+      . "$DIR/server.conf"
+  fi
+  SERVER_STATE_DIR="${ENV_SERVER_STATE_DIR:-${MEDISWARM_SERVER_STATE_DIR:-$DIR/../server_state}}"
+  ARCHIVE_DIR="${ENV_ARCHIVE_DIR:-${MEDISWARM_ARCHIVE_DIR:-$DIR/../archive}}"
+
   DOCKER_IMAGE={~~docker_image~~}
+  DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
@@ -1180,11 +1938,25 @@ docker_svr_sh: |
 
   rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
 
+  # #607: NVFlare keeps its job store under /tmp/nvflare INSIDE the container
+  # (local/resources.json.default: jobs-storage, snapshot-storage; NVFlare 2.8 adds
+  # job_submit_records and job_submit_record_index beside them), so recreating the
+  # container, e.g. to move to a new image, deleted every job record. It lives on
+  # the host now. /archive: the MS6 server component ms6_global_archive writes the
+  # per-round globals there (and falls back to the job workspace without it).
+  SERVER_MOUNTS=(-v "$SERVER_STATE_DIR:/tmp/nvflare" -v "$ARCHIVE_DIR:/archive")
+  if [ -n "$START_SERVER" ] || [ -n "$INTERACTIVE" ]; then
+      if ! mkdir -p "$SERVER_STATE_DIR" "$ARCHIVE_DIR" 2>/dev/null; then
+          echo "[WARN] Could not create $SERVER_STATE_DIR or $ARCHIVE_DIR; docker creates them owned by root."
+      fi
+      echo "Job store on the host: $SERVER_STATE_DIR   archive: $ARCHIVE_DIR"
+  fi
+
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
   if [ -n "$START_SERVER" ]; then
       docker run -d -t --restart=unless-stopped --name=$CONTAINER_NAME \
-      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
+      -v $DIR/..:/startupkit/ -w /startupkit/startup/ "${SERVER_MOUNTS[@]}" \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "rm -f ../daemon_pid.fl ../pid.fl; nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
   elif [ -n "$LIST_LICENSES" ]; then
@@ -1193,7 +1965,7 @@ docker_svr_sh: |
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
   elif [ -n "$INTERACTIVE" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
-      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
+      -v $DIR/..:/startupkit/ -w /startupkit/startup/ "${SERVER_MOUNTS[@]}" \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "/bin/bash"
   else
@@ -1201,6 +1973,11 @@ docker_svr_sh: |
       echo "--start_server     start the swarm learning server"
       echo "--list_licenses    list licenses of installed packages"
       echo "--interactive      start the container with an interactive shell (for debugging purposes)"
+      echo ""
+      echo "Optional:"
+      echo "--image <ref>      run this image instead of the provisioned one (persist it as"
+      echo "                   MEDISWARM_IMAGE=<ref> in startup/server.conf)"
+      echo "--svr_name <name>  container name part (default: flserver)"
   fi
 
 docker_adm_sh: |
