@@ -21,47 +21,85 @@ ENV NVF_BRANCH=${NVF_VERSION}
 ENV KMP_DUPLICATE_LIB_OK=TRUE
 
 # ===========================================================================
-# Layer ordering strategy for Docker build cache efficiency:
+# Layer ordering strategy (build cache and download size):
 #
-# 1. pip installs FIRST (most expensive to rebuild, change least often)
-# 2. apt installs AFTER (change more often due to CVE version bumps, but
-#    are fast to rebuild)
-# 3. COPY pretrained weights (rarely change, but multi-GB layers)
-# 4. NVFlare from source + master_template.yml (the template is stamped with
-#    this build's version/commit hash, so it is a cache miss on EVERY commit --
+# 1. Static content FIRST: pretrained weights, the torch.hub and Hugging Face
+#    caches, the NVFlare source. ~3.7 GB that changes only when a weight or the
+#    NVFlare pin changes. Each is its own COPY layer at the bottom, so with the
+#    docker cache (--use-docker-cache) a pip, apt or code change neither rebuilds
+#    nor re-ships it. Before 1.9.0 the weights rode in the per-commit code layer.
+# 2. pip installs (expensive to rebuild, change rarely)
+# 3. apt installs (change more often due to CVE version bumps, but are fast to
+#    rebuild)
+# 4. NVFlare install + master_template.yml (the template is stamped with this
+#    build's version/commit hash, so it is a cache miss on EVERY commit --
 #    nothing cacheable may sit below it; see the CACHE NOTE at that stage)
-# 5. COPY source code (changes every build — must be last)
+# 5. COPY source code + entrypoint (changes every build — must be last)
 #
 # The base pytorch image already includes python3 + pip, so pip installs
 # don't depend on the apt python packages below — those are just security
 # version updates.
+#
+# The final filesystem is the one earlier layouts produced; only the layer an
+# item lives in moved.
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
-# Stage 1: Python packages (expensive, rarely changes)
+# Stage 1: static content (multi-GB, rarely changes)
 # ---------------------------------------------------------------------------
 
-# uninstall conda to prevent usage and avoid potential repository license issues
-RUN python3 -m pip uninstall -y conda conda-package-handling conda_index
+# scripts/build/_cacheAndCopyPretrainedModelWeights.sh fills these build-context
+# directories from the build cache after checking every file's SHA-256. The
+# challenge weights (and SAM-Med2D for MST_SAMMed2D) stay OUT of the job folders:
+# NVFlare ships a whole job folder to every client on submit.
+COPY ./pretrained_weights /MediSwarm/pretrained_weights
+COPY ./torch_home_cache /torch_home
+# Already world-writable in the build context (huggingface_hub writes lock files
+# into the cache at load time and the containers run as the site's user). A
+# 'RUN chmod -R' here used to store the whole tree a second time.
+COPY ./hf_home_cache /huggingface_home
 
-# Install specific versions of pip and setuptools
+# The NVFlare fork's source as shipped at /MediSwarm/docker_config/NVFlare (also
+# what stage 4 installs). The build script moves it out of MediSwarm/ in the
+# build context so the per-commit code layer no longer carries it a second time.
+COPY ./nvflare_source /MediSwarm/docker_config/NVFlare
+
+# ---------------------------------------------------------------------------
+# Stage 2: Python packages (expensive, rarely changes)
+# ---------------------------------------------------------------------------
+
+# uninstall conda to prevent usage and avoid potential repository license issues.
+# pyOpenSSL (from the base image) goes as well: nothing imports it (urllib3 2.x
+# never injects it), and it holds cryptography below 43 and carries a HIGH CVE.
+RUN python3 -m pip uninstall -y conda conda-package-handling conda_index pyOpenSSL
+
+# Install specific versions of pip, setuptools and wheel. setuptools 80.10 still
+# ships pkg_resources and vendors fixed jaraco.context/wheel copies; wheel 0.46
+# needs packaging >= 24, which is pinned with it.
 RUN python3 -m pip install --no-cache-dir \
     -U \
     pip==25.2 \
-    setuptools==80.8.0
+    setuptools==80.10.2 \
+    wheel==0.46.3 \
+    packaging==24.2
 
 # Install dependencies of NVFlare and application packages in a single layer.
 # Using --no-cache-dir avoids writing pip's download cache to the layer,
 # reducing image size and eliminating the need for a separate cache purge.
+#
+# NVFlare's wire stack (grpcio, protobuf, msgpack here; aiohttp below, which
+# carries the 'http' scheme the ODELIA kits use) stays EXACTLY as in 1.8.1: sites
+# move to a new image at different times and a run mixes both. Known CVEs in
+# them are accepted in .trivyignore, with the reason.
 RUN python3 -m pip install --no-cache-dir \
     --upgrade \
     psutil==7.0.0 \
     Flask==3.0.2 \
     Flask-JWT-Extended==4.6.0 \
     Flask-SQLAlchemy==3.1.1 \
-    PyJWT==2.10.1 \
+    PyJWT==2.14.0 \
     SQLAlchemy==2.0.16 \
-    Werkzeug==3.0.1 \
+    Werkzeug==3.0.6 \
     blinker==1.9.0 \
     docker==7.1.0 \
     greenlet==3.2.2 \
@@ -74,7 +112,11 @@ RUN python3 -m pip install --no-cache-dir \
     pyparsing==3.2.3 \
     websockets==15.0.1
 
-# Install additional Python packages for application code at defined versions
+# Install additional Python packages for application code at defined versions.
+# 1.9.0 removed wandb (its bundled wandb-core binary alone had 56 HIGH/CRITICAL
+# CVEs) and datasets, with the packages only they pulled in (GitPython, gitdb,
+# smmap, docker-pycreds, sentry-sdk, setproctitle; pyarrow, multiprocess, dill,
+# xxhash): no code in the image or in any job imports them.
 RUN python3 -m pip install --no-cache-dir \
     Deprecated==1.2.18 \
     SimpleITK==2.5.0 \
@@ -91,7 +133,6 @@ RUN python3 -m pip install --no-cache-dir \
     google-auth-oauthlib==1.2.2 \
     google-auth==2.40.2 \
     huggingface_hub==0.29.3 \
-    datasets==3.4.1 \
     coral_pytorch==1.4.0 \
     humanize==4.12.3 \
     joblib==1.5.1 \
@@ -112,8 +153,8 @@ RUN python3 -m pip install --no-cache-dir \
     # at import. Do not relax without moving the base image first.
     numpy==1.26.4 \
     pyasn1-modules==0.4.2 \
-    pyasn1==0.6.1 \
-    pydicom==3.0.1 \
+    pyasn1==0.6.4 \
+    pydicom==3.0.2 \
     python-dateutil==2.9.0.post0 \
     x-transformers==2.3.5 \
     pytorch-lightning==2.4.0 \
@@ -125,7 +166,6 @@ RUN python3 -m pip install --no-cache-dir \
     scikit-learn==1.5.2 \
     scipy==1.15.3 \
     seaborn==0.13.2 \
-    wandb==0.18.6 \
     einops==0.8.0 \
     shellingham==1.5.4 \
     tensorboard-data-server==0.7.2 \
@@ -147,27 +187,23 @@ RUN python3 -m pip install --no-cache-dir \
     yarl==1.20.0 \
     aiohappyeyeballs==2.6.1 \
     annotated-types==0.7.0 \
-    dill==0.3.8 \
-    docker-pycreds==0.4.0 \
     dynamic-network-architectures==0.4.3 \
     einx==0.3.0 \
     frozendict==2.4.6 \
-    gitdb==4.0.12 \
-    gitpython==3.1.44 \
     hf-xet==1.1.2 \
     importlib-resources==6.5.2 \
     loguru==0.7.3 \
-    multiprocess==0.70.16 \
     propcache==0.3.1 \
-    pyarrow==20.0.0 \
     pydantic==2.11.5 \
     pydantic-core==2.33.2 \
-    sentry-sdk==2.29.1 \
-    setproctitle==1.3.6 \
-    smmap==5.0.2 \
     typing-extensions==4.13.2 \
     typing-inspection==0.4.1 \
-    xxhash==3.5.0
+    # Fixed releases of packages that come with the base image (HIGH CVEs in the
+    # base versions). Only used by requests/huggingface_hub (urllib3, Brotli) and
+    # by leftovers of the removed conda (soupsieve).
+    urllib3==2.8.0 \
+    Brotli==1.2.0 \
+    soupsieve==2.8.4
 
 # Install packages needed for listing licenses and creating SBOM
 RUN python3 -m pip install --no-cache-dir \
@@ -179,7 +215,7 @@ RUN python3 -m pip install --no-cache-dir \
     semantic-version==2.10.0
 
 # ---------------------------------------------------------------------------
-# Stage 2: apt packages (deliberately UNPINNED)
+# Stage 3: apt packages (deliberately UNPINNED)
 # ---------------------------------------------------------------------------
 # apt installs the current patch version on purpose. Exact pins here gave us
 # neither reproducibility (the base image floats unless pinned by digest -- see
@@ -285,18 +321,6 @@ RUN apt update && apt install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# Stage 3: Pretrained weights (rarely change — must stay ABOVE anything that
-# carries this build's version/commit identifier, see the note in Stage 4)
-# ---------------------------------------------------------------------------
-
-# These are the multi-GB layers. Keep them above master_template.yml so a plain
-# code commit does not re-create them.
-COPY ./torch_home_cache /torch_home
-COPY ./hf_home_cache /huggingface_home
-RUN chmod a+rwX /huggingface_home -R
-# permissions only needed for huggingface directory
-
-# ---------------------------------------------------------------------------
 # Stage 4: NVFlare from source (changes with NVFlare updates)
 # ---------------------------------------------------------------------------
 #
@@ -307,12 +331,15 @@ RUN chmod a+rwX /huggingface_home -R
 # Both embed the commit hash, so the file's CONTENT differs on every commit and
 # this COPY is a genuine cache miss -- not an mtime artefact (Docker excludes
 # mtime from COPY checksums). Everything below this line therefore rebuilds on
-# every commit, which is precisely why the weight layers now sit above it.
+# every commit, which is precisely why the static layers sit at the top.
 
-# install ODELIA fork of NVFlare from local source
+# install ODELIA fork of NVFlare from the source shipped in stage 1. Built from a
+# scratch copy at the path earlier images used, so the installed package (and its
+# recorded source URL) is unchanged and the shipped tree gets no build artefacts.
 WORKDIR /workspace/
-COPY ./MediSwarm/docker_config/NVFlare /workspace/nvflare
-RUN python3 -m pip install --no-cache-dir /workspace/nvflare && rm -rf /workspace/nvflare
+RUN cp -r /MediSwarm/docker_config/NVFlare /workspace/nvflare \
+    && python3 -m pip install --no-cache-dir /workspace/nvflare \
+    && rm -rf /workspace/nvflare
 ## Override with MediSwarm master_template.yml (contains version placeholders injected by build script)
 COPY ./MediSwarm/docker_config/master_template.yml /tmp/master_template.yml
 RUN mv /tmp/master_template.yml $(python3 -c "import nvflare.lighter,os;print(os.path.dirname(nvflare.lighter.__file__))")/templates/master_template.yml
@@ -322,6 +349,7 @@ RUN mv /tmp/master_template.yml $(python3 -c "import nvflare.lighter,os;print(os
 # ---------------------------------------------------------------------------
 
 # Copy the source code for local training and deploying to the swarm
+# (without pretrained_weights/ and docker_config/NVFlare/, which stage 1 added)
 COPY ./MediSwarm /MediSwarm
 # Replace symlinks with actual copies so NVFlare's os.walk()-based job signing
 # and zip utilities can traverse all directories (os.walk does not follow symlinks)
@@ -335,3 +363,24 @@ RUN mkdir -p /fl_admin/transfer && ln -s /MediSwarm /fl_admin/transfer/MediSwarm
 
 # allow creating home directory for local user inside container if needed
 RUN chmod a+rwx /home
+
+# Clears a stale NVFlare lock when a kit's client/server container restarts, for
+# the 1.8.1 kits that cannot get #630 (see the script), then execs the command
+# unchanged. Outside /MediSwarm on purpose: a site that mounts code over
+# /MediSwarm must not lose or replace it.
+COPY --chmod=755 ./MediSwarm/docker_config/mediswarm_entrypoint.sh /usr/local/bin/mediswarm_entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/mediswarm_entrypoint.sh"]
+# An ENTRYPOINT discards the CMD inherited from the base image; keep its default.
+CMD ["/bin/bash"]
+
+# Image identity, passed by buildDockerImageAndStartupKits.sh. Declared last so a
+# new value never invalidates a cached layer. MEDISWARM_VERSION inside a container
+# is the KIT's version; ODELIA_IMAGE_VERSION is the image's.
+ARG ODELIA_IMAGE_VERSION=unknown
+ARG ODELIA_IMAGE_REVISION=unknown
+ARG NVFLARE_REVISION=unknown
+ENV ODELIA_IMAGE_VERSION=${ODELIA_IMAGE_VERSION}
+LABEL org.opencontainers.image.version="${ODELIA_IMAGE_VERSION}" \
+      org.opencontainers.image.revision="${ODELIA_IMAGE_REVISION}" \
+      org.opencontainers.image.source="https://github.com/KatherLab/MediSwarm" \
+      mediswarm.nvflare.revision="${NVFLARE_REVISION}"

@@ -1157,6 +1157,7 @@ docker_svr_sh: |
           --list_licenses)  LIST_LICENSES="1";;
           --interactive)    INTERACTIVE="1";;
           --svr_name)       CLI_SVR_NAME="$2"; shift ;;
+          --image)          CLI_IMAGE="$2"; shift ;;
           *) echo "Unknown parameter passed: $1"; exit 1 ;;
       esac
       shift
@@ -1169,7 +1170,26 @@ docker_svr_sh: |
   # or to expose specific ports, use line below
   #NETARG="-p {~~admin_port~~}:{~~admin_port~~} -p {~~fed_learn_port~~}:{~~fed_learn_port~~}"
 
+  # Server settings that must survive a re-run of this script go into the optional
+  # startup/server.conf, sourced here:
+  #   MEDISWARM_SERVER_STATE_DIR=<host dir>  NVFlare job store etc. (default: <kit>/server_state)
+  #   MEDISWARM_ARCHIVE_DIR=<host dir>       /archive, MS6 per-round globals (default: <kit>/archive)
+  #   MEDISWARM_IMAGE=<image>                run this image instead of the provisioned one
+  # An exported MEDISWARM_SERVER_STATE_DIR / MEDISWARM_ARCHIVE_DIR wins over the file,
+  # --image wins over both. Unlike a client, the server never reads startup/image.conf:
+  # the coordinator moves to a new image when the operator decides
+  # (docs/RELEASE_RUNBOOK.md), never because :current was re-tagged.
+  ENV_SERVER_STATE_DIR="${MEDISWARM_SERVER_STATE_DIR:-}"
+  ENV_ARCHIVE_DIR="${MEDISWARM_ARCHIVE_DIR:-}"
+  unset MEDISWARM_IMAGE
+  if [ -f "$DIR/server.conf" ]; then
+      . "$DIR/server.conf"
+  fi
+  SERVER_STATE_DIR="${ENV_SERVER_STATE_DIR:-${MEDISWARM_SERVER_STATE_DIR:-$DIR/../server_state}}"
+  ARCHIVE_DIR="${ENV_ARCHIVE_DIR:-${MEDISWARM_ARCHIVE_DIR:-$DIR/../archive}}"
+
   DOCKER_IMAGE={~~docker_image~~}
+  DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
@@ -1180,11 +1200,25 @@ docker_svr_sh: |
 
   rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
 
+  # #607: NVFlare keeps its job store under /tmp/nvflare INSIDE the container
+  # (local/resources.json.default: jobs-storage, snapshot-storage; NVFlare 2.8 adds
+  # job_submit_records and job_submit_record_index beside them), so recreating the
+  # container, e.g. to move to a new image, deleted every job record. It lives on
+  # the host now. /archive: the MS6 server component ms6_global_archive writes the
+  # per-round globals there (and falls back to the job workspace without it).
+  SERVER_MOUNTS=(-v "$SERVER_STATE_DIR:/tmp/nvflare" -v "$ARCHIVE_DIR:/archive")
+  if [ -n "$START_SERVER" ] || [ -n "$INTERACTIVE" ]; then
+      if ! mkdir -p "$SERVER_STATE_DIR" "$ARCHIVE_DIR" 2>/dev/null; then
+          echo "[WARN] Could not create $SERVER_STATE_DIR or $ARCHIVE_DIR; docker creates them owned by root."
+      fi
+      echo "Job store on the host: $SERVER_STATE_DIR   archive: $ARCHIVE_DIR"
+  fi
+
   echo "Starting docker with $DOCKER_IMAGE as $CONTAINER_NAME"
   # Run docker with appropriate parameters
   if [ -n "$START_SERVER" ]; then
       docker run -d -t --restart=unless-stopped --name=$CONTAINER_NAME \
-      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
+      -v $DIR/..:/startupkit/ -w /startupkit/startup/ "${SERVER_MOUNTS[@]}" \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "rm -f ../daemon_pid.fl ../pid.fl; nohup ./start.sh >> nohup.out 2>&1 && chmod a+r nohup.out && /bin/bash"
   elif [ -n "$LIST_LICENSES" ]; then
@@ -1193,7 +1227,7 @@ docker_svr_sh: |
       /bin/bash -c "/MediSwarm/scripts/_list_licenses.sh"
   elif [ -n "$INTERACTIVE" ]; then
       docker run --rm -it --detach-keys="ctrl-x" --name=$CONTAINER_NAME \
-      -v $DIR/..:/startupkit/ -w /startupkit/startup/ \
+      -v $DIR/..:/startupkit/ -w /startupkit/startup/ "${SERVER_MOUNTS[@]}" \
       --ipc=host $NETARG $DOCKER_IMAGE \
       /bin/bash -c "/bin/bash"
   else
@@ -1201,6 +1235,11 @@ docker_svr_sh: |
       echo "--start_server     start the swarm learning server"
       echo "--list_licenses    list licenses of installed packages"
       echo "--interactive      start the container with an interactive shell (for debugging purposes)"
+      echo ""
+      echo "Optional:"
+      echo "--image <ref>      run this image instead of the provisioned one (persist it as"
+      echo "                   MEDISWARM_IMAGE=<ref> in startup/server.conf)"
+      echo "--svr_name <name>  container name part (default: flserver)"
   fi
 
 docker_adm_sh: |
