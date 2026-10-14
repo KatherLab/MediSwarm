@@ -1,0 +1,103 @@
+# 4-client deploy test with every role on dl3: server, admin and four clients.
+#
+# dl3 is not a CI runner (#448), so no PR push or scheduled workflow can kill a
+# multi-hour run there. The four clients read four DISTINCT challenge sites, so a
+# site-specific failure cannot hide behind a second copy of the same data (the
+# earlier dl3 conf used CAM_1 and MHA_1 twice each). RUMC_1, the fifth challenge
+# site, is held out for the built-in evaluation.
+#
+# Usage, on dl3, from a checkout of the commit under test:
+#   cp scripts/deploy/deploy_sites_4node_local.dl3.conf.example deploy_sites_4node_local.dl3.conf
+#   chmod 600 deploy_sites_4node_local.dl3.conf
+#   export DL_SWARM_PASS='<swarm password>'      # or write it to a 0600 file, see *_PASS_FILE
+#   scripts/deploy/launch_testbed.sh --conf deploy_sites_4node_local.dl3.conf \
+#       --kit-version 1.8.1-dev.260913.f7c66bb --image jefftud/odelia:<candidate> \
+#       --model MST --tag rc_mst4c --eval
+#
+# --kit-version selects the test kits (prod_01 of that build has TEST_A_1..TEST_D_1 and
+# the same docker.sh as the sites' 1.8.1 kits); --image is the image under test, which
+# the server, the admin and every client then run. Real confs (deploy_sites_*.conf)
+# are gitignored; only this *.example is tracked. No password belongs in this file.
+
+CLIENT_SITES=(DL3A DL3B DL3C DL3D)
+
+# Credentials: each *_PASS_ENV names an environment variable holding the password;
+# alternatively set *_PASS_FILE to a mode-0600 file whose first line is the password.
+# With neither, ssh uses keys only.
+
+# ── dl3: server + admin ─────────────────────────────────────────────────────
+COSMOS_HOST=localhost
+COSMOS_USER=swarm
+COSMOS_PASS_ENV=DL_SWARM_PASS
+#COSMOS_PASS_FILE=/home/swarm/.mediswarm_testbed_pass
+COSMOS_DEPLOY_DIR=/home/swarm/deploy_test
+
+# All four clients read the challenge tree on the large disk (fold 0, every site
+# has a test split).
+CHALLENGE_DATA=/mnt/swarm_alpha/Odelia_challange/ODELIA_Challenge_unilateral
+
+# ── dl3 local client TEST_A_1 -> CAM_1 ─────────────────────────────────────
+DL3A_HOST=localhost
+DL3A_USER=swarm
+DL3A_PASS_ENV=DL_SWARM_PASS
+DL3A_SITE_NAME=TEST_A_1
+DL3A_INSTITUTION=CAM_1
+# Extra docker run options for this client, e.g. "--env ODELIA_RETURN_PER_CASE=1"
+DL3A_DOCKER_OPTIONS=""
+# Another image for this client only (mixed-version test), e.g. jefftud/odelia:1.8.1
+#DL3A_IMAGE=
+DL3A_DATADIR=$CHALLENGE_DATA
+DL3A_SCRATCHDIR=/home/swarm/deploy_test_scratch/a
+DL3A_DEPLOY_DIR=/home/swarm/deploy_test
+DL3A_GPU="device=0"
+
+# ── dl3 local client TEST_B_1 -> MHA_1 ─────────────────────────────────────
+DL3B_HOST=localhost
+DL3B_USER=swarm
+DL3B_PASS_ENV=DL_SWARM_PASS
+DL3B_SITE_NAME=TEST_B_1
+DL3B_INSTITUTION=MHA_1
+DL3B_DOCKER_OPTIONS=""
+DL3B_DATADIR=$CHALLENGE_DATA
+DL3B_SCRATCHDIR=/home/swarm/deploy_test_scratch/b
+DL3B_DEPLOY_DIR=/home/swarm/deploy_test
+DL3B_GPU="device=0"
+
+# ── dl3 local client TEST_C_1 -> UKA_1 ─────────────────────────────────────
+DL3C_HOST=localhost
+DL3C_USER=swarm
+DL3C_PASS_ENV=DL_SWARM_PASS
+DL3C_SITE_NAME=TEST_C_1
+DL3C_INSTITUTION=UKA_1
+DL3C_DOCKER_OPTIONS=""
+DL3C_DATADIR=$CHALLENGE_DATA
+DL3C_SCRATCHDIR=/home/swarm/deploy_test_scratch/c
+DL3C_DEPLOY_DIR=/home/swarm/deploy_test
+DL3C_GPU="device=0"
+
+# ── dl3 local client TEST_D_1 -> UMCU_1 ────────────────────────────────────
+DL3D_HOST=localhost
+DL3D_USER=swarm
+DL3D_PASS_ENV=DL_SWARM_PASS
+DL3D_SITE_NAME=TEST_D_1
+DL3D_INSTITUTION=UMCU_1
+DL3D_DOCKER_OPTIONS=""
+DL3D_DATADIR=$CHALLENGE_DATA
+DL3D_SCRATCHDIR=/home/swarm/deploy_test_scratch/d
+DL3D_DEPLOY_DIR=/home/swarm/deploy_test
+DL3D_GPU="device=0"
+
+# ── Built-in evaluation (runs on dl3, on a site no client trained on) ───────
+EVAL_SITE_NAME=RUMC_1
+EVAL_DATA_DIR=$CHALLENGE_DATA
+EVAL_SCRATCH_DIR=/home/swarm/deploy_test_scratch/eval
+
+# ── Kits ────────────────────────────────────────────────────────────────────
+PROJECT_FILE=application/provision/project_deploy_test_4site.yml
+ADMIN_USER=jiefu.zhu@tu-dresden.de
+SERVER_NAME=dl3.tud.de
+
+# One retry (total attempts = 1 + MAX_RETRIES). In September four MST clients here
+# needed 59-71 min for 5-6 rounds; three attempts x --timeout would hide a real
+# failure for hours.
+MAX_RETRIES=1
