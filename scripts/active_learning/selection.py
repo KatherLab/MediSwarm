@@ -11,6 +11,14 @@ swarm round per iteration -- 2.2 h per round measured on the 8-site run makes
 the federated form of this experiment cost ~110 h across two arms, which does
 not fit before M48.
 
+One implementation
+------------------
+The rules live in ``application/jobs/_shared/custom/al_selection.py``, the copy
+that travels with swarm jobs and selects on site (al_subset.py). This module
+adapts it to the offline study's CSV rows (dicts with ``uid``,
+``ground_truth`` and ``prob_class_<k>``), so "entropy" and "random" mean the
+same thing offline and in the swarm.
+
 Strategies
 ----------
 ``entropy``  predictive entropy over the class distribution. Highest when the
@@ -20,7 +28,13 @@ Strategies
              entropy when one class is rare, because entropy can be dominated
              by a long flat tail over classes the model never predicts.
 ``random``   the control. An active-learning result is only meaningful against
-             this, at identical budget and seed.
+             this, at identical budget and seed. The pool is sorted by uid and
+             then shuffled with the seed, so the same seed picks the same cases
+             whatever order the rows arrive in (the earlier rule drew one random
+             number per row in input order: reversing the rows changed 16 of 20
+             picks).
+``class_matched_random`` (``select`` only) random within class, with the class
+             counts entropy picks at the same budget: the composition control.
 
 A caution that shapes the analysis
 ----------------------------------
@@ -33,71 +47,64 @@ otherwise the experiment measures class imbalance and calls it active learning.
 
 from __future__ import annotations
 
-import math
-import random
+import importlib.util
+import sys
+from pathlib import Path
 from typing import Dict, List, Sequence
 
+_CORE_PATH = (
+    Path(__file__).resolve().parents[2] / "application" / "jobs" / "_shared" / "custom" / "al_selection.py"
+)
+
+
+def _load_core():
+    """Import al_selection.py by path, so the job's custom/ directory never goes on sys.path here."""
+    name = "odelia_al_selection_core"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, str(_CORE_PATH))
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module  # dataclasses resolve their module through sys.modules
+    spec.loader.exec_module(module)
+    return module
+
+
+core = _load_core()
+
+# The offline study's table; class_matched_random is available through select() but needs many seeds,
+# like random, which run_experiment.py gives only to "random".
 STRATEGIES = ("entropy", "margin", "random")
 
-
-def _normalise(probs: Sequence[float]) -> List[float]:
-    """Return a proper distribution, or a uniform one if the input is degenerate.
-
-    Rows come from CSVs written by six different model implementations; a row
-    that does not sum to 1 is a data problem, not a reason to crash a study.
-    """
-    vals = [max(0.0, float(p)) for p in probs]
-    total = sum(vals)
-    if total <= 0:
-        n = len(vals) or 1
-        return [1.0 / n] * n
-    return [v / total for v in vals]
+entropy = core.entropy
+margin_uncertainty = core.margin_uncertainty
 
 
-def entropy(probs: Sequence[float]) -> float:
-    """Shannon entropy in nats. Higher means less certain."""
-    return -sum(p * math.log(p) for p in _normalise(probs) if p > 0)
+def _probs(row: Dict[str, str]) -> List[float]:
+    keys = sorted((k for k in row if k.startswith("prob_class_")), key=lambda k: int(k.rsplit("_", 1)[1]))
+    return [float(row[k]) for k in keys]
 
 
-def margin_uncertainty(probs: Sequence[float]) -> float:
-    """1 - (top1 - top2), so that larger means less certain.
-
-    Returned in the same direction as entropy so both can feed one ranking
-    routine; a caller comparing raw margins directly would otherwise have to
-    remember that small margin means high uncertainty.
-    """
-    ordered = sorted(_normalise(probs), reverse=True)
-    if len(ordered) < 2:
-        return 0.0
-    return 1.0 - (ordered[0] - ordered[1])
-
-
-def score(row: Dict[str, str], strategy: str, rng: random.Random) -> float:
-    """Uncertainty score for one prediction row. Higher is selected first."""
-    if strategy == "random":
-        return rng.random()
-    probs = [float(row[k]) for k in sorted(row) if k.startswith("prob_class_")]
-    if strategy == "entropy":
-        return entropy(probs)
-    if strategy == "margin":
-        return margin_uncertainty(probs)
-    raise ValueError(f"unknown strategy {strategy!r}; expected one of {STRATEGIES}")
+def _label(row: Dict[str, str]):
+    gt = row.get("ground_truth")
+    if gt is None or gt == "":
+        return None
+    return int(float(gt))
 
 
 def select(rows: Sequence[Dict[str, str]], budget: int, strategy: str,
            seed: int = 0) -> List[Dict[str, str]]:
-    """Pick ``budget`` rows under ``strategy``.
+    """Pick ``budget`` rows under ``strategy``, in rank order (see al_selection.select_uids).
 
-    Ties are broken by uid, not by input order: the CSVs arrive in whatever
-    order each site's dataloader produced, so an order-dependent tie-break
-    would make the same experiment give different answers at different sites.
+    Rows are keyed by ``uid``; a missing or repeated uid raises, because it would make the
+    selection depend on row order.
     """
-    if budget <= 0:
-        return []
-    rng = random.Random(seed)
-    scored = [(score(r, strategy, rng), str(r.get("uid", "")), r) for r in rows]
-    scored.sort(key=lambda t: (-t[0], t[1]))
-    return [r for _, _, r in scored[:budget]]
+    by_uid = {}
+    core_rows = []
+    for row in rows:
+        uid = str(row.get("uid", ""))
+        by_uid.setdefault(uid, row)
+        core_rows.append((uid, _probs(row), _label(row)))
+    return [by_uid[uid] for uid in core.select_uids(core_rows, budget, strategy, seed)]
 
 
 def class_composition(rows: Sequence[Dict[str, str]]) -> Dict[int, int]:
@@ -107,11 +114,4 @@ def class_composition(rows: Sequence[Dict[str, str]]) -> Dict[int, int]:
     containing three times the malignant cases has not demonstrated that
     uncertainty sampling works.
     """
-    counts: Dict[int, int] = {}
-    for r in rows:
-        gt = r.get("ground_truth")
-        if gt is None or gt == "":
-            continue
-        k = int(float(gt))
-        counts[k] = counts.get(k, 0) + 1
-    return dict(sorted(counts.items()))
+    return core.class_counts(_label(r) for r in rows)
