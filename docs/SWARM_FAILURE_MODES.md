@@ -248,7 +248,7 @@ anything fails. The server log simply stops advancing.
 - **Symptom (monitor):** after a site installed a new kit, its heartbeat shows `sync_status: error`, a job from weeks ago keeps reporting `running`, or the new kit's heartbeat never updates. Seen at CAM and UMCU on 24 Sep 2026 (#614).
 - **Root cause:** live_sync is a host process started by `docker.sh --start_client`; stopping or replacing the client container left it running. The old daemon kept uploading for the same site, cleared the new kit's `_active` marker every cycle, or held the shared pid file so the new kit never started its own daemon.
 - **Fix (1.9.0 kits):** the daemon ends about 10 minutes after its kit's client container stopped; `--start_client` stops the swarm daemons of other kits of the same site; `--migrate_from` stops the old kit's client and daemon in one step. On older kits: `pkill -f "<old kit folder>/startup/live_sync.sh"`.
-- **Detection:** `./docker.sh --status` lists daemons and containers of older kits of the site.
+- **Detection:** `./docker.sh --status` lists daemons and containers of older kits of the site. On the coordinator, `scripts/admin/fleet_status.py` reports the site as `OLD KIT` with "kit X still uploads for this site" while a second kit's daemon sends fresh heartbeats.
 
 ## F17 — Two clients of one site push each other out
 
@@ -289,6 +289,22 @@ Run the pre-flight checks from the startup kit, **even if they passed before** �
 ```
 
 Both now print a `Pre-run checks` block covering F2/F3/F4/F6. Reserve enough time before the scheduled run to resolve anything they flag.
+
+**On the coordinator, before submitting**, check that every participating site runs the
+expected kit and image and is up. No fault tolerance: one site that is not `READY` blocks the
+run, so the command must exit 0:
+
+```bash
+python3 scripts/admin/fleet_status.py --sites <the participating sites> --expect-kit 1.9.0 \
+    --expect-image jefftud/odelia:1.9.1 --expect-image-id sha256:c527c8c509aa
+```
+
+It reads each site's newest heartbeat under `/srv/mediswarm/live` and gives one verdict per
+site (`READY`, `OLD KIT`, `OLD IMAGE`, `STOPPED`, `STALE`, `NO HEARTBEAT`) with the reason;
+docs/RELEASE_RUNBOOK.md §11 explains the verdicts, the image ids and what a heartbeat proves.
+A `READY` site has a running client on the right image; whether it registered and configures
+is what the checks below confirm. During the run, `scripts/admin/watch_run.py <server-kit>/startup/nohup.out`
+follows the rounds from the server log and raises the #542 alarms.
 
 **Immediately after submitting a job, verify participation** — a run that silently trains on a
 subset still reports success (F8):

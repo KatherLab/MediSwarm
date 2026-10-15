@@ -33,6 +33,15 @@ from html import escape as html_escape
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, FileResponse, Response
 
+try:
+    # The heartbeat reader shared with scripts/admin/fleet_status.py; deployed next to app.py.
+    from heartbeat_io import read_run_heartbeat
+except ModuleNotFoundError as _exc:  # pragma: no cover - deployment error, not a code path
+    raise ModuleNotFoundError(
+        "heartbeat_io.py is missing next to app.py: copy server_tools/app.py AND "
+        "server_tools/heartbeat_io.py into the --app-dir (server_tools/README.md)"
+    ) from _exc
+
 # Optional: TensorBoard event parsing via tbparse
 try:
     from tbparse import SummaryReader
@@ -481,35 +490,9 @@ def _age_seconds(ts: str) -> int:
 
 
 def _read_heartbeat(run_dir: Path) -> dict[str, Any]:
-    for name in ["heartbeat_final.json", "heartbeat.json"]:
-        p = run_dir / name
-        if p.exists():
-            try:
-                return json.loads(p.read_text())
-            except json.JSONDecodeError as exc:
-                # Try to salvage malformed JSON (e.g. doubled quotes from
-                # build_heartbeat.sh extracting version strings with trailing ")
-                try:
-                    raw = p.read_text()
-                    # Strip ANSI escape codes first
-                    fixed = re.sub(r'\x1b\[[0-9;]*m', '', raw)
-                    # Fix doubled trailing quote on non-empty values:
-                    # "some_value"" -> "some_value"
-                    # Must NOT match empty strings "" which are valid JSON.
-                    # Pattern: a word char followed by ""[,}\n] means extra quote
-                    fixed = re.sub(r'(\w)""(\s*[,}\n])', r'\1"\2', fixed)
-                    return json.loads(fixed)
-                except Exception:
-                    return {
-                        "_parse_error": f"{type(exc).__name__}: {exc}",
-                        "_parse_error_file": str(p),
-                    }
-            except Exception as exc:
-                return {
-                    "_parse_error": f"{type(exc).__name__}: {exc}",
-                    "_parse_error_file": str(p),
-                }
-    return {}
+    # heartbeat_final.json first; malformed files of older kits (ANSI codes, doubled quotes)
+    # are salvaged in heartbeat_io, which scripts/admin/fleet_status.py reads them with too.
+    return read_run_heartbeat(run_dir)
 
 
 def _read_expected_sites() -> dict[str, dict[str, Any]]:
