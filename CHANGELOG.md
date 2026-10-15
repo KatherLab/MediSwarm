@@ -4,17 +4,29 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
-### Security
+## [1.9.1] - 2026-10-15
 
-- **Live monitor requires a login by default (review finding PS-2)** — `server_tools/app.py`
-  served every site's logs, per-case CSVs and checkpoints without authentication whenever
-  `MEDISWARM_MONITOR_USERS` was unset. It now refuses to start without a users file, or with
-  one that is missing, empty or malformed. `MEDISWARM_MONITOR_ALLOW_OPEN=1` (only with no users
-  file configured) runs it without login for local testing and logs a warning at start-up. The
-  production unit already sets `MEDISWARM_MONITOR_USERS`; `server_tools/README.md` updated.
+Image-only release on top of 1.9.0: sites keep the 1.9.0 startup kit and receive this image
+through `:current`. It adds what the VHIO model run needs and the #541 guard; no kit change.
+
+### Added
+
+- **VHIO model ready to run (#652)** — the image ships the MedicalNet ResNet-34 weights
+  (`/MediSwarm/pretrained_weights/resnet_34_23dataset.pth`, hash-checked at build time and by
+  `verify_release_image.sh`), so `MODEL_NAME=MedicalNet` needs no file at the sites. Without the
+  weights the model now refuses to start instead of training from random weights
+  (`MEDICALNET_ALLOW_RANDOM_INIT=1` for tests only). Tested as a 2-site swarm on the dl3 test bed:
+  10 to 40% slower per round than MST, under 3 GB GPU memory per client.
 
 ### Fixed
 
+- **A received global must fit the site's model (#541, #652)** — every site checks the first
+  global it receives against its own model (keys and shapes) and stops with a message naming
+  `MODEL_NAME`, instead of loading a partially matching global non-strictly and training on.
+- **D2.5 comparison pairs cases by identifier (DE-1, #653)** — `compare_regional_finetune.py`
+  pairs rows on `uid`/`row_index` per site and refuses differing case sets, duplicate ids, label
+  disagreements and a requested site without rows; `--restrict-to-common-cases` compares on the
+  shared cases and reports what it dropped.
 - **Weekly swarm integration test checks the test-split prediction CSVs (BRC-3)** —
   `last_site_model_gt_and_classprob_test.csv` and `best_site_model_gt_and_classprob_test.csv`
   were never checked after swarm training: the ODELIA call passed `true` and the challenge call
@@ -27,6 +39,16 @@ All notable changes to MediSwarm are documented in this file.
   fails, not skips, when one is missing. It found the ODELIA participant guide telling sites to
   set `ODELIA_PREPROCESS_CACHE_DIR=$SCRATCHDIR/...`, a host path inside the container; the guide
   now says `/scratch/odelia_preprocess_cache`.
+
+### Security
+
+- **Live monitor requires a login by default (review finding PS-2)** — `server_tools/app.py`
+  served every site's logs, per-case CSVs and checkpoints without authentication whenever
+  `MEDISWARM_MONITOR_USERS` was unset. It now refuses to start without a users file, or with
+  one that is missing, empty or malformed. `MEDISWARM_MONITOR_ALLOW_OPEN=1` (only with no users
+  file configured) runs it without login for local testing and logs a warning at start-up. The
+  production unit already sets `MEDISWARM_MONITOR_USERS`; `server_tools/README.md` updated.
+
 
 ## [1.9.0] - 2026-10-15
 
