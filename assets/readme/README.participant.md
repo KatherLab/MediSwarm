@@ -149,11 +149,12 @@ To have a baseline for swarm training, train the same model in a comparable way 
     * **Speed up training (recommended for large datasets).** Enable the on-disk preprocessing cache so each image volume is preprocessed once and stored as a compressed `.npz`; later epochs read from the cache instead of re-decoding NIfTI every time. This removes the data-loading bottleneck and keeps the GPU busy. Set the two environment variables in front of the command:
       ```bash
       ODELIA_ENABLE_PREPROCESS_CACHE=1 \
-      ODELIA_PREPROCESS_CACHE_DIR=$SCRATCHDIR/odelia_preprocess_cache \
+      ODELIA_PREPROCESS_CACHE_DIR=/scratch/odelia_preprocess_cache \
       ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --local_training 2>&1 | tee local_training_console_output.txt
       ```
+        * `ODELIA_PREPROCESS_CACHE_DIR` is a path **inside the container**, where your `$SCRATCHDIR` is mounted as `/scratch`: `/scratch/odelia_preprocess_cache` is the folder `odelia_preprocess_cache` in your scratch folder. Do not write your host path (`$SCRATCHDIR/...`) there, and never a path under `/data`, which is read-only.
         * The first epoch is still slow while the cache is built; subsequent epochs are much faster and GPU utilization rises significantly. If epochs are taking many hours and `nvidia-smi` shows low GPU usage, this is almost certainly the fix.
-        * The cache needs free disk space (roughly one compressed volume per case), so point `ODELIA_PREPROCESS_CACHE_DIR` at fast local storage with room to spare. If unset, it defaults to `$SCRATCHDIR/odelia_preprocess_cache`.
+        * The cache needs free disk space (roughly one compressed volume per case), so keep your scratch folder on fast local storage with room to spare. If `ODELIA_PREPROCESS_CACHE_DIR` is unset, the cache goes to the same place, `/scratch/odelia_preprocess_cache`.
         * The cache is reused across runs and auto-invalidates when a source image file changes. The same two variables also speed up `--preflight_check` and the swarm `--start_client` run, so it is worth enabling them everywhere.
 3. Output files:
     * Logged output during training: `startup/local_training_console_output.txt`
@@ -267,7 +268,7 @@ If an epoch takes many hours (or more than a day) and `nvidia-smi` shows the GPU
 
 ```bash
 ODELIA_ENABLE_PREPROCESS_CACHE=1 \
-ODELIA_PREPROCESS_CACHE_DIR=$SCRATCHDIR/odelia_preprocess_cache \
+ODELIA_PREPROCESS_CACHE_DIR=/scratch/odelia_preprocess_cache \
 ```
 
 See [Run Local Training](#run-local-training) for details. This caches each preprocessed volume as a compressed `.npz` on fast local storage, so epochs after the first read quickly and the GPU stays fed. It applies to local training, the pre-flight check, and the swarm client.

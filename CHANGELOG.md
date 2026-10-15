@@ -4,6 +4,30 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
+### Security
+
+- **Live monitor requires a login by default (review finding PS-2)** — `server_tools/app.py`
+  served every site's logs, per-case CSVs and checkpoints without authentication whenever
+  `MEDISWARM_MONITOR_USERS` was unset. It now refuses to start without a users file, or with
+  one that is missing, empty or malformed. `MEDISWARM_MONITOR_ALLOW_OPEN=1` (only with no users
+  file configured) runs it without login for local testing and logs a warning at start-up. The
+  production unit already sets `MEDISWARM_MONITOR_USERS`; `server_tools/README.md` updated.
+
+### Fixed
+
+- **Weekly swarm integration test checks the test-split prediction CSVs (BRC-3)** —
+  `last_site_model_gt_and_classprob_test.csv` and `best_site_model_gt_and_classprob_test.csv`
+  were never checked after swarm training: the ODELIA call passed `true` and the challenge call
+  `2` to a check that only runs for `1`, so the per-model `0`/`1` of #639 never arrived. Both now
+  pass `1`, and the challenge models take theirs from the caller.
+- **The partner-doc test runs again (#565)** — `test_partner_handbook_is_real.py` read a
+  handbook that was never in the repository and skipped all four tests on every run. It now
+  checks the tracked partner docs (1.9.0 site guide, ODELIA and STAMP participant guides,
+  external validation, failure modes, release runbook) against the kits' `docker.sh` and
+  fails, not skips, when one is missing. It found the ODELIA participant guide telling sites to
+  set `ODELIA_PREPROCESS_CACHE_DIR=$SCRATCHDIR/...`, a host path inside the container; the guide
+  now says `/scratch/odelia_preprocess_cache`.
+
 ## [1.9.0] - 2026-10-15
 
 One release for every remaining ODELIA experiment: new image **and** new startup kits for all

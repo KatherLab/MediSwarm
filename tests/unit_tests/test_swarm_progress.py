@@ -22,7 +22,10 @@ def app():
     p = str(SERVER_TOOLS)
     if p not in sys.path:
         sys.path.insert(0, p)
-    import app as app_module  # noqa: E402
+    # The monitor refuses to start without a login (PS-2); these tests only call pure helpers.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MEDISWARM_MONITOR_ALLOW_OPEN", "1")
+        import app as app_module  # noqa: E402
     return app_module
 
 

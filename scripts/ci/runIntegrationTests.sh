@@ -1108,7 +1108,9 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
         fi
     done
 
-    if [ $expect_test_gt_classprob_csvs = 1 ]; then
+    # Written by finalize_training() in the last round, whose "Training completed successfully." and
+    # last_global_model.ckpt are checked above; the challenge callers pass 0 or 1 per model.
+    if [ "$expect_test_gt_classprob_csvs" = 1 ]; then
         for EXPECTED_FILE in "last_site_model_gt_and_classprob_test.csv" \
                              "best_site_model_gt_and_classprob_test.csv";
         do
@@ -1126,7 +1128,7 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
 
 run_3dcnn_training_in_swarm_for_odelia_model () {
     local MODEL_NAME=$1
-    local expect_test_gt_classprob_csvs=true
+    local expect_test_gt_classprob_csvs=1
     echo "[Run] 3DCNN training in swarm using "$MODEL_NAME" (polling for completion) ..."
     _run_3dcnn_training_in_swarm_for_odelia_model "$MODEL_NAME"
     _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output $expect_test_gt_classprob_csvs
@@ -1134,7 +1136,7 @@ run_3dcnn_training_in_swarm_for_odelia_model () {
 
 run_3dcnn_training_in_swarm_for_challenge_model () {
     local JOB_NAME=$1
-    local expect_test_gt_classprob_csvs=2
+    local expect_test_gt_classprob_csvs=${2:-1}
     echo "[Run] 3DCNN training in swarm using "$JOB_NAME" (polling for completion) ..."
     _run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME"
     _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output $expect_test_gt_classprob_csvs

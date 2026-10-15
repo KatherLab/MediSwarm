@@ -21,6 +21,7 @@ import hashlib
 import hmac
 import io
 import json
+import logging
 import os
 import re
 import time
@@ -61,17 +62,24 @@ SWARM_STALL_SECONDS = int(os.environ.get("MEDISWARM_SWARM_STALL_SECONDS", "600")
 app = FastAPI(title="MediSwarm Live Monitor")
 
 # ---------------------------------------------------------------------------
-# Optional login (HTTP Basic). Off unless MEDISWARM_MONITOR_USERS names a file of
+# Login (HTTP Basic), required by default. MEDISWARM_MONITOR_USERS names a file of
 # "user:sha256hex(password)" lines ('#' starts a comment). The monitor shows every
-# site's logs and serves files, so a deployment reachable by more than the operators
-# (e.g. the whole consortium VPN) should set it. A configured but empty or unreadable
-# file fails closed: the app refuses to start rather than run open.
+# site's logs and per-case CSVs and serves checkpoints, so it fails closed: with no
+# users file configured, or one that is missing, empty or malformed, the app refuses
+# to start. Only MEDISWARM_MONITOR_ALLOW_OPEN=1 with no users file configured runs it
+# without login (local testing), and says so loudly at start-up (review finding PS-2).
 # ---------------------------------------------------------------------------
 
 AUTH_FILE = os.environ.get("MEDISWARM_MONITOR_USERS", "")
+ALLOW_OPEN = os.environ.get("MEDISWARM_MONITOR_ALLOW_OPEN", "")
+
+_log = logging.getLogger("mediswarm.monitor")
 
 
 def load_monitor_users(path: str) -> dict[str, str]:
+    if not Path(path).is_file():
+        raise ValueError(f"MEDISWARM_MONITOR_USERS={path}: no such file; the monitor does not start "
+                         f"without its users file")
     users: dict[str, str] = {}
     for raw in Path(path).read_text().splitlines():
         line = raw.split("#", 1)[0].strip()
@@ -100,9 +108,38 @@ def credentials_ok(header: str, users: dict[str, str]) -> bool:
     return hmac.compare_digest(digest, expected or "0" * 64) and expected is not None
 
 
-if AUTH_FILE:
-    _MONITOR_USERS = load_monitor_users(AUTH_FILE)
+def resolve_monitor_users(auth_file: str, allow_open: str) -> dict[str, str] | None:
+    """The accounts the login accepts, or None for a monitor explicitly opened without login.
 
+    A users file, once configured, always applies: a missing, empty or malformed one raises
+    ValueError even with allow_open set. With no users file, only allow_open == "1" opens the
+    monitor; anything else raises RuntimeError, so a forgotten variable cannot publish every
+    site's data.
+    """
+    if auth_file:
+        if allow_open == "1":
+            _log.warning("MEDISWARM_MONITOR_ALLOW_OPEN=1 is ignored: MEDISWARM_MONITOR_USERS is set, "
+                         "so the monitor requires a login")
+        return load_monitor_users(auth_file)
+    if allow_open == "1":
+        return None
+    raise RuntimeError(
+        "The live monitor serves every site's logs, per-case predictions and checkpoints and does not "
+        "start without a login. Set MEDISWARM_MONITOR_USERS to a users file (one "
+        "'user:sha256hex(password)' line per person, see server_tools/README.md), or set "
+        "MEDISWARM_MONITOR_ALLOW_OPEN=1 to run it without login for local testing only."
+    )
+
+
+_MONITOR_USERS = resolve_monitor_users(AUTH_FILE, ALLOW_OPEN)
+
+if _MONITOR_USERS is None:
+    _log.warning(
+        "MONITOR RUNS WITHOUT LOGIN (MEDISWARM_MONITOR_ALLOW_OPEN=1): every site's logs, per-case "
+        "predictions and checkpoints are served to anyone who can reach this port. Local testing "
+        "only; set MEDISWARM_MONITOR_USERS for any deployment."
+    )
+else:
     @app.middleware("http")
     async def _require_login(request, call_next):
         if credentials_ok(request.headers.get("authorization", ""), _MONITOR_USERS):
