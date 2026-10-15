@@ -514,6 +514,57 @@ def test_archive_globals_enables_both_components(tmp_path):
     assert archive["enabled"] is True and archive["archive_root"] == "/startupkit/archive"
 
 
+def test_archive_root_must_be_a_mount_unless_explicitly_allowed(tmp_path, capsys):
+    """SO-6: the server component only archives into a mount point; the builder can lift that, recorded."""
+    tree = make_tree(tmp_path)
+    job = build(tmp_path, "--name", "arc", "--model", "MST", "--rounds", "2", "--archive-globals", tree=tree)
+    _, server, _ = confs(job)
+    assert component(server, "ms6_global_archive")["args"]["require_mount"] is True  # the template default
+
+    argv = ("--name", "arc2", "--model", "MST", "--rounds", "2", "--archive-globals", "--archive-allow-unmounted")
+    build(tmp_path, *argv, tree=tree, expect=2)  # the stub tree's job code has no ms6_archive.py
+    assert "has no require_mount argument" in capsys.readouterr().err
+    (tree / "application" / "jobs" / "_shared" / "custom" / "ms6_archive.py").write_text(
+        "class MS6GlobalArchive:\n    def __init__(self, require_mount=True):\n        pass\n"
+    )
+    job = build(tmp_path, *argv, tree=tree)
+    _, server, _ = confs(job)
+    assert component(server, "ms6_global_archive")["args"]["require_mount"] is False
+    manifest = json.loads((job / "job_manifest.json").read_text())
+    assert manifest["flags"]["archive_allow_unmounted"] is True
+    assert any("not a mount point" in w for w in manifest["warnings"])
+
+
+def test_al_pool_from_the_test_split_needs_an_explicit_acknowledgement(tmp_path, capsys):
+    """DE-3: training on test cases contaminates final_test/*, so it is refused unless asked for by name."""
+    tree = make_tree(tmp_path)
+    argv = ("--name", "alt", "--model", "MST", "--rounds", "3", "--al-strategy", "entropy", "--al-budget", "10",
+            "--al-pool-split", "test")
+    build(tmp_path, *argv, tree=tree, expect=2)
+    assert "--al-allow-test-pool" in capsys.readouterr().err
+    job = build(tmp_path, *argv, "--al-allow-test-pool", tree=tree)
+    _, _, client = confs(job)
+    assert launcher_env(client)["ODELIA_AL_POOL_SPLIT"] == "test"
+    manifest = json.loads((job / "job_manifest.json").read_text())
+    assert manifest["flags"]["al_allow_test_pool"] is True
+    assert any("not held-out" in w for w in manifest["warnings"])
+
+
+def test_later_selection_round_needs_job_code_with_per_round_weights(tmp_path, capsys):
+    """SP-1: with ODELIA_AL_SELECT_ROUND > 0 the job code must report the steps trained in the round."""
+    tree = make_tree(tmp_path)
+    argv = ("--name", "sel", "--model", "MST", "--rounds", "3", "--al-strategy", "random", "--al-budget", "10")
+    build(tmp_path, *argv, tree=tree)  # select round 0: nothing to check
+    build(tmp_path, *argv, "--al-select-round", "1", "--force", tree=tree, expect=2)
+    assert "round_steps_callback" in capsys.readouterr().err
+    (tree / "application" / "jobs" / "_shared" / "custom" / "al_subset.py").write_text(
+        "def round_steps_callback(ctx=None, log=None):\n    pass\n\n\ndef create_hook(env, logger):\n    return None\n"
+    )
+    job = build(tmp_path, *argv, "--al-select-round", "1", "--force", tree=tree)
+    _, _, client = confs(job)
+    assert launcher_env(client)["ODELIA_AL_SELECT_ROUND"] == "1"
+
+
 def test_archive_globals_needs_the_components_in_the_template(tmp_path, capsys):
     tree = make_tree(tmp_path, ms6_components=False)
     build(tmp_path, "--name", "arc", "--model", "MST", "--rounds", "2", "--archive-globals", tree=tree, expect=2)
@@ -527,7 +578,12 @@ def test_archive_globals_needs_the_components_in_the_template(tmp_path, capsys):
         (["--ms6-capture-sites", "CAM_1", "--ms6-capture-rounds", "5"], "do not exist"),
         (["--ms6-capture-rounds", "1"], "need --ms6-capture-sites"),
         (["--archive-root", "/x"], "needs --archive-globals"),
+        (["--archive-allow-unmounted"], "needs --archive-globals"),
         (["--al-strategy", "entropy"], "go together"),
+        (["--al-strategy", "random", "--al-budget", "5", "--al-pool-split", "val"], "expected one of train, test"),
+        (["--al-strategy", "random", "--al-budget", "5", "--al-pool-split", "test"], "--al-allow-test-pool"),
+        (["--al-strategy", "random", "--al-budget", "5", "--al-allow-test-pool"], "only applies to --al-pool-split"),
+        (["--al-allow-test-pool"], "need --al-strategy"),
         (["--al-strategy", "random", "--al-budget", "0"], "positive"),
         (["--al-strategy", "random", "--al-budget", "5", "--al-select-round", "5"], "training rounds are"),
         (["--al-strategy", "random", "--al-budget", "5", "--train-include-list", "/scratch/uids.txt"], "choose one"),

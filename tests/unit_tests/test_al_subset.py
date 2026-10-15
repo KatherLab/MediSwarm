@@ -498,8 +498,9 @@ def swarm(monkeypatch, tmp_path):
     for uid in val_uids + test_uids:
         features[uid] = torch.randn(4, generator=generator)
 
+    # max_epochs: epochs per round on the full split; a test varies it to model sites with different weighted epochs.
     state = types.SimpleNamespace(events=[], fits=[], served=served, uids=uids, labels=dict(zip(uids, labels)),
-                                  total_rounds=3, scratch=tmp_path / "scratch")
+                                  total_rounds=3, scratch=tmp_path / "scratch", max_epochs=1)
 
     def build_run():
         torch.manual_seed(0)
@@ -514,7 +515,7 @@ def swarm(monkeypatch, tmp_path):
         )
         recorder = RecordingLogger()
         trainer = pl.Trainer(
-            accelerator="cpu", devices=1, max_epochs=1, logger=[recorder], enable_progress_bar=False,
+            accelerator="cpu", devices=1, max_epochs=state.max_epochs, logger=[recorder], enable_progress_bar=False,
             enable_model_summary=False, num_sanity_val_steps=0, default_root_dir=str(tmp_path / "pl"),
             callbacks=[ModelCheckpoint(dirpath=str(tmp_path / "ckpt"), save_last=True)],
         )
@@ -642,6 +643,90 @@ def test_selection_in_a_later_round_switches_epochs_from_then_on(swarm, monkeypa
     assert second.epochs == 2 and set(second.uids) == set(selected)
     assert third.epochs == 2 and set(third.uids) == set(selected)
     assert _record(swarm)["round"] == 1
+
+
+def _sent_num_steps(run):
+    from nvflare.app_common.abstract.fl_model import MetaKey
+
+    return [model.meta.get(MetaKey.NUM_STEPS_CURRENT_ROUND) for model in run.runtime.sent]
+
+
+def test_aggregation_weight_is_the_steps_trained_in_each_round(swarm, monkeypatch):
+    """SP-1: sites that train the same subset send the same weight, whatever they trained before the selection.
+
+    Lightning's estimate (FLCallback's default) multiplies the subset's steps per epoch by the cumulative epochs,
+    which after a round-1 selection gave [12, 9, 15] and [36, 15, 21] for these two sites.
+    """
+    monkeypatch.setenv("ODELIA_AL_STRATEGY", "random")
+    monkeypatch.setenv("ODELIA_AL_BUDGET", "6")
+    monkeypatch.setenv("ODELIA_AL_SELECT_ROUND", "1")
+    weights = {}
+    for epochs in (1, 3):  # two sites whose weighted epochs on the full split differ
+        swarm.max_epochs = epochs
+        run = swarm.run_main()
+        weights[epochs] = _sent_num_steps(run)
+        hook_callbacks = [cb for cb in run.trainer.callbacks if type(cb).__name__ == "ALRoundStepsCallback"]
+        assert len(hook_callbacks) == 1 and hook_callbacks[0].reported == weights[epochs]
+    # Round 0: 24 cases at batch 2 = 12 steps per epoch. Rounds 1 and 2: the 6 selected cases, 2 epochs = 6 steps.
+    assert weights[1] == [12, 6, 6]
+    assert weights[3] == [36, 6, 6]
+
+    monkeypatch.setenv("ODELIA_AL_SELECT_ROUND", "0")
+    swarm.max_epochs = 1
+    assert _sent_num_steps(swarm.run_main()) == [6, 6, 6]
+
+
+def test_round_steps_callback_reports_the_optimizer_steps_of_the_fit(al, caplog):
+    pytest.importorskip("pytorch_lightning")
+
+    class Module:
+        pass
+
+    module = Module()
+    setattr(module, "__fl_meta__", {"CUSTOM": "kept"})
+    trainer = types.SimpleNamespace(global_step=10)
+    callback = al.round_steps_callback(types.SimpleNamespace(current_round=4), logging.getLogger("t"))
+    callback.on_train_start(trainer, module)
+    trainer.global_step = 16
+    callback.on_train_end(trainer, module)
+    assert getattr(module, "__fl_meta__") == {"CUSTOM": "kept", "NUM_STEPS_CURRENT_ROUND": 6}
+    with caplog.at_level(logging.WARNING):
+        callback.on_train_start(trainer, module)
+        callback.on_train_end(trainer, module)  # no optimizer step: still a positive weight
+    assert getattr(module, "__fl_meta__")["NUM_STEPS_CURRENT_ROUND"] == 1 and "reporting weight 1" in caplog.text
+    assert callback.reported == [6, 1]
+
+
+def test_dp_equal_weights_leave_the_aggregation_weight_to_dp_noise(al):
+    pytest.importorskip("pytorch_lightning")
+    ctx = types.SimpleNamespace(logger=None, current_round=0)
+    selection = {"ODELIA_AL_STRATEGY": "random", "ODELIA_AL_BUDGET": "3"}
+    hook = al.create_hook({**selection, "ODELIA_DP_EQUAL_WEIGHTS": "1"}, logging.getLogger("t"))
+    assert hook.config.dp_equal_weights is True and hook.lightning_callbacks(ctx) == []
+    hook = al.create_hook(selection, logging.getLogger("t"))
+    assert [type(cb).__name__ for cb in hook.lightning_callbacks(ctx)] == ["ALRoundStepsCallback"]
+
+
+def test_a_test_split_pool_still_leaves_unreadable_cases_out(al, odelia, monkeypatch):
+    """DE-2: with ODELIA_STRICT_EVAL_INPUTS=1 the test split itself stops at an unreadable case; the pool view
+    keeps the neighbour + UID check either way."""
+    monkeypatch.setenv("ODELIA_STRICT_EVAL_INPUTS", "1")
+    uids = [f"u_{i}" for i in range(6)]
+    labels = {u: i % 3 for i, u in enumerate(uids)}
+    ds = odelia.make(uids, [labels[u] for u in uids], unreadable={"u_2"}, split="test")
+    with pytest.raises(RuntimeError, match="never replaced by its neighbour"):
+        ds[2]
+    rows, unusable = al.score_pool(_Scorer(), al.eval_view(ds, ds.transform), labels, device="cpu")
+    assert unusable == ["u_2"] and [r[0] for r in rows] == [u for u in uids if u != "u_2"]
+
+
+def test_a_training_subset_drawn_from_the_test_split_keeps_resampling(swarm, monkeypatch):
+    monkeypatch.setenv("ODELIA_AL_STRATEGY", "random")
+    monkeypatch.setenv("ODELIA_AL_BUDGET", "2")
+    monkeypatch.setenv("ODELIA_AL_POOL_SPLIT", "test")
+    run = swarm.run_main()
+    assert run.dm.ds_train.split == "test" and run.dm.ds_train.resample_bad_inputs is True
+    assert getattr(run.dm.ds_test, "resample_bad_inputs", None) is None  # the evaluation split is untouched
 
 
 def test_records_keep_uids_at_the_site_and_stream_only_aggregates(swarm, monkeypatch):

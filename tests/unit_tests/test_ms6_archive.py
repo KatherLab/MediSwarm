@@ -150,8 +150,13 @@ def make_state(seed):
 
 
 @pytest.fixture
-def swarm(ms6, tmp_path):
-    """One client (streamer + controller) and the server (archive), joined by the loopback."""
+def swarm(ms6, tmp_path, monkeypatch):
+    """One client (streamer + controller) and the server (archive), joined by the loopback.
+
+    archive_root counts as a mount point here, as /archive is on a 1.9.0 server (docker.sh binds a host
+    directory to it); the tests of the mount check replace _is_mount_point themselves.
+    """
+    monkeypatch.setattr(ms6.archive, "_is_mount_point", lambda path: True)
     client_engine = FakeEngine("SITE_A", JOB_ID)
     server_engine = FakeEngine("server", JOB_ID, run_dir=tmp_path / "server_run")
     server_engine.run_dir.mkdir()
@@ -159,8 +164,9 @@ def swarm(ms6, tmp_path):
     app_dir = tmp_path / "app_SITE_A"
     app_dir.mkdir()
 
-    def start_archive(enabled=True, archive_root=None):
-        archive = ms6.archive.MS6GlobalArchive(enabled=enabled, archive_root=str(archive_root or tmp_path / "archive"))
+    def start_archive(enabled=True, archive_root=None, **archive_args):
+        archive = ms6.archive.MS6GlobalArchive(enabled=enabled, archive_root=str(archive_root or tmp_path / "archive"),
+                                               **archive_args)
         archive.handle_event(EventType.START_RUN, server_engine.new_context())
         return archive
 
@@ -373,6 +379,46 @@ def test_an_unwritable_archive_root_falls_back_to_the_run_directory(swarm, caplo
     assert manifest["fallback_dir"] is True and list(manifest["rounds"]) == ["3"]
 
 
+def test_an_archive_root_that_is_not_a_mount_point_falls_back_with_a_warning(swarm, ms6, monkeypatch, caplog):
+    """SO-6: a root server can create /archive inside its own container; that must not count as an archive."""
+    monkeypatch.setattr(ms6.archive, "_is_mount_point", lambda path: False)
+    with caplog.at_level(logging.WARNING):
+        parts = swarm.build()
+    fallback = swarm.server_engine.run_dir / "ms6_global_archive"
+    assert parts.archive.archive_dir == fallback
+    assert "not a mount point" in caplog.text and "not usable" in caplog.text
+    assert not (swarm.tmp_path / "archive").exists(), "nothing may be created under an unmounted archive_root"
+    swarm.aggregate(parts, 2, make_state(1))
+    manifest = _manifest(fallback)
+    assert manifest["fallback_dir"] is True and "not a mount point" in manifest["fallback_reason"]
+    assert list(manifest["rounds"]) == ["3"]
+
+
+def test_require_mount_false_archives_into_a_plain_directory(swarm, ms6, monkeypatch, caplog):
+    monkeypatch.setattr(ms6.archive, "_is_mount_point", lambda path: False)
+    with caplog.at_level(logging.WARNING):
+        archive = swarm.start_archive(require_mount=False)
+    assert archive.archive_dir == swarm.archive_dir
+    assert "require_mount = false" in caplog.text
+    manifest = _manifest(swarm.archive_dir)
+    assert manifest["fallback_dir"] is False and manifest["fallback_reason"] is None
+
+
+def test_a_mounted_archive_root_is_used_without_warnings(swarm, caplog):
+    with caplog.at_level(logging.WARNING):
+        archive = swarm.start_archive()
+    assert archive.archive_dir == swarm.archive_dir and "MS6 archive" not in caplog.text
+
+
+def test_mount_point_check_resolves_symlinks(ms6, tmp_path):
+    assert ms6.archive._is_mount_point("/")
+    assert not ms6.archive._is_mount_point(tmp_path)
+    assert not ms6.archive._is_mount_point(tmp_path / "missing")
+    link = tmp_path / "link_to_root"
+    link.symlink_to("/")
+    assert ms6.archive._is_mount_point(link)
+
+
 def test_missing_rounds_are_reported_at_the_end(swarm, caplog):
     parts = swarm.build()
     swarm.aggregate(parts, 0, make_state(1))
@@ -434,6 +480,7 @@ def test_component_arguments_are_validated(ms6):
     # Defaults: off.
     assert ms6.archive.MS6GlobalStreamer().enabled is False
     assert ms6.archive.MS6GlobalArchive().enabled is False and ms6.archive.MS6GlobalArchive().archive_root == "/archive"
+    assert ms6.archive.MS6GlobalArchive().require_mount is True
 
 
 @pytest.mark.parametrize("template", ["ODELIA_ternary_classification", "challenge_1DivideAndConquer"])
@@ -450,3 +497,4 @@ def test_job_templates_carry_both_components_disabled(template):
         assert f'path = "{path}"' in block
         assert "enabled = false" in block
     assert 'archive_root = "/archive"' in server[server.index('id = "ms6_global_archive"'):]
+    assert "require_mount = true" in server[server.index('id = "ms6_global_archive"'):]

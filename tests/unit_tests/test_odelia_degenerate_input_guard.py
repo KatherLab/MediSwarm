@@ -1,4 +1,4 @@
-"""Tests for the degenerate/corrupt-input guard (skip-resample, not zero-fill)."""
+"""Tests for the degenerate/corrupt-input guard (skip-resample in training splits, stop in val/test, never zero-fill)."""
 import sys
 import types
 from pathlib import Path
@@ -28,13 +28,13 @@ def test_znorm_raises_degenerate_on_constant_image():
     assert exc.value.reason == "empty_or_too_small_mask"
 
 
-def _make_dataset(transform, n=5):
+def _make_dataset(transform, n=5, split="train"):
     import pandas as pd
     ds = ODELIA_Dataset3D.__new__(ODELIA_Dataset3D)
     ds.df = pd.DataFrame({"UID": [f"u{i}" for i in range(n)], "Institution": ["X"] * n, "Lesion": [0] * n})
     ds.item_pointers = list(ds.df.index)
     ds.labels = ["Lesion"]
-    ds.split = "train"
+    ds.split = split
     ds.config = "unilateral"
     ds._bad_input_count = 0
     ds._bad_input_logged = set()
@@ -111,6 +111,70 @@ def test_getitem_propagates_real_transform_bugs():
     ds = _make_dataset(transform, n=5)
     with pytest.raises(ValueError, match="a real bug"):
         _ = ds[0]
+
+
+def _degenerate_u1(uid):
+    if uid == "u1":
+        raise DegenerateImageError(uid, "/p", "empty_or_too_small_mask", 0)
+    return f"img:{uid}"
+
+
+@pytest.fixture
+def scratch(monkeypatch, tmp_path):
+    monkeypatch.setenv("SCRATCH_DIR", str(tmp_path))
+    return tmp_path
+
+
+@pytest.fixture
+def strict_eval(monkeypatch):
+    monkeypatch.setenv("ODELIA_STRICT_EVAL_INPUTS", "1")
+
+
+@pytest.mark.parametrize("split", ["val", "test"])
+def test_evaluation_splits_substitute_by_default_and_say_so(split, scratch, caplog):
+    """DE-2 default: a strict run must not end at round 0 over one bad case, so the neighbour is served, loudly."""
+    ds = _make_dataset(_degenerate_u1, n=5, split=split)
+    with caplog.at_level("WARNING"):
+        assert ds[1]["uid"] == "u2"
+    assert "SUBSTITUTED by a neighbouring case" in caplog.text and "ODELIA_STRICT_EVAL_INPUTS=1" in caplog.text
+
+
+@pytest.mark.parametrize("split", ["val", "test"])
+def test_strict_evaluation_splits_never_replace_a_bad_case_by_its_neighbour(split, scratch, strict_eval):
+    """DE-2 with ODELIA_STRICT_EVAL_INPUTS=1: the neighbour would be scored twice and the bad case would vanish."""
+    ds = _make_dataset(_degenerate_u1, n=5, split=split)
+    assert ds[0]["uid"] == "u0"
+    with pytest.raises(RuntimeError) as exc:
+        ds[1]
+    message = str(exc.value)
+    assert f"unusable input in the {split} split" in message and "never replaced by its neighbour" in message
+    assert "ODELIA_EXCLUDE_UIDS_FILE" in message
+    assert "u1" not in message.replace(str(scratch), "")  # the UID stays in the local jsonl
+    assert ds._bad_input_count == 1
+    assert '"uid": "u1"' in (scratch / "odelia_bad_inputs.jsonl").read_text()
+    assert ds[2]["uid"] == "u2"  # every other position still serves its own case
+
+
+def test_an_unreadable_evaluation_case_says_fix_permissions(scratch, strict_eval):
+    ds = _make_dataset(lambda uid: uid, n=3, split="test")
+
+    def loader(path, inst, uid):
+        raise PermissionError(13, "Permission denied", str(path))
+    ds._load_source_image = loader
+    with pytest.raises(RuntimeError) as exc:
+        ds[0]
+    assert "load_error:PermissionError" in str(exc.value) and "do NOT exclude the data" in str(exc.value)
+
+
+def test_resampling_follows_the_split_unless_set_per_instance(scratch, strict_eval):
+    val = _make_dataset(_degenerate_u1, n=5, split="val")
+    val.resample_bad_inputs = True  # e.g. al_subset's pool view, which detects the substitution by UID
+    assert val[1]["uid"] == "u2"
+    train = _make_dataset(_degenerate_u1, n=5, split="train")
+    assert train[1]["uid"] == "u2"
+    train.resample_bad_inputs = False
+    with pytest.raises(RuntimeError, match="never replaced by its neighbour"):
+        train[1]
 
 
 def test_find_degenerate_inputs_flags_constant_and_corrupt():

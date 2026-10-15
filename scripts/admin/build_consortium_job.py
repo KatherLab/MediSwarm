@@ -40,8 +40,10 @@ Round hook order. ``ODELIA_ROUND_HOOKS`` lists modules in a fixed order:
 callbacks are inserted directly before FLCallback in that same order (contract 3.1), so:
 
 * ``al_subset`` first: it replaces the training set (``ctx.data_module``) before any
-  other hook or the trainer reads it, so MS6 metadata and the step count that weights
-  the aggregation both describe the subset that was actually trained.
+  other hook or the trainer reads it, so MS6 metadata describes the subset that was
+  actually trained. Its callback reports the optimizer steps trained in the round as the
+  aggregation weight (NUM_STEPS_CURRENT_ROUND); Lightning's own estimate is cumulative
+  and, after a selection in a later round, still counts each site's earlier epochs.
 * ``ms6_capture`` before ``dp_noise``: ms6_capture keeps W_r in its after_round, after
   FLCallback sent it, so the file is the released (clipped and noised) update in either
   order; listed first, its after_round also runs before anything dp_noise does there.
@@ -117,6 +119,7 @@ BASE_JOBS: Dict[str, Dict[str, Any]] = {
 }
 CONFIG_CHOICES = ("unilateral", "unilateral_BD", "original")
 AL_STRATEGIES = ("entropy", "random", "class_matched_random")
+AL_POOL_SPLITS = ("train", "test")  # al_subset.POOL_SPLITS
 HOOK_ORDER = ("al_subset", "ms6_capture", "dp_noise")
 HOOK_FOR_PREFIX = (
     ("ODELIA_AL_", "al_subset"),
@@ -447,6 +450,7 @@ class Plan:
     hooks: List[str]
     archive_globals: bool
     archive_root: Optional[str]
+    archive_require_mount: bool
     dp: Dict[str, Any]
     per_case: str
     warnings: List[str] = field(default_factory=list)
@@ -669,6 +673,13 @@ def make_plan(args: argparse.Namespace) -> Plan:
         raise BuildError("--archive-root needs --archive-globals")
     if args.archive_root:
         _check_path(args.archive_root, "--archive-root")
+    if args.archive_allow_unmounted:
+        if not args.archive_globals:
+            raise BuildError("--archive-allow-unmounted needs --archive-globals")
+        warnings.append(
+            "--archive-allow-unmounted: the coordinator archives into archive_root even if it is not a mount "
+            "point; in a server container that directory is lost with the container"
+        )
 
     # Active learning / training subset.
     if args.al_strategy or args.al_budget is not None:
@@ -686,16 +697,35 @@ def make_plan(args: argparse.Namespace) -> Plan:
         al_seed = args.al_seed if args.al_seed is not None else 0
         if al_seed < 0:
             raise BuildError("--al-seed must be >= 0")
-        pool = args.al_pool_split or "train"
-        if not ENV_VALUE_RE.match(pool):
-            raise BuildError(f"--al-pool-split {pool!r}: invalid split name")
+        pool = (args.al_pool_split or "train").strip().lower()
+        if pool not in AL_POOL_SPLITS:
+            # al_subset refuses anything else at every site ('val' on purpose: it picks the checkpoints).
+            raise BuildError(f"--al-pool-split {pool!r}: expected one of {', '.join(AL_POOL_SPLITS)}")
+        if pool == "test":
+            # The test split stays the evaluation split, so final_test/* (evaluation-only round) and the local
+            # test exports would score cases the run trained on, and the coordinator's cross_val_results.json
+            # carries no marker of it (the al/* metrics are not among PerSiteMetricCollector's prefixes).
+            if not args.al_allow_test_pool:
+                raise BuildError(
+                    "--al-pool-split test trains on test cases: final_test/* and the local test exports of this run "
+                    "would no longer be held out, and cross_val_results.json would not say so. Pass "
+                    "--al-allow-test-pool if that is the experiment."
+                )
+            warnings.append(
+                "--al-pool-split test: the selected test cases are trained on; final_test/* and the local test "
+                "exports of this run are not held-out results"
+            )
+        elif args.al_allow_test_pool:
+            raise BuildError("--al-allow-test-pool only applies to --al-pool-split test")
         env["ODELIA_AL_STRATEGY"] = args.al_strategy
         env["ODELIA_AL_BUDGET"] = str(args.al_budget)
         env["ODELIA_AL_POOL_SPLIT"] = pool
         env["ODELIA_AL_SEED"] = str(al_seed)
         env["ODELIA_AL_SELECT_ROUND"] = str(select_round)
-    elif args.al_pool_split or args.al_seed is not None or args.al_select_round is not None:
-        raise BuildError("--al-pool-split/--al-seed/--al-select-round need --al-strategy and --al-budget")
+    elif args.al_pool_split or args.al_seed is not None or args.al_select_round is not None or args.al_allow_test_pool:
+        raise BuildError(
+            "--al-pool-split/--al-seed/--al-select-round/--al-allow-test-pool need --al-strategy and --al-budget"
+        )
     if args.train_include_list:
         env["ODELIA_TRAIN_INCLUDE_LIST"] = _check_path(args.train_include_list, "--train-include-list")
 
@@ -731,6 +761,7 @@ def make_plan(args: argparse.Namespace) -> Plan:
         hooks=hooks,
         archive_globals=bool(args.archive_globals),
         archive_root=args.archive_root,
+        archive_require_mount=not args.archive_allow_unmounted,
         dp=dp,
         per_case=per_case,
         warnings=warnings,
@@ -943,6 +974,9 @@ def assemble_job(plan: Plan, source: SourceTree, job_dir: Path) -> None:
         server.set_value(hocon.component_args(SERVER_ARCHIVE_ID), "enabled", plan.archive_globals)
         if plan.archive_root:
             server.set_value(hocon.component_args(SERVER_ARCHIVE_ID), "archive_root", plan.archive_root)
+        if not plan.archive_require_mount:
+            # Written only when overridden: the default (true) lives in ms6_archive.py.
+            server.set_value(hocon.component_args(SERVER_ARCHIVE_ID), "require_mount", False)
     elif plan.archive_globals:
         raise BuildError(
             f"--archive-globals: the {plan.base_job} template has no '{SERVER_ARCHIVE_ID}' server component "
@@ -1151,6 +1185,17 @@ def code_support_problems(plan: Plan, custom_dir: Path) -> List[str]:
         elif is_active is None and key.startswith("ODELIA_") and key not in MANAGED_ENV and key not in corpus:
             plan.warnings.append(f"--env {key}: not mentioned in the job's code; check the name")
 
+    select_round = plan.launcher_env.get("ODELIA_AL_SELECT_ROUND", "0")
+    if select_round.isdigit() and int(select_round) > 0:
+        if "round_steps_callback" not in _python_corpus(custom_dir, ["al_subset.py"]):
+            problems.append(
+                f"ODELIA_AL_SELECT_ROUND={select_round}: the job's al_subset.py weights the aggregation with "
+                "Lightning's cumulative step estimate, which after a later-round selection still counts the "
+                "per-site epochs trained before it (SP-1); needs al_subset's round_steps_callback"
+            )
+    if not plan.archive_require_mount and "require_mount" not in _python_corpus(custom_dir, ["ms6_archive.py"]):
+        problems.append("--archive-allow-unmounted: the job's ms6_archive.py has no require_mount argument")
+
     if plan.hooks:
         if not (custom_dir / "round_hooks.py").is_file():
             problems.append("ODELIA_ROUND_HOOKS is set but the job code has no round_hooks.py")
@@ -1301,6 +1346,8 @@ def validate_job(plan: Plan, job_dir: Path) -> Dict[str, Any]:
         a_on = bool((archive or {}).get("args", {}).get("enabled", False))
         check(s_on == plan.archive_globals and a_on == plan.archive_globals, "MS6 archive components",
               f"streamer={s_on} archive={a_on}")
+        a_mount = bool((archive or {}).get("args", {}).get("require_mount", True))
+        check(a_mount == plan.archive_require_mount, "MS6 archive require_mount", f"{a_mount}")
 
     if plan.per_case == "off":
         check(token_env.get("ODELIA_RETURN_PER_CASE") == "0", "per-case return forced off")
@@ -1458,7 +1505,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ms6.add_argument("--ms6-capture-optimizer", action="store_true", help="also keep the optimizer state")
     ms6.add_argument("--archive-globals", action="store_true",
                      help=f"enable {CLIENT_STREAMER_ID}/{SERVER_ARCHIVE_ID} (per-round globals to the coordinator)")
-    ms6.add_argument("--archive-root", help="archive_root of the server component (default in the template)")
+    ms6.add_argument("--archive-root", help="archive_root of the server component (default in the template); "
+                                             "it must be a mount point in the server container")
+    ms6.add_argument("--archive-allow-unmounted", action="store_true",
+                     help="archive into archive_root even if it is not a mount point (server outside a container); "
+                          "default: the archive falls back to the job's run directory with a warning")
 
     dp = p.add_argument_group("differential privacy (T3.3, #593); implies --per-case off")
     dp.add_argument("--dp-sigma", type=float, help="noise multiplier")
@@ -1471,7 +1522,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     al = p.add_argument_group("training subset / active learning (D3.2)")
     al.add_argument("--al-strategy", choices=AL_STRATEGIES)
     al.add_argument("--al-budget", type=int, help="cases selected per site")
-    al.add_argument("--al-pool-split", help="split scored as the pool (default train)")
+    al.add_argument("--al-pool-split", help="split scored as the pool: train (default) or test")
+    al.add_argument("--al-allow-test-pool", action="store_true",
+                    help="accept --al-pool-split test: final_test/* then includes training cases")
     al.add_argument("--al-seed", type=int, help="seed of the random arms (default 0)")
     al.add_argument("--al-select-round", type=int, help="round whose received global scores the pool (default 0)")
     al.add_argument("--train-include-list", help="UID list at the site that restricts training")

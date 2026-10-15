@@ -15,7 +15,7 @@ Two job components, present but disabled in the job templates; the job builder f
         { id = "ms6_global_streamer", path = "ms6_archive.MS6GlobalStreamer", args { enabled = false } }
     server, config_fed_server.conf (server job process):
         { id = "ms6_global_archive", path = "ms6_archive.MS6GlobalArchive",
-          args { enabled = false, archive_root = "/archive" } }
+          args { enabled = false, archive_root = "/archive", require_mount = true } }
 
 Both must be enabled together: a streamer without the archive logs an ERROR per round (training goes on).
 
@@ -48,9 +48,14 @@ The server checks the received bytes against the sha256 and size the sender decl
 site and the job id from the authenticated peer context (never from client-supplied fields), refuses
 streams larger than ``max_file_bytes`` or than the free disk, never unpickles anything, and writes
 <archive_root>/<job_id>/round_<rr>_global.pt, manifest.json and SHA256SUMS (``sha256sum -c`` compatible).
-When archive_root is not writable it falls back to <server run dir>/ms6_global_archive, which download_job
-returns but which disappears with the job store: point archive_root at a host-mounted directory for real
-runs. A copy of the manifest is always written to <server run dir>/ms6_global_archive.json.
+archive_root must be a mount point (the 1.9.0 server docker.sh binds a host directory to /archive): the
+coordinator runs as root, so on a server without that mount /archive would simply be created inside the
+container and the archive (GBs per run) would vanish with the container, with nothing in the logs. When
+archive_root is not a mount point, or not writable, the archive falls back to <server run dir>/
+ms6_global_archive with a WARNING and "fallback_dir": true in the manifest; download_job returns that
+directory, but it disappears with the job store. require_mount = false accepts an archive_root that is not
+a mount point (a server running outside a container). A copy of the manifest is always written to
+<server run dir>/ms6_global_archive.json.
 """
 
 import collections
@@ -133,6 +138,14 @@ _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]")
 
 def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+
+
+def _is_mount_point(path) -> bool:
+    """True if ``path`` (symlinks resolved) is a mount point, such as the host directory docker.sh binds to /archive."""
+    try:
+        return os.path.ismount(os.path.realpath(path))
+    except (OSError, ValueError):
+        return False
 
 
 def archive_file_name(round_number: int) -> str:
@@ -591,16 +604,25 @@ class MS6GlobalArchive(FLComponent):
     Args:
         enabled: off by default; the job builder switches it on together with the clients' streamer.
         archive_root: files go to <archive_root>/<job_id>/; falls back to <server run dir>/ms6_global_archive
-            when archive_root cannot be written.
+            when archive_root is not a mount point (see require_mount) or cannot be written.
+        require_mount: true (default): use archive_root only if it is a mount point, i.e. storage that outlives
+            the server container. false: use it anyway (a server that does not run in a container).
         max_file_bytes: largest file accepted (default 16 GiB).
     """
 
-    def __init__(self, enabled: bool = False, archive_root: str = "/archive", max_file_bytes: int = 16 * 1024**3):
+    def __init__(
+        self,
+        enabled: bool = False,
+        archive_root: str = "/archive",
+        max_file_bytes: int = 16 * 1024**3,
+        require_mount: bool = True,
+    ):
         super().__init__()
         if not isinstance(max_file_bytes, int) or max_file_bytes <= 0:
             raise ValueError(f"max_file_bytes must be a positive int, got {max_file_bytes!r}")
         self.enabled = bool(enabled)
         self.archive_root = archive_root
+        self.require_mount = bool(require_mount)
         self.max_file_bytes = max_file_bytes
         self.job_id = ""
         self.run_dir: Optional[Path] = None
@@ -634,13 +656,34 @@ class MS6GlobalArchive(FLComponent):
         except Exception as exc:
             return repr(exc)
 
+    def _root_problem(self) -> Optional[str]:
+        """None if archive_root may hold the archive, else why not (checked before anything is created there)."""
+        if not self.archive_root:
+            return "archive_root is empty"
+        if _is_mount_point(self.archive_root):
+            return None
+        if self.require_mount:
+            # Checked first: _usable() would create the directory, and a root server can always create
+            # /archive inside its own container, which is exactly the silent case this guards against.
+            return (
+                f"{self.archive_root} is not a mount point, so the archive would be written into the server "
+                f"container's own filesystem and lost with the container (require_mount = false accepts it)"
+            )
+        self.logger.warning(
+            f"MS6 archive: archive_root {self.archive_root!r} is not a mount point; used because require_mount = "
+            f"false. If this server runs in a container, the archive is lost with the container."
+        )
+        return None
+
     def _start(self, fl_ctx: FLContext) -> None:
         self.job_id = _safe_name(fl_ctx.get_job_id())
         engine = fl_ctx.get_engine()
         self.run_dir = Path(engine.get_workspace().get_run_dir(fl_ctx.get_job_id()))
         preferred = Path(self.archive_root) / self.job_id if self.archive_root else None
         fallback = self.run_dir / FALLBACK_DIR_NAME
-        problem = self._usable(preferred) if preferred is not None else "archive_root is empty"
+        problem = self._root_problem()
+        if problem is None:
+            problem = self._usable(preferred)
         if problem is None:
             self.archive_dir = preferred
         else:
@@ -648,12 +691,13 @@ class MS6GlobalArchive(FLComponent):
             if fallback_problem is not None:
                 self.logger.error(
                     f"MS6 archive DISABLED: neither {preferred} ({problem}) nor {fallback} ({fallback_problem}) "
-                    f"is writable"
+                    f"is usable"
                 )
                 return
             self.logger.warning(
                 f"MS6 archive: archive_root {self.archive_root!r} not usable ({problem}); archiving into the job's "
-                f"run directory {fallback}, which is deleted with the job store. Mount a host directory for real runs."
+                f"run directory {fallback}, which is deleted with the job store. Mount a host directory at "
+                f"archive_root for real runs (the 1.9.0 server docker.sh mounts one at /archive)."
             )
             self.archive_dir = fallback
         self.incoming_dir = self.archive_dir / ".incoming"
@@ -663,6 +707,7 @@ class MS6GlobalArchive(FLComponent):
             "job_id": self.job_id,
             "archive_dir": str(self.archive_dir),
             "fallback_dir": self.archive_dir == fallback,
+            "fallback_reason": problem,
             "tensor_digest": "tensor_sha256 is computed by the sending client with ms6_capture.tensor_digest",
             "rounds": {},
             "conflicts": [],
