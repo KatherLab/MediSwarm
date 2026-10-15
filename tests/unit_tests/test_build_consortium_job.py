@@ -596,6 +596,8 @@ def test_archive_globals_needs_the_components_in_the_template(tmp_path, capsys):
         (["--env", "FOO=1", "--env", "FOO=2"], "given twice"),
         (["--env", "lower-case=1"], "expected KEY=VALUE"),
         (["--sites", "CAM_1,CAM_1"], "duplicate"),
+        # NVFlare's swarm server controller refuses a single participant at deploy time.
+        (["--sites", "MHA_1"], "at least 2 sites"),
         (["--name", "bad name"], "--name"),
     ],
 )

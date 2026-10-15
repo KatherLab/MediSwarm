@@ -163,6 +163,10 @@ stops the job (round hooks safety net). Hooks run only in `TRAINING_MODE=swarm`.
 - a per-job global mirror (`latest_global_path`, default `/scratch/mediswarm_latest_global_<name>.pt`),
   so the DP global does not become the warm start of later non-DP jobs.
 
+The consortium utility run of November 2026 (sigma 2.4, clip norm 1.0, epsilon at most 10 at delta
+1e-5 over 20 rounds) is the preset `dp_s24` of `scripts/admin/odelia_run_plan.py`
+([ODELIA_RUN_PLAN_2026-Q4.md](ODELIA_RUN_PLAN_2026-Q4.md)).
+
 `params_transfer_type = "DIFF"` comes from the templates. The builder does not change the server's
 per-site metric collector, which keeps only the validation and test metric prefixes, so the `dp/*`
 values reach the coordinator in the metric stream but are not written to `cross_val_results.json`.

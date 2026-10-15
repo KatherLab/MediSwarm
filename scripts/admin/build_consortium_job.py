@@ -14,7 +14,8 @@ What it does, in order:
    ref (``git:v1.9.0``), a release image (``image:jefftud/odelia:1.9.0``) or any
    MediSwarm tree (``dir:<path>``). The copy resolves the ``app/custom`` symlink (the
    job code travels with the job) and drops ``app/tests`` and ``app/scripts``.
-2. Applies the strict roster with ``patch_warm_start_job.py``: every site mandatory,
+2. Applies the strict roster (at least two sites: NVFlare's swarm controller refuses a single
+   participant) with ``patch_warm_start_job.py``: every site mandatory,
    ``min_clients = configure_min_clients = min_responses_required = number of sites``
    (F8 in docs/SWARM_FAILURE_MODES.md), ``participating_clients`` and ``num_rounds``.
 3. Sets ``meta.conf``: the job name and ``deploy_map = ["server", <sites>]``.
@@ -491,6 +492,13 @@ def make_plan(args: argparse.Namespace) -> Plan:
         raise BuildError(f"--name {args.name!r}: use letters, digits and _.- (it names the folder and the mirror)")
     base = BASE_JOBS[args.base_job]
     sites = parse_sites(args.sites)
+    if len(sites) < 2:
+        # NVFlare's swarm server controller (ccwf ServerSideController.__init__) raises "Not enough
+        # participating_clients: must > 1" when the job is deployed, after every check here passed.
+        raise BuildError(
+            f"--sites {','.join(sites)}: a swarm job needs at least 2 sites; NVFlare's swarm_controller refuses "
+            "fewer participating clients when the job starts ('Not enough participating_clients: must > 1')"
+        )
     if args.rounds is None or args.rounds < 1:
         raise BuildError("--rounds must be a positive number of training rounds")
     rounds = args.rounds
@@ -1462,10 +1470,13 @@ examples:
   build_consortium_job.py --name odelia_mst_dp_s24 --model MST --rounds 20 --dp-sigma 2.4 \\
       --dp-clip-norm 1.0 --dp-target-epsilon 10 --out-dir <dir>
 
-  # D3.2 arm: warm start from the August global held by UKA_1, entropy selection of 40 cases
+  # D3.2 arm: warm start from the August global held by UMCU_1, entropy selection of 40 cases
   build_consortium_job.py --name d32_entropy_b40 --base-job challenge_1DivideAndConquer --rounds 5 \\
       --warm-start source:/scratch/odelia_87c5bbee_global.pt:<file sha256> --warm-start-digest <state digest> \\
-      --starting-client UKA_1 --al-strategy entropy --al-budget 40 --out-dir <dir>
+      --starting-client UMCU_1 --al-strategy entropy --al-budget 40 --out-dir <dir>
+
+  # The scheduled runs of October to November 2026, with their sha256 and digest filled in
+  odelia_run_plan.py --list    (docs/ODELIA_RUN_PLAN_2026-Q4.md)
 """
 
 
