@@ -8,3 +8,28 @@ LOG_SYNC_INTERVAL=30
 CKPT_SYNC_INTERVAL=180
 
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=5"
+
+# >>> kit upload key >>>
+# Kits from 1.9.0 on carry this site's own upload key (startup/upload_key) and the upload
+# host's public key (startup/upload_known_hosts). When both files are next to this file,
+# live sync logs in with that key only and refuses a host that does not show that host
+# key, instead of offering this account's own ~/.ssh keys to an unchecked host. The options
+# go in front of SSH_OPTS because ssh keeps the first value it gets for an option. A kit
+# without the two files keeps SSH_OPTS as it is; so does a site that assigns SSH_OPTS
+# itself after this block. The build adds this block to every kit's sync.conf, so leave it
+# here even when you edit the settings above.
+_kit_upload_dir="$(cd -- "$(dirname -- "${BASH_SOURCE:-/nonexistent/sync.conf}")" 2>/dev/null && pwd)" || _kit_upload_dir=""
+if [ -n "$_kit_upload_dir" ] && [ -f "$_kit_upload_dir/upload_key" ] && [ -f "$_kit_upload_dir/upload_known_hosts" ]; then
+  case "$_kit_upload_dir" in
+    *[!A-Za-z0-9._/+:@,=-]*)
+      # SSH_OPTS is split on blanks, so a path with blanks or wildcards cannot go in.
+      echo "[WARN] sync.conf: cannot use the kit upload key from '$_kit_upload_dir' (blank or special character in the path); move the kit to a plain path." >&2
+      ;;
+    *)
+      # ssh ignores a private key that others can read (e.g. after an unzip that drops modes)
+      if [ -O "$_kit_upload_dir/upload_key" ]; then chmod go-rwx "$_kit_upload_dir/upload_key" 2>/dev/null || true; fi
+      SSH_OPTS="-i $_kit_upload_dir/upload_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$_kit_upload_dir/upload_known_hosts -o StrictHostKeyChecking=yes -o HostKeyAlias=mediswarm-upload-host -o CheckHostIP=no ${SSH_OPTS:-}"
+      ;;
+  esac
+fi
+# <<< kit upload key <<<
