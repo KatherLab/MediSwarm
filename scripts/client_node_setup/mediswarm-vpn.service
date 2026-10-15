@@ -1,24 +1,33 @@
 [Unit]
 Description=MediSwarm VPN Connection (GoodAccess/OpenVPN)
-Documentation=https://github.com/KatherLab/MediSwarm
+Documentation=https://github.com/KatherLab/MediSwarm/blob/main/docs/VPN_SERVICE.md
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=simple
-# The config path is set by setup_vpntunnel.sh -s during installation.
-# It copies the .ovpn file to /etc/openvpn/client/mediswarm.conf and
-# injects keepalive + credential settings.
-ExecStart=/usr/sbin/openvpn --config /etc/openvpn/client/mediswarm.conf
+# Installed by setup_vpntunnel.sh -s, which writes /etc/openvpn/client/mediswarm.conf from the site's
+# .ovpn and copies the start wrapper to /usr/local/lib/mediswarm-vpn/.
+#
+# notify: OpenVPN reports READY only after "Initialization Sequence Completed", so the unit is
+# "activating" while it connects and "active" only with the tunnel up (with Type=simple it showed
+# "active" while OpenVPN failed, #620). setup_vpntunnel.sh switches to Type=simple for an OpenVPN
+# built without systemd support.
+Type=notify
+# Refuses to start next to another GoodAccess tunnel (exit 3) or without config/credentials (exit 4),
+# then execs /usr/sbin/openvpn --suppress-timestamps --config /etc/openvpn/client/mediswarm.conf.
+ExecStart=/usr/local/lib/mediswarm-vpn/vpn_service_start.sh
+WorkingDirectory=/etc/openvpn/client
 Restart=always
 RestartSec=15
+RestartPreventExitStatus=3 4
+# A connection attempt that has not completed after 2 minutes is ended and retried from scratch.
+TimeoutStartSec=120
 TimeoutStopSec=10
 
-# Security hardening
+# Security hardening (capability set as in the distribution's openvpn-client@.service)
 ProtectSystem=full
 ProtectHome=true
-NoNewPrivileges=false
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_OVERRIDE
+CapabilityBoundingSet=CAP_IPC_LOCK CAP_NET_ADMIN CAP_NET_RAW CAP_SETGID CAP_SETUID CAP_SETPCAP CAP_SYS_CHROOT CAP_DAC_OVERRIDE
 LimitNPROC=10
 
 [Install]
