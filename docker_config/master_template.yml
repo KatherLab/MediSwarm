@@ -1875,35 +1875,71 @@ docker_cln_sh: |
   SYNC_STATE_DIR="$DIR/.mediswarm_sync"
   SITE_NAME_RESOLVED="{~~client_name~~}"
 
+  _live_sync_is_this_kits() {
+      # Is PID $1 a live_sync daemon in mode $2 of THIS kit? A PID in swarm_sync.pid may be
+      # reused by another process after a reboot, or be another kit's daemon when the file came
+      # along with a copied kit; such a file is stale (#614).
+      local args root
+      [ -n "$1" ] && _pid_alive "$1" || return 1
+      args="$(_pid_args "$1")"
+      case "$args" in *live_sync.sh*"--mode $2 "*) ;; *) return 1 ;; esac
+      root="$(sed -n 's/.*--kit-root \([^ ]*\).*/\1/p' <<< "$args")"
+      [ -n "$root" ] && [ "$(_physical_dir "$root")" = "$(_physical_dir "$KIT_ROOT")" ]
+  }
+
+  _retire_other_kits_live_sync() {
+      # #614: a swarm daemon of another kit of this site (a kit this site has moved away from)
+      # keeps uploading heartbeats for the same site and clobbers this kit's. Stop it: it gets
+      # SIGTERM, uploads its final state, and gets SIGKILL after a minute. A daemon of another
+      # consortium's kit of the same site name (DECADE) stays; local-mode daemons end with
+      # their own docker.sh and upload under local/, so they stay as well.
+      local dpid dsite droot dmode this_phys
+      this_phys="$(_physical_dir "$KIT_ROOT")"
+      while IFS='|' read -r dpid dsite droot dmode; do
+          [ -n "$dpid" ] && [ "$dsite" = "$SITE_NAME_RESOLVED" ] && [ "$dmode" = swarm ] || continue
+          [ "$(_physical_dir "$droot")" != "$this_phys" ] || continue
+          if [ -d "$droot" ] && ! _is_odelia_client_kit "$droot"; then continue; fi
+          echo "Stopping the live_sync daemon (PID ${dpid}) of the kit ${droot}: it uploads for ${SITE_NAME_RESOLVED} too (#614)."
+          if ! _stop_daemon "$dpid"; then
+              echo "[WARN] Could not stop live_sync PID ${dpid} (another user's?); run  sudo kill ${dpid}"
+          fi
+      done <<< "$(_live_sync_daemons)"
+  }
+
   _start_live_sync() {
     local mode="$1"
     if [ ! -f "$DIR/live_sync.sh" ]; then return; fi
     mkdir -p "$SYNC_STATE_DIR"
+    # Started through bash, so a kit unzipped without the exec bit still runs it; the command
+    # line stays 'live_sync.sh --mode M --site-name S --kit-root R ...' (--status and
+    # --migrate_from read it). live_sync gets the kit version, the client container's name
+    # (its swarm daemon exits once that container is gone, #614) and the docker options, which
+    # tell it whether this site opted in to per-case return.
+    local -a sync_args=(--mode "$mode" --site-name "$SITE_NAME_RESOLVED" --kit-root "$KIT_ROOT"
+                        --startup-dir "$DIR" --scratch-dir "${MY_SCRATCH_DIR:-}" --container-name "$CONTAINER_NAME")
 
     if [ "$mode" = "local" ]; then
-      "$DIR/live_sync.sh" \
-        --mode local \
-        --site-name "$SITE_NAME_RESOLVED" \
-        --kit-root "$KIT_ROOT" \
-        --startup-dir "$DIR" \
-        --scratch-dir "${MY_SCRATCH_DIR:-}" &
+      MEDISWARM_KIT_VERSION="$KIT_VERSION" MEDISWARM_SYNC_DOCKER_OPTIONS="${EXTRA_DOCKER_OPTIONS:-}" \
+        bash "$DIR/live_sync.sh" "${sync_args[@]}" &
       LIVE_SYNC_PID=$!
     elif [ "$mode" = "swarm" ]; then
-      local pid_file="$SYNC_STATE_DIR/swarm_sync.pid"
-      if [ -f "$pid_file" ]; then
-        local old_pid
-        old_pid="$(cat "$pid_file" 2>/dev/null || true)"
-        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
-          echo "Live sync daemon already running (PID $old_pid)"
-          return 0
-        fi
+      _retire_other_kits_live_sync
+      local pid_file="$SYNC_STATE_DIR/swarm_sync.pid" old_pid dpid dsite droot dmode
+      old_pid="$(cat "$pid_file" 2>/dev/null || true)"
+      if ! _live_sync_is_this_kits "$old_pid" swarm; then
+        # No pid file, or a stale one: this kit's daemon may still run without it.
+        old_pid=""
+        while IFS='|' read -r dpid dsite droot dmode; do
+          if [ -n "$dpid" ] && _live_sync_is_this_kits "$dpid" swarm; then old_pid="$dpid"; break; fi
+        done <<< "$(_live_sync_daemons)"
       fi
-      nohup "$DIR/live_sync.sh" \
-        --mode swarm \
-        --site-name "$SITE_NAME_RESOLVED" \
-        --kit-root "$KIT_ROOT" \
-        --startup-dir "$DIR" \
-        --scratch-dir "${MY_SCRATCH_DIR:-}" \
+      if [ -n "$old_pid" ]; then
+        echo "$old_pid" > "$pid_file"
+        echo "Live sync daemon already running (PID $old_pid)"
+        return 0
+      fi
+      MEDISWARM_KIT_VERSION="$KIT_VERSION" MEDISWARM_SYNC_DOCKER_OPTIONS="${EXTRA_DOCKER_OPTIONS:-}" \
+        nohup bash "$DIR/live_sync.sh" "${sync_args[@]}" \
         > "$SYNC_STATE_DIR/live_sync_daemon.log" 2>&1 < /dev/null &
       echo $! > "$pid_file"
       echo "Started live sync daemon (PID $(cat "$pid_file"))"
@@ -1911,10 +1947,19 @@ docker_cln_sh: |
   }
 
   _stop_live_sync() {
-    if [ -n "${LIVE_SYNC_PID:-}" ] && kill -0 "$LIVE_SYNC_PID" 2>/dev/null; then
-      kill "$LIVE_SYNC_PID" || true
-      wait "$LIVE_SYNC_PID" || true
-    fi
+    # Local mode: SIGTERM makes live_sync upload the finished run (its EXIT trap). The wait is
+    # bounded, so a hung connection cannot keep docker.sh from returning; trapped on EXIT, INT
+    # and TERM, so the second call finds nothing to do.
+    local pid="${LIVE_SYNC_PID:-}" i
+    LIVE_SYNC_PID=""
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null || return 0
+    kill "$pid" 2>/dev/null || true
+    for i in $(seq 1 "${MEDISWARM_SYNC_STOP_SECONDS:-300}"); do
+      _pid_alive "$pid" || break
+      sleep 1
+    done
+    if _pid_alive "$pid"; then kill -9 "$pid" 2>/dev/null || true; fi
+    wait "$pid" 2>/dev/null || true
   }
 
   # ── Pre-run host checks ────────────────────────────────────────────

@@ -9,6 +9,21 @@ CKPT_SYNC_INTERVAL=180
 
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=5"
 
+# What leaves the site (1.9.0 kits). Logs, heartbeats, TensorBoard event files and metric
+# summaries are always uploaded. An environment variable of the same name wins over this file.
+#
+# Model files (*.ckpt, *.pt) stay at the site unless this is 1.
+#MEDISWARM_SYNC_MODELS=1
+#
+# Per-case prediction CSVs (one row per case) are uploaded only if this site opted in to
+# per-case return (--env ODELIA_RETURN_PER_CASE=1 in MEDISWARM_DOCKER_OPTIONS of
+# startup/image.conf). 1 = upload them anyway, 0 = never. A job that sets
+# ODELIA_RETURN_PER_CASE=0 (DP jobs) keeps them at the site either way.
+#MEDISWARM_SYNC_PREDICTIONS=0
+#
+# The swarm daemon ends this many minutes after the kit's client container stopped (0 = never).
+#MEDISWARM_SYNC_CONTAINER_GONE_MINUTES=10
+
 # >>> kit upload key >>>
 # Kits from 1.9.0 on carry this site's own upload key (startup/upload_key) and the upload
 # host's public key (startup/upload_known_hosts). When both files are next to this file,
