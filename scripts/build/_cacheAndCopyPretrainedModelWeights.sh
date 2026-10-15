@@ -42,6 +42,12 @@ MODEL_WEIGHTS_FILE_ODAC_HASH=ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec
 # SAM-Med2D ViT-B, the MST_SAMMed2D backbone (2,561,829,701 bytes; the copy CAM validated).
 MODEL_WEIGHTS_FILE_SAMMED2D_HASH=921d8c130cc4bcc4b7220c064e60f207f15ad59f17ab36de340e41c67a490d18
 
+# MedicalNet ResNet34 (Tencent, 23 datasets), the VHIO model's backbone (MODEL_NAME=MedicalNet;
+# 253,276,232 bytes, HF TencentMedicalNet/MedicalNet-Resnet34). Cached by hand like SAM-Med2D and
+# under the same rule: hash-checked whenever present, required for a release build
+# (MEDISWARM_REQUIRE_MEDICALNET=0|1 overrides).
+MODEL_WEIGHTS_FILE_MEDICALNET_HASH=3ea7188e396774e4ef95b66e5e90a78273bb33f6e58d3d717bf24f5f1aaeaa28
+
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_URL=https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet10/resolve/9d7c4c66c77bff89b79631369426612f09d0fe9b/resnet_18_23dataset.pth
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH=61224f9317fcce873366deb3703183e92cc47325b726b69691b33536244e10f4
 MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_CONTENTS=758fe285bc8ab565eb4f9f965810f1d1a3f79491
@@ -54,6 +60,7 @@ set_cache_paths () {
     MODEL_WEIGHTS_FILE_MVIT=$CACHE_DIR'/application/jobs/challenge_3agaldran/app/custom/models/mvit_v2_s-ae3be167.pth'
     MODEL_WEIGHTS_FILE_ODAC=$CACHE_DIR'/application/jobs/challenge_1DivideAndConquer/app/custom/models/checkpoint_final.pth'
     MODEL_WEIGHTS_FILE_SAMMED2D=$CACHE_DIR'/pretrained_weights/sam-med2d_b.pth'
+    MODEL_WEIGHTS_FILE_MEDICALNET=$CACHE_DIR'/pretrained_weights/resnet_34_23dataset.pth'
     MODEL_WEIGHTS_FILE_RESNETEIGHTEEN=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/blobs/'$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH
     MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_SYMLINK=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/snapshots/'$MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_CONTENTS'/resnet_18_23dataset.pth'
     MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_MAIN_FILE=$CACHE_DIR'/hf_home_cache/hub/models--TencentMedicalNet--MedicalNet-Resnet18/refs/main'
@@ -205,6 +212,45 @@ check_sammed2d () {
     fi
 }
 
+# True when this build must ship the MedicalNet ResNet34 weights (same rule as SAM-Med2D).
+medicalnet_required () {
+    case "${MEDISWARM_REQUIRE_MEDICALNET:-}" in
+        1) return 0 ;;
+        0) return 1 ;;
+        "") ;;
+        *)
+            echo "ERROR: MEDISWARM_REQUIRE_MEDICALNET must be 0 or 1, not '$MEDISWARM_REQUIRE_MEDICALNET'." >&2
+            exit 1
+            ;;
+    esac
+    [[ -n "${MEDISWARM_IMAGE_VERSION:-}" && "$MEDISWARM_IMAGE_VERSION" != *-dev.* ]]
+}
+
+# Sets MEDICALNET_AVAILABLE=1|0, like check_sammed2d.
+check_medicalnet () {
+    local required=0
+    if medicalnet_required; then
+        required=1
+    fi
+    if [[ -f "$MODEL_WEIGHTS_FILE_MEDICALNET" ]]; then
+        _verify_hash "$MODEL_WEIGHTS_FILE_MEDICALNET_HASH" "$MODEL_WEIGHTS_FILE_MEDICALNET"
+        MEDICALNET_AVAILABLE=1
+    elif [[ "$required" == 1 ]]; then
+        {
+            echo "ERROR: MedicalNet ResNet34 weights missing: $MODEL_WEIGHTS_FILE_MEDICALNET"
+            echo "       This is a release build, and without the file MODEL_NAME=MedicalNet (the VHIO model)"
+            echo "       would refuse to start at every site. Place resnet_34_23dataset.pth"
+            echo "       (sha256 $MODEL_WEIGHTS_FILE_MEDICALNET_HASH, huggingface.co/TencentMedicalNet/MedicalNet-Resnet34)"
+            echo "       in the durable build cache. A deliberate build without it: MEDISWARM_REQUIRE_MEDICALNET=0."
+        } >&2
+        exit 1
+    else
+        echo "WARNING: $MODEL_WEIGHTS_FILE_MEDICALNET is not in the build cache. This dev/CI image gives" >&2
+        echo "         MedicalNet no pretrained backbone; never publish it as a release." >&2
+        MEDICALNET_AVAILABLE=0
+    fi
+}
+
 verify_files () {
     _verify_hash "$MODEL_WEIGHTS_FILE_DINO_HASH" "$MODEL_WEIGHTS_FILE_DINO"
     _verify_hash "$MODEL_LICENSE_FILE_DINO_HASH" "$MODEL_LICENSE_FILE_DINO"
@@ -278,6 +324,12 @@ copy_files () {
         cp -p "$MODEL_WEIGHTS_FILE_SAMMED2D" "$WEIGHTS_DIR/"
     fi
 
+    # MedicalNet (VHIO model): resnet_34_23dataset.pth, verified (and, for a release, required) in check_medicalnet
+    if [[ "${MEDICALNET_AVAILABLE:-0}" == 1 ]]; then
+        echo "MedicalNet: copying resnet_34_23dataset.pth"
+        cp -p "$MODEL_WEIGHTS_FILE_MEDICALNET" "$WEIGHTS_DIR/"
+    fi
+
     chmod a+rX "$WEIGHTS_DIR" -R
 }
 
@@ -306,6 +358,7 @@ main () {
     fi
 
     check_sammed2d
+    check_medicalnet
     cache_files
     verify_files
     copy_files

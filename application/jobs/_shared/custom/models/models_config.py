@@ -9,10 +9,11 @@ import importlib.util
 import logging
 from models import ResNet, MST, MedicalNet
 
-# MedicalNet 3D-ResNet34 (VHIO model): the Tencent 23-dataset checkpoint is NOT shipped in
-# the image. Point MEDICALNET_PRETRAINED_PATH at resnet_34_23dataset.pth
+# MedicalNet 3D-ResNet34 (VHIO model): the Tencent 23-dataset checkpoint ships in the image from
+# 1.9.1 on. Elsewhere point MEDICALNET_PRETRAINED_PATH at resnet_34_23dataset.pth
 # (https://huggingface.co/TencentMedicalNet/MedicalNet-Resnet34), or drop the file next to
-# this module or at /MediSwarm/pretrained_weights/; without it the model starts from random weights.
+# this module or at /MediSwarm/pretrained_weights/ (in the image from 1.9.1 on). Without it the model refuses
+# to start unless MEDICALNET_ALLOW_RANDOM_INIT=1.
 MEDICALNET_WEIGHTS_FILE = "resnet_34_23dataset.pth"
 
 
@@ -26,9 +27,18 @@ def resolve_medicalnet_weights(logger):
         if path and os.path.isfile(path):
             logger.info(f"MedicalNet pretrained weights: {path}")
             return path
-    logger.warning(f"MedicalNet weights {MEDICALNET_WEIGHTS_FILE} not found; starting from random weights. "
-                   "Set MEDICALNET_PRETRAINED_PATH to use the pretrained checkpoint.")
-    return None
+    # Like MST_SAMMed2D: the round-0 global comes from the starting client alone, so one site without
+    # the file would start every site from a random backbone while the run still ends COMPLETED.
+    if os.environ.get("MEDICALNET_ALLOW_RANDOM_INIT", "").strip().lower() in {"1", "true", "yes", "on"}:
+        logger.warning(f"MedicalNet weights {MEDICALNET_WEIGHTS_FILE} not found; MEDICALNET_ALLOW_RANDOM_INIT is "
+                       "set, so the backbone starts from RANDOM weights (tests only).")
+        return None
+    searched = ", ".join(p for p in candidates if p)
+    raise RuntimeError(
+        f"MedicalNet (the VHIO model) needs its pretrained weights {MEDICALNET_WEIGHTS_FILE} and found none "
+        f"(searched: {searched}). The 1.9.1 image ships them at /MediSwarm/pretrained_weights/; on an older image "
+        f"set MEDICALNET_PRETRAINED_PATH, or MEDICALNET_ALLOW_RANDOM_INIT=1 for a deliberate run from random weights."
+    )
 
 """
 Shared configuration for challenge models.
