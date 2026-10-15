@@ -425,3 +425,27 @@ Then open:
 ```text
 http://<SERVER_IP>:8080/
 ```
+
+## Upload account and keys (1.9.0)
+
+The `mediswarm-upload` account only receives live-sync uploads through the forced command
+`/etc/ssh/mediswarm_upload_guard.sh`.
+
+- **The account's home is root-owned.** `/home/mediswarm-upload` and everything in it belong
+  to `root:mediswarm-upload` (directories 750, files 640, `.ssh/authorized_keys` included).
+  rrsync writes as the account, so a home it owned would let any upload key replace
+  `authorized_keys` (review finding PS-1). sshd still reads the file through the group.
+- **The guard confines every key.** A key line `command="/etc/ssh/mediswarm_upload_guard.sh <SITE>"`
+  may only write below `/srv/mediswarm/live/<SITE>/`; a key without a site (sent by hand before
+  1.9.0) only below `/srv/mediswarm/live/`. Destinations are checked after resolving symlinks,
+  rrsync gets the area as its root, and single files above 1500M are skipped
+  (`MEDISWARM_UPLOAD_MAX_SIZE`).
+- **Kit keys are registered, not pasted.** The 1.9.0 kit build gives each client kit its own
+  key and writes the public halves to `prod_NN/upload_authorized_keys.txt`. Before the kits go
+  out, install them as root:
+
+      sudo scripts/admin/register_upload_keys.sh workspace/odelia_allsites/prod_NN/upload_authorized_keys.txt --dry-run
+      sudo scripts/admin/register_upload_keys.sh workspace/odelia_allsites/prod_NN/upload_authorized_keys.txt
+
+  It accepts only guarded lines, is idempotent, backs the file up and keeps its owner and mode.
+  Once a site runs its 1.9.0 kit, retire its older lines with `--retire-comment-prefix`.

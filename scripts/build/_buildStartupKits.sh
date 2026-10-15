@@ -64,6 +64,10 @@ if [ -s "$STATE_CERT" ]; then
 else
     echo "No $STATE_CERT yet: provisioning creates a new root CA for '$PROJECT_NAME'"
 fi
+# The per-site upload keys (_injectLiveSyncIntoStartupKits.sh) pin the upload host's key. Kits are
+# built on the upload host, but the injection runs in the image, which cannot read the host's
+# /etc/ssh: pass the public key line in.
+UPLOAD_HOST_KEY_LINE="${MEDISWARM_UPLOAD_HOST_KEY:-$(head -n 1 "${MEDISWARM_UPLOAD_HOST_KEY_PUB:-/etc/ssh/ssh_host_ed25519_key.pub}" 2>/dev/null || true)}"
 docker run --rm \
   -u "$(id -u):$(id -g)" \
   -v /etc/passwd:/etc/passwd \
@@ -73,5 +77,8 @@ docker run --rm \
   -e PROJECT_YML="$BUILD_YML" \
   -e VERSION="$VERSION" \
   -e MEDISWARM_ALLOW_NEW_ROOT_CA="${MEDISWARM_ALLOW_NEW_ROOT_CA:-0}" \
+  -e MEDISWARM_UPLOAD_KEYS="${MEDISWARM_UPLOAD_KEYS:-auto}" \
+  -e MEDISWARM_UPLOAD_HOST_KEY="$UPLOAD_HOST_KEY_LINE" \
+  -e MEDISWARM_UPLOAD_HOST_NAMES="${MEDISWARM_UPLOAD_HOST_NAMES:-dl3.tud.de,172.24.4.65}" \
   "$CONTAINER_NAME" \
   /bin/bash -c "nvflare provision --force -p \$PROJECT_YML && ./scripts/build/_injectLiveSyncIntoStartupKits.sh \$PROJECT_YML && ./scripts/build/_addToolsToStartupKits.sh \$PROJECT_YML && ./scripts/build/_generateStartupKitArchives.sh \$PROJECT_YML \$VERSION" || { echo "Docker run failed"; exit 1; }
