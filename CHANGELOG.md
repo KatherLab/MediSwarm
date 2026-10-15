@@ -17,7 +17,7 @@ All notable changes to MediSwarm are documented in this file.
   expected image), heartbeat age, status, job and a verdict (`READY`, `OLD KIT`, `OLD IMAGE`,
   `STOPPED`, `STALE`, `NO HEARTBEAT`) with its reason; exit 0 only when every site is ready.
   For tracking the 1.9.0 migration and as the gate before a run (docs/RELEASE_RUNBOOK.md §11,
-  docs/SWARM_FAILURE_MODES.md "Before every run"). Accepts the image's config, index and
+  docs/ODELIA_RUN_PLAN_2026-Q4.md, docs/SWARM_FAILURE_MODES.md "Before every run"). Accepts the image's config, index and
   manifest digests, flags a stale heartbeat as proving nothing, a site clock ahead, and an old
   kit's live_sync that still uploads (F16).
 

@@ -53,9 +53,22 @@ submit_job /fl_admin/local/mediswarm_jobs/odelia_cam_sammed2d_20r_7site
 | The August model at `/scratch/odelia_87c5bbee_global.pt` (see below) | UMCU_1; MHA_1 | D2.5, D3.2 |
 | BreastDivider crops in `data_unilateral_BD/` and `metadata_unilateral_BD/`, checked with the node ([BREASTDIVIDER_SITE_GUIDE.md](BREASTDIVIDER_SITE_GUIDE.md)) | every site | `bd` |
 
-Image check: `scripts/build/heartbeat_image_id.py --live-root /srv/mediswarm/live jefftud/odelia:1.9.1`
-prints the image id to expect and one line per site; every site must be `OK`
-([RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md), section 10).
+Kit and image check, during the migration and again on the coordinator right before every
+submit, for the sites of that run:
+
+```bash
+python3 scripts/admin/fleet_status.py --sites <the run's sites> --expect-kit 1.9.0 \
+    --expect-image jefftud/odelia:1.9.1 --expect-image-id sha256:c527c8c509aa
+```
+
+One line per site from its newest heartbeat (kit, image, age, verdict and why); every site must
+be `READY` (exit 0). `OLD KIT`: not moved to 1.9.0, or the old kit still uploads; `OLD IMAGE`:
+the client was started before `:current` moved to 1.9.1 or is pinned, restart it; `STOPPED`,
+`STALE`, `NO HEARTBEAT`: no running client to show. `sha256:c527c8c509aa` is 1.9.1's config
+digest, which sites report and which the coordinator's own Docker cannot read locally
+([RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md), section 11). `READY` means the client runs the right
+code; registration and configuration are checked after submitting (F8 in
+[SWARM_FAILURE_MODES.md](SWARM_FAILURE_MODES.md)).
 
 ### The start model of D2.5 and D3.2
 
