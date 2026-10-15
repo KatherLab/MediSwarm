@@ -78,7 +78,10 @@ def test_heartbeat_reports_the_image_actually_running():
 @pytest.fixture(scope="module")
 def skew():
     pytest.importorskip("fastapi")
-    import app
+    # The monitor refuses to start without a login (PS-2); this only calls a pure helper.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MEDISWARM_MONITOR_ALLOW_OPEN", "1")
+        import app
     return app.compute_version_skew
 
 

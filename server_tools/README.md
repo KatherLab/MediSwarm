@@ -8,22 +8,34 @@ python3 -m venv /srv/mediswarm/venv
 /srv/mediswarm/venv/bin/pip install fastapi uvicorn
 
 cp server_tools/app.py /srv/mediswarm/app.py
-/srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host <VPN-IP> --port 8080   # not 0.0.0.0 on a public host; see Login below
+# create /srv/mediswarm/monitor_users first, see Login below
+MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users \
+  /srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host <VPN-IP> --port 8080   # not 0.0.0.0 on a public host
 
 Then open:
 http://<SERVER_IP>:8080/
 
-## Login (required when the monitor is reachable beyond the operators)
+## Login (required)
 
-The monitor has no login unless `MEDISWARM_MONITOR_USERS` names a users file, one
-`user:sha256hex(password)` line per person. Create an entry with
+The monitor shows every site's logs and per-case CSVs and serves checkpoints, so it does not
+start without a login. `MEDISWARM_MONITOR_USERS` names the users file, one
+`user:sha256hex(password)` line per person (`#` starts a comment). Create an entry with
 
 ```bash
 printf 'bulat:%s\n' "$(printf '%s' 'THE-PASSWORD' | sha256sum | cut -d' ' -f1)" >> /srv/mediswarm/monitor_users
 ```
 
-and start uvicorn with `MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users`. A configured
-file that is empty or malformed stops the app at start-up instead of running it open.
+and start uvicorn with `MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users` (the systemd
+unit in section 10 sets it). The app refuses to start, rather than run open, when the
+variable is unset or the file it names is missing, empty or malformed.
+
+| Variable | Effect |
+|---|---|
+| `MEDISWARM_MONITOR_USERS=<file>` | login required; the accounts come from `<file>` |
+| `MEDISWARM_MONITOR_ALLOW_OPEN=1` | only when `MEDISWARM_MONITOR_USERS` is unset: run **without login** and log a warning at start-up. For local testing on your own machine, never for a deployment |
+| neither | the app does not start and says why |
+
+With both set, the users file applies and `MEDISWARM_MONITOR_ALLOW_OPEN` is ignored.
 Bind to the VPN address (`--host 172.24.4.65`), never `0.0.0.0` on a host with a public IP.
 
 # Detailed version: MediSwarm Live Monitor: installation and usage
@@ -172,11 +184,15 @@ pip install fastapi uvicorn
 
 ## 5) Run the monitor manually
 
-Start the FastAPI server with:
+Start the FastAPI server with the users file (see Login at the top):
 
 ```bash
-/srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080
+MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users \
+  /srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080
 ```
+
+For a quick local test without accounts, `MEDISWARM_MONITOR_ALLOW_OPEN=1` instead of
+`MEDISWARM_MONITOR_USERS` runs it without login, bound to `--host 127.0.0.1`.
 
 If it starts successfully, open:
 
@@ -256,7 +272,8 @@ Then restart the monitor and refresh the page.
 A simple way to keep it running in the background:
 
 ```bash
-nohup /srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080 > /srv/mediswarm/monitor.log 2>&1 &
+MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users \
+  nohup /srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080 > /srv/mediswarm/monitor.log 2>&1 &
 ```
 
 Check that it is running:
@@ -294,6 +311,8 @@ After=network.target
 User=jeff
 Group=jeff
 WorkingDirectory=/srv/mediswarm
+# Required: without a users file the monitor refuses to start (see Login at the top).
+Environment=MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users
 ExecStart=/srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080
 Restart=always
 RestartSec=5
@@ -380,6 +399,12 @@ find /srv/mediswarm/live -maxdepth 6 -type f | sort | head -200
 
 ### The app does not start
 
+`RuntimeError: The live monitor ... does not start without a login` means
+`MEDISWARM_MONITOR_USERS` is not set where the app runs (for systemd: an `Environment=` line
+in the unit, then `sudo systemctl daemon-reload`). `ValueError: MEDISWARM_MONITOR_USERS=...`
+names the users file and what is wrong with it (missing, empty or a malformed line). See
+Login at the top.
+
 Check Python dependencies:
 
 ```bash
@@ -401,7 +426,8 @@ find /srv/mediswarm/live -maxdepth 3 -ls | head -50
 Run on a different port, for example `8090`:
 
 ```bash
-/srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8090
+MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users \
+  /srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8090
 ```
 
 ---
@@ -417,7 +443,9 @@ python3 -m venv /srv/mediswarm/venv
 source /srv/mediswarm/venv/bin/activate
 pip install fastapi uvicorn
 
-/srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080
+printf 'alice:%s\n' "$(printf '%s' 'THE-PASSWORD' | sha256sum | cut -d' ' -f1)" >> /srv/mediswarm/monitor_users
+MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users \
+  /srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host 0.0.0.0 --port 8080
 ```
 
 Then open:
