@@ -7,6 +7,7 @@ result.
 """
 
 import csv
+import json
 import sys
 from pathlib import Path
 
@@ -262,3 +263,134 @@ def test_reads_what_the_coordinator_collector_writes(mod, tmp_path, monkeypatch)
     assert [rows[f"RUMC_1:{i}"]["ground_truth"] for i in range(3)] == ["0", "2", "1"]
     assert float(rows["RUMC_1:1"]["prob_class_2"]) == pytest.approx(0.8)
     assert len(mod.load(str(out), ["RUMC_1"], split="val", model_kind="site_local")) == 2
+
+
+# ---- pairing by case id, never by position (DE-1) --------------------------
+
+def test_shuffled_order_pairs_by_case_not_by_position(mod, tmp_path):
+    """The same cases written in another order are the same comparison."""
+    base, fine = tmp_path / "b", tmp_path / "f"
+    rows = [_row(f"c{i}", 2, 0.5 + i / 20) for i in range(5)] + [_row(f"n{i}", 0, i / 20) for i in range(9)]
+    _write(base, "MHA_1", rows)
+    _write(fine, "MHA_1", rows[::-1][3:] + rows[::-1][:3])
+    br, fr = mod.load(str(base), ["MHA_1"]), mod.load(str(fine), ["MHA_1"])
+    uids, excluded = mod.pair_cases(br, fr, ["MHA_1"])
+    assert len(uids) == 14 and excluded == {}
+    assert all(br[u]["prob_class_2"] == fr[u]["prob_class_2"] for u in uids)
+    d, lo, hi, _ = mod.paired_bootstrap(br, fr, uids, "malignant_vs_rest", 100, seed=1)
+    assert d == 0.0 and lo == hi == 0.0, "identical models must not differ once paired by case"
+
+
+def test_returned_rows_pair_by_row_index_not_by_line(mod, tmp_path):
+    """A returned file whose lines are out of order still pairs row_index n with row_index n."""
+    base, fine = tmp_path / "b", tmp_path / "f"
+    base.mkdir(); fine.mkdir()
+    cases = [(2, 0.9), (0, 0.1), (0, 0.2), (2, 0.8)]
+    _write_returned(base, "UMCU_1", cases)
+    with open(fine / "UMCU_1.csv", "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["row_index", "ground_truth", "prob_class_0", "prob_class_1", "prob_class_2"])
+        for i in (3, 1, 0, 2):
+            gt, p2 = cases[i]
+            w.writerow([i, gt, (1 - p2) * 0.7, (1 - p2) * 0.3, p2])
+    br, fr = mod.load(str(base), ["UMCU_1"]), mod.load(str(fine), ["UMCU_1"])
+    uids, _ = mod.pair_cases(br, fr, ["UMCU_1"])
+    assert [fr[u]["ground_truth"] for u in uids] == [br[u]["ground_truth"] for u in uids]
+    assert mod.paired_bootstrap(br, fr, uids, "malignant_vs_rest", 50, seed=1)[0] == 0.0
+
+
+def test_differing_case_sets_are_refused(mod, tmp_path):
+    base, fine = tmp_path / "b", tmp_path / "f"
+    _write(base, "MHA_1", [_row("a", 2, 0.8), _row("b", 0, 0.2), _row("only_base", 0, 0.9)])
+    _write(fine, "MHA_1", [_row("a", 2, 0.8), _row("b", 0, 0.2)])
+    br, fr = mod.load(str(base), ["MHA_1"]), mod.load(str(fine), ["MHA_1"])
+    with pytest.raises(SystemExit, match=r"MHA_1: .*different cases \(baseline 3, fine-tuned 2, shared 2; "
+                                         r"1 only in baseline, 0 only in fine-tuned\)"):
+        mod.pair_cases(br, fr, ["MHA_1"])
+
+
+def test_restricting_to_common_cases_reports_the_drops(mod, tmp_path):
+    base, fine = tmp_path / "b", tmp_path / "f"
+    _write(base, "MHA_1", [_row("a", 2, 0.8), _row("b", 0, 0.2), _row("only_base", 0, 0.9)])
+    _write(fine, "MHA_1", [_row("a", 2, 0.8), _row("b", 0, 0.2), _row("only_fine", 2, 0.1)])
+    _write(base, "UMCU_1", [_row("u", 2, 0.7), _row("v", 0, 0.3)])
+    _write(fine, "UMCU_1", [_row("u", 2, 0.7), _row("v", 0, 0.3)])
+    sites = ["MHA_1", "UMCU_1"]
+    br, fr = mod.load(str(base), sites), mod.load(str(fine), sites)
+    uids, excluded = mod.pair_cases(br, fr, sites, restrict=True)
+    assert uids == ["MHA_1:a", "MHA_1:b", "UMCU_1:u", "UMCU_1:v"]
+    assert excluded == {"MHA_1": {"baseline_only": 1, "finetuned_only": 1}}
+
+
+def test_restricting_reaches_the_report(mod, tmp_path, monkeypatch, capsys):
+    base, fine, out = tmp_path / "b", tmp_path / "f", tmp_path / "report.json"
+    _write(base, "MHA_1", [_row(f"c{i}", 2, 0.7) for i in range(3)] + [_row(f"n{i}", 0, 0.3) for i in range(5)])
+    _write(fine, "MHA_1", [_row(f"c{i}", 2, 0.7) for i in range(3)] + [_row(f"n{i}", 0, 0.3) for i in range(3)])
+    argv = ["compare_regional_finetune.py", "--baseline", str(base), "--finetuned", str(fine),
+            "--sites", "MHA_1", "--bootstrap", "20", "--json-out", str(out)]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit, match="MHA_1: .*different cases"):
+        mod.main()
+    monkeypatch.setattr(sys, "argv", argv + ["--restrict-to-common-cases"])
+    mod.main()
+    report = json.loads(out.read_text())
+    assert report["n_paired"] == 6 and report["n_excluded"] == 2
+    assert report["excluded"] == {"MHA_1": {"baseline_only": 2, "finetuned_only": 0}}
+    assert "WARNING: 2 case(s) present in only one set, excluded" in capsys.readouterr().out
+
+
+def test_duplicate_case_ids_are_refused(mod, tmp_path):
+    d = tmp_path / "p"
+    _write(d, "MHA_1", [_row("a", 2, 0.8), _row("b", 0, 0.2), _row("a", 2, 0.3)])
+    with pytest.raises(SystemExit, match="MHA_1: case 'a' appears twice"):
+        mod.load(str(d), ["MHA_1"])
+
+
+def test_two_models_in_one_site_directory_are_refused_not_mixed(mod, tmp_path):
+    """predict.py writes predictions_<model>.csv per model; reading two of them used to keep the last per case."""
+    d = tmp_path / "p"
+    _write(d, "MHA_1", [_row("a", 2, 0.8), _row("b", 0, 0.2)])
+    (d / "MHA_1" / "predictions_x.csv").rename(d / "MHA_1" / "predictions_model_a.csv")
+    _write(d, "MHA_1", [_row("a", 2, 0.4), _row("b", 0, 0.6)])
+    with pytest.raises(SystemExit, match=r"appears twice \(.*predictions_model_a\.csv and .*predictions_x\.csv\)"):
+        mod.load(str(d), ["MHA_1"])
+
+
+def test_rows_without_a_case_id_are_refused(mod, tmp_path):
+    d = tmp_path / "p" / "MHA_1"
+    d.mkdir(parents=True)
+    (d / "predictions_x.csv").write_text("ground_truth,prob_class_0,prob_class_1,prob_class_2\n2,0.1,0.1,0.8\n")
+    with pytest.raises(SystemExit, match="no case id column"):
+        mod.load(str(tmp_path / "p"), ["MHA_1"])
+    (d / "predictions_x.csv").write_text("uid,ground_truth,prob_class_0,prob_class_1,prob_class_2\n"
+                                         ",2,0.1,0.1,0.8\n")
+    with pytest.raises(SystemExit, match="a row without a uid"):
+        mod.load(str(tmp_path / "p"), ["MHA_1"])
+
+
+def test_ground_truth_disagreement_is_refused(mod, tmp_path):
+    """Same keys, different labels: the rows are not the same cases, flag or no flag."""
+    base, fine = tmp_path / "b", tmp_path / "f"
+    base.mkdir(); fine.mkdir()
+    _write_returned(base, "RUMC_1", [(2, 0.9), (0, 0.1), (0, 0.2)])
+    _write_returned(fine, "RUMC_1", [(0, 0.9), (2, 0.1), (0, 0.2)])
+    br, fr = mod.load(str(base), ["RUMC_1"]), mod.load(str(fine), ["RUMC_1"])
+    for restrict in (False, True):
+        with pytest.raises(SystemExit, match=r"RUMC_1: ground truth differs .* for 2 of 3 paired cases "
+                                             r"\(e\.g\. RUMC_1:0, RUMC_1:1\)"):
+            mod.pair_cases(br, fr, ["RUMC_1"], restrict=restrict)
+
+
+def test_a_requested_site_without_rows_is_refused(mod, tmp_path):
+    base, fine = tmp_path / "b", tmp_path / "f"
+    for d in (base, fine):
+        _write(d, "RUMC_1", [_row("r1", 2, 0.7), _row("r2", 0, 0.2)])
+    _write(base, "UMCU_1", [_row("u1", 2, 0.8), _row("u2", 0, 0.1)])
+    sites = ["RUMC_1", "UMCU_1"]
+    br, fr = mod.load(str(base), sites), mod.load(str(fine), sites)
+    for restrict in (False, True):
+        with pytest.raises(SystemExit, match=r"UMCU_1: requested but without cases in the fine-tuned predictions "
+                                             r"\(baseline 2, fine-tuned 0, shared 0\)"):
+            mod.pair_cases(br, fr, sites, restrict=restrict)
+    with pytest.raises(SystemExit, match="MHA_1: requested but without cases in the baseline and fine-tuned"):
+        mod.pair_cases(br, fr, ["RUMC_1", "MHA_1"])
