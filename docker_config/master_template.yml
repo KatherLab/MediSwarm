@@ -819,16 +819,33 @@ docker_cln_sh: |
   # Resolve script directory
   DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+  # Relative --data_dir/--scratch_dir values are taken from the directory docker.sh is called in,
+  # and made absolute here: the data folder is also mounted at its own path (#478), which Docker
+  # only accepts as an absolute path; Docker reads a bare word such as "data" as the name of a
+  # volume; and --migrate_from runs the new docker.sh from startup/.
+  _abs_path() {
+      local p="$1"
+      case "$p" in \~|\~/*) p="$HOME${p#\~}" ;; esac            # typed at the prompt, never expanded
+      case "$p" in
+          ""|/*) printf '%s\n' "$p" ;;
+          *) if [ -d "$p" ]; then (CDPATH='' cd -- "$p" && pwd); else printf '%s/%s\n' "$PWD" "${p#./}"; fi ;;
+      esac
+  }
+  MY_DATA_DIR="$(_abs_path "${MY_DATA_DIR:-}")"
+  MY_SCRATCH_DIR="$(_abs_path "${MY_SCRATCH_DIR:-}")"
+
   if [ -n "$MY_SCRATCH_DIR" ] && [ -z "$HOST_ONLY_MODE" ]; then
       mkdir -p "$MY_SCRATCH_DIR"
       chmod -R 777 "$MY_SCRATCH_DIR"
   fi
 
-  # Networking & Cleanup
+  # Networking
   NETARG="--net=host"
-  if [ -z "$HOST_ONLY_MODE" ]; then
-      rm -rf ../pid.fl ../daemon_pid.fl
-  fi
+  # docker.sh never deletes the kit's lock files (../daemon_pid.fl, ../pid.fl) on the host. While a
+  # container of this kit runs, its sub_start.sh owns them: without pid.fl it starts a second
+  # NVFlare client with the same identity within 5 s, and the two push each other out of the
+  # swarm. Locks left by a crash or a power loss are cleared where that is safe, when a client
+  # container starts: by its command (#630, below) and by the image's entrypoint.
 
   # Docker image and container name
   #
@@ -961,6 +978,19 @@ docker_cln_sh: |
       # An NVFlare job process (or the training script) in the client means a run is in progress
       docker top "$1" 2>/dev/null | grep -qE 'worker_process|custom/main\.py'
   }
+  _running_containers_of_kit() {
+      # Running containers that mount the kit folder $1 at /startupkit, whatever their name
+      # (--container_name) or mode: while one runs, its NVFlare daemon owns the kit's lock files.
+      local want n kit
+      want="$(_physical_dir "$1")"
+      [ -n "$want" ] || return 0
+      while read -r n; do
+          [ -n "$n" ] || continue
+          IFS='|' read -r _ _ _ _ _ _ _ _ kit <<< "$(_container_summary "$n")"
+          if [ -n "$kit" ] && [ "$(_physical_dir "$kit")" = "$want" ]; then echo "$n"; fi
+      done <<< "$(docker ps --format '{{.Names}}' 2>/dev/null)"
+      return 0
+  }
 
   _registry_digest() {
       # Digest the registry serves for an image reference right now: a manifest lookup, no pull
@@ -1017,6 +1047,58 @@ docker_cln_sh: |
   }
   _docker_cgroup_driver() { docker info --format '{{.CgroupDriver}}' 2>/dev/null; }
   CGROUPFS_FIX_HINT="scripts/client_node_setup/fix_docker_cgroupfs.sh (also in the image: /MediSwarm/scripts/client_node_setup/)"
+
+  _pull_image() {
+      # docker pull of the image this kit runs, unless --no_pull. A failed pull is not fatal while
+      # a copy of the image is on this host; returns 1 when there is none.
+      if [ -z "${NOPULL:-}" ]; then
+          echo "Updating docker image"
+          if ! docker pull "$DOCKER_IMAGE"; then
+              docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1 || return 1
+              echo "[WARN] docker pull ${DOCKER_IMAGE} failed; using the copy of it on this host."
+              return 0
+          fi
+      fi
+      docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1
+  }
+  _explain_missing_image() {
+      # Without this, the GPU test below fails on the missing image and gives the F2 advice, whose
+      # fix_docker_cgroupfs.sh restarts dockerd and every container on the host.
+      if [ -n "${NOPULL:-}" ]; then
+          echo "$1 The image ${DOCKER_IMAGE} is not on this host, and --no_pull was given."
+          echo "       Fix: run this again without --no_pull (or  docker pull ${DOCKER_IMAGE}  first)."
+      else
+          echo "$1 The image ${DOCKER_IMAGE} is not on this host: docker pull failed (network, proxy,"
+          echo "       Docker Hub rate limit or login?). Fix the pull ( docker pull ${DOCKER_IMAGE} ) and run this again."
+      fi
+      echo "       This is not a GPU problem."
+  }
+  _gpu_usable_in_container() {
+      # F2: a throwaway container of the image sees the GPU(s) $1 (catches 'NVML: Unknown Error')
+      timeout 90 docker run --rm --gpus="$1" "$DOCKER_IMAGE" nvidia-smi -L >/dev/null 2>&1
+  }
+  _explain_no_gpu_in_container() {
+      echo "$1 GPU NOT usable inside the container (likely 'NVML: Unknown Error')."
+      echo "       Fix: run  scripts/client_node_setup/fix_docker_cgroupfs.sh  then recreate the client (docs: F2)."
+  }
+  _check_new_client_can_start() {
+      # What a new client container of this kit needs from the host, checked by --migrate_from
+      # --yes while the old client still runs: no driver/library mismatch (F18), the configured
+      # image (pulled now, unless --no_pull) and the GPU(s) $1 in a throwaway container of it (F2).
+      if _nvidia_driver_mismatch; then
+          _explain_driver_mismatch "[FAIL]"
+          return 1
+      fi
+      if ! _pull_image; then
+          _explain_missing_image "[FAIL]"
+          return 1
+      fi
+      if ! _gpu_usable_in_container "$1"; then
+          _explain_no_gpu_in_container "[FAIL]"
+          return 1
+      fi
+      echo "[PASS] ${DOCKER_IMAGE} is on this host and a test container of it sees the GPU (${1})."
+  }
 
   _coordinator_endpoints() {
       # "host port role" lines for the coordinator this client dials, from startup/fed_client.json:
@@ -1128,7 +1210,7 @@ docker_cln_sh: |
               alive=1
               _report_ok "daemon running (PID ${lpid})"
           elif [ "$st" = running ]; then
-              _report_warn "no live_sync daemon although the client runs: the monitor gets no heartbeat (--start_client starts it)"
+              _report_warn "no live_sync daemon although the client runs: the monitor gets no heartbeat. Run your --start_client command again: next to the running client it only starts live_sync (the client and its lock files are left alone)"
           else
               _report_info "no live_sync daemon (the client is not running either)"
           fi
@@ -1195,16 +1277,24 @@ docker_cln_sh: |
       [ "$any" = 1 ] || _report_warn "no coordinator address found in startup/fed_client.json"
 
       echo "Lock files"
-      local lk found=0
+      # Any running container of this kit counts, also one with another name (--container_name):
+      # deleting a lock under a running daemon makes sub_start.sh start a second NVFlare client.
+      local lk found=0 kit_busy=""
+      [ "$docker_ok" = 1 ] && kit_busy="$(_running_containers_of_kit "$KIT_DIR_ROOT" | xargs)"
+      [ -n "$kit_busy" ] || [ "$st" != running ] || kit_busy="$CONTAINER_NAME"
       for lk in daemon_pid.fl pid.fl; do
           [ -e "$KIT_DIR_ROOT/$lk" ] || continue
           found=1
-          if [ "$st" = running ]; then
+          if [ -n "$kit_busy" ]; then
               _report_info "${lk} present (normal while the client runs)"
           else
-              _report_warn "stale ${lk} in ${KIT_DIR_ROOT} (the client is not running); --start_client clears it (F3)"
+              _report_warn "stale ${lk} in ${KIT_DIR_ROOT} (no container of this kit runs); harmless: the client container clears it when it starts (--start_client, F3)"
           fi
       done
+      if [ "$found" = 1 ] && [ -n "$kit_busy" ]; then
+          _report_info "never delete them while ${kit_busy} runs. If the client is Up but never registers (F3), stop and start"
+          _report_info "the container instead ( docker restart ${kit_busy%% *} ): it clears its own locks when it starts"
+      fi
       [ "$found" = 1 ] || _report_ok "no lock files"
 
       echo "Summary: ${REPORT_FAILS} problem(s), ${REPORT_WARNS} warning(s)."
@@ -1274,7 +1364,7 @@ docker_cln_sh: |
       local c="$1" old_conf="$2" line src dst rw k v data="" scratch="" gpu="" cid="" cuser="" req count ids
       local -A cenv=() imgenv=()
       local -a mounts=() extra_mounts=() extra_env=()
-      MIG_ARGS=(); MIG_ENV=(); MIG_MISSING=(); MIG_NOTES=(); MIG_SUDO=0; MIG_OTHER_USER=0
+      MIG_ARGS=(); MIG_ENV=(); MIG_MISSING=(); MIG_NOTES=(); MIG_SUDO=0; MIG_OTHER_USER=0; MIG_GPU=""
       if [ -n "$c" ]; then
           while IFS= read -r line; do [ -n "$line" ] && cenv["${line%%=*}"]="${line#*=}"; done <<< "$(_container_env "$c")"
           while IFS= read -r line; do [ -n "$line" ] && mounts+=("$line"); done <<< "$(_container_mounts "$c")"
@@ -1311,7 +1401,7 @@ docker_cln_sh: |
               done
           fi
       fi
-      data="${MY_DATA_DIR:-$data}"; scratch="${MY_SCRATCH_DIR:-$scratch}"; gpu="${GPU2USE:-$gpu}"
+      data="${MY_DATA_DIR:-$data}"; scratch="${MY_SCRATCH_DIR:-$scratch}"; gpu="${GPU2USE:-$gpu}"; MIG_GPU="$gpu"
       if [ -n "$data" ]; then MIG_ARGS+=(--data_dir "$data"); else MIG_MISSING+=("--data_dir <your data folder>"); fi
       if [ -n "$scratch" ]; then MIG_ARGS+=(--scratch_dir "$scratch"); else MIG_MISSING+=("--scratch_dir <your scratch folder>"); fi
       if [ -n "$gpu" ]; then MIG_ARGS+=(--GPU "$gpu"); else MIG_MISSING+=("--GPU <e.g. device=0>"); fi
@@ -1371,10 +1461,35 @@ docker_cln_sh: |
       echo "$out"
   }
 
+  _old_client_command() {
+      # The command that starts the old kit's client again, with its live_sync: rebuilt from the
+      # old container $1 like the new client's command, but run by the old kit's docker.sh ($2 =
+      # old kit folder) with its own image.conf, under the old container's name, ignoring this
+      # command line's settings and passing only the flags that docker.sh knows (1.6.0 has no
+      # --institution). Read before the old container is removed, printed if the new one fails.
+      local c="$1" old_root="$2"
+      (
+          MY_DATA_DIR=""; MY_SCRATCH_DIR=""; GPU2USE=""; CLI_INSTITUTION=""; CLI_MODEL_NAME=""; CLI_NUM_EPOCHS=""
+          CLI_FOLD=""; CLI_CONFIG=""; LOG_DATASET_DETAILS=""; CLI_IMAGE=""; CLI_DOCKER_OPTIONS=""
+          CONTAINER_NAME_FROM_CLI="$c"
+          _migrate_command "$c" "$old_root/startup/image.conf"
+          local -a kept=()
+          local i=0 n
+          while [ "$i" -lt "${#MIG_ARGS[@]}" ]; do
+              case "${MIG_ARGS[$i]}" in --log_dataset_details|--no_pull|--start_client) n=1 ;; *) n=2 ;; esac
+              if grep -qF -- "${MIG_ARGS[$i]})" "$old_root/startup/docker.sh"; then kept+=("${MIG_ARGS[@]:$i:$n}"); fi
+              i=$((i + n))
+          done
+          MIG_ARGS=("${kept[@]}")
+          DIR="$old_root/startup"
+          _migration_command_line
+      )
+  }
+
   _migrate_from_old_kit() {
       local old="$MIGRATE_FROM" old_root old_phys new_phys old_ver old_site vkey skey names n entry
-      local st cref ckit cmode score best=0 src_c="" busy=0 rc=0 still=0
-      local dpid dsite droot dmode old_pidf opid oimg nimg lk f record
+      local st cref ckit cmode score best=0 src_c="" busy=0 rc=0 still=0 old_running=0 old_cmd="" own_st kept_by
+      local dpid dsite droot dmode old_pidf opid oimg nimg lk f record start_rc
       local -a old_containers=() daemons=() old_locks=()
       if [ -f "$old/startup/docker.sh" ]; then
           old_root="$(cd "$old" && pwd)"
@@ -1417,25 +1532,55 @@ docker_cln_sh: |
       fi
       for lk in daemon_pid.fl pid.fl; do [ ! -e "$old_root/$lk" ] || old_locks+=("$old_root/$lk"); done
 
-      echo "Migrating ${KIT_SITE} to this kit (${KIT_VERSION}, ${KIT_DIR_ROOT})"
-      echo "from the old kit ${old_root} (kit ${old_ver:-version unknown})."
-      echo
-      echo "1. Stop and remove the old client container(s):"
-      [ "${#old_containers[@]}" -gt 0 ] || echo "   none (no container named ${SITE_CONTAINER_PREFIX}* besides this kit's)"
+      # The old client containers, and the one both commands are rebuilt from: the old kit's own
+      # client, the running one if possible
+      local -a c_lines=()
       for n in "${old_containers[@]}"; do
           IFS='|' read -r st _ _ _ cref _ _ _ ckit <<< "$(_container_summary "$n")"
           cmode="$(_container_env "$n" | sed -n 's/^TRAINING_MODE=//p' | head -1)"
-          echo "   - ${n}: ${st}, image ${cref}, kit ${ckit:-unknown}${cmode:+, TRAINING_MODE=${cmode}}"
-          if [ "$st" = running ] && _container_runs_job "$n"; then
-              echo "     [!] a job is running in it: stopping it now drops ${KIT_SITE} from that run"
-              busy=1
+          c_lines+=("   - ${n}: ${st}, image ${cref}, kit ${ckit:-unknown}${cmode:+, TRAINING_MODE=${cmode}}")
+          if [ "$st" = running ]; then
+              old_running=1
+              if _container_runs_job "$n"; then
+                  c_lines+=("     [!] a job is running in it: stopping it now drops ${KIT_SITE} from that run")
+                  busy=1
+              fi
           fi
-          # The command is rebuilt from the old kit's own client, the running one if possible
           score=1
           [ "$(_physical_dir "$ckit")" != "$old_phys" ] || score=$((score + 2))
           [ "$st" != running ] || score=$((score + 1))
           if [ "$score" -gt "$best" ]; then best=$score; src_c="$n"; fi
       done
+      _migrate_command "$src_c" "$old_root/startup/image.conf"
+      # Read now: once --yes has removed the old container, its settings are gone with it.
+      [ -z "$src_c" ] || [ "$old_running" = 0 ] || old_cmd="$(_old_client_command "$src_c" "$old_root")"
+
+      echo "Migrating ${KIT_SITE} to this kit (${KIT_VERSION}, ${KIT_DIR_ROOT})"
+      echo "from the old kit ${old_root} (kit ${old_ver:-version unknown})."
+      echo
+      # A host after an unattended NVIDIA update (F18), or a failed pull of the new image, would
+      # otherwise lose its working client and stay offline until a reboot or a working network.
+      echo "Checked first, while the old client still runs (if a check fails, nothing is changed):"
+      if _nvidia_driver_mismatch; then
+          echo "   [!] NVIDIA driver/library version mismatch (F18): --yes refuses until this host is rebooted"
+      else
+          echo "   - the NVIDIA driver (no driver/library version mismatch, F18)"
+      fi
+      if [ -n "${NOPULL:-}" ]; then
+          if docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
+              echo "   - the image ${DOCKER_IMAGE} is on this host (--no_pull: not pulled)"
+          else
+              echo "   [!] the image ${DOCKER_IMAGE} is not on this host, and --no_pull was given"
+          fi
+      elif docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
+          echo "   - pull ${DOCKER_IMAGE} (a copy is on this host already)"
+      else
+          echo "   - pull ${DOCKER_IMAGE} (not on this host yet: several GB, this takes a while)"
+      fi
+      echo "   - a throwaway container of that image sees the GPU (${MIG_GPU:-all}) (F2)"
+      echo "1. Stop and remove the old client container(s):"
+      [ "${#old_containers[@]}" -gt 0 ] || echo "   none (no container named ${SITE_CONTAINER_PREFIX}* besides this kit's)"
+      for n in "${c_lines[@]}"; do echo "$n"; done
       echo "2. Stop the live_sync daemon(s) of old ${KIT_SITE} kits (F16):"
       [ "${#daemons[@]}" -gt 0 ] || echo "   none running"
       for entry in "${daemons[@]}"; do
@@ -1456,7 +1601,6 @@ docker_cln_sh: |
           echo "     pin an image in startup/image.conf by hand only if TUD asks you to."
       fi
       _plan_conf sync.conf "$old_root" ""
-      _migrate_command "$src_c" "$old_root/startup/image.conf"
       echo "5. Start the new client${src_c:+ (rebuilt from ${src_c})}:"
       echo "   $(_migration_command_line)"
       for n in "${MIG_NOTES[@]}"; do echo "   Note: ${n}"; done
@@ -1484,6 +1628,18 @@ docker_cln_sh: |
           echo "        Nothing was changed."
           return 1
       fi
+      IFS='|' read -r own_st _ <<< "$(_container_summary "$CONTAINER_NAME")"
+      if [ -n "${MIGRATE_START:-}" ] && [ -n "$own_st" ] && [ "$own_st" != running ]; then
+          echo "[ABORT] --start: this kit's client container ${CONTAINER_NAME} exists already (${own_st}), so no"
+          echo "        new one can be started. Remove it ( docker rm ${CONTAINER_NAME} ) and run this again."
+          echo "        Nothing was changed."
+          return 1
+      fi
+      echo "Checking that this kit's client can start, before anything is stopped:"
+      if ! _check_new_client_can_start "${MIG_GPU:-all}"; then
+          echo "[ABORT] Nothing was changed: the old client keeps running. Fix the [FAIL] item above and run this again."
+          return 2
+      fi
 
       echo "Applying:"
       for n in "${old_containers[@]}"; do
@@ -1509,8 +1665,14 @@ docker_cln_sh: |
       if [ -f "$old_pidf" ] && ! _pid_alive "$(cat "$old_pidf" 2>/dev/null)"; then
           rm -f "$old_pidf" && echo "   removed the old kit's startup/.mediswarm_sync/swarm_sync.pid"
       fi
-      if [ "$still" = 0 ]; then
+      # The old kit's locks go only when no container of it runs any more, whatever its name.
+      kept_by="$(_running_containers_of_kit "$old_root" | xargs)"
+      if [ "$still" = 0 ] && [ -z "$kept_by" ]; then
           for lk in "${old_locks[@]}"; do rm -f "$lk" && echo "   removed ${lk}"; done
+      elif [ -n "$kept_by" ]; then
+          echo "   [!] ${kept_by} of the old kit still runs; stop it ( docker stop <name> ) and run this again."
+          echo "       The old kit's lock files were kept."
+          rc=1
       elif [ "${#old_locks[@]}" -gt 0 ]; then
           echo "   [!] kept the old kit's lock files: an old container could not be removed"
       fi
@@ -1527,18 +1689,23 @@ docker_cln_sh: |
       if [ "${#MIG_MISSING[@]}" -eq 0 ]; then                    # keep a complete command for later reruns
           { echo "migrated from: ${old_root} (kit ${old_ver:-unknown})"
             echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "start command: ${record}"; } > "$DIR/.migrated_from_old_kit" 2>/dev/null || true
+            echo "start command: ${record}"
+            [ -z "$old_cmd" ] || echo "old client command: ${old_cmd}"; } > "$DIR/.migrated_from_old_kit" 2>/dev/null || true
       fi
       echo "Start the new client with:"
       echo "   ${record}"
+      if [ -z "${MIGRATE_START:-}" ] && [ -n "$old_cmd" ]; then
+          echo "If it does not start, run the old kit's client (and its live_sync) again until that is fixed:"
+          echo "   ${old_cmd}"
+      fi
 
       if [ -n "${MIGRATE_START:-}" ]; then
           if [ "$rc" != 0 ]; then
               echo "[ABORT] not starting the new client: fix the [!] items above first."
               return "$rc"
           fi
-          if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qxF "$CONTAINER_NAME"; then
-              echo "This kit's client container ${CONTAINER_NAME} exists already; not starting a second one."
+          if [ "$own_st" = running ]; then
+              echo "This kit's client container ${CONTAINER_NAME} runs already; not starting a second one."
               return 0
           fi
           echo "Starting the new client:"
@@ -1548,7 +1715,19 @@ docker_cln_sh: |
           # Values only image.conf set (it was sourced above) must not shadow the merged file.
           [ -n "${ENV_IMAGE:-}" ] || unset_env+=(-u MEDISWARM_IMAGE)
           [ -n "${ENV_DOCKER_OPTIONS:-}" ] || unset_env+=(-u MEDISWARM_DOCKER_OPTIONS)
-          exec env "${unset_env[@]}" "${MIG_ENV[@]}" "$DIR/docker.sh" "${MIG_ARGS[@]}"
+          # Run, not exec'ed, so that a failed start can say how to get the old client back.
+          # --no_pull: the image was pulled above, before the old client was stopped.
+          env "${unset_env[@]}" "${MIG_ENV[@]}" "$DIR/docker.sh" "${MIG_ARGS[@]}" --no_pull
+          start_rc=$?
+          if [ "$start_rc" != 0 ]; then
+              echo
+              echo "[!] The new client did not start (exit ${start_rc}); see the messages above."
+              if [ -n "$old_cmd" ]; then
+                  echo "    Until that is fixed, run the old kit's client (and its live_sync) again with:"
+                  echo "       ${old_cmd}"
+              fi
+          fi
+          return "$start_rc"
       fi
       return "$rc"
   }
@@ -1562,10 +1741,32 @@ docker_cln_sh: |
       exit $?
   fi
 
-  if [[ -z "$NOPULL" ]]; then
-      echo "Updating docker image"
-      docker pull "$DOCKER_IMAGE"
-  fi
+  _extra_mount_targets() {
+      # Container paths the site's extra docker options mount something at: -v/--volume src:dst[:opts]
+      # (a lone path is an anonymous volume there) and --mount ...,target=dst. Split into words the
+      # way `docker run` gets them below.
+      local -a o kv
+      local i=0 a spec dst x
+      read -ra o <<< "$EXTRA_DOCKER_OPTIONS"
+      while [ "$i" -lt "${#o[@]}" ]; do
+          a="${o[$i]}"; i=$((i + 1))
+          case "$a" in
+              -v|--volume|--mount) spec="${o[$i]:-}"; i=$((i + 1)) ;;
+              --volume=*|--mount=*) spec="${a#*=}" ;;
+              -v?*) spec="${a#-v}"; spec="${spec#=}" ;;
+              *) continue ;;
+          esac
+          dst=""
+          if [[ "$a" == --mount* ]]; then
+              IFS=, read -ra kv <<< "$spec"
+              for x in "${kv[@]}"; do case "$x" in target=*|destination=*|dst=*) dst="${x#*=}" ;; esac; done
+          else
+              IFS=: read -r _ dst _ <<< "$spec"
+              [ -n "$dst" ] || dst="$spec"
+          fi
+          dst="${dst%/}"; echo "${dst:-/}"
+      done
+  }
   DOCKER_NOFILE_LIMIT="${DOCKER_NOFILE_LIMIT:-65536}"
   DOCKER_OPTIONS_A="--name=$CONTAINER_NAME --gpus=$GPU2USE --ulimit nofile=${DOCKER_NOFILE_LIMIT}:${DOCKER_NOFILE_LIMIT} --shm-size=16g -u $(id -u):$(id -g)"
   DOCKER_MOUNTS="-v /etc/passwd:/etc/passwd -v /etc/group:/etc/group -v $DIR/..:/startupkit/ -v $MY_SCRATCH_DIR:/scratch/"
@@ -1580,9 +1781,13 @@ docker_cln_sh: |
       # MEDISWARM_DOCKER_OPTIONS="-v /abs/target:/abs/target:ro" in startup/image.conf.
       # #522: a path-prefix test. The former  =~ "/data"  was a substring match and also
       # skipped this mount for e.g. /mnt/database or /home/u/data_backup.
+      # A site that mounts the data folder at its own path itself (in MEDISWARM_DOCKER_OPTIONS,
+      # e.g. read-write; --migrate_from carries that line over) keeps its mount: Docker refuses
+      # two different mounts at one path ('Duplicate mount point').
       case "$MY_DATA_DIR" in
           /data|/data/*) ;;                                       # already the /data mount itself
-          *) DOCKER_MOUNTS+=" -v $MY_DATA_DIR:$MY_DATA_DIR:ro" ;;
+          *) _extra_mount_targets | grep -qxF -- "${MY_DATA_DIR%/}" \
+                 || DOCKER_MOUNTS+=" -v $MY_DATA_DIR:$MY_DATA_DIR:ro" ;;
       esac
   fi
   DOCKER_OPTIONS_B="-w /startupkit/startup/ --ipc=host $NETARG"
@@ -1726,12 +1931,15 @@ docker_cln_sh: |
       if _nvidia_driver_mismatch; then
           _explain_driver_mismatch "[FAIL]"
           fail=1
+      # A missing image (failed pull) would make the GPU test fail with the wrong (F2) advice
+      elif ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
+          _explain_missing_image "[FAIL]"
+          fail=1
       # F2: GPU usable inside a container (catches 'NVML: Unknown Error')
-      elif timeout 90 docker run --rm --gpus=$GPU2USE $DOCKER_IMAGE nvidia-smi -L >/dev/null 2>&1; then
+      elif _gpu_usable_in_container "$GPU2USE"; then
           echo "[PASS] GPU usable inside the container."
       else
-          echo "[FAIL] GPU NOT usable inside the container (likely 'NVML: Unknown Error')."
-          echo "       Fix: run  scripts/client_node_setup/fix_docker_cgroupfs.sh  then recreate the client (docs: F2)."
+          _explain_no_gpu_in_container "[FAIL]"
           fail=1
       fi
 
@@ -1767,15 +1975,23 @@ docker_cln_sh: |
                   echo "[WARN] Swarm server $host:$port NOT reachable — check the VPN and /etc/hosts (docs: F6)."
               fi
           done <<< "$(_coordinator_endpoints)"
-          # F3: a stale daemon_pid.fl blocks start.sh ("one instance running") after an unclean stop
-          local lock="$DIR/../daemon_pid.fl"
-          if [ -f "$lock" ]; then
-              if docker ps --filter "name=odelia_swarm_client" --format '{{.Names}}' | grep -q .; then
-                  echo "[WARN] $lock present and a client container is running; leaving it in place."
-              else
-                  echo "[INFO] Removing stale daemon_pid.fl (no client container running) so start.sh can launch (docs: F3)."
-                  rm -f "$lock"
-              fi
+          # Two clients of one site (this kit's and an older kit's that still runs) log in with the
+          # same identity and push each other out of the swarm (client_manager: 'already registered.
+          # Re-login'), and their live_sync daemons clobber each other's uploads (F16).
+          local n okit
+          while read -r n; do
+              [ -n "$n" ] || continue
+              IFS='|' read -r _ _ _ _ _ _ _ _ okit <<< "$(_container_summary "$n")"
+              echo "[FAIL] The client container $n of another kit (${okit:-folder unknown}) runs for ${KIT_SITE}."
+              echo "       Two clients of one site push each other out of the swarm. Retire it first, and start"
+              echo "       this kit's client in the same step:  ./docker.sh --migrate_from ${okit:-<old kit folder>} --yes --start"
+              echo "       (without --yes it only shows what it would do)."
+              fail=1
+          done <<< "$(docker ps --format '{{.Names}}' 2>/dev/null | _site_containers_except_this_kit)"
+          # F3: a lock left by a crash or a power loss would make start.sh refuse to launch. No
+          # container of this kit runs (checked above), so the new container clears it itself.
+          if [ -e "$DIR/../daemon_pid.fl" ] || [ -e "$DIR/../pid.fl" ]; then
+              echo "[INFO] Lock files of an earlier client are in the kit; the client container clears them when it starts (docs: F3)."
           fi
       fi
 
@@ -1785,6 +2001,39 @@ docker_cln_sh: |
           exit 2
       fi
   }
+
+  # --start_client never starts a second container on this kit, whose command would clear the
+  # lock files of the running one (#630), and never touches a running client.
+  if [ -n "$START_CLIENT" ]; then
+      if ! docker ps >/dev/null 2>&1; then
+          echo "[ABORT] Cannot talk to Docker (is this user in the docker group?). Nothing was started."
+          exit 2
+      fi
+      KIT_BUSY="$(_running_containers_of_kit "$KIT_DIR_ROOT" | xargs)"
+      if [ "$KIT_BUSY" = "$CONTAINER_NAME" ] && _container_env "$CONTAINER_NAME" | grep -qx 'TRAINING_MODE=swarm'; then
+          # After a reboot Docker restarts the client by itself, but not live_sync on the host:
+          # --status sends the site here to start it next to the running client.
+          echo "[INFO] This kit's client container ${CONTAINER_NAME} is already running; it is left as it is."
+          echo "       To restart it, e.g. on a new image:  docker stop ${CONTAINER_NAME} && docker rm ${CONTAINER_NAME} , then run this again."
+          RUNNING_SCRATCH="$(_container_mounts "$CONTAINER_NAME" | awk -F'|' '$2 == "/scratch" || $2 == "/scratch/" {print $1; exit}')"
+          MY_SCRATCH_DIR="${RUNNING_SCRATCH:-$MY_SCRATCH_DIR}"
+          _start_live_sync swarm
+          exit 0
+      elif [ -n "$KIT_BUSY" ]; then
+          echo "[ABORT] A container of this kit is running: ${KIT_BUSY}. A client started next to it would"
+          echo "        share the kit and clear the lock files of its NVFlare process (F3)."
+          echo "        Stop it first ( docker stop <name> ), then run this again. Nothing was started."
+          exit 2
+      fi
+      IFS='|' read -r OWN_STATE _ <<< "$(_container_summary "$CONTAINER_NAME")"
+      if [ -n "$OWN_STATE" ]; then
+          echo "[ABORT] This kit's client container ${CONTAINER_NAME} exists already (${OWN_STATE})."
+          echo "        Remove it ( docker rm ${CONTAINER_NAME} ) and run this again. Nothing was started."
+          exit 2
+      fi
+  fi
+
+  _pull_image || true
 
   # Run pre-run host checks for the GPU-using modes
   if [ -n "$DUMMY_TRAINING" ] || [ -n "$PREFLIGHT_CHECK" ] || [ -n "$START_CLIENT" ] || [ -n "$EXTERNAL_VALIDATION" ]; then
@@ -1816,6 +2065,7 @@ docker_cln_sh: |
       exit "$LOCAL_TRAINING_STATUS"
 
   elif [ -n "$START_CLIENT" ]; then
+      SYNC_PID_BEFORE="$(cat "$SYNC_STATE_DIR/swarm_sync.pid" 2>/dev/null)"
       _start_live_sync swarm
       # The container command clears the kit's lock files first: it only runs when the
       # container (re)starts, so any lock present then is left over from a crash or power
@@ -1826,6 +2076,18 @@ docker_cln_sh: |
       --health-interval=120s --health-start-period=180s --health-retries=3 \
       $DOCKER_OPTIONS $ENV_VARS --env TRAINING_MODE=swarm $DOCKER_IMAGE \
       /bin/bash -c "rm -f ../daemon_pid.fl ../pid.fl; nohup ./start.sh >> nohup.out 2>&1 && /bin/bash"
+      START_RC=$?
+      if [ "$START_RC" != 0 ]; then
+          echo "[FAIL] docker run could not start the client container (exit ${START_RC}); see the error above."
+          # A live_sync daemon of a client that never started would upload for this site next to
+          # the client the site runs instead (F16): stop the one this run started.
+          SYNC_PID_NOW="$(cat "$SYNC_STATE_DIR/swarm_sync.pid" 2>/dev/null)"
+          if [ -n "$SYNC_PID_NOW" ] && [ "$SYNC_PID_NOW" != "$SYNC_PID_BEFORE" ] && _stop_daemon "$SYNC_PID_NOW"; then
+              rm -f "$SYNC_STATE_DIR/swarm_sync.pid"
+              echo "       Stopped the live_sync daemon it had started (PID ${SYNC_PID_NOW})."
+          fi
+          exit "$START_RC"
+      fi
 
   elif [ -n "$EXTERNAL_VALIDATION" ]; then
       # Predict-only external validation (#412): run a delivered global model on this
@@ -1944,6 +2206,24 @@ docker_svr_sh: |
 
   DOCKER_IMAGE={~~docker_image~~}
   DOCKER_IMAGE="${CLI_IMAGE:-${MEDISWARM_IMAGE:-$DOCKER_IMAGE}}"
+
+  # This script never deletes the kit's lock files (../daemon_pid.fl, ../pid.fl) on the host: while
+  # the server container runs, its sub_start.sh owns them and, without pid.fl, starts a second
+  # NVFlare server within 5 s. The container command (#630, below) and the image's entrypoint clear
+  # a stale lock when the container starts. For the same reason no second container may start on
+  # this kit while one runs (e.g. with another --svr_name): its command would clear the live locks.
+  if [ -n "$START_SERVER" ]; then
+      KIT_PHYS="$(cd "$DIR/.." && pwd -P)"
+      for c in $(docker ps --format '{{.Names}}' 2>/dev/null); do
+          src="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/startupkit"}}{{.Source}}{{end}}{{end}}' "$c" 2>/dev/null)"
+          if [ -n "$src" ] && [ "$(cd "$src" 2>/dev/null && pwd -P)" = "$KIT_PHYS" ]; then
+              echo "[ABORT] The container $c of this server kit is running. Stop it first"
+              echo "        ( docker stop $c && docker rm $c ), then run this again. Nothing was started."
+              exit 2
+          fi
+      done
+  fi
+
   if [[ -z "$NOPULL" ]]; then
       echo "Updating docker image"
       docker pull $DOCKER_IMAGE
@@ -1951,8 +2231,6 @@ docker_svr_sh: |
   # CLI flag --svr_name takes priority over env var SVR_NAME (survives sudo)
   svr_name="${CLI_SVR_NAME:-${SVR_NAME:-flserver}}"
   CONTAINER_NAME=odelia_swarm_server_${svr_name}___REPLACED_BY_CONTAINER_VERSION_IDENTIFIER_WHEN_BUILDING_DOCKER_IMAGE__
-
-  rm -rf ../pid.fl ../daemon_pid.fl  # clean up potential leftovers from previous run
 
   # #607: NVFlare keeps its job store under /tmp/nvflare INSIDE the container
   # (local/resources.json.default: jobs-storage, snapshot-storage; NVFlare 2.8 adds
