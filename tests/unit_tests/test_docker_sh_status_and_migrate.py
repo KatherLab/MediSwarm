@@ -93,7 +93,8 @@ elif cmd == "inspect":
 elif cmd == "image" and args[1:2] == ["inspect"]:
     img = I.get(args[-1])
     if img is None:
-        sys.exit(1)
+        # A bare existence check (no --format) finds the image unless a test removes it on purpose.
+        sys.exit(0 if not fmt() and state.get("images_present_by_default", True) else 1)
     f = fmt()
     if f == "{{.Id}}":
         sys.stdout.write(img["id"] + "\n")
@@ -401,12 +402,15 @@ def test_start_client_checks_the_coordinator_from_fed_client_json(host):
     assert f"[PASS] Swarm server 127.0.0.1:{host.fl_port} reachable." in result.stdout
 
 
-def test_start_client_still_clears_a_stale_lock(host):
+def test_start_client_leaves_a_stale_lock_to_the_new_container(host):
+    """SO-2: docker.sh never deletes the kit's locks on the host (a running daemon may own them); the
+    client container clears them in its own command (#630), when no NVFlare process of the kit can run."""
     lock = _write(host.new_kit / "daemon_pid.fl", "4242\n")
     result = host.run("--data_dir", str(host.data), "--scratch_dir", str(host.scratch), "--GPU", "device=0",
                       "--no_pull", "--start_client")
     assert result.returncode == 0
-    assert not lock.exists()
+    assert lock.exists(), "the host side never removes a lock"
+    assert "the client container clears them when it starts" in result.stdout
     start = next(c for c in host.calls() if c[0] == "run" and "-d" in c)
     assert start[-1].startswith("rm -f ../daemon_pid.fl ../pid.fl; nohup ./start.sh")
 
@@ -622,7 +626,10 @@ def test_migrate_yes_retires_the_old_kit_and_carries_the_settings(host, tmp_path
                             ' echo "$REMOTE_HOST|$MEDISWARM_IMAGE|$ODELIA_NUM_WORKERS"'], capture_output=True, text=True)
     assert probe.stdout.strip() == "172.24.4.65|jefftud/odelia:current|4"
     assert "start command: cd" in (host.new_kit / "startup" / ".migrated_from_old_kit").read_text()
-    assert not [c for c in calls if c[0] == "run"], "without --start nothing is started"
+    # The only container run is the throwaway GPU check of the new image before the old client is stopped (SO-3).
+    started = [c for c in calls if c[0] == "run" and "nvidia-smi" not in c]
+    assert not started, "without --start nothing is started"
+    assert [c for c in calls if c[0] == "run" and "nvidia-smi" in c], "the new image's GPU check ran first"
 
     # idempotent: a second run finds nothing left to do and carries nothing twice
     again = host.run("--migrate_from", str(old_kit), "--yes")
@@ -753,3 +760,31 @@ def test_migrate_does_not_start_for_another_user(host, tmp_path):
 
 if __name__ == "__main__":  # pragma: no cover
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+# ── 1.9.0 review fixes: SO-3 and SO-4 ─────────────────────────────────────────
+
+
+def test_migrate_yes_keeps_the_old_client_when_the_new_image_cannot_use_the_gpu(host, tmp_path):
+    """SO-3: the new kit's checks run before anything is stopped; a failure leaves the old client running."""
+    old_kit, daemon = _old_181(host, tmp_path)
+    host.state["gpu_run_rc"] = 1
+    result = host.run("--migrate_from", str(old_kit), "--yes")
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "Nothing was changed: the old client keeps running" in result.stdout
+    calls = host.calls()
+    assert not [c for c in calls if c[0] in ("stop", "rm")]
+    assert host.state["containers"][OLD_CONTAINER]["state"] == "running"
+    daemon.kill()
+
+
+def test_start_client_refuses_while_an_old_kits_client_runs(host, tmp_path):
+    """SO-4: two clients of one site push each other out of the swarm; --migrate_from is the way."""
+    old_kit, daemon = _old_181(host, tmp_path)
+    result = host.run("--data_dir", str(host.data), "--scratch_dir", str(host.scratch), "--GPU", "device=0",
+                      "--no_pull", "--start_client")
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert f"The client container {OLD_CONTAINER} of another kit" in result.stdout
+    assert "--migrate_from" in result.stdout
+    assert not [c for c in host.calls() if c[0] == "run" and "-d" in c], "no client was started"
+    daemon.kill()
