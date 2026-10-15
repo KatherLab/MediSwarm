@@ -4,6 +4,21 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Run plan for October to November 2026** — `scripts/admin/odelia_run_plan.py` holds every
+  scheduled consortium run as a named preset of `build_consortium_job.py` arguments (check, CAM
+  and VHIO models, D2.5, the four D3.2 arms, DP, BreastDivider), with `--list`, `--show` (the
+  exact builder command) and `--build`, and overrides for a site that cannot join
+  (`--exclude-sites VHIO_1`) and for the dl3 test bed. Plan, preconditions and checks:
+  `docs/ODELIA_RUN_PLAN_2026-Q4.md`.
+
+### Fixed
+
+- **The job builder refuses a single-site job** — NVFlare's swarm controller needs at least two
+  participating clients and raised `Not enough participating_clients` on the coordinator after
+  the job had passed every build check. Affects the planned D2.5 Greek run (MHA_1 alone).
+
 ## [1.9.1] - 2026-10-15
 
 Image-only release on top of 1.9.0: sites keep the 1.9.0 startup kit and receive this image

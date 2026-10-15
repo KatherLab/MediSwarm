@@ -89,6 +89,16 @@ passwords somewhere, they are only displayed once (or you can download them agai
 6. Log in using the user name configured as "name" of the node of type "admin" (only user name needed, auth happens via certificate)
 7. Deploy a job by `submit_job <job folder>`
 
+### ODELIA consortium runs
+
+Consortium jobs are built with `scripts/admin/build_consortium_job.py`: strict roster, model and data format
+pinned in the launcher and the persistor, validated, with a `job_manifest.json` that records the code and flags.
+The runs of October and November 2026 are named presets of `scripts/admin/odelia_run_plan.py`
+(`--list`, `--show <preset>`, `--build <preset> --out-dir <admin kit>/local/mediswarm_jobs`); purpose,
+preconditions, duration and checks of each run are in the
+[run plan](../../docs/ODELIA_RUN_PLAN_2026-Q4.md). The first October run is recorded in
+[ODELIA_RUN_2026-10_MST.md](../../docs/ODELIA_RUN_2026-10_MST.md).
+
 ### Fresh vs Continue ODELIA Jobs
 
 Admin startup kits include `prepare_odelia_job.sh`, which copies an in-image job into the admin kit's mounted

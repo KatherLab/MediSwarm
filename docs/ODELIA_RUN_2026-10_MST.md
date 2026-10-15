@@ -3,6 +3,7 @@
 Operational record of the first consortium benchmark run of the October schedule (#591).
 Per-site results are consortium-confidential and are kept in `RUN_REPORT.md` next to the
 released models on the monitor (`ODELIA_MODELS/release/2026-10_7site_MST_7a678d9a/`).
+The runs that follow it are planned in [ODELIA_RUN_PLAN_2026-Q4.md](ODELIA_RUN_PLAN_2026-Q4.md).
 
 ## Run
 
