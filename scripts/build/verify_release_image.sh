@@ -4,7 +4,7 @@
 #
 #   scripts/build/verify_release_image.sh <image> [--reference <image>] [--trivy]
 #
-#   1. the shipped weights and their SHA-256 (SAM-Med2D, 1DivideAndConquer, MViT, DINOv2, ResNet18)
+#   1. the shipped weights and their SHA-256 (SAM-Med2D, MedicalNet ResNet34, 1DivideAndConquer, MViT, DINOv2, ResNet18)
 #   2. image config: ENTRYPOINT/CMD, KMP_DUPLICATE_LIB_OK, ODELIA_IMAGE_VERSION, OCI labels
 #   3. Python packages: NVFlare's wire stack and the training stack equal to --reference (default
 #      jefftud/odelia:1.8.1; compared only when present locally, nothing is pulled), the packages
@@ -64,6 +64,7 @@ INSIDE=(-v "$SCRIPT_DIR/_verify_image_inside.py:/verify/inside.py:ro")
 section "1. weights"
 declare -A WEIGHTS=(
     [/MediSwarm/pretrained_weights/sam-med2d_b.pth]=921d8c130cc4bcc4b7220c064e60f207f15ad59f17ab36de340e41c67a490d18
+    [/MediSwarm/pretrained_weights/resnet_34_23dataset.pth]=3ea7188e396774e4ef95b66e5e90a78273bb33f6e58d3d717bf24f5f1aaeaa28
     [/MediSwarm/pretrained_weights/checkpoint_final.pth]=ed686907205fb0cb752dc987851eb9d0191034599c5d204c7ec1ad9ff91dd758
     [/MediSwarm/pretrained_weights/mvit_v2_s-ae3be167.pth]=ae3be16733081f6d1cd40e4ab980ca23d6df6dc6486d15ada05a5e8ab8c9b975
     [/torch_home/hub/checkpoints/dinov2_vits14_pretrain.pth]=b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9

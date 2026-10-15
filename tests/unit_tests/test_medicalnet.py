@@ -97,3 +97,17 @@ def test_learning_rate_env_override(monkeypatch):
     monkeypatch.setenv("MEDICALNET_LR", "5e-5")
     model = MedicalNet(n_input_channels=1, num_classes=3, spatial_dims=3)
     assert model.optimizer_kwargs["lr"] == 5e-5
+
+
+def test_missing_weights_refuse_unless_random_init_is_allowed(monkeypatch, tmp_path):
+    """The round-0 global comes from the starting client alone: no silent random backbone (as MST_SAMMed2D)."""
+    import logging
+    import models.models_config as mc
+
+    monkeypatch.delenv("MEDICALNET_PRETRAINED_PATH", raising=False)
+    monkeypatch.delenv("MEDICALNET_ALLOW_RANDOM_INIT", raising=False)
+    monkeypatch.setattr(mc.os.path, "isfile", lambda path: False)
+    with pytest.raises(RuntimeError, match="needs its pretrained weights"):
+        mc.resolve_medicalnet_weights(logging.getLogger("test"))
+    monkeypatch.setenv("MEDICALNET_ALLOW_RANDOM_INIT", "1")
+    assert mc.resolve_medicalnet_weights(logging.getLogger("test")) is None

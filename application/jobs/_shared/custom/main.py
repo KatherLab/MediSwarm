@@ -62,6 +62,30 @@ def _receive_round(ctx: round_hooks.RoundContext, final_eval_round: bool = False
     ctx.is_eval_only_round = final_eval_round and ctx.is_final_round
 
 
+def _check_received_structure(ctx: round_hooks.RoundContext) -> None:
+    """#541: refuse a received global whose parameters do not fit this site's model.
+
+    FLCallback loads the global non-strictly (load_state_dict_strict=False, for the _class_weight buffer)
+    and only stops on shape mismatches or zero overlap, so a global from a partially overlapping
+    architecture (another MODEL_NAME at the starting client, a stale warm-start file) would load in part
+    and train on silently. Checked on the first global a site receives; every later one has the same keys.
+    """
+    from models.base_model import state_dict_mismatch  # job code; imported here to keep main.py light
+
+    params = getattr(ctx.input_model, "params", None)
+    if not params:
+        return
+    problem = state_dict_mismatch(ctx.model.state_dict(), params)
+    model_name = (ctx.env_vars or {}).get("model_name", "?")
+    if problem:
+        raise RuntimeError(
+            f"The global received in round {ctx.current_round} does not fit this site's model "
+            f"(MODEL_NAME={model_name}): {problem}. Every site and the job's persistor must build the same "
+            f"model (#541): pin MODEL_NAME in the job's launcher and persistor (build_consortium_job.py does)."
+        )
+    ctx.logger.info(f"Received global fits this site's model (MODEL_NAME={model_name}, {len(params)} tensors)")
+
+
 def _run_training_round(ctx: round_hooks.RoundContext, hooks) -> None:
     """Validate the received global, train locally (FLCallback sends the result), finalize in the last round.
 
@@ -190,8 +214,12 @@ def run_swarm(logger, data_module, model, checkpointing, trainer, path_run_dir, 
     round_hooks.start_hooks(hooks, ctx, fl_callback_cls=flare.FLCallback)
 
     ended = False
+    structure_checked = False
     while flare.is_running():
         _receive_round(ctx, final_eval_round)
+        if not structure_checked:
+            _check_received_structure(ctx)
+            structure_checked = True
         logger.info(f"Current round: {ctx.current_round} (of {ctx.total_rounds})"
                     + (" -- evaluation only" if ctx.is_eval_only_round else ""))
         round_hooks.call_hooks(hooks, "after_receive", ctx)

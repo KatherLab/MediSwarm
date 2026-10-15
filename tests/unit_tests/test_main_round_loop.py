@@ -165,6 +165,8 @@ def harness(monkeypatch, tmp_path):
                  "prepare_odelia_dataset", "prepare_odelia_dataset_without_augmentation"):
         setattr(env_config, attr, lambda *args, **kwargs: None)
     models_config.create_model = lambda *args, **kwargs: None
+    models_pkg.__path__ = [str(SHARED_CUSTOM_DIR / "models")]  # the real models.base_model (main.py's #541 check)
+    monkeypatch.delitem(sys.modules, "models.base_model", raising=False)
     for name, module in {"data": data_pkg, "data.datasets": data_datasets, "data.datamodules": data_datamodules,
                          "env_config": env_config, "models": models_pkg, "models.models_config": models_config}.items():
         monkeypatch.setitem(sys.modules, name, module)
@@ -444,3 +446,16 @@ def test_local_training_ignores_hooks(harness, monkeypatch):
         ("validate", None), ("fit", None),
         ("finalize", None),
     ]
+
+
+def test_received_global_of_another_architecture_is_refused(harness):
+    """#541: a partially overlapping global would load non-strictly and train on silently; refuse it."""
+    main = import_module_from_path("odelia_main_under_test", SHARED_CUSTOM_DIR / "main.py")
+    model = torch.nn.Sequential(torch.nn.Linear(4, 3), torch.nn.Linear(3, 2))
+    ctx = types.SimpleNamespace(model=model, env_vars={"model_name": "MST"}, current_round=0,
+                                logger=logging.getLogger("test"),
+                                input_model=types.SimpleNamespace(params={"0.weight": torch.zeros(3, 4)}))
+    with pytest.raises(RuntimeError, match="does not fit this site's model"):
+        main._check_received_structure(ctx)
+    ctx.input_model.params = dict(model.state_dict())
+    main._check_received_structure(ctx)  # the matching global passes

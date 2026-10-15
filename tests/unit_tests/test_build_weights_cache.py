@@ -35,6 +35,7 @@ WEIGHTS = {
                                 "MODEL_WEIGHTS_FILE_ODAC_HASH"),
     "MODEL_WEIGHTS_FILE_RESNETEIGHTEEN": (None, "MODEL_WEIGHTS_FILE_RESNETEIGHTEEN_HASH"),  # path holds the hash
     "MODEL_WEIGHTS_FILE_SAMMED2D": ("pretrained_weights/sam-med2d_b.pth", "MODEL_WEIGHTS_FILE_SAMMED2D_HASH"),
+    "MODEL_WEIGHTS_FILE_MEDICALNET": ("pretrained_weights/resnet_34_23dataset.pth", "MODEL_WEIGHTS_FILE_MEDICALNET_HASH"),
 }
 
 
@@ -84,7 +85,7 @@ def run_steps(steps, cache_dir, target, digests, env_extra=None, keep_real=()):
                           env=env, capture_output=True, text=True, timeout=120)
 
 
-ALL_STEPS = "check_sammed2d; write_resnet18_ref; verify_files; copy_files"
+ALL_STEPS = "check_sammed2d; check_medicalnet; write_resnet18_ref; verify_files; copy_files"
 
 
 def test_release_build_puts_verified_weights_in_their_own_context_dirs(cache, tmp_path):
@@ -95,7 +96,7 @@ def test_release_build_puts_verified_weights_in_their_own_context_dirs(cache, tm
 
     weights = target / "pretrained_weights"
     assert sorted(p.name for p in weights.iterdir()) == \
-        ["checkpoint_final.pth", "mvit_v2_s-ae3be167.pth", "sam-med2d_b.pth"]
+        ["checkpoint_final.pth", "mvit_v2_s-ae3be167.pth", "resnet_34_23dataset.pth", "sam-med2d_b.pth"]
     for name, var in [("checkpoint_final.pth", "MODEL_WEIGHTS_FILE_ODAC_HASH"),
                       ("sam-med2d_b.pth", "MODEL_WEIGHTS_FILE_SAMMED2D_HASH")]:
         assert _sha((weights / name).read_bytes()) == digests[var]
