@@ -1,67 +1,83 @@
 readme_am: |
-  *********************************
-  Admin Client package
-  *********************************
-  The package includes at least the following files:
-  readme.txt
-  rootCA.pem
-  client.crt
-  client.key
-  fl_admin.sh
+  MediSwarm swarm learning: admin kit (TUD operators)
+  Kit version: __REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__
 
-  Please install the nvflare package by 'python3 -m pip nvflare.'  This will install a set of Python codes
-  in your environment.  After installation, you can run the fl_admin.sh file to start communicating to the admin server.
+  startup/client.key is the admin's private key. Keep this folder private.
 
-  The rootCA.pem file is pointed by "ca_cert" in fl_admin.sh.  If you plan to move/copy it to a different place,
-  you will need to modify fl_admin.sh.  The same applies to the other two files, client.crt and client.key.
+  Admin console
+    cd startup && ./docker.sh        opens fl_admin.sh inside the image named in docker.sh
 
-  The email in your submission to participate this Federated Learning project is embedded in the CN field of client
-  certificate, which uniquely identifies the participant.  As such, please safeguard its private key, client.key.
+  Tools in startup/
+    build_consortium_job.py   builds and checks a consortium job (python3 build_consortium_job.py --help).
+                              The kit holds no repository, so take the job code from the release image:
+                                docker pull <image named in docker.sh>
+                                python3 build_consortium_job.py --source image:<that image> --name <job> ...
+    watch_run.py              follows a submitted run in the server log (python3 watch_run.py --help)
+    hocon_lite.py, patch_warm_start_job.py
+                              modules the tools load from this folder; keep them next to the tools
+    prepare_odelia_job.sh     older helper that copies the job out of the image in docker.sh; the
+                              deploy-test harness still uses it. For consortium runs use build_consortium_job.py.
+  The builder and the watcher come from scripts/admin/ of the checkout that built this kit; the
+  build log names any that were missing.
+
+  kit_manifest.txt holds the kit version, the expected image, the root CA fingerprint and a
+  checksum of every file as issued.
 
 readme_fc: |
-  *********************************
-  Federated Learning Client package
-  *********************************
-  The package includes at least the following files:
-  readme.txt
-  rootCA.pem
-  client.crt
-  client.key
-  fed_client.json
-  start.sh
-  sub_start.sh
-  stop_fl.sh
+  MediSwarm swarm learning: startup kit of one site
+  Kit version: __REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__
 
-  Run start.sh to start the client.
+  This folder is your site's identity in the swarm: startup/client.key is its private key.
+  Keep the folder private on the swarm node and never send it to anyone.
 
-  The rootCA.pem file is pointed by "ssl_root_cert" in fed_client.json.  If you plan to move/copy it to a different place,
-  you will need to modify fed_client.json.  The same applies to the other two files, client.crt and client.key.
+  What is in the kit
+    startup/docker.sh            starts and checks the node (./docker.sh alone lists every option)
+    startup/image.conf           which image the node runs, and your site's extra docker options
+    startup/live_sync.sh         sends logs and metrics to the TUD monitor while the node runs
+    scripts/client_node_setup/   host helpers: VPN service, Docker cgroup fix, GPU watchdog
+    kit_manifest.txt             kit version, expected image and a checksum of every file
 
-  The client name in your submission to participate this Federated Learning project is embedded in the CN field of client
-  certificate, which uniquely identifies the participant.  As such, please safeguard its private key, client.key.
+  Moving from an older kit (for example 1.8.1) on the same machine
+    Unzip this kit into a new, empty folder next to the old kit, never over it. Then:
+      cd <SITE>/startup
+      ./docker.sh --migrate_from /path/to/old/<SITE>                 dry run, changes nothing
+      ./docker.sh --migrate_from /path/to/old/<SITE> --yes --start   moves the node to this kit
+      ./docker.sh --status                                           checks the node
+
+  First installation on a machine without an older kit
+      cd <SITE>/startup
+      ./docker.sh --data_dir <DATA> --scratch_dir <SCRATCH> --GPU device=0 --preflight_check
+      ./docker.sh --data_dir <DATA> --scratch_dir <SCRATCH> --GPU device=0 --start_client
+      ./docker.sh --status
+
+  New in 1.9.0 for sites
+    - One command moves the node from the old kit (--migrate_from), one checks it (--status).
+    - The key for the monitor upload comes with the kit: no key exchange by email any more.
+    - A per-case opt-in (ODELIA_RETURN_PER_CASE in image.conf) is carried over by --migrate_from.
+    - Model files are no longer uploaded to the monitor by default.
+    - After a reboot or power loss the node clears its stale lock and rejoins on its own.
+    - The host helpers in scripts/client_node_setup/ now come with the kit.
+
+  Before moving, run nvidia-smi on the host. "Driver/library version mismatch" means an
+  automatic driver update is waiting for a reboot: reboot first, or the new container has no GPU.
+
+  Step-by-step guide: docs/KIT_1.9.0_SITE_GUIDE.md at https://github.com/KatherLab/MediSwarm
+  Questions: your contact at TUD.
 
 readme_fs: |
-  *********************************
-  Federated Learning Server package
-  *********************************
-  The package includes at least the following files:
-  readme.txt
-  rootCA.pem
-  server.crt
-  server.key
-  authorization.json
-  fed_server.json
-  start.sh
-  sub_start.sh
-  stop_fl.sh
-  signature.json
+  MediSwarm swarm learning: server kit (coordinator, run by TUD)
+  Kit version: __REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_DOCKER_IMAGE__
 
-  Run start.sh to start the server.
+  startup/server.key is the server's private key. Keep this folder private.
 
-  The rootCA.pem file is pointed by "ssl_root_cert" in fed_server.json.  If you plan to move/copy it to a different place,
-  you will need to modify fed_server.json.  The same applies to the other two files, server.crt and server.key.
+  Start:  cd startup && ./docker.sh --start_server
+  Stop the old coordinator first, and only between runs: a job still running on it is lost.
+  Procedure: docs/RELEASE_RUNBOOK.md, section 5.
 
-  Please always safeguard the server.key.
+  Sites can only connect if this kit and theirs come from the same root CA. Compare
+    sha256sum startup/rootCA.pem
+  with the root_ca_sha256 line of kit_manifest.txt in this kit or in any site kit (F9 in
+  docs/SWARM_FAILURE_MODES.md).
 
 local_client_resources: |
   {

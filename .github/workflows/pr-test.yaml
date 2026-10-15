@@ -6,6 +6,32 @@ on:
   # Lets a maintainer re-run validation on demand — e.g. to refresh a stale README
   # badge after an infrastructure fix, without pushing an empty commit (#390).
   workflow_dispatch:
+  # #554: validate main itself after a merge. The PR run validated the branch head, not
+  # the merge result, and several merges in a row (8 Sep: #533, #544, #446, #514) were
+  # never validated together. Only paths that reach the image, the kits or this harness
+  # trigger it, so merging docs, slides or analysis scripts does not occupy dl0/dl2 for an
+  # hour (unit tests run on every push to main anyway, in unit-tests.yaml). Order matters:
+  # the trailing '!' pattern removes markdown again.
+  push:
+    branches:
+      - main
+    paths:
+      - 'application/**'
+      - 'docker_config/**'
+      - 'scripts/build/**'
+      - 'scripts/ci/**'
+      - 'scripts/admin/**'
+      - 'scripts/client_node_setup/**'
+      - 'scripts/_list_licenses.sh'
+      - 'kit_live_sync/**'
+      - 'kit_admin_tools/**'
+      - 'tests/integration_tests/**'
+      - 'tests/provision/**'
+      - 'tests/unit_tests/_run_nvflare_unit_tests.sh'
+      - 'odelia_image.version'
+      - '.gitmodules'
+      - '.github/workflows/pr-test.yaml'
+      - '!**/*.md'
   pull_request:
     branches:
       - main
@@ -26,9 +52,12 @@ permissions:
 
 # Cancel superseded validation runs for the same PR/ref. The GPU-heavy
 # validate-swarm job below also queues globally to avoid self-hosted GPU
-# contention across different PRs.
+# contention across different PRs. Outside PRs the event is part of the group:
+# push, schedule and dispatch on main share github.ref, and a merge on a Sunday
+# morning would otherwise cancel the weekly all-model run. A newer merge still
+# cancels the run of an older one, since validating the newest main is what counts.
 concurrency:
-  group: pr-validation-${{ github.event.pull_request.number || github.ref }}
+  group: pr-validation-${{ github.event.pull_request.number || format('{0}-{1}', github.event_name, github.ref) }}
   cancel-in-progress: true
 
 jobs:
@@ -38,6 +67,12 @@ jobs:
     concurrency:
       group: mediswarm-self-hosted-gpu-validation
       cancel-in-progress: false
+    # Pause switch for test windows on dl0/dl2 (e.g. a release-candidate run that uses
+    # them as swarm clients): this job kills every odelia/stamp/nvflare container on its
+    # host. With the repository variable MEDISWARM_GPU_CI_PAUSED=true, PR, push and
+    # scheduled runs are skipped (reported as skipped, not failed); a manual dispatch
+    # still runs. Set it with: gh variable set MEDISWARM_GPU_CI_PAUSED --body true
+    if: github.event_name == 'workflow_dispatch' || vars.MEDISWARM_GPU_CI_PAUSED != 'true'
     runs-on: [self-hosted, ci]
     timeout-minutes: 240
 
