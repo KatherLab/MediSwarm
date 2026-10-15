@@ -214,10 +214,24 @@ for t in 1.9.0 current; do curl -s "https://hub.docker.com/v2/repositories/jefft
 
 Whether a site has actually moved shows only in its heartbeat (§10).
 
-## 7. Tag and release
+**Rollback.** Note the digest `:current` points to BEFORE re-tagging it. To go back, point
+`:current` at the previous release image again and push; sites pick it up with their next
+client restart. Before 1.9.0 that is `1.8.1-cam.261009` (1.8.1 plus the CAM weights), never
+plain `1.8.1`, which lacks the SAM-Med2D weights:
 
 ```bash
-git tag -a v1.9.0 -m "ODELIA/MediSwarm v1.9.0"
+docker pull jefftud/odelia:1.8.1-cam.261009
+docker tag  jefftud/odelia:1.8.1-cam.261009 jefftud/odelia:current
+docker push jefftud/odelia:current
+```
+
+## 7. Tag and release
+
+Tag the commit the image was built from, not whatever `main` is now: the image records it.
+
+```bash
+REV=$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' jefftud/odelia:1.9.0)
+git tag -a v1.9.0 "$REV" -m "ODELIA/MediSwarm v1.9.0"
 git push origin v1.9.0
 gh release create v1.9.0 --title "v1.9.0 — …" --notes-file <notes.md>
 ```
@@ -322,8 +336,18 @@ and `./docker.sh --start_server`.
 
 ## 9. Kits and the announcement
 
-- Upload `prod_NN/*.zip` + `SHA256SUMS.txt` the way 1.6.0 was delivered
-  (`workspace/UPLOAD_odelia_kits_v1.6.0/` is the template).
+- Upload exactly the files named in `prod_NN/SHA256SUMS.txt` (the site client kits) plus that
+  file to the kits folder. **Never** upload the server kit (`dl3.tud.de_*.zip`) or the admin kits:
+  they carry the coordinator's and the admins' private keys, and the kits folder is readable by
+  every site. `upload_authorized_keys.txt` stays on the build host too.
+
+  ```bash
+  cd workspace/odelia_allsites/prod_NN && mkdir -p ../upload_NN \
+    && awk '{print $2}' SHA256SUMS.txt | xargs -I{} cp {} ../upload_NN/ && cp SHA256SUMS.txt ../upload_NN/
+  ```
+- Register the kits' upload keys on the upload host BEFORE the kits go out:
+  `sudo scripts/admin/register_upload_keys.sh workspace/odelia_allsites/prod_NN/upload_authorized_keys.txt`
+  (dry run first with `--dry-run`; server_tools/README.md).
 - Sites on a 1.6.0 or later kit: restart once, nothing else. Sites on a 1.5.0 kit: new kit or
   `--image`. Announcement emails are drafted locally as `docs/EMAIL_release_<version>.md` (gitignored, never committed).
 - Update the kit registry / run schedule with the exact tag.
