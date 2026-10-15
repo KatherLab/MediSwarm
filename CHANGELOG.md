@@ -4,6 +4,40 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-15
+
+One release for every remaining ODELIA experiment: new image **and** new startup kits for all
+sites, so every site runs the same kit, image and coordinator. Training code still travels
+with each job, so later job-code fixes need no image or kit.
+
+**For sites:** unzip the 1.9.0 kit next to the old one, `./docker.sh --migrate_from <old kit>`
+(dry run), then `--yes --start`, then `./docker.sh --status` (docs/KIT_1.9.0_SITE_GUIDE.md).
+
+Overview (details below):
+
+- **Experiments it hosts:** the CAM model (`MST_SAMMed2D`, SAM-Med2D weights in the image,
+  refuses to start without them); BreastDivider crops (`CONFIG=unilateral_BD`, #635); DP noise
+  with per-round epsilon and a budget refusal (#642); MS6 per-round capture at the attacking
+  sites and an archive of every global at TUD (#644, #646); D3.2 on-site selection with a pinned,
+  digest-checked warm start (#643, #646); an evaluation-only final round so the final global is
+  validated and tested at every site, with honest labels for local and global metrics (#639).
+- **Jobs:** `scripts/admin/build_consortium_job.py` builds a validated consortium job in one
+  command (strict roster, deploy_map with the server, MODEL_NAME/CONFIG pinned twice, hooks,
+  manifest); `scripts/admin/watch_run.py` reports progress and the #542 alarms (#638).
+- **Kits:** `--migrate_from`, `--status`, refusal on an NVIDIA driver/library mismatch (F18),
+  no second client per site, no lock deletion under a running client (#640, #647); an upload key
+  per kit instead of emailed keys, an upload guard that confines every key to its site's folder,
+  model files and per-case CSVs uploaded only on opt-in, old daemons end with their client
+  (#648, #649); helper scripts, manifest and SHA256SUMS in every kit, root-CA guard (#641);
+  VPN service that says why no address comes up (#645).
+- **Image:** pretrained weights hash-checked and in their own layers, an entrypoint that clears
+  a stale lock when a client or server container restarts, wandb/datasets dropped and pins bumped
+  for the CVE gate, coordinator job store and MS6 archive on the host (#637).
+- **Security:** the upload account's home is root-owned and every upload key is confined, so an
+  upload key can no longer replace the account's authorized_keys (review finding PS-1).
+- **Removed:** Swin3D (#562); the inert `PercentilePrivacy` result filter, which never ran in a
+  swarm run (#642).
+
 ### Evaluation outputs (1.9.0)
 
 See `docs/SWARM_EVALUATION_OUTPUTS.md`.
