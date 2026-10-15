@@ -46,8 +46,12 @@ What happens at the selection round (before_fit, after the received global was v
    48 bits of the selection digest as a number). The coordinator keeps them only if the job's
    PerSiteMetricCollector lists the "al/" prefix. Log lines carry counts, never UIDs (nohup.out is uploaded).
 
-The aggregation weight of a site (NUM_STEPS_CURRENT_ROUND = Lightning's estimated stepping batches) follows
-the smaller training set; equal weights are dp_noise's ODELIA_DP_EQUAL_WEIGHTS.
+Aggregation weight. The hook's Lightning callback (round_steps_callback) sends the optimizer steps a site
+actually trained in the round as NUM_STEPS_CURRENT_ROUND, in every round of the job. NVFlare's default,
+trainer.estimated_stepping_batches, is the current loader's steps per epoch times the fit loop's cumulative
+max_epochs: with a selection in round s > 0 it kept the s rounds of per-site weighted epochs trained before
+the selection, so sites that trained the same subset were weighted differently (SP-1). Equal weights stay
+dp_noise's ODELIA_DP_EQUAL_WEIGHTS: with it set, the callback is not installed.
 """
 
 import copy
@@ -77,6 +81,7 @@ ENV_SELECT_ROUND = "ODELIA_AL_SELECT_ROUND"
 ENV_CLASS_WEIGHTS = "ODELIA_AL_CLASS_WEIGHTS"
 ENV_INCLUDE_LIST = "ODELIA_TRAIN_INCLUDE_LIST"
 ENV_FINAL_EVAL_ROUND = "ODELIA_FINAL_EVAL_ROUND"
+ENV_DP_EQUAL_WEIGHTS = "ODELIA_DP_EQUAL_WEIGHTS"  # dp_noise's; read here only to leave NUM_STEPS to it
 
 AL_PREFIX = "ODELIA_AL_"
 AL_VARIABLES = (ENV_STRATEGY, ENV_BUDGET, ENV_POOL_SPLIT, ENV_AL_SEED, ENV_SELECT_ROUND, ENV_CLASS_WEIGHTS)
@@ -94,6 +99,11 @@ RECORD_FILE = "selection_record.json"
 UID_LIST_FILE = "selected_uids.txt"
 INCLUDE_LIST_ERROR_FILE = "include_list_errors.json"
 SUMMARY_FILE = "al_selection_summary.json"
+
+# What FLCallback sends as the update's aggregation weight (nvflare MetaKey.NUM_STEPS_CURRENT_ROUND); it reads
+# the LightningModule attribute __fl_meta__ and only fills this key itself when the key is missing.
+FL_META_ATTRIBUTE = "__fl_meta__"
+NUM_STEPS_KEY = "NUM_STEPS_CURRENT_ROUND"
 
 _LOG = logging.getLogger(__name__)
 
@@ -119,6 +129,7 @@ class ALConfig:
     include_uids: Optional[List[str]] = None
     include_list_sha256: Optional[str] = None
     final_eval_round: bool = False
+    dp_equal_weights: bool = False  # ODELIA_DP_EQUAL_WEIGHTS=1: dp_noise sends NUM_STEPS=1 (no steps callback)
 
     @property
     def selects(self) -> bool:
@@ -190,6 +201,7 @@ def parse_config(env: Mapping[str, str]) -> ALConfig:
 
     config = ALConfig()
     config.final_eval_round = str(env.get(ENV_FINAL_EVAL_ROUND, "0")).strip() == "1"
+    config.dp_equal_weights = str(env.get(ENV_DP_EQUAL_WEIGHTS, "0")).strip() == "1"
     strategy = _value(env, ENV_STRATEGY)
     include_path = _value(env, ENV_INCLUDE_LIST)
     if strategy is not None:
@@ -305,9 +317,15 @@ def num_classes_of(dataset, model=None) -> Optional[int]:
 
 
 def eval_view(dataset, transform):
-    """Shallow copy of ``dataset`` that applies ``transform`` (the validation pipeline: no augmentation)."""
+    """Shallow copy of ``dataset`` that applies ``transform`` (the validation pipeline: no augmentation).
+
+    An unreadable case is served as its neighbour here, also when the pool is the test split (an evaluation
+    split, which otherwise stops at such a case): score_pool detects the substitution by UID and leaves the
+    case out of the pool.
+    """
     view = copy.copy(dataset)
     view.transform = transform
+    view.resample_bad_inputs = True
     _reset_bad_input_state(view)
     return view
 
@@ -523,6 +541,74 @@ def set_epochs_per_round(trainer, epochs: int) -> None:
         fl_callback.max_epochs_per_round = int(epochs)
 
 
+def _num_steps_key() -> str:
+    try:
+        from nvflare.app_common.abstract.fl_model import MetaKey
+
+        return MetaKey.NUM_STEPS_CURRENT_ROUND
+    except ImportError:
+        return NUM_STEPS_KEY
+
+
+def set_round_steps_meta(pl_module, steps: int) -> None:
+    """Make FLCallback send ``steps`` as NUM_STEPS_CURRENT_ROUND (the update's aggregation weight).
+
+    A copy of the module's __fl_meta__ dict gets the key (other entries are kept), as dp_noise does it.
+    """
+    meta = getattr(pl_module, FL_META_ATTRIBUTE, None)
+    meta = dict(meta) if isinstance(meta, dict) else {}
+    meta[_num_steps_key()] = int(steps)
+    setattr(pl_module, FL_META_ATTRIBUTE, meta)
+
+
+def round_steps_callback(ctx=None, log=None):
+    """Lightning callback that reports the optimizer steps of the round's fit as the aggregation weight (SP-1).
+
+    FLCallback otherwise sends trainer.estimated_stepping_batches: the current train loader's optimizer steps
+    per epoch times the fit loop's max_epochs, which FLCallback keeps cumulative across rounds. That is
+    proportional to a site's work only while its loader and epochs never change. A selection in round s > 0
+    changes both: from then on every site trains a subset of the same size, yet the number still counts the
+    s rounds of weighted epochs trained on the full split (different at every site), now multiplied by the
+    subset's steps per epoch. InTimeAccumulateWeightedAggregator then weighted sites that did identical work
+    differently. trainer.global_step counts optimizer steps, the unit of estimated_stepping_batches (gradient
+    accumulation included), so its difference across one fit is the work of this round, comparable between
+    sites; in rounds where every site's history is alike it gives the same relative weights as before.
+
+    Inserted before FLCallback (round_hooks), so on_train_end runs before the model is sent. dp_noise's
+    callback, later in the list, still overrides the key with ODELIA_DP_EQUAL_WEIGHTS=1; with that variable
+    set the hook does not install this callback at all, so no hook order can undo the equal weights.
+    """
+    from pytorch_lightning.callbacks import Callback  # deferred: this module stays light to import
+
+    log = log or _LOG
+
+    class ALRoundStepsCallback(Callback):
+        def __init__(self):
+            super().__init__()
+            self.start_step: Optional[int] = None
+            self.reported: List[int] = []  # NUM_STEPS_CURRENT_ROUND of every fit, in order
+
+        def on_train_start(self, trainer, pl_module) -> None:
+            self.start_step = int(trainer.global_step)
+
+        def on_train_end(self, trainer, pl_module) -> None:
+            if self.start_step is None:
+                return
+            steps = int(trainer.global_step) - self.start_step
+            self.start_step = None
+            if steps < 1:
+                # Weight 0 for every site would divide by zero in the aggregator; 1 = the smallest real weight.
+                log.warning(f"al_subset: this round's fit took {steps} optimizer steps; reporting weight 1")
+                steps = 1
+            set_round_steps_meta(pl_module, steps)
+            self.reported.append(steps)
+            round_text = f"round {ctx.current_round}" if ctx is not None else "this round"
+            log.info(f"al_subset: {round_text} aggregation weight NUM_STEPS_CURRENT_ROUND={steps} (optimizer steps "
+                     f"trained in the round)")
+
+    return ALRoundStepsCallback()
+
+
 def _default_epochs_fn():
     import threedcnn_ptl  # already imported by main.py; deferred so this module stays light to import
 
@@ -644,6 +730,8 @@ def apply_selection(
     stats = selection.stats
 
     training_set = restrict_dataset(pool, selection.uids, transform=data_module.ds_train.transform)
+    # A training set, also when the pool is the test split: an unreadable case is resampled, as in ds_train.
+    training_set.resample_bad_inputs = True
     workers_before, workers_after = replace_training_set(data_module, training_set)
     selected_labels = [labels[uid] for uid in selection.uids]
     class_weights = apply_class_weights(ctx.model, selected_labels, num_classes, config.class_weights, log)
@@ -756,9 +844,17 @@ class ALSubsetHook(RoundHook):
         self.device = device
         self.first_round: Optional[int] = None
         self.summary: Optional[Dict] = None
+        self.steps_callback = None
 
     def _log(self, ctx):
         return ctx.logger or self.logger
+
+    def lightning_callbacks(self, ctx) -> list:
+        if self.config.dp_equal_weights:
+            self._log(ctx).info(f"al_subset: {ENV_DP_EQUAL_WEIGHTS}=1, so dp_noise sets the aggregation weight")
+            return []
+        self.steps_callback = round_steps_callback(ctx, self._log(ctx))
+        return [self.steps_callback]
 
     def after_receive(self, ctx) -> None:
         if self.first_round is None:

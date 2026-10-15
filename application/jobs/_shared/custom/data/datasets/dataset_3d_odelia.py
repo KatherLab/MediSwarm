@@ -225,6 +225,14 @@ class ODELIA_Dataset3D(data.Dataset):
     SAME_ITEM_RETRIES = 2            # retry the same item (new random crop) before giving up on it
     MAX_BAD_INPUT_FRACTION = 0.05    # abort once more than this fraction of items are unusable
     MIN_BAD_INPUT_BUDGET = 8         # ...but always tolerate at least this many first
+    # Splits whose numbers are reported: validation and test metrics, final_val/final_test, per-case files.
+    # Resampling there serves the next case under its own UID, so that case is scored twice and the bad one
+    # drops out of the metrics and per-case rows. Stopping instead would end a strict consortium run at round
+    # 0 over one bad case at one site, so by default the substitution stays and is logged as such;
+    # ODELIA_STRICT_EVAL_INPUTS=1 makes a bad input in these splits stop with the remedy (exclude it via
+    # ODELIA_EXCLUDE_UIDS_FILE or fix the file). resample_bad_inputs overrides both per instance.
+    EVALUATION_SPLITS = ("val", "test")
+    STRICT_EVAL_INPUTS_ENV = "ODELIA_STRICT_EVAL_INPUTS"
 
     def __init__(
             self,
@@ -330,6 +338,8 @@ class ODELIA_Dataset3D(data.Dataset):
         self._bad_input_count = 0
         self._bad_input_logged: set = set()
         self._bad_input_reasons: dict = {}
+        # None: resample bad inputs unless the split is an evaluation split (EVALUATION_SPLITS).
+        self.resample_bad_inputs = None
 
     # Splits that must not be empty. An empty `train` eventually raises deep in
     # PyTorch ("num_samples should be a positive integer value") after minutes of
@@ -391,15 +401,31 @@ class ODELIA_Dataset3D(data.Dataset):
         scratch = os.environ.get("SCRATCH_DIR") or os.environ.get("ODELIA_HASH_CACHE_DIR") or tempfile.gettempdir()
         return Path(scratch) / "odelia_bad_inputs.jsonl"
 
+    def _resamples_bad_inputs(self) -> bool:
+        # getattr: tests and al_subset build instances with __new__/copy.copy, without __init__.
+        explicit = getattr(self, "resample_bad_inputs", None)
+        if explicit is not None:
+            return bool(explicit)
+        if getattr(self, "split", None) not in self.EVALUATION_SPLITS:
+            return True
+        return os.environ.get(self.STRICT_EVAL_INPUTS_ENV, "0").strip().lower() not in ("1", "true", "yes", "on")
+
     def _record_bad_input(self, uid, institution, reason):
         self._bad_input_reasons[reason] = self._bad_input_reasons.get(reason, 0) + 1
         # Loud, non-identifying warning to the console; the UID goes only to a local jsonl.
         key = (uid, reason)
         if key not in self._bad_input_logged:
             self._bad_input_logged.add(key)
+            if not self._resamples_bad_inputs():
+                action = "evaluation split: stopping"
+            elif getattr(self, "split", None) in self.EVALUATION_SPLITS:
+                action = (f"evaluation split: SUBSTITUTED by a neighbouring case, so this case is missing from the "
+                          f"{self.split} metrics and per-case rows; {self.STRICT_EVAL_INPUTS_ENV}=1 stops instead")
+            else:
+                action = "skipping + resampling"
             logger.warning("[ODELIA_BAD_INPUT] reason=%s institution=%s split=%s "
-                           "(skipping + resampling; UID in odelia_bad_inputs.jsonl)",
-                           reason, institution, self.split)
+                           "(%s; UID in odelia_bad_inputs.jsonl)",
+                           reason, institution, self.split, action)
         try:
             with open(self._bad_input_log_path(), "a") as f:
                 json.dump({"uid": uid, "institution": institution, "reason": reason,
@@ -407,6 +433,25 @@ class ODELIA_Dataset3D(data.Dataset):
                 f.write("\n")
         except Exception:
             pass
+
+    @staticmethod
+    def _is_access_error(reason) -> bool:
+        """A load failure caused by file access (permissions, missing file), not by the image content."""
+        access_errs = ("PermissionError", "OSError", "FileNotFoundError", "IsADirectoryError")
+        return reason.startswith("load_error:") and any(t in reason for t in access_errs)
+
+    def _format_evaluation_bad_input_error(self, reason, institution):
+        """Stop message for a bad input in an evaluation split (EVALUATION_SPLITS): what, why not resampled, remedy."""
+        if self._is_access_error(reason):
+            hint = ("The container cannot READ the file: fix its permissions/ownership (do NOT exclude the data), "
+                    "then restart.")
+        else:
+            hint = ("Re-export the case, or list its UID in the file named by ODELIA_EXCLUDE_UIDS_FILE (one UID per "
+                    "line) so that every run leaves it out, then restart.")
+        return (f"ODELIA: unusable input in the {self.split} split ({reason}, institution {institution}; UID in "
+                f"{self._bad_input_log_path()}). A case of an evaluation split is never replaced by its neighbour: "
+                f"that would score the neighbour twice and drop this case from the metrics and per-case files "
+                f"without a trace. {hint}")
 
     @staticmethod
     def _format_bad_input_error(count, budget, frac, n, reasons, log_path):
@@ -417,9 +462,7 @@ class ODELIA_Dataset3D(data.Dataset):
         excluded. Conflating them once led a site to delete valid data (#416)."""
         breakdown = ", ".join(f"{c}x {r}" for r, c in
                               sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0])))
-        access_errs = ("PermissionError", "OSError", "FileNotFoundError", "IsADirectoryError")
-        unreadable = sum(c for r, c in reasons.items()
-                         if r.startswith("load_error:") and any(t in r for t in access_errs))
+        unreadable = sum(c for r, c in reasons.items() if ODELIA_Dataset3D._is_access_error(r))
         if unreadable and unreadable == count:
             hint = ("ALL failures are file-access errors -- this is a PERMISSION/OWNERSHIP problem "
                     "(the container cannot READ the files), NOT corrupt images. Fix the file "
@@ -518,12 +561,14 @@ class ODELIA_Dataset3D(data.Dataset):
         )
 
     def __getitem__(self, index):
-        # Skip (resample a different item) for a degenerate or unreadable input instead of
-        # crashing the run or -- worse -- silently substituting a zero image. The run still
-        # aborts if more than MAX_BAD_INPUT_FRACTION of items are bad, so a systematic data
-        # problem is surfaced. Real transform bugs (non-DegenerateImageError) still propagate.
+        # Training splits: skip (resample a different item) for a degenerate or unreadable input
+        # instead of crashing the run or -- worse -- silently substituting a zero image. The run
+        # still aborts if more than MAX_BAD_INPUT_FRACTION of items are bad, so a systematic data
+        # problem is surfaced. Evaluation splits never resample (EVALUATION_SPLITS): they stop at
+        # the first bad input. Real transform bugs (non-DegenerateImageError) always propagate.
         n = len(self.item_pointers)
         budget = max(self.MIN_BAD_INPUT_BUDGET, int(self.MAX_BAD_INPUT_FRACTION * n))
+        resample = self._resamples_bad_inputs()
         for offset in range(n):
             idx = self.item_pointers[(index + offset) % n]
             item = self.df.loc[idx]
@@ -533,15 +578,19 @@ class ODELIA_Dataset3D(data.Dataset):
                 path_img = self.get_image_path(uid, institution)
                 img = self._load_source_image(path_img, institution, uid)
             except Exception as e:  # noqa: BLE001 -- any load failure == an unreadable/corrupt input
-                self._record_bad_input(uid, institution, f"load_error:{type(e).__name__}")
+                reason = f"load_error:{type(e).__name__}"
+                self._record_bad_input(uid, institution, reason)
             else:
                 try:
                     target = np.stack(item[self.labels].values)
                     img = self.transform(img)
                     return {'uid': uid, 'source': img, 'target': target}
                 except DegenerateImageError as e:
-                    self._record_bad_input(uid, institution, e.reason)
+                    reason = e.reason
+                    self._record_bad_input(uid, institution, reason)
             self._bad_input_count += 1
+            if not resample:
+                raise RuntimeError(self._format_evaluation_bad_input_error(reason, institution))
             if self._bad_input_count > budget:
                 raise RuntimeError(self._format_bad_input_error(
                     self._bad_input_count, budget, self.MAX_BAD_INPUT_FRACTION, n,
