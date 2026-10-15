@@ -13,29 +13,46 @@ timestamp="$(date -u +%FT%TZ)"
 sync_version="${MEDISWARM_LIVE_SYNC_VERSION:-2}"
 sync_status="${MEDISWARM_SYNC_STATUS:-ok}"
 sync_error="${MEDISWARM_SYNC_ERROR:-}"
+# How live_sync authenticates (kit-key: the kit's own upload key, #615; legacy: sync.conf and
+# ~/.ssh; legacy-fallback: the kit key was refused) and what of this run may leave the site.
+upload_auth="${MEDISWARM_UPLOAD_AUTH:-}"
+sync_models="${MEDISWARM_SYNC_MODELS_EFFECTIVE:-}"
+sync_predictions="${MEDISWARM_SYNC_PREDICTIONS_EFFECTIVE:-}"
+client_container="${MEDISWARM_SYNC_CLIENT_CONTAINER:-}"
+client_state="${MEDISWARM_SYNC_CLIENT_STATE:-}"
 
-# Extract kit version from docker.sh (baked in at build time)
-kit_version=""
+# Kit version: what a 1.9.0 docker.sh hands to live_sync, else scraped from docker.sh (baked in
+# at build time): the first MEDISWARM_VERSION= (the container's --env line), else KIT_VERSION=,
+# else the tag of the kit's default image. sed rather than grep -P, which not every grep has.
+kit_version="${MEDISWARM_KIT_VERSION:-}"
 docker_sh="${KIT_ROOT:+$KIT_ROOT/startup/docker.sh}"
-if [ -n "$docker_sh" ] && [ -f "$docker_sh" ]; then
-  kit_version="$(grep -oP '(?<=MEDISWARM_VERSION=)\S+' "$docker_sh" 2>/dev/null | head -1 || true)"
-  [ -n "$kit_version" ] || kit_version="$(grep -oP '(?<=jefftud/odelia:)\S+' "$docker_sh" 2>/dev/null | head -1 || true)"
-  # Strip trailing quotes/whitespace that may be captured from shell strings
-  kit_version="${kit_version%\"}"
-  kit_version="${kit_version#\"}"
+_first_value() {
+  # The first non-empty value after $1 in docker.sh, without quotes ('#' delimits: $1 has a '/')
+  sed -n "s#.*$1[\"']\\{0,1\\}\\([^[:space:]\"'\\\\]\\{1,\\}\\).*#\\1#p" "$docker_sh" 2>/dev/null | head -n 1 || true
+}
+if [ -z "$kit_version" ] && [ -n "$docker_sh" ] && [ -f "$docker_sh" ]; then
+  kit_version="$(_first_value 'MEDISWARM_VERSION=')"
+  [ -n "$kit_version" ] || kit_version="$(_first_value 'KIT_VERSION=')"
+  [ -n "$kit_version" ] || kit_version="$(_first_value 'jefftud/odelia:')"
 fi
 
 # kit_version above is what the kit CLAIMS (scraped from docker.sh). Once the image
 # can be overridden (startup/image.conf / --image) that is no longer necessarily what
 # is RUNNING, so also report the image the live container actually resolved to. Without
-# this, version skew between sites is undetectable.
+# this, version skew between sites is undetectable. The container is the kit's own client
+# (live_sync passes the one docker.sh named or that mounts this kit); "any ODELIA client on
+# this host" is only the fallback, since a host can run the clients of two kits.
 image_ref=""
 image_id=""
+_container_image() {
+  [ -n "$1" ] || return 1
+  image_ref="$(docker inspect --format '{{.Config.Image}}' "$1" 2>/dev/null)" || { image_ref=""; return 1; }
+  image_id="$(docker inspect --format '{{.Image}}' "$1" 2>/dev/null | cut -c1-19 || true)"
+}
 if command -v docker >/dev/null 2>&1; then
-  hb_container="$(docker ps --filter 'name=odelia_swarm_client' --format '{{.Names}}' 2>/dev/null | head -1)"
-  if [ -n "$hb_container" ]; then
-    image_ref="$(docker inspect --format '{{.Config.Image}}' "$hb_container" 2>/dev/null || true)"
-    image_id="$(docker inspect --format '{{.Image}}' "$hb_container" 2>/dev/null | cut -c1-19 || true)"
+  if ! _container_image "$client_container"; then
+    hb_container="$(docker ps --filter 'name=odelia_swarm_client' --format '{{.Names}}' 2>/dev/null | head -n 1 || true)"
+    _container_image "$hb_container" || true
   fi
 fi
 
@@ -109,6 +126,11 @@ export HB_IP_ADDRESS="$hb_ip"
 export HB_SYNC_VERSION="$sync_version"
 export HB_SYNC_STATUS="$sync_status"
 export HB_SYNC_ERROR="$sync_error"
+export HB_UPLOAD_AUTH="$upload_auth"
+export HB_SYNC_MODELS="$sync_models"
+export HB_SYNC_PREDICTIONS="$sync_predictions"
+export HB_CLIENT_CONTAINER="$client_container"
+export HB_CLIENT_STATE="$client_state"
 export HB_JOB_DIR_SEEN="$job_dir_seen"
 export HB_RUN_DIR_SEEN="$run_dir_seen"
 
@@ -140,6 +162,14 @@ data = {
     "hostname": os.environ.get("HB_HOSTNAME", ""),
     "ip_address": os.environ.get("HB_IP_ADDRESS", ""),
     "sync_version": os.environ.get("HB_SYNC_VERSION", ""),
+    # Same value as sync_version, under the name the 1.9.0 tooling reads.
+    "live_sync_version": os.environ.get("HB_SYNC_VERSION", ""),
+    "upload_auth": os.environ.get("HB_UPLOAD_AUTH", ""),
+    "sync_models": os.environ.get("HB_SYNC_MODELS", "") == "1",
+    "sync_predictions": os.environ.get("HB_SYNC_PREDICTIONS", "") == "1",
+    # The kit's client container and whether it runs (swarm daemon only, #614)
+    "client_container": os.environ.get("HB_CLIENT_CONTAINER", ""),
+    "client_state": os.environ.get("HB_CLIENT_STATE", ""),
     "sync_status": os.environ.get("HB_SYNC_STATUS", ""),
     "sync_error": os.environ.get("HB_SYNC_ERROR", ""),
     "job_dir_seen": os.environ.get("HB_JOB_DIR_SEEN", "false") == "true",
