@@ -32,7 +32,7 @@ Usage
 -----
     compare_regional_finetune.py --baseline <dir> --finetuned <dir> \
         --sites RUMC_1 UMCU_1 --label "Dutch cohort" [--bootstrap 10000] \
-        [--split test --model-kind final_global]
+        [--split test --model-kind final_global] [--restrict-to-common-cases]
 
 Each directory is either a per-site tree of ``<SITE>/predictions_*.csv`` with
 columns uid, ground_truth, prediction, prob_class_0..2 -- the layout
@@ -41,6 +41,12 @@ columns uid, ground_truth, prediction, prob_class_0..2 -- the layout
 per site, split and model kind (``<SITE>__<split>__<model_kind>.csv``, 1.9.0).
 ``--split``/``--model-kind`` pick which of those files is read; a site with
 several candidates and no choice is an error, never a silent mix.
+
+Rows are paired by case id (``uid``, or ``row_index`` for returned rows), never
+by their order in the files. The two sets must score the same cases at every
+requested site, with the same ground truth; anything else is refused, naming the
+site. ``--restrict-to-common-cases`` compares on the cases both sets scored
+instead and reports how many it dropped.
 """
 
 import argparse
@@ -112,21 +118,77 @@ def load(base, sites, split=None, model_kind=None):
     Either way the key is namespaced by site, so two sites that both start
     their row indices at 0 cannot collide and silently pair a Radboud case
     with an Utrecht one.
+
+    A case id seen twice for one site is an error, not last-one-wins: two
+    ``predictions_*.csv`` of different models in one site directory would
+    otherwise be mixed case by case. So is a row or file without an id. A site
+    with no files comes back without rows; ``pair_cases`` refuses that.
     """
-    rows = {}
+    rows, origin = {}, {}
     for site in sites:
         found = sorted(glob.glob(os.path.join(base, site, "predictions_*.csv")))
         found += _returned_files(base, site, split, model_kind)
         for f in found:
             with open(f) as fh:
-                for r in csv.DictReader(line for line in fh if not line.startswith("#")):
-                    key = r.get("uid") or r.get("row_index")
-                    if key is None:
-                        continue
+                reader = csv.DictReader(line for line in fh if not line.startswith("#"))
+                id_col = next((c for c in ("uid", "row_index") if c in (reader.fieldnames or ())), None)
+                if id_col is None:
+                    raise SystemExit(f"{f}: no case id column (uid or row_index); its rows cannot be paired")
+                for r in reader:
+                    key = (r.get(id_col) or "").strip()
+                    if not key:
+                        raise SystemExit(f"{f}: a row without a {id_col}; it cannot be paired")
+                    uid = f"{site}:{key}"
+                    if uid in rows:
+                        where = f if origin[uid] == f else f"{origin[uid]} and {f}"
+                        raise SystemExit(f"{site}: case {key!r} appears twice ({where}); "
+                                         "keep one model's predictions per site")
                     r["_site"] = site
-                    r["uid"] = f"{site}:{key}"
-                    rows[r["uid"]] = r
+                    r["uid"] = uid
+                    rows[uid] = r
+                    origin[uid] = f
     return rows
+
+
+def pair_cases(base_rows, fine_rows, sites, restrict=False):
+    """The case keys to compare on, checked site by site to be the same cases in both sets.
+
+    Returns (uids, excluded); ``excluded`` maps each site whose case sets differ to
+    {"baseline_only": n, "finetuned_only": m}, and is empty unless ``restrict``. Refused,
+    naming the site:
+
+    * a requested site without rows in either set -- dropping it would quietly change the
+      cohort, so this holds even with ``restrict``;
+    * case sets that differ, unless ``restrict`` (``--restrict-to-common-cases``);
+    * a paired case whose ground truth differs between the sets. Returned rows are keyed by
+      their position in the site's split, so this is the check that the n-th row is the same
+      case in both runs; a disagreement means the rows are not aligned.
+    """
+    uids, excluded = [], {}
+    for site in sites:
+        b = {u for u, r in base_rows.items() if r["_site"] == site}
+        f = {u for u, r in fine_rows.items() if r["_site"] == site}
+        counts = f"baseline {len(b)}, fine-tuned {len(f)}, shared {len(b & f)}"
+        if not b or not f:
+            empty = " and ".join(name for name, s in (("baseline", b), ("fine-tuned", f)) if not s)
+            raise SystemExit(f"{site}: requested but without cases in the {empty} predictions ({counts}); "
+                             "check the directory and --split/--model-kind")
+        if b != f:
+            if not restrict:
+                raise SystemExit(f"{site}: the two prediction sets score different cases ({counts}; "
+                                 f"{len(b - f)} only in baseline, {len(f - b)} only in fine-tuned). "
+                                 "Pass --restrict-to-common-cases to compare on the shared cases.")
+            if not b & f:
+                raise SystemExit(f"{site}: no case is scored by both models ({counts})")
+            excluded[site] = {"baseline_only": len(b - f), "finetuned_only": len(f - b)}
+        mismatched = sorted(u for u in b & f if int(float(base_rows[u]["ground_truth"]))
+                            != int(float(fine_rows[u]["ground_truth"])))
+        if mismatched:
+            raise SystemExit(f"{site}: ground truth differs between the two sets for {len(mismatched)} "
+                             f"of {len(b & f)} paired cases (e.g. {', '.join(mismatched[:5])}); "
+                             "these are not the same cases")
+        uids += b & f
+    return sorted(uids), excluded
 
 
 def _scores(rows, uids, kind):
@@ -192,26 +254,27 @@ def main():
                     help="split of the per-case files returned through the swarm (1.9.0 layout)")
     ap.add_argument("--model-kind", choices=("site_local", "final_global"), default=None,
                     help="model kind of the per-case files returned through the swarm (1.9.0 layout)")
+    ap.add_argument("--restrict-to-common-cases", action="store_true",
+                    help="when a site's two prediction sets score different cases, compare on the cases "
+                         "both scored and report the dropped ones (default: refuse)")
     args = ap.parse_args()
 
     base_rows = load(args.baseline, args.sites, args.split, args.model_kind)
     fine_rows = load(args.finetuned, args.sites, args.split, args.model_kind)
-    uids = sorted(set(base_rows) & set(fine_rows))
-    if not uids:
-        raise SystemExit("no overlapping cases between the two prediction sets")
-
-    # A silently reduced overlap would compare the models on different cases.
-    missing = (set(base_rows) | set(fine_rows)) - set(uids)
+    uids, excluded = pair_cases(base_rows, fine_rows, args.sites, args.restrict_to_common_cases)
+    n_excluded = sum(n for c in excluded.values() for n in c.values())
     gt = [int(float(base_rows[u]["ground_truth"])) for u in uids]
     support = {CLS[k]: v for k, v in sorted(Counter(gt).items())}
 
     print(f"\n{args.label} — {', '.join(args.sites)}")
     print(f"  paired cases: {len(uids)}"
-          + (f"   (WARNING: {len(missing)} case(s) present in only one set, excluded)" if missing else ""))
+          + (f"   (WARNING: {n_excluded} case(s) present in only one set, excluded)" if n_excluded else ""))
+    for site, c in excluded.items():
+        print(f"    {site}: {c['baseline_only']} only in baseline, {c['finetuned_only']} only in fine-tuned")
     print(f"  support: " + ", ".join(f"{k} {v}" for k, v in support.items()))
 
     report = {"label": args.label, "sites": args.sites, "n_paired": len(uids),
-              "n_excluded": len(missing), "support": support, "endpoints": {}}
+              "n_excluded": n_excluded, "excluded": excluded, "support": support, "endpoints": {}}
 
     for kind, role in (("malignant_vs_rest", "PRIMARY"), ("lesion_vs_none", "secondary")):
         b = auroc(_scores(base_rows, uids, kind), _labels(base_rows, uids, kind))
