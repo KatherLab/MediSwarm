@@ -1,2 +1,3 @@
-Please place your VPN credentials(.ovpn file) under this folder
-Please check in the .ovpn file if /etc/openvpn/credentials is after auth-user-pass
+Place your GoodAccess .ovpn file in this folder as <host_index>.ovpn, unchanged (do not edit its
+auth-user-pass line), then run: sudo ./scripts/client_node_setup/setup_vpntunnel.sh -d <host_index> -n -s
+Details: docs/VPN_SERVICE.md

@@ -1,0 +1,17 @@
+#!/usr/bin/expect -f
+# Answers setup_vpntunnel.sh's prompts the way a site admin does, on a terminal (so read -p prompts and
+# stty -echo behave as at a site): account, password, then the health-monitor question. Piping the
+# answers in ahead of time does not work: they are typed before the prompts and get lost.
+# Input from the environment: REPRO_ACCOUNT, REPRO_PASSWORD, REPRO_HEALTH; extra arguments go to the script.
+set timeout 400
+log_user 1
+spawn bash -c "cd /opt/MediSwarm && ./scripts/client_node_setup/setup_vpntunnel.sh -d TestSite -n -s"
+expect {
+    -ex "VPN account: " { send -- "$env(REPRO_ACCOUNT)\r"; exp_continue }
+    -ex "VPN password: " { send -- "$env(REPRO_PASSWORD)\r"; exp_continue }
+    -ex "Install health monitor?" { send -- "$env(REPRO_HEALTH)\r"; exp_continue }
+    timeout { puts "\n\[repro\] setup did not finish within $timeout s"; exit 124 }
+    eof
+}
+lassign [wait] pid spawnid os_error value
+exit $value

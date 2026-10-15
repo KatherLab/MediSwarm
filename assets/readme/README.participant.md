@@ -177,7 +177,7 @@ To have a baseline for swarm training, train the same model in a comparable way 
    # install a 30 s health-check timer that restarts the tunnel if the interface drops or the gateway is unreachable
    sudo ./scripts/client_node_setup/vpn_health_monitor.sh --install-timer
    ```
-   Verify with `systemctl status mediswarm-vpn mediswarm-vpn-health.timer`. Combined with the swarm's 24 h round timeouts, this lets a run ride out a brief VPN blip instead of aborting.
+   The setup waits until the tunnel has its 172.24.4.x address and otherwise prints why not; it does not start a second tunnel next to one you already run (one tunnel per GoodAccess account). Verify with `systemctl status mediswarm-vpn mediswarm-vpn-health.timer`; if there is no address, send the output of `sudo ./scripts/client_node_setup/setup_vpntunnel.sh --diagnose`. Details: [docs/VPN_SERVICE.md](../../docs/VPN_SERVICE.md). Combined with the swarm's 24 h round timeouts, this lets a run ride out a brief VPN blip instead of aborting.
 
 #### Start the Client
 
@@ -258,7 +258,7 @@ A multi-hour run can abort if your tunnel drops and does not come back quickly (
   ```bash
   sudo ./scripts/client_node_setup/vpn_health_monitor.sh --install-timer
   ```
-  It restarts the tunnel immediately if the `tun0` interface disappears, or after a few failed gateway pings. Check its log with `journalctl -t mediswarm-vpn-health`.
+  It restarts the service when the VPN address stays missing or the gateway stops answering for three checks (never while a connection attempt is still running, never next to another tunnel, with growing pauses if restarts do not help) and logs OpenVPN's last error. Check its log with `journalctl -t mediswarm-vpn-health`.
 * If drops recur, capture your OpenVPN client logs around the outage and report to your Swarm Operator (the gateway provider may need to investigate).
 
 ### Training Very Slow / GPU Under-utilized?
