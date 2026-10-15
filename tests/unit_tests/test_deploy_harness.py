@@ -358,6 +358,7 @@ def test_launcher_needs_a_kit_version(tmp_path):
     assert r.returncode != 0 and "--kit-version" in r.stderr
 
 
+@pytest.mark.skipif(shutil.which("jq") is None, reason="launch_testbed.sh needs jq (present on the test hosts and CI runners)")
 def test_launcher_reports_missing_kits(tmp_path):
     r = launch(_conf(tmp_path, "CLIENT_SITES=(A)\nA_PASS_ENV=PW"), env={"PW": "x"})
     assert r.returncode != 0 and "no kits for 1.8.1-dev.260913.f7c66bb" in r.stderr

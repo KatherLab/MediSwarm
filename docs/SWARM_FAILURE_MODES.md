@@ -24,6 +24,9 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 | F10 | `cross_val_results.json` is `{}` although the server logged `Published metrics for N site(s)` | Two components act on the same `END_RUN`; `ValidationJsonGenerator` writes the file before the later-listed collector publishes into it | Publish on `ABOUT_TO_END_RUN`, which is fired strictly earlier (already fixed in `per_site_metrics.py`) |
 | F11 | Aggregator fails with `None of the N incoming model parameter(s) matched the local model's M`; a client logged `missing keys` when loading the global | An **unlabelled** warm-start mirror from another architecture was auto-loaded (`warm_start_mode=auto`, no provenance sidecar) | Guard now intersects parameter names and refuses on zero overlap (#575); deploy test wipes mirrors first (#573) |
 | F12 | `Pin memory thread exited unexpectedly` / `unable to open shared memory object </torch_…>` at an epoch end — **not** F7 | `file_system` sharing-strategy cleanup race, aggravated by many DataLoader workers on a tiny training set | `cap_loader_workers` (#575, #574): ≥4 samples per worker; never binds on a real site |
+| F16 | Old job reported `running`, new kit's heartbeat stale or `sync_status: error` after a kit upgrade | The old kit's live_sync daemon outlives its client | 1.9.0 kits end it with the client; `--migrate_from`; or `pkill -f "<old kit>/startup/live_sync.sh"` |
+| F17 | `already registered. Re-login` every few seconds; site flaps in and out | Two clients of one site (old and new kit) | One client per site: `./docker.sh --migrate_from <old kit> --yes --start` |
+| F18 | Host `nvidia-smi`: `Driver/library version mismatch`; new containers see no GPU | Unattended NVIDIA update, old kernel module still loaded | Reboot between runs, then `apt-mark hold` the driver packages |
 
 ---
 
@@ -239,6 +242,25 @@ anything fails. The server log simply stops advancing.
 - **Root cause:** two things stacked. The live-sync daemon in every kit made every upload a separate SSH login (three to five per 30 s per kit, about two per second in total, 1,183 in ten minutes measured), and logind on the host leaked sessions in `closing` state, so the churn filled the cap.
 - **Fix:** `kit_live_sync/live_sync.sh` multiplexes one connection per kit (#602); duplicate clients and leftover kits at a site multiply the load, so keep one kit per site. Host side: restart `systemd-logind` to recover; an alert on the session count is worth having.
 - **Detection:** `journalctl -u ssh --since -10min | grep -c 'Accepted publickey for mediswarm-upload'` should be about the number of kits once they run the multiplexing daemon, not a thousand.
+
+## F16 — An old kit's live_sync daemon outlives its client
+
+- **Symptom (monitor):** after a site installed a new kit, its heartbeat shows `sync_status: error`, a job from weeks ago keeps reporting `running`, or the new kit's heartbeat never updates. Seen at CAM and UMCU on 24 Sep 2026 (#614).
+- **Root cause:** live_sync is a host process started by `docker.sh --start_client`; stopping or replacing the client container left it running. The old daemon kept uploading for the same site, cleared the new kit's `_active` marker every cycle, or held the shared pid file so the new kit never started its own daemon.
+- **Fix (1.9.0 kits):** the daemon ends about 10 minutes after its kit's client container stopped; `--start_client` stops the swarm daemons of other kits of the same site; `--migrate_from` stops the old kit's client and daemon in one step. On older kits: `pkill -f "<old kit folder>/startup/live_sync.sh"`.
+- **Detection:** `./docker.sh --status` lists daemons and containers of older kits of the site.
+
+## F17 — Two clients of one site push each other out
+
+- **Symptom:** the coordinator logs `already registered. Re-login` for a site every few seconds; the site drops in and out of `check_status`; a run aborts with `deemed disconnected` although the node is up.
+- **Root cause:** two client containers of the same site run at once with the same identity, usually the old and the new kit after an upgrade, or a second `--start_client` after deleting the lock files of a running client.
+- **Fix:** keep one client per site. 1.9.0's `--start_client` refuses while another kit's client of the site runs and never deletes lock files on the host; use `./docker.sh --migrate_from <old kit> --yes --start`.
+
+## F18 — New containers lose the GPU after an unattended NVIDIA driver update
+
+- **Symptom:** `nvidia-smi` on the host prints `Failed to initialize NVML: Driver/library version mismatch`; a newly started client or preflight sees no GPU, while a container started before the update still trains. Seen at UKA on 10 Oct 2026.
+- **Root cause:** unattended upgrades installed a newer NVIDIA user-space library while the old kernel module stays loaded until the next reboot.
+- **Fix:** reboot the host between runs, then hold the driver packages so it cannot recur in the middle of a run: `sudo apt-mark hold $(dpkg-query -W -f='${Package}\n' 'nvidia-*' 'libnvidia-*' | grep -v container)`. 1.9.0's docker.sh refuses to start a client on this host state and says so.
 
 ## Operator diagnostic playbook
 
