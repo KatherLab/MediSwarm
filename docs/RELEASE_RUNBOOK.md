@@ -5,7 +5,8 @@ was verified on 2026-09-13 against the repository and the live consortium, not a
 Written for the 1.8.0 release; the procedure is version-independent. Extended for 1.9.0
 (2026-10-14): the durable weights cache and the weights gate (§2), image layering (§3),
 image verification (§4), the CVE gate (§5), the coordinator move with its job store on the
-host (§8) and the heartbeat check (§10).
+host (§8) and the heartbeat check (§10). Migration week, tracking every site's kit and
+image (§11), added 2026-10-15.
 
 ## 0. What a release changes, and what it does not
 
@@ -367,5 +368,67 @@ and `./docker.sh --start_server`.
   time and kit version (for reference: 1.8.1 is `sha256:cbf6ba7aa574`, 1.8.1-cam
   `sha256:49bdb25cbfcd`). It needs `docker buildx` and access to Docker Hub. A site still
   `OLD` after its next restart has a pinned `image.conf`, a 1.5.0 kit, or never restarted.
+  For the per-site verdict (kit, image, heartbeat age, all in one table) use
+  `scripts/admin/fleet_status.py` (§11) with the config digest printed here.
 - Watch the live monitor's version-skew view for the same thing over time.
 - Record the release in `CHANGELOG.md` with the final date.
+
+## 11. Migration week: which site has moved
+
+When the sites move to a new kit (1.9.0, from 19 Oct 2026) and `:current` to a new image
+(1.9.1), one command on the coordinator shows where every ODELIA site stands:
+
+```bash
+python3 scripts/admin/fleet_status.py --expect-kit 1.9.0 \
+    --expect-image jefftud/odelia:1.9.1 --expect-image-id sha256:c527c8c509aa \
+    --since 2026-10-19
+```
+
+One line per site (default the eight ODELIA sites, `--sites` to narrow): kit, image tag and
+short id, `MATCH` (is that id the expected image), heartbeat age, status/upload status, job,
+verdict and why. Exit 0 only when every site is `READY`; `--json` for scripts. It reads
+`/srv/mediswarm/live` and runs `docker image inspect` locally, nothing else; it writes nothing.
+
+**Image ids.** A heartbeat's `image_id` is the client container's image as the site's
+Docker names it: the **config** digest on the classic image store (every site so far), the
+index or manifest digest on the containerd store. 1.9.1 is config `sha256:c527c8c509aa`,
+index (the digest Docker Hub shows) `sha256:8df5e80d3182`, linux/amd64 manifest
+`sha256:c92290a0bce6`. `--expect-image` finds the last two with local `docker image inspect`
+on the coordinator host (containerd store) and warns that the config digest is missing; give it with
+`--expect-image-id` (`scripts/build/heartbeat_image_id.py jefftud/odelia:1.9.1` prints it)
+or add `--registry`, which asks Docker Hub. On a classic-store host the local id is the
+config digest itself.
+
+| Verdict | Meaning | What to ask the site |
+|---|---|---|
+| `READY` | fresh heartbeat of kit 1.9.0, client container on the expected image | nothing |
+| `OLD KIT` | the newest heartbeat is from the old kit (`not migrated`), or the old kit's live_sync still uploads next to the new one (F16) | move with `./docker.sh --migrate_from <old kit> --yes --start` (docs/KIT_1.9.0_SITE_GUIDE.md) |
+| `OLD IMAGE` | kit 1.9.0, but the client was created from another image: started before `:current` moved, or pinned in `image.conf` / `--image` | restart the client; docker.sh pulls `:current` on every start |
+| `STOPPED` | the heartbeat is fresh but says the client container is not running (`stopped`, no image id) or live_sync ended | start the client |
+| `STALE` | no heartbeat for `--max-age` (15 min). It proves nothing about what runs now; from an old kit or before `--since` it proves nothing about the migration | is the client running? A running 1.9.0 client uploads every 30 s |
+| `NO HEARTBEAT` | never uploaded, or only unreadable files | live_sync and the kit's upload key |
+
+**What a heartbeat proves, and when it is written** (`kit_live_sync/live_sync.sh`):
+
+- live_sync runs on the site's host next to the client container, started by
+  `docker.sh --start_client`, and uploads a heartbeat every 30 s. A 1.9.0 kit with no job
+  folder yet (fresh kit, client idling) uploads to `<SITE>/swarm/_active/` with status
+  `waiting`, so **a migrated client shows up before it ever receives a job**. With a job
+  folder the heartbeat goes to the newest job's folder with status `running` on every cycle,
+  also after the job ended: `running` means the daemon runs, not that the site trains.
+- The 1.9.0 daemon (`live_sync_version` 3) ends about 10 minutes after its client container
+  stopped and uploads a last heartbeat with status `stopped`. Daemons of older kits run until
+  killed, client or not, which is why a stale old-kit job can keep reporting `running` (F16);
+  the tool flags a second kit that still uploads.
+- `kit_version` is the kit that started the daemon; `image_id` is that kit's client
+  container. A fresh heartbeat therefore proves "this kit's live_sync runs and its client
+  container was created from this image". It does not prove that the client is registered
+  with the server or will configure for a job: before a run also check `check_status server`
+  and the configured-client count (docs/SWARM_FAILURE_MODES.md, before every run).
+- The timestamp is the site's clock. RUMC_1 runs about 2 h ahead; a timestamp in the future
+  is replaced by the time the file arrived here (marked `*` with a note).
+
+On 15 Oct 2026, before the migration, every site showed `OLD KIT` (kit 1.8.1, image 1.8.1
+`cbf6ba7aa574`, UKA_1 1.8.1-cam `49bdb25cbfcd`) or `STALE` (RSH_1 and VHIO_1 since 14 Oct;
+USZ_1's newest heartbeat is a 1.5.0 one from July, although it took part in the October
+run: its uploads have not arrived since, so for USZ_1 only a 1.9.0 heartbeat will tell).

@@ -7,7 +7,7 @@ sudo chown -R mediswarm-upload:mediswarm-upload /srv/mediswarm/live
 python3 -m venv /srv/mediswarm/venv
 /srv/mediswarm/venv/bin/pip install fastapi uvicorn
 
-cp server_tools/app.py /srv/mediswarm/app.py
+cp server_tools/app.py server_tools/heartbeat_io.py /srv/mediswarm/   # app.py imports heartbeat_io
 # create /srv/mediswarm/monitor_users first, see Login below
 MEDISWARM_MONITOR_USERS=/srv/mediswarm/monitor_users \
   /srv/mediswarm/venv/bin/uvicorn app:app --app-dir /srv/mediswarm --host <VPN-IP> --port 8080   # not 0.0.0.0 on a public host
@@ -52,6 +52,7 @@ and that the application code is saved as:
 
 ```text
 /srv/mediswarm/app.py
+/srv/mediswarm/heartbeat_io.py   # the heartbeat reader app.py imports (shared with scripts/admin/fleet_status.py)
 ```
 
 To show collaborators that have not uploaded any heartbeat yet, create an
@@ -125,14 +126,14 @@ The main dashboard shows a styled table with auto-refresh (every 30 s):
 
 ## 2) Save the application file
 
-Save your Python code to:
+Copy the application and the heartbeat reader it imports:
 
 ```bash
 sudo mkdir -p /srv/mediswarm
-sudo nano /srv/mediswarm/app.py
+cp server_tools/app.py server_tools/heartbeat_io.py /srv/mediswarm/
 ```
 
-Paste the FastAPI code into that file and save it.
+Without `heartbeat_io.py` next to `app.py` the monitor does not start and says so.
 
 ---
 
@@ -373,7 +374,7 @@ curl http://<SERVER_IP>:8080/
 
 ## 12) How to update the app later
 
-If you change `/srv/mediswarm/app.py`:
+If you change `/srv/mediswarm/app.py` (copy `server_tools/heartbeat_io.py` along with it):
 
 ### If running manually
 Stop the old process and start it again.

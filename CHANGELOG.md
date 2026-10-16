@@ -12,6 +12,20 @@ All notable changes to MediSwarm are documented in this file.
   exact builder command) and `--build`, and overrides for a site that cannot join
   (`--exclude-sites VHIO_1`) and for the dl3 test bed. Plan, preconditions and checks:
   `docs/ODELIA_RUN_PLAN_2026-Q4.md`.
+- **Fleet readiness check on the coordinator** — `scripts/admin/fleet_status.py` reads each
+  ODELIA site's newest heartbeat and prints kit, image (tag, short id, whether it is the
+  expected image), heartbeat age, status, job and a verdict (`READY`, `OLD KIT`, `OLD IMAGE`,
+  `STOPPED`, `STALE`, `NO HEARTBEAT`) with its reason; exit 0 only when every site is ready.
+  For tracking the 1.9.0 migration and as the gate before a run (docs/RELEASE_RUNBOOK.md §11,
+  docs/ODELIA_RUN_PLAN_2026-Q4.md, docs/SWARM_FAILURE_MODES.md "Before every run"). Accepts the image's config, index and
+  manifest digests, flags a stale heartbeat as proving nothing, a site clock ahead, and an old
+  kit's live_sync that still uploads (F16).
+
+### Changed
+
+- **One heartbeat reader** — the live monitor and the fleet check parse heartbeats (including
+  the malformed files of older kits) with `server_tools/heartbeat_io.py`. Deploy it next to
+  `app.py`: `cp server_tools/app.py server_tools/heartbeat_io.py /srv/mediswarm/`.
 
 ### Fixed
 
