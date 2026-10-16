@@ -104,7 +104,7 @@ check that `sha256sum` prints the value above. The runs write their own mirrors
 | 27 to 29 Oct | Run A, CAM model | `cam` | 20 | not measured at consortium scale; three days reserved |
 | by 30 Oct | start model at UMCU_1 and MHA_1, per-case on at RUMC_1 | | | |
 | 2 to 3 Nov | Run B, VHIO model | `vhio` | 20 | about 17 to 21 h |
-| 4 to 5 Nov | D2.5 regional fine-tuning | `d25_dutch` (`d25_greek` blocked) | 5 | about 6 to 7 h |
+| 4 to 5 Nov | D2.5 regional fine-tuning | `d25_dutch`; Greek cohort at MHA_1 by local training | 5 | about 6 to 7 h |
 | 9 to 11 Nov | D3.2 active learning, four arms | `d32_entropy_b20`, `d32_entropy_b40`, `d32_random_b20`, `d32_random_b40` | 5 each | at most about 13 h per arm |
 | 16 to 17 Nov | T3.3 DP utility | `dp_s24` | 20 | about 15 h |
 | by 20 Nov | BreastDivider crops at every site | | | |
@@ -215,7 +215,11 @@ cdbfab5748a0)`. The coordinator's `cross_site_val/per_case_predictions/` holds t
 rows of the final global for both sites
 ([SWARM_EVALUATION_OUTPUTS.md](SWARM_EVALUATION_OUTPUTS.md)).
 
-#### Greek cohort (`d25_greek`): blocked
+#### Greek cohort: local fine-tuning at MHA_1 (image 1.9.2)
+
+A swarm job cannot have a single site: NVFlare's swarm server controller
+(`ServerSideController.__init__`) raises `Not enough participating_clients: must > 1`, and the
+builder refuses the `d25_greek` preset for that reason:
 
 ```bash
 python3 scripts/admin/build_consortium_job.py --name odelia_d25_greek_5r_1site \
@@ -226,25 +230,36 @@ python3 scripts/admin/build_consortium_job.py --name odelia_d25_greek_5r_1site \
     --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
 ```
 
-The builder refuses this job:
+The Greek cohort is one site, so it
+needs no swarm: MHA_1 fine-tunes the August model by local training and compares it with the
+unchanged model on its own test split, with the same comparison code as the Dutch run. Since
+1.9.2 one command does all of it at the site:
 
+```bash
+# in MHA_1's 1.9.0 kit, startup folder; the start model in the scratch directory as for d25_dutch
+./docker.sh --data_dir "$DATADIR" --scratch_dir "$SCRATCHDIR" --GPU device=0 \
+    --run_script /MediSwarm/scripts/evaluation/d25_local_finetune.sh
 ```
-ERROR: --sites MHA_1: a swarm job needs at least 2 sites; NVFlare's swarm_controller refuses fewer
-participating clients when the job starts ('Not enough participating_clients: must > 1')
-```
 
-A swarm job cannot have a single site. NVFlare's swarm server controller
-(`ServerSideController.__init__`) raises `Not enough participating_clients: must > 1`. The
-builder of 1.9.1 still accepted the job, which would then have failed on the coordinator after
-submission; it now refuses it at build time. The Greek fine-tuning needs one of these,
-neither of which exists yet; to be decided:
+`scripts/evaluation/d25_local_finetune.sh` checks the start model's sha256, predicts the test
+split with it (`predict.py`), fine-tunes it by local training (`ODELIA_LOCAL_INIT_CHECKPOINT` and
+`ODELIA_LOCAL_INIT_SHA256`: the checkpoint must fit the model, as for a received global),
+predicts again with the fine-tuned model and runs `compare_regional_finetune.py` on the two
+prediction sets, paired by case id. Everything stays under `<scratch dir>/d25_local/<UTC time>/`;
+MHA_1 sends `report.json` (AUROCs, bootstrap intervals, support counts, no case identifiers).
+Nothing is uploaded: `--run_script` starts no live_sync.
 
-1. A two-site swarm job in which only MHA_1 trains and aggregates. NVFlare's swarm controller
-   takes `train_clients` and `aggr_clients`; a second site would take part without training.
-   Needs builder support (the strict quorum must count the training sites) and a test on dl3.
-2. Local fine-tuning at MHA_1. `docker.sh --local_training` always starts from a new model; it
-   would need a warm-start option, and the per-case rows would come from MHA_1's local test
-   export instead of the swarm's per-case return.
+**Epochs: 10** (`D25_EPOCHS`, passed with `--docker_options "--env D25_EPOCHS=..."`): what MHA_1
+trains in the 5 rounds of a swarm job, since `compute_weighted_epochs` gives its training set 2
+epochs per round. The other settings are `D25_START_MODEL`, `D25_START_SHA256` and `D25_LABEL`
+(script header).
+
+**Tested** on the dl3 test bed on 16 Oct with 1.9.2-rc1 and a 1.9.0 kit (MHA_1 challenge data,
+2 epochs): start model verified, `Local training starts from /scratch/odelia_87c5bbee_global.pt
+(sha256 ad26080c7116..., 450 tensors)`, 26 paired test cases, `report.json` written.
+
+**After.** MHA_1's console ends with `[OK] done. Please send .../report.json`; the run directory
+of the fine-tuning holds `local_init.json` (checkpoint and sha256).
 
 ### 5. D3.2 active learning (`d32_entropy_b20`, `d32_entropy_b40`, `d32_random_b20`, `d32_random_b40`)
 

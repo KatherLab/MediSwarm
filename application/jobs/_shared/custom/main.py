@@ -42,6 +42,81 @@ else:
     raise ValueError(f"Unsupported TRAINING_MODE: {TRAINING_MODE}")
 
 
+# Local training from a given model instead of a new one, e.g. the D2.5 fine-tuning of the August model on
+# a single site's data (a swarm job needs at least two sites). Both are set together, as container paths
+# and values; the file's sha256 is checked before it is read. Swarm jobs warm-start through the job instead
+# (build_consortium_job.py --warm-start).
+LOCAL_INIT_ENV = "ODELIA_LOCAL_INIT_CHECKPOINT"
+LOCAL_INIT_SHA256_ENV = "ODELIA_LOCAL_INIT_SHA256"
+LOCAL_INIT_RECORD = "local_init.json"
+
+
+def _file_sha256(path: str) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _local_init_file(logger, training_mode: str = TRAINING_MODE):
+    """(path, sha256) of a verified ODELIA_LOCAL_INIT_CHECKPOINT for local training, else None.
+
+    Checked before the data is prepared, so a wrong setting stops in seconds. Refuses rather than training
+    from a new model by mistake: without the sha256, with a missing file or on a sha256 mismatch. Outside
+    local training the variables have no effect (a leftover in image.conf must not stop a swarm run).
+    """
+    path = os.environ.get(LOCAL_INIT_ENV, "").strip()
+    expected = os.environ.get(LOCAL_INIT_SHA256_ENV, "").strip().lower()
+    if not path and not expected:
+        return None
+    if training_mode != TM_LOCAL_TRAINING:
+        logger.warning(f"{LOCAL_INIT_ENV} applies to local training only and is ignored here "
+                       f"(TRAINING_MODE={training_mode}); swarm jobs warm-start through the job")
+        return None
+    if not path or not expected:
+        raise ValueError(f"set both {LOCAL_INIT_ENV} (container path of the checkpoint) and "
+                         f"{LOCAL_INIT_SHA256_ENV} (its sha256sum), or neither")
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"{LOCAL_INIT_ENV}={path}: no such file inside the container; it is a container "
+                                f"path, e.g. /scratch/<file> for a file in your scratch directory")
+    actual = _file_sha256(path)
+    if actual != expected:
+        raise ValueError(f"{LOCAL_INIT_ENV}={path} has sha256 {actual}, {LOCAL_INIT_SHA256_ENV} expects {expected}: "
+                         f"another or an incomplete file. Stopping before any training.")
+    return path, actual
+
+
+def _load_local_init(logger, model, path_run_dir, init) -> None:
+    """Load the verified checkpoint ``init`` = (path, sha256) into ``model``; refuse one that does not fit it.
+
+    Keys and shapes must match, as for a received global (#541); only the non-parameter buffers may differ.
+    Records what was loaded in the run directory.
+    """
+    if not init:
+        return
+    path, sha256 = init
+    from models.base_model import _state_dict_in, state_dict_mismatch  # job code, as in _check_received_structure
+
+    # weights_only=False: persistor files carry more than tensors; the sha256 pins the exact file.
+    state = _state_dict_in(torch.load(path, map_location="cpu", weights_only=False), path)
+    problem = state_dict_mismatch(model.state_dict(), state)
+    if problem:
+        raise RuntimeError(f"{LOCAL_INIT_ENV}={path} does not fit this site's model: {problem}. Use a checkpoint "
+                           f"of the same MODEL_NAME (and --job) as this local training.")
+    model.load_state_dict(state, strict=False)  # differences are limited to the non-parameter buffers
+    logger.info(f"Local training starts from {path} (sha256 {sha256[:12]}..., {len(state)} tensors)")
+    try:
+        import json
+
+        with open(os.path.join(str(path_run_dir), LOCAL_INIT_RECORD), "w") as fh:
+            json.dump({"checkpoint": path, "sha256": sha256, "tensors": len(state)}, fh, indent=2)
+    except OSError as e:  # the record is provenance only; the log line above has the same facts
+        logger.warning(f"Could not write {LOCAL_INIT_RECORD} to {path_run_dir}: {e}")
+
+
 def _job_id() -> str:
     """Job id for the round hooks (e.g. per-job capture directories); "" when the client API cannot tell."""
     try:
@@ -250,6 +325,7 @@ def main():
         hooks = round_hooks.load_hooks(os.environ, logger)
         final_eval_round = threedcnn_ptl.final_eval_round_enabled()
         threedcnn_ptl.export_train_predictions_enabled()  # raises on a value that is not a 0/1 switch
+        local_init = _local_init_file(logger)
 
         data_module, model, checkpointing, trainer, path_run_dir, env_vars = threedcnn_ptl.prepare_training(
             logger, NUM_EPOCHS, SITE_NAME, LOG_DATASET_DETAILS,
@@ -263,6 +339,7 @@ def main():
         elif TRAINING_MODE in [TM_PREFLIGHT_CHECK, TM_LOCAL_TRAINING]:
             if final_eval_round:
                 logger.warning(f"{threedcnn_ptl.FINAL_EVAL_ROUND_ENV}=1 only applies to swarm training; ignored")
+            _load_local_init(logger, model, path_run_dir, local_init)
             threedcnn_ptl.validate_and_train(logger, data_module, model, trainer, path_run_dir, output_GT_and_classprob_aggregated_model=False)
             threedcnn_ptl.finalize_training(logger, data_module, model, checkpointing, trainer, path_run_dir, env_vars)
 

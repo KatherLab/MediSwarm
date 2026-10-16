@@ -171,8 +171,10 @@ PRESETS: "OrderedDict[str, Preset]" = OrderedDict(
         Preset(
             key="d25_greek",
             stem="odelia_d25_greek_5r",
-            # Kept as planned: the builder refuses it (a swarm needs two sites); see the plan doc.
-            title="D2.5 regional fine-tuning (#526), Greek cohort: MHA_1 alone. BLOCKED: a swarm job needs 2 sites",
+            # Kept as planned: the builder refuses it (a swarm needs two sites). MHA_1 runs it as local
+            # training instead, scripts/evaluation/d25_local_finetune.sh (image 1.9.2); see the plan doc.
+            title="D2.5 regional fine-tuning (#526), Greek cohort: MHA_1 alone. NOT A SWARM JOB: a swarm needs 2 sites; "
+                  "MHA_1 runs scripts/evaluation/d25_local_finetune.sh",
             base_job=CHALLENGE_JOB,
             rounds=5,
             sites=("MHA_1",),
