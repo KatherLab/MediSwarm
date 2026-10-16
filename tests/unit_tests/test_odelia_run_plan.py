@@ -249,7 +249,7 @@ def test_list_names_every_preset(capsys):
     out = capsys.readouterr().out
     for key in rp.PRESETS:
         assert f"\n{key} " in "\n" + out
-    assert "BLOCKED" in out
+    assert "NOT A SWARM JOB" in out and "d25_local_finetune.sh" in out
 
 
 # ── Overrides: the dl3 test bed and a site that cannot join ───────────────

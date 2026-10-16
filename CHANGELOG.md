@@ -20,6 +20,13 @@ All notable changes to MediSwarm are documented in this file.
   docs/ODELIA_RUN_PLAN_2026-Q4.md, docs/SWARM_FAILURE_MODES.md "Before every run"). Accepts the image's config, index and
   manifest digests, flags a stale heartbeat as proving nothing, a site clock ahead, and an old
   kit's live_sync that still uploads (F16).
+- **Local training can start from a given model** — `ODELIA_LOCAL_INIT_CHECKPOINT` and
+  `ODELIA_LOCAL_INIT_SHA256` load a sha256-pinned checkpoint before local training; it must fit
+  the model (keys and shapes). Outside local training the variables are ignored with a warning.
+- **D2.5 for a single-site cohort** — `scripts/evaluation/d25_local_finetune.sh` runs the Greek
+  cohort's D2.5 step at MHA_1 in one `docker.sh --run_script` call (predict with the August model,
+  fine-tune it locally, predict, `compare_regional_finetune.py`); only an aggregate `report.json`
+  is meant to leave the site. Needs image 1.9.2.
 
 ### Changed
 
