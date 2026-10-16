@@ -4,7 +4,7 @@
 # A swarm job needs at least two sites, so a single-site cohort fine-tunes the August pan-European
 # model by local training and compares it with the unchanged model on its own test split, with the
 # same comparison code as the Dutch swarm run (compare_regional_finetune.py). Runs inside the MediSwarm
-# image (1.9.2 or later); the site starts it with
+# image (1.9.3 or later); the site starts it with
 #
 #   ./docker.sh --data_dir "$DATADIR" --scratch_dir "$SCRATCHDIR" --GPU device=0 \
 #       --run_script /MediSwarm/scripts/evaluation/d25_local_finetune.sh

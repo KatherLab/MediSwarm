@@ -54,7 +54,7 @@ def iso(epoch):
     return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def beat(root, site, run, *, age=10, mode="swarm", name="heartbeat.json", kit="1.9.0",
+def beat(root, site, run, *, age=10, mode="swarm", name="heartbeat.json", kit="1.9.3",
          image_id=short(CONFIG), status="running", upload_age=None, raw=None, **extra):
     """Write one heartbeat as live_sync uploads it; mtime stands in for the upload time."""
     now = time.time()
@@ -62,8 +62,8 @@ def beat(root, site, run, *, age=10, mode="swarm", name="heartbeat.json", kit="1
             "timestamp": iso(now - age), "status": status, "kit_version": kit,
             "image_ref": "jefftud/odelia:current" if image_id else "", "image_id": image_id,
             "sync_status": "ok", "sync_error": "", "hostname": HOST, "ip_address": IP,
-            "sync_version": "3" if kit == "1.9.0" else "2"}
-    if kit == "1.9.0":
+            "sync_version": "3" if kit == "1.9.3" else "2"}
+    if kit == "1.9.3":
         data.update({"live_sync_version": "3", "client_state": "running"})
     data.update(extra)
     path = Path(root) / site / mode / run / name
@@ -104,7 +104,7 @@ def fleet(tmp_path):
     # UKA_1: migrated client, but the 1.8.1 kit's live_sync still uploads (F16)
     beat(r, "UKA_1", "_active", status="waiting", age=15)
     beat(r, "UKA_1", "d67132d0-abf5-4a6f-b15d-0093f2a0267e", kit="1.8.1", image_id=OLD_181, age=45)
-    # UMCU_1: migrated, then the client stopped; the 1.9.0 daemon's last heartbeat
+    # UMCU_1: migrated, then the client stopped; the 1.9.3 daemon's last heartbeat
     beat(r, "UMCU_1", "_active", status="stopped", client_state="stopped", image_id="", age=120)
     # USZ_1: newest heartbeat from July, an old kit (salvaged doubled quote)
     old = beat(r, "USZ_1", "f7824f34-187f-4eb7-9460-5b71dcf72851", kit="1.5.0-dev.260702.be9ef04",
@@ -161,7 +161,7 @@ def test_config_and_index_digest_both_identify_the_expected_image(fleet, capsys)
 
 def test_not_migrated_site_says_so(fleet, capsys):
     _, _, sites = run_json(capsys, fleet)
-    assert sites["RSH_1"]["reason"] == "kit 1.8.1, expected 1.9.0: not migrated"
+    assert sites["RSH_1"]["reason"] == "kit 1.8.1, expected 1.9.3: not migrated"
     assert sites["RSH_1"]["kit_version"] == "1.8.1"
 
 
@@ -181,7 +181,7 @@ def test_site_clock_ahead_uses_the_upload_time(fleet, capsys):
 def test_old_kit_still_uploading_blocks_a_migrated_site(fleet, capsys):
     _, _, sites = run_json(capsys, fleet, "--expect-image-id", CONFIG)
     uka = sites["UKA_1"]
-    assert uka["kit_version"] == "1.9.0", "the verdict is about the 1.9.0 heartbeat"
+    assert uka["kit_version"] == "1.9.3", "the verdict is about the 1.9.3 heartbeat"
     assert "1.8.1 still uploads" in uka["reason"] and "--migrate_from" in uka["reason"]
 
 
@@ -244,10 +244,10 @@ def test_malformed_heartbeats(tmp_path, capsys):
     root = tmp_path / "live"
     beat(root, "RSH_1", "aaaaaaaa-0000-0000-0000-000000000000", raw="{not json", age=5)
     beat(root, "CAM_1", "_active", status="waiting", age=60)
-    beat(root, "CAM_1", "bbbbbbbb-0000-0000-0000-000000000000", raw='{"kit_version": "1.9.0", "status": ', age=5)
+    beat(root, "CAM_1", "bbbbbbbb-0000-0000-0000-000000000000", raw='{"kit_version": "1.9.3", "status": ', age=5)
     # ANSI colour codes from the run name: salvaged, as the monitor does
     beat(root, "MHA_1", "cccccccc-0000-0000-0000-000000000000", age=5,
-         raw=json.dumps({"kit_version": "1.9.0", "timestamp": iso(time.time() - 5), "status": "running",
+         raw=json.dumps({"kit_version": "1.9.3", "timestamp": iso(time.time() - 5), "status": "running",
                          "image_id": short(CONFIG), "client_state": "running"}).replace(
              '"status"', '"run_name": "\x1b[32mrun\x1b[0m", "status"'))
     _, _, sites = run_json(capsys, root, "--sites", "RSH_1,CAM_1,MHA_1")

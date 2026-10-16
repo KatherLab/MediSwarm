@@ -50,7 +50,7 @@ readme_fc: |
       ./docker.sh --data_dir <DATA> --scratch_dir <SCRATCH> --GPU device=0 --start_client
       ./docker.sh --status
 
-  New in 1.9.0 for sites
+  New in 1.9 for sites
     - One command moves the node from the old kit (--migrate_from), one checks it (--status).
     - The key for the monitor upload comes with the kit: no key exchange by email any more.
     - A per-case opt-in (ODELIA_RETURN_PER_CASE in image.conf) is carried over by --migrate_from.
@@ -61,7 +61,7 @@ readme_fc: |
   Before moving, run nvidia-smi on the host. "Driver/library version mismatch" means an
   automatic driver update is waiting for a reboot: reboot first, or the new container has no GPU.
 
-  Step-by-step guide: docs/KIT_1.9.0_SITE_GUIDE.md at https://github.com/KatherLab/MediSwarm
+  Step-by-step guide: docs/KIT_1.9.3_SITE_GUIDE.md at https://github.com/KatherLab/MediSwarm
   Questions: your contact at TUD.
 
 readme_fs: |

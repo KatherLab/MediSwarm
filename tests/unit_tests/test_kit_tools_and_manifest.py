@@ -355,7 +355,7 @@ def test_test_projects_still_get_a_fresh_ca(tmp_path):
 
 # --------------------------------------------------------------------------- partner texts
 
-GUIDE = REPO_ROOT / "docs" / "KIT_1.9.0_SITE_GUIDE.md"
+GUIDE = REPO_ROOT / "docs" / "KIT_1.9.3_SITE_GUIDE.md"
 TEMPLATE = REPO_ROOT / "docker_config" / "master_template.yml"
 # Options of other commands that the texts show: sha256sum -c, docker ps, and the docker run
 # option inside image.conf's MEDISWARM_DOCKER_OPTIONS.
