@@ -9,7 +9,7 @@ the gate before a run (no fault tolerance: every participating site must be read
 progress list during a migration week.
 
     fleet_status.py --expect-kit 1.9.3 --expect-image jefftud/odelia:1.9.3
-    fleet_status.py --sites CAM_1,UKA_1 --expect-image-id sha256:c527c8c509aa --json
+    fleet_status.py --sites CAM_1,UKA_1 --expect-image-id sha256:22f88f37efcc --json
     fleet_status.py --since 2026-10-19 --max-age 30m
 
 Verdicts, first match wins:

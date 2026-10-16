@@ -58,13 +58,13 @@ submit, for the sites of that run:
 
 ```bash
 python3 scripts/admin/fleet_status.py --sites <the run's sites> --expect-kit 1.9.3 \
-    --expect-image jefftud/odelia:1.9.3 --expect-image-id sha256:CONFIG193
+    --expect-image jefftud/odelia:1.9.3 --expect-image-id sha256:22f88f37efcc
 ```
 
 One line per site from its newest heartbeat (kit, image, age, verdict and why); every site must
 be `READY` (exit 0). `OLD KIT`: not moved to 1.9.3, or the old kit still uploads; `OLD IMAGE`:
 the client was started before `:current` moved to 1.9.3 or is pinned, restart it; `STOPPED`,
-`STALE`, `NO HEARTBEAT`: no running client to show. `sha256:c527c8c509aa` is 1.9.1's config
+`STALE`, `NO HEARTBEAT`: no running client to show. `sha256:22f88f37efcc` is 1.9.3's config
 digest, which sites report and which the coordinator's own Docker cannot read locally
 ([RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md), section 11). `READY` means the client runs the right
 code; registration and configuration are checked after submitting (F8 in

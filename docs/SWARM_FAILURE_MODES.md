@@ -295,8 +295,8 @@ expected kit and image and is up. No fault tolerance: one site that is not `READ
 run, so the command must exit 0:
 
 ```bash
-python3 scripts/admin/fleet_status.py --sites <the participating sites> --expect-kit 1.9.0 \
-    --expect-image jefftud/odelia:1.9.1 --expect-image-id sha256:c527c8c509aa
+python3 scripts/admin/fleet_status.py --sites <the participating sites> --expect-kit 1.9.3 \
+    --expect-image jefftud/odelia:1.9.3 --expect-image-id sha256:22f88f37efcc
 ```
 
 It reads each site's newest heartbeat under `/srv/mediswarm/live` and gives one verdict per
