@@ -8,7 +8,7 @@ verdict with its reason. Exit status 0 only when every requested site is READY, 
 the gate before a run (no fault tolerance: every participating site must be ready) and as the
 progress list during a migration week.
 
-    fleet_status.py --expect-kit 1.9.0 --expect-image jefftud/odelia:1.9.1
+    fleet_status.py --expect-kit 1.9.3 --expect-image jefftud/odelia:1.9.3
     fleet_status.py --sites CAM_1,UKA_1 --expect-image-id sha256:c527c8c509aa --json
     fleet_status.py --since 2026-10-19 --max-age 30m
 
@@ -91,7 +91,7 @@ EXIT_USAGE = 2
 
 ODELIA_SITES = ["CAM_1", "MHA_1", "RSH_1", "RUMC_1", "UKA_1", "UMCU_1", "USZ_1", "VHIO_1"]
 DEFAULT_LIVE_ROOT = "/srv/mediswarm/live"
-DEFAULT_EXPECT_KIT = "1.9.0"
+DEFAULT_EXPECT_KIT = "1.9.3"
 DEFAULT_MAX_AGE = "15m"
 # A site timestamp this far ahead of our clock is a site clock error, not a heartbeat from
 # the future: the upload time stands in for it.
@@ -505,7 +505,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="sites to check, comma-separated or repeated (default: the eight ODELIA sites)")
     ap.add_argument("--expect-kit", default=DEFAULT_EXPECT_KIT, help=f"kit version (default {DEFAULT_EXPECT_KIT})")
     ap.add_argument("--expect-image", action="append", default=[], metavar="REF",
-                    help="image every site must run, e.g. jefftud/odelia:1.9.1; resolved with local docker inspect")
+                    help="image every site must run, e.g. jefftud/odelia:1.9.3; resolved with local docker inspect")
     ap.add_argument("--expect-image-id", action="append", default=[], metavar="ID",
                     help="an id the expected image may report (sha256:<12+ hex>); repeat for config/index/manifest")
     ap.add_argument("--registry", action="store_true",

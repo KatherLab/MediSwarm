@@ -20,7 +20,7 @@ Overrides, for a site that cannot join and for the dl3 test bed:
 The job name is the preset's stem plus ``_<n>site``: a 7-site build of a preset never shares its
 name, nor the per-name mirror /scratch/mediswarm_latest_global_<name>.pt, with the 8-site build.
 
-Jobs are built from the release image by default (``--source image:jefftud/odelia:1.9.1``), so
+Jobs are built from the release image by default (``--source image:jefftud/odelia:1.9.3``), so
 the job code shipped with the job is the code of the image the sites run. ``--source repo``
 builds from this checkout (development and unit tests).
 
@@ -70,7 +70,7 @@ bcj = _load_builder()
 # --exclude-sites VHIO_1 builds the run without it until its data access is fixed.
 SITES = ("CAM_1", "MHA_1", "RSH_1", "RUMC_1", "UKA_1", "UMCU_1", "USZ_1", "VHIO_1")
 
-RELEASE_IMAGE = "jefftud/odelia:1.9.1"
+RELEASE_IMAGE = "jefftud/odelia:1.9.3"
 DEFAULT_SOURCE = f"image:{RELEASE_IMAGE}"
 ODELIA_JOB = "ODELIA_ternary_classification"
 CHALLENGE_JOB = "challenge_1DivideAndConquer"
@@ -83,11 +83,11 @@ AUGUST_MODEL_PATH = "/scratch/odelia_87c5bbee_global.pt"
 # sha256sum of the file, as in the release folder's SHA256SUMS (the starting client's persistor checks it).
 AUGUST_MODEL_SHA256 = "ad26080c71161e6f8abb6a279c06a41d459b7bb237699cbe2d4522ddb942270d"
 # state_digest.checkpoint_state_digest() of the file (digest format 1), computed on 15 Oct 2026 inside
-# jefftud/odelia:1.9.1. Every site checks the round-0 global against it (ODELIA_WARM_START_SHA256).
+# jefftud/odelia:1.9.3. Every site checks the round-0 global against it (ODELIA_WARM_START_SHA256).
 AUGUST_MODEL_STATE_DIGEST = "cdbfab5748a025f3a88216747ac57208d764a93f9e416e90d9c1063f1ea6b51e"
 
 # What has to be in place before a job is submitted (shown by --show; the plan doc has the details).
-NEEDS_KIT = "every site on the 1.9.0 kit, running jefftud/odelia:1.9.1 via :current (heartbeat image_id)"
+NEEDS_KIT = "every site on the 1.9.3 kit, running jefftud/odelia:1.9.3 via :current (heartbeat image_id)"
 
 
 def _needs_start_model(site: str) -> str:
@@ -149,12 +149,12 @@ PRESETS: "OrderedDict[str, Preset]" = OrderedDict(
             model="MST_SAMMed2D",
             ms6_capture_sites=("CAM_1", "RUMC_1"),
             flags=("--export-train-predictions", "0", "--archive-globals"),
-            needs=(NEEDS_KIT, "coordinator archive mounted at /archive (1.9.0 server kit)"),
+            needs=(NEEDS_KIT, "coordinator archive mounted at /archive (1.9.3 server kit)"),
         ),
         Preset(
             key="vhio",
             stem="odelia_vhio_medicalnet_20r",
-            title="Run B, VHIO model: MedicalNet (ResNet-34 weights in the 1.9.1 image)",
+            title="Run B, VHIO model: MedicalNet (ResNet-34 weights in the image since 1.9.1)",
             model="MedicalNet",
         ),
         Preset(
@@ -171,8 +171,10 @@ PRESETS: "OrderedDict[str, Preset]" = OrderedDict(
         Preset(
             key="d25_greek",
             stem="odelia_d25_greek_5r",
-            # Kept as planned: the builder refuses it (a swarm needs two sites); see the plan doc.
-            title="D2.5 regional fine-tuning (#526), Greek cohort: MHA_1 alone. BLOCKED: a swarm job needs 2 sites",
+            # Kept as planned: the builder refuses it (a swarm needs two sites). MHA_1 runs it as local
+            # training instead, scripts/evaluation/d25_local_finetune.sh (image 1.9.3); see the plan doc.
+            title="D2.5 regional fine-tuning (#526), Greek cohort: MHA_1 alone. NOT A SWARM JOB: a swarm needs 2 sites; "
+                  "MHA_1 runs scripts/evaluation/d25_local_finetune.sh",
             base_job=CHALLENGE_JOB,
             rounds=5,
             sites=("MHA_1",),

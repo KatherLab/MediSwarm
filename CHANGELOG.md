@@ -4,6 +4,22 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
+## [1.9.3] - 2026-10-16
+
+**The version for every ODELIA site: startup kit 1.9.3 and image 1.9.3**, for all runs of October
+to November 2026. It replaces the 1.9.0 kits and the 1.9.1 and 1.9.2 images, which were built and
+tested but never rolled out; one number for kit, image and release avoids the mix. For sites:
+unzip the 1.9.3 kit next to the old one, `./docker.sh --migrate_from <old kit>` (dry run), then
+`--yes --start`, then `./docker.sh --status` (docs/KIT_1.9.3_SITE_GUIDE.md). With the 1.9.1 and
+1.9.0 sections below, this section covers everything that changed since 1.8.1.
+
+New since 1.9.1: the D2.5 step for a single-site cohort (the Greek cohort, MHA_1, which cannot
+be a swarm job), the run presets for October to November and the coordinator's fleet check.
+Every scheduled run was rehearsed on the dl3 test bed: D2.5 Dutch (warm start from the August
+model, digest verified at both sites), D2.5 Greek by local fine-tuning, D3.2 entropy and random
+arms, BreastDivider with 1DivideAndConquer and the check job on 1.9.1/1.9.2 release candidates;
+the CAM, VHIO and DP runs on 1.9.0/1.9.1 release candidates.
+
 ### Added
 
 - **Run plan for October to November 2026** — `scripts/admin/odelia_run_plan.py` holds every
@@ -20,6 +36,13 @@ All notable changes to MediSwarm are documented in this file.
   docs/ODELIA_RUN_PLAN_2026-Q4.md, docs/SWARM_FAILURE_MODES.md "Before every run"). Accepts the image's config, index and
   manifest digests, flags a stale heartbeat as proving nothing, a site clock ahead, and an old
   kit's live_sync that still uploads (F16).
+- **Local training can start from a given model** — `ODELIA_LOCAL_INIT_CHECKPOINT` and
+  `ODELIA_LOCAL_INIT_SHA256` load a sha256-pinned checkpoint before local training; it must fit
+  the model (keys and shapes). Outside local training the variables are ignored with a warning.
+- **D2.5 for a single-site cohort** — `scripts/evaluation/d25_local_finetune.sh` runs the Greek
+  cohort's D2.5 step at MHA_1 in one `docker.sh --run_script` call (predict with the August model,
+  fine-tune it locally, predict, `compare_regional_finetune.py`); only an aggregate `report.json`
+  is meant to leave the site. Needs image 1.9.2.
 
 ### Changed
 
@@ -86,7 +109,7 @@ sites, so every site runs the same kit, image and coordinator. Training code sti
 with each job, so later job-code fixes need no image or kit.
 
 **For sites:** unzip the 1.9.0 kit next to the old one, `./docker.sh --migrate_from <old kit>`
-(dry run), then `--yes --start`, then `./docker.sh --status` (docs/KIT_1.9.0_SITE_GUIDE.md).
+(dry run), then `--yes --start`, then `./docker.sh --status` (docs/KIT_1.9.3_SITE_GUIDE.md).
 
 Overview (details below):
 

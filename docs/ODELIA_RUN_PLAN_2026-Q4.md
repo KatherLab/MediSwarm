@@ -1,6 +1,6 @@
 # ODELIA consortium runs, October to November 2026: run plan
 
-Operational plan for the consortium runs after the move to the 1.9.0 kit: what each run is
+Operational plan for the consortium runs after the move to the 1.9.3 kit: what each run is
 for, the exact job, which sites take part, what has to be in place first, how long it takes and
 what to check afterwards. The record of the first October run is
 [ODELIA_RUN_2026-10_MST.md](ODELIA_RUN_2026-10_MST.md). Per-site results are
@@ -32,9 +32,9 @@ submit_job /fl_admin/local/mediswarm_jobs/odelia_cam_sammed2d_20r_7site
   `min_clients = configure_min_clients = min_responses_required` = number of sites (F8 in
   [SWARM_FAILURE_MODES.md](SWARM_FAILURE_MODES.md)). These runs are benchmarks: a site that
   fails stops the run, nothing is pruned.
-- **Job code.** Built from the release image (`--source image:jefftud/odelia:1.9.1`), so the
+- **Job code.** Built from the release image (`--source image:jefftud/odelia:1.9.3`), so the
   code shipped with the job is the code the sites run. The build host needs the image
-  (`docker pull jefftud/odelia:1.9.1`).
+  (`docker pull jefftud/odelia:1.9.3`).
 - **Rounds.** Each preset names its training rounds; the builder adds one evaluation-only
   round (the final global is evaluated at every site), so `num_rounds` is one more.
 - **dl3 test bed.** The same preset builds for the test sites with `--sites TEST_A_1,TEST_B_1`.
@@ -46,8 +46,8 @@ submit_job /fl_admin/local/mediswarm_jobs/odelia_cam_sammed2d_20r_7site
 
 | What | Where | Needed for |
 |---|---|---|
-| Kit 1.9.0 (`prod_06`), image `jefftud/odelia:1.9.1` through `:current` | every site | every run |
-| Coordinator on the 1.9.0 server kit, archive mounted at `/archive` | coordinator | every run; `cam` |
+| Kit 1.9.3 (`prod_07`), image `jefftud/odelia:1.9.3` through `:current` | every site | every run |
+| Coordinator on the 1.9.3 server kit, archive mounted at `/archive` | coordinator | every run; `cam` |
 | Data access fixed at VHIO_1 (in October its node could not open part of its validation images) | VHIO_1 | VHIO_1 in any run |
 | Per-case return on: `--env ODELIA_RETURN_PER_CASE=1` in the `MEDISWARM_DOCKER_OPTIONS` line of `startup/image.conf` | RUMC_1 (not yet on); UMCU_1 and MHA_1 (on since October, kept by `--migrate_from`) | D2.5; useful for D3.2 |
 | The August model at `/scratch/odelia_87c5bbee_global.pt` (see below) | UMCU_1; MHA_1 | D2.5, D3.2 |
@@ -57,13 +57,13 @@ Kit and image check, during the migration and again on the coordinator right bef
 submit, for the sites of that run:
 
 ```bash
-python3 scripts/admin/fleet_status.py --sites <the run's sites> --expect-kit 1.9.0 \
-    --expect-image jefftud/odelia:1.9.1 --expect-image-id sha256:c527c8c509aa
+python3 scripts/admin/fleet_status.py --sites <the run's sites> --expect-kit 1.9.3 \
+    --expect-image jefftud/odelia:1.9.3 --expect-image-id sha256:CONFIG193
 ```
 
 One line per site from its newest heartbeat (kit, image, age, verdict and why); every site must
-be `READY` (exit 0). `OLD KIT`: not moved to 1.9.0, or the old kit still uploads; `OLD IMAGE`:
-the client was started before `:current` moved to 1.9.1 or is pinned, restart it; `STOPPED`,
+be `READY` (exit 0). `OLD KIT`: not moved to 1.9.3, or the old kit still uploads; `OLD IMAGE`:
+the client was started before `:current` moved to 1.9.3 or is pinned, restart it; `STOPPED`,
 `STALE`, `NO HEARTBEAT`: no running client to show. `sha256:c527c8c509aa` is 1.9.1's config
 digest, which sites report and which the coordinator's own Docker cannot read locally
 ([RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md), section 11). `READY` means the client runs the right
@@ -99,12 +99,12 @@ check that `sha256sum` prints the value above. The runs write their own mirrors
 
 | When | Run | Preset | Training rounds | Expected duration |
 |---|---|---|---|---|
-| by Fri 23 Oct | sites on kit 1.9.0, image 1.9.1 | | | |
+| by Fri 23 Oct | sites on kit and image 1.9.3 | | | |
 | Mon 26 Oct | check job | `check` | 1 | about 2 h |
 | 27 to 29 Oct | Run A, CAM model | `cam` | 20 | not measured at consortium scale; three days reserved |
 | by 30 Oct | start model at UMCU_1 and MHA_1, per-case on at RUMC_1 | | | |
 | 2 to 3 Nov | Run B, VHIO model | `vhio` | 20 | about 17 to 21 h |
-| 4 to 5 Nov | D2.5 regional fine-tuning | `d25_dutch` (`d25_greek` blocked) | 5 | about 6 to 7 h |
+| 4 to 5 Nov | D2.5 regional fine-tuning | `d25_dutch`; Greek cohort at MHA_1 by local training | 5 | about 6 to 7 h |
 | 9 to 11 Nov | D3.2 active learning, four arms | `d32_entropy_b20`, `d32_entropy_b40`, `d32_random_b20`, `d32_random_b40` | 5 each | at most about 13 h per arm |
 | 16 to 17 Nov | T3.3 DP utility | `dp_s24` | 20 | about 15 h |
 | by 20 Nov | BreastDivider crops at every site | | | |
@@ -119,7 +119,7 @@ scale). The slowest site sets the pace of every round.
 
 ### 1. Check job (`check`)
 
-**Purpose.** Shows that every node runs the 1.9.0 kit and the 1.9.1 image, reads its data and
+**Purpose.** Shows that every node runs the 1.9.3 kit and image, reads its data and
 completes a round, including the evaluation-only round, before a multi-day run is started. It
 decides whether VHIO_1 takes part.
 
@@ -127,7 +127,7 @@ decides whether VHIO_1 takes part.
 python3 scripts/admin/build_consortium_job.py --name odelia_check_mst_1r_8site \
     --base-job ODELIA_ternary_classification --model MST --config unilateral --rounds 1 \
     --sites CAM_1,MHA_1,RSH_1,RUMC_1,UKA_1,UMCU_1,USZ_1,VHIO_1 \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 ```
 
 **Sites.** All eight. If it fails at VHIO_1 alone, repeat with `--exclude-sites VHIO_1` and
@@ -148,7 +148,7 @@ python3 scripts/admin/build_consortium_job.py --name odelia_cam_sammed2d_20r_8si
     --base-job ODELIA_ternary_classification --model MST_SAMMed2D --config unilateral \
     --rounds 20 --sites CAM_1,MHA_1,RSH_1,RUMC_1,UKA_1,UMCU_1,USZ_1,VHIO_1 \
     --ms6-capture-sites CAM_1,RUMC_1 --export-train-predictions 0 --archive-globals \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 ```
 
 **Before.** CAM_1 and RUMC_1 need room in their scratch folder for the captures (two models
@@ -162,22 +162,22 @@ logs `MS6 capture: <site> is not in ODELIA_MS6_CAPTURE_SITES; nothing is kept he
 
 ### 3. Run B, VHIO model (`vhio`)
 
-**Purpose.** Trains the VHIO model (`MODEL_NAME=MedicalNet`, ResNet-34 weights in the 1.9.1
-image) on the consortium.
+**Purpose.** Trains the VHIO model (`MODEL_NAME=MedicalNet`, ResNet-34 weights in the image since
+1.9.1) on the consortium.
 
 ```bash
 python3 scripts/admin/build_consortium_job.py --name odelia_vhio_medicalnet_20r_8site \
     --base-job ODELIA_ternary_classification --model MedicalNet --config unilateral --rounds 20 \
     --sites CAM_1,MHA_1,RSH_1,RUMC_1,UKA_1,UMCU_1,USZ_1,VHIO_1 \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 ```
 
-**Before.** Every site on 1.9.1: the model refuses to start without its weights, and only
-1.9.1 ships them.
+**Before.** Every site on 1.9.3: the model refuses to start without its weights, which ship
+in the image since 1.9.1.
 
 **After.** Every site logs
 `MedicalNet pretrained weights: /MediSwarm/pretrained_weights/resnet_34_23dataset.pth`. A site
-still on 1.9.0 stops before training with an error that names `resnet_34_23dataset.pth`.
+on an older image stops before training with an error that names `resnet_34_23dataset.pth`.
 
 ### 4. D2.5 regional fine-tuning (`d25_dutch`, `d25_greek`)
 
@@ -204,7 +204,7 @@ python3 scripts/admin/build_consortium_job.py --name odelia_d25_dutch_5r_2site \
     --starting-client UMCU_1 \
     --warm-start source:/scratch/odelia_87c5bbee_global.pt:ad26080c71161e6f8abb6a279c06a41d459b7bb237699cbe2d4522ddb942270d \
     --warm-start-digest cdbfab5748a025f3a88216747ac57208d764a93f9e416e90d9c1063f1ea6b51e \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 ```
 
 **Sites.** RUMC_1 and UMCU_1, one swarm job; UMCU_1 is the starting client and holds the start
@@ -215,7 +215,11 @@ cdbfab5748a0)`. The coordinator's `cross_site_val/per_case_predictions/` holds t
 rows of the final global for both sites
 ([SWARM_EVALUATION_OUTPUTS.md](SWARM_EVALUATION_OUTPUTS.md)).
 
-#### Greek cohort (`d25_greek`): blocked
+#### Greek cohort: local fine-tuning at MHA_1 (image 1.9.3)
+
+A swarm job cannot have a single site: NVFlare's swarm server controller
+(`ServerSideController.__init__`) raises `Not enough participating_clients: must > 1`, and the
+builder refuses the `d25_greek` preset for that reason:
 
 ```bash
 python3 scripts/admin/build_consortium_job.py --name odelia_d25_greek_5r_1site \
@@ -223,28 +227,39 @@ python3 scripts/admin/build_consortium_job.py --name odelia_d25_greek_5r_1site \
     --starting-client MHA_1 \
     --warm-start source:/scratch/odelia_87c5bbee_global.pt:ad26080c71161e6f8abb6a279c06a41d459b7bb237699cbe2d4522ddb942270d \
     --warm-start-digest cdbfab5748a025f3a88216747ac57208d764a93f9e416e90d9c1063f1ea6b51e \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 ```
 
-The builder refuses this job:
+The Greek cohort is one site, so it
+needs no swarm: MHA_1 fine-tunes the August model by local training and compares it with the
+unchanged model on its own test split, with the same comparison code as the Dutch run. Since
+1.9.3 one command does all of it at the site:
 
+```bash
+# in MHA_1's 1.9.3 kit, startup folder; the start model in the scratch directory as for d25_dutch
+./docker.sh --data_dir "$DATADIR" --scratch_dir "$SCRATCHDIR" --GPU device=0 \
+    --run_script /MediSwarm/scripts/evaluation/d25_local_finetune.sh
 ```
-ERROR: --sites MHA_1: a swarm job needs at least 2 sites; NVFlare's swarm_controller refuses fewer
-participating clients when the job starts ('Not enough participating_clients: must > 1')
-```
 
-A swarm job cannot have a single site. NVFlare's swarm server controller
-(`ServerSideController.__init__`) raises `Not enough participating_clients: must > 1`. The
-builder of 1.9.1 still accepted the job, which would then have failed on the coordinator after
-submission; it now refuses it at build time. The Greek fine-tuning needs one of these,
-neither of which exists yet; to be decided:
+`scripts/evaluation/d25_local_finetune.sh` checks the start model's sha256, predicts the test
+split with it (`predict.py`), fine-tunes it by local training (`ODELIA_LOCAL_INIT_CHECKPOINT` and
+`ODELIA_LOCAL_INIT_SHA256`: the checkpoint must fit the model, as for a received global),
+predicts again with the fine-tuned model and runs `compare_regional_finetune.py` on the two
+prediction sets, paired by case id. Everything stays under `<scratch dir>/d25_local/<UTC time>/`;
+MHA_1 sends `report.json` (AUROCs, bootstrap intervals, support counts, no case identifiers).
+Nothing is uploaded: `--run_script` starts no live_sync.
 
-1. A two-site swarm job in which only MHA_1 trains and aggregates. NVFlare's swarm controller
-   takes `train_clients` and `aggr_clients`; a second site would take part without training.
-   Needs builder support (the strict quorum must count the training sites) and a test on dl3.
-2. Local fine-tuning at MHA_1. `docker.sh --local_training` always starts from a new model; it
-   would need a warm-start option, and the per-case rows would come from MHA_1's local test
-   export instead of the swarm's per-case return.
+**Epochs: 10** (`D25_EPOCHS`, passed with `--docker_options "--env D25_EPOCHS=..."`): what MHA_1
+trains in the 5 rounds of a swarm job, since `compute_weighted_epochs` gives its training set 2
+epochs per round. The other settings are `D25_START_MODEL`, `D25_START_SHA256` and `D25_LABEL`
+(script header).
+
+**Tested** on the dl3 test bed on 16 Oct with image 1.9.2-rc1 and a 1.9.0 kit, which have the
+same code and docker.sh as 1.9.3 (MHA_1 challenge data, 2 epochs): start model verified, `Local training starts from /scratch/odelia_87c5bbee_global.pt
+(sha256 ad26080c7116..., 450 tensors)`, 26 paired test cases, `report.json` written.
+
+**After.** MHA_1's console ends with `[OK] done. Please send .../report.json`; the run directory
+of the fine-tuning holds `local_init.json` (checkpoint and sha256).
 
 ### 5. D3.2 active learning (`d32_entropy_b20`, `d32_entropy_b40`, `d32_random_b20`, `d32_random_b40`)
 
@@ -262,7 +277,7 @@ python3 scripts/admin/build_consortium_job.py --name odelia_d32_entropy_b20_5r_8
     --warm-start source:/scratch/odelia_87c5bbee_global.pt:ad26080c71161e6f8abb6a279c06a41d459b7bb237699cbe2d4522ddb942270d \
     --warm-start-digest cdbfab5748a025f3a88216747ac57208d764a93f9e416e90d9c1063f1ea6b51e \
     --al-strategy entropy --al-budget 20 --al-pool-split train --al-seed 0 \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 
 python3 scripts/admin/build_consortium_job.py --name odelia_d32_entropy_b40_5r_8site \
     --base-job challenge_1DivideAndConquer --config unilateral --rounds 5 \
@@ -270,7 +285,7 @@ python3 scripts/admin/build_consortium_job.py --name odelia_d32_entropy_b40_5r_8
     --warm-start source:/scratch/odelia_87c5bbee_global.pt:ad26080c71161e6f8abb6a279c06a41d459b7bb237699cbe2d4522ddb942270d \
     --warm-start-digest cdbfab5748a025f3a88216747ac57208d764a93f9e416e90d9c1063f1ea6b51e \
     --al-strategy entropy --al-budget 40 --al-pool-split train --al-seed 0 \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 
 python3 scripts/admin/build_consortium_job.py --name odelia_d32_random_b20_5r_8site \
     --base-job challenge_1DivideAndConquer --config unilateral --rounds 5 \
@@ -278,7 +293,7 @@ python3 scripts/admin/build_consortium_job.py --name odelia_d32_random_b20_5r_8s
     --warm-start source:/scratch/odelia_87c5bbee_global.pt:ad26080c71161e6f8abb6a279c06a41d459b7bb237699cbe2d4522ddb942270d \
     --warm-start-digest cdbfab5748a025f3a88216747ac57208d764a93f9e416e90d9c1063f1ea6b51e \
     --al-strategy random --al-budget 20 --al-pool-split train --al-seed 0 \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 
 python3 scripts/admin/build_consortium_job.py --name odelia_d32_random_b40_5r_8site \
     --base-job challenge_1DivideAndConquer --config unilateral --rounds 5 \
@@ -286,7 +301,7 @@ python3 scripts/admin/build_consortium_job.py --name odelia_d32_random_b40_5r_8s
     --warm-start source:/scratch/odelia_87c5bbee_global.pt:ad26080c71161e6f8abb6a279c06a41d459b7bb237699cbe2d4522ddb942270d \
     --warm-start-digest cdbfab5748a025f3a88216747ac57208d764a93f9e416e90d9c1063f1ea6b51e \
     --al-strategy random --al-budget 40 --al-pool-split train --al-seed 0 \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 ```
 
 **Sites.** All eight; UMCU_1 is the starting client of every arm and holds the start model (the
@@ -313,7 +328,7 @@ evaluation-only round spends nothing). Per-case return is forced off.
 python3 scripts/admin/build_consortium_job.py --name odelia_dp_s24_mst_20r_8site \
     --base-job ODELIA_ternary_classification --model MST --config unilateral --rounds 20 \
     --sites CAM_1,MHA_1,RSH_1,RUMC_1,UKA_1,UMCU_1,USZ_1,VHIO_1 --dp-sigma 2.4 --dp-clip-norm 1.0 \
-    --dp-delta 1e-5 --dp-target-epsilon 10 --source image:jefftud/odelia:1.9.1 \
+    --dp-delta 1e-5 --dp-target-epsilon 10 --source image:jefftud/odelia:1.9.3 \
     --out-dir <out-dir>
 ```
 
@@ -334,7 +349,7 @@ BreastDivider output stops at setup instead of training on the wrong format
 python3 scripts/admin/build_consortium_job.py --name odelia_bd_1dac_20r_8site \
     --base-job challenge_1DivideAndConquer --config unilateral_BD --rounds 20 \
     --sites CAM_1,MHA_1,RSH_1,RUMC_1,UKA_1,UMCU_1,USZ_1,VHIO_1 --env ODELIA_STRICT_DATA_FORMAT=1 \
-    --source image:jefftud/odelia:1.9.1 --out-dir <out-dir>
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 ```
 
 **Before.** Every site has made its crops, sent the output of `reconcile_odelia_dataset.py

@@ -13,6 +13,7 @@ RoundContext are the ones the loop uses afterwards.
 """
 
 import importlib
+import json
 import logging
 import sys
 import textwrap
@@ -459,3 +460,72 @@ def test_received_global_of_another_architecture_is_refused(harness):
         main._check_received_structure(ctx)
     ctx.input_model.params = dict(model.state_dict())
     main._check_received_structure(ctx)  # the matching global passes
+
+
+def _local_init_case(monkeypatch, tmp_path, state, sha=None):
+    """Write ``state`` as a persistor-style checkpoint and point the local-init variables at it."""
+    path = tmp_path / "start.pt"
+    torch.save({"model": state}, path)
+    import hashlib
+
+    monkeypatch.setenv("ODELIA_LOCAL_INIT_CHECKPOINT", str(path))
+    monkeypatch.setenv("ODELIA_LOCAL_INIT_SHA256", sha or hashlib.sha256(path.read_bytes()).hexdigest())
+    return path
+
+
+def test_local_training_starts_from_a_verified_checkpoint(harness, monkeypatch, tmp_path):
+    """D2.5 Greek: a single site fine-tunes the August model by local training (a swarm needs two sites)."""
+    main = import_module_from_path("odelia_main_under_test", SHARED_CUSTOM_DIR / "main.py")
+    log = logging.getLogger("test_local_init")
+    source = torch.nn.Sequential(torch.nn.Linear(4, 3), torch.nn.Linear(3, 2))
+    target = torch.nn.Sequential(torch.nn.Linear(4, 3), torch.nn.Linear(3, 2))
+    path = _local_init_case(monkeypatch, tmp_path, source.state_dict())
+
+    init = main._local_init_file(log, training_mode=main.TM_LOCAL_TRAINING)
+    assert init[0] == str(path)
+    main._load_local_init(log, target, tmp_path, init)
+    for key, value in source.state_dict().items():
+        assert torch.equal(target.state_dict()[key], value)
+    record = json.loads((tmp_path / main.LOCAL_INIT_RECORD).read_text())
+    assert record == {"checkpoint": str(path), "sha256": init[1], "tensors": 4}
+
+
+def test_local_init_refuses_a_wrong_file_or_a_half_setting(harness, monkeypatch, tmp_path):
+    main = import_module_from_path("odelia_main_under_test", SHARED_CUSTOM_DIR / "main.py")
+    log = logging.getLogger("test_local_init")
+    local = main.TM_LOCAL_TRAINING
+    _local_init_case(monkeypatch, tmp_path, torch.nn.Linear(4, 3).state_dict(), sha="0" * 64)
+    with pytest.raises(ValueError, match="expects 0000"):
+        main._local_init_file(log, training_mode=local)
+
+    monkeypatch.delenv("ODELIA_LOCAL_INIT_SHA256")
+    with pytest.raises(ValueError, match="set both"):
+        main._local_init_file(log, training_mode=local)
+
+    monkeypatch.setenv("ODELIA_LOCAL_INIT_SHA256", "0" * 64)
+    monkeypatch.setenv("ODELIA_LOCAL_INIT_CHECKPOINT", str(tmp_path / "missing.pt"))
+    with pytest.raises(FileNotFoundError, match="container path"):
+        main._local_init_file(log, training_mode=local)
+
+    for name in ("ODELIA_LOCAL_INIT_CHECKPOINT", "ODELIA_LOCAL_INIT_SHA256"):
+        monkeypatch.delenv(name)
+    assert main._local_init_file(log, training_mode=local) is None
+
+
+def test_local_init_refuses_a_checkpoint_of_another_model(harness, monkeypatch, tmp_path):
+    main = import_module_from_path("odelia_main_under_test", SHARED_CUSTOM_DIR / "main.py")
+    log = logging.getLogger("test_local_init")
+    _local_init_case(monkeypatch, tmp_path, torch.nn.Linear(4, 3).state_dict())
+    init = main._local_init_file(log, training_mode=main.TM_LOCAL_TRAINING)
+    target = torch.nn.Sequential(torch.nn.Linear(4, 3), torch.nn.Linear(3, 2))
+    with pytest.raises(RuntimeError, match="does not fit this site's model"):
+        main._load_local_init(log, target, tmp_path, init)
+
+
+def test_local_init_is_ignored_outside_local_training(harness, monkeypatch, tmp_path, caplog):
+    """A leftover in image.conf (the swarm client gets the same docker options) must not stop a swarm run."""
+    main = import_module_from_path("odelia_main_under_test", SHARED_CUSTOM_DIR / "main.py")
+    _local_init_case(monkeypatch, tmp_path, torch.nn.Linear(4, 3).state_dict())
+    with caplog.at_level(logging.WARNING):
+        assert main._local_init_file(logging.getLogger("test_local_init"), training_mode="swarm") is None
+    assert "applies to local training only" in caplog.text

@@ -66,6 +66,21 @@ def _daemon_pids(kit):
     return [int(p.name.rsplit(".", 1)[1]) for p in startup.glob(".fake_live_sync_args.*")]
 
 
+def _started_daemon_pids(kit, timeout=15):
+    """_daemon_pids once the daemon docker.sh started in the background has written its args file.
+
+    docker.sh returns as soon as it has launched the daemon (nohup ... &); on a busy CI runner the fake
+    can need a moment to record itself, which read as "no daemon started" (seen on CI, 15 Oct).
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        pids = _daemon_pids(kit)
+        if pids:
+            return pids
+        time.sleep(0.1)
+    return _daemon_pids(kit)
+
+
 def _alive(pid):
     try:
         state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
@@ -114,7 +129,7 @@ def test_start_client_retires_other_odelia_kits_daemons_only(host):
     assert other_site.poll() is None
     assert f"Stopping the live_sync daemon (PID {old.pid})" in result.stdout
 
-    pids = _daemon_pids(host.new_kit)
+    pids = _started_daemon_pids(host.new_kit)
     assert len(pids) == 1 and _alive(pids[0])
     startup = host.new_kit / "startup"
     assert (startup / ".mediswarm_sync" / "swarm_sync.pid").read_text().strip() == str(pids[0])
@@ -156,7 +171,7 @@ def test_start_client_treats_a_foreign_pid_file_as_stale(host, owner):
     result = _start_client(host)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "already running" not in result.stdout
-    pids = _daemon_pids(host.new_kit)
+    pids = _started_daemon_pids(host.new_kit)
     assert len(pids) == 1 and pids[0] != proc.pid
     assert proc.poll() is None, "the process named by the stale pid file is left alone"
     assert "Started live sync daemon" in result.stdout
