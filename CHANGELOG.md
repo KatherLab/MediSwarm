@@ -4,15 +4,21 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
-## [1.9.2] - 2026-10-16
+## [1.9.3] - 2026-10-16
 
-Image-only release on top of 1.9.1: sites keep the 1.9.0 startup kit and receive this image
-through `:current`. It adds what the D2.5 Greek cohort needs (a swarm job cannot have a single
-site, so MHA_1 fine-tunes by local training), the run presets for October to November and the
-coordinator's fleet check. Every scheduled run was rehearsed on the dl3 test bed with 1.9.1 or
-1.9.2-rc1: D2.5 Dutch (warm start from the August model, digest verified at both sites), D2.5
-Greek as local fine-tuning, D3.2 entropy and random arms, BreastDivider with 1DivideAndConquer,
-the check job; the CAM, VHIO and DP runs on 1.9.0/1.9.1 release candidates.
+**The version for every ODELIA site: startup kit 1.9.3 and image 1.9.3**, for all runs of October
+to November 2026. It replaces the 1.9.0 kits and the 1.9.1 and 1.9.2 images, which were built and
+tested but never rolled out; one number for kit, image and release avoids the mix. For sites:
+unzip the 1.9.3 kit next to the old one, `./docker.sh --migrate_from <old kit>` (dry run), then
+`--yes --start`, then `./docker.sh --status` (docs/KIT_1.9.3_SITE_GUIDE.md). With the 1.9.1 and
+1.9.0 sections below, this section covers everything that changed since 1.8.1.
+
+New since 1.9.1: the D2.5 step for a single-site cohort (the Greek cohort, MHA_1, which cannot
+be a swarm job), the run presets for October to November and the coordinator's fleet check.
+Every scheduled run was rehearsed on the dl3 test bed: D2.5 Dutch (warm start from the August
+model, digest verified at both sites), D2.5 Greek by local fine-tuning, D3.2 entropy and random
+arms, BreastDivider with 1DivideAndConquer and the check job on 1.9.1/1.9.2 release candidates;
+the CAM, VHIO and DP runs on 1.9.0/1.9.1 release candidates.
 
 ### Added
 
@@ -103,7 +109,7 @@ sites, so every site runs the same kit, image and coordinator. Training code sti
 with each job, so later job-code fixes need no image or kit.
 
 **For sites:** unzip the 1.9.0 kit next to the old one, `./docker.sh --migrate_from <old kit>`
-(dry run), then `--yes --start`, then `./docker.sh --status` (docs/KIT_1.9.0_SITE_GUIDE.md).
+(dry run), then `--yes --start`, then `./docker.sh --status` (docs/KIT_1.9.3_SITE_GUIDE.md).
 
 Overview (details below):
 

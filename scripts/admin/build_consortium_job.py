@@ -11,7 +11,7 @@ What it does, in order:
 
 1. Takes the base job (``ODELIA_ternary_classification`` or
    ``challenge_1DivideAndConquer``) from a source tree: this checkout (``repo``), a git
-   ref (``git:v1.9.0``), a release image (``image:jefftud/odelia:1.9.0``) or any
+   ref (``git:v1.9.0``), a release image (``image:jefftud/odelia:1.9.3``) or any
    MediSwarm tree (``dir:<path>``). The copy resolves the ``app/custom`` symlink (the
    job code travels with the job) and drops ``app/tests`` and ``app/scripts``.
 2. Applies the strict roster (at least two sites: NVFlare's swarm controller refuses a single
@@ -1464,7 +1464,7 @@ examples:
 
   # CAM model, built from the release image, per-case return off
   build_consortium_job.py --name odelia_cam_20r --model MST_SAMMed2D --rounds 20 --per-case off \\
-      --source image:jefftud/odelia:1.9.0 --out-dir <dir>
+      --source image:jefftud/odelia:1.9.3 --out-dir <dir>
 
   # DP noise-cost run, refused if 20 rounds exceed epsilon 10
   build_consortium_job.py --name odelia_mst_dp_s24 --model MST --rounds 20 --dp-sigma 2.4 \\

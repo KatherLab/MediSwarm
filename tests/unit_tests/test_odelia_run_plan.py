@@ -182,7 +182,7 @@ def test_the_table_has_exactly_the_scheduled_presets():
 
 def test_constants_of_the_schedule():
     assert list(rp.SITES) == SITES8
-    assert rp.DEFAULT_SOURCE == "image:jefftud/odelia:1.9.1"
+    assert rp.DEFAULT_SOURCE == "image:jefftud/odelia:1.9.3"
     assert rp.AUGUST_MODEL_PATH == AUGUST_PATH
     assert rp.AUGUST_MODEL_SHA256 == AUGUST_SHA256
     assert rp.AUGUST_MODEL_STATE_DIGEST == AUGUST_DIGEST
@@ -223,12 +223,12 @@ def test_show_prints_the_exact_builder_command(capsys, key):
     assert rp.main(["--show", key, "--exclude-sites", "VHIO_1", "--out-dir", "/kit/local/mediswarm_jobs"]) == 0
     out = capsys.readouterr().out.splitlines()
     assert out[0].startswith(f"# {key}: ")
-    assert any(line.startswith("# before submitting: every site on the 1.9.0 kit") for line in out)
+    assert any(line.startswith("# before submitting: every site on the 1.9.3 kit") for line in out)
     words = shlex.split(out[-1])
     assert words[:2] == ["python3", "scripts/admin/build_consortium_job.py"]
     request = rp.builder_request(key, exclude_sites="VHIO_1")
     assert words[2:] == [*request.argv, "--out-dir", "/kit/local/mediswarm_jobs"]
-    assert "--source" in words and words[words.index("--source") + 1] == "image:jefftud/odelia:1.9.1"
+    assert "--source" in words and words[words.index("--source") + 1] == "image:jefftud/odelia:1.9.3"
     # The printed arguments are the builder's own flags.
     args = bcj.build_arg_parser().parse_args(words[2:])
     assert args.rounds == rp.PRESETS[key].rounds and args.out_dir == Path("/kit/local/mediswarm_jobs")

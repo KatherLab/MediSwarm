@@ -22,13 +22,13 @@ import pytest
 import yaml  # imported, not importorskip'ed: a missing dependency must fail, not skip (#565)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SITE_GUIDE = "docs/KIT_1.9.0_SITE_GUIDE.md"
+SITE_GUIDE = "docs/KIT_1.9.3_SITE_GUIDE.md"
 
 # doc -> (kit template whose docker.sh it quotes, whether a flag quoted alone in inline code,
 # e.g. `--status`, also counts as a docker.sh flag). The two runbooks also name flags of docker
 # and of the build/deploy scripts in prose, so for them only docker.sh command lines count.
 PARTNER_DOCS = {
-    SITE_GUIDE: ("master_template.yml", True),                               # moving to the 1.9.0 kit
+    SITE_GUIDE: ("master_template.yml", True),                               # moving to the 1.9.3 kit
     "assets/readme/README.participant.md": ("master_template.yml", True),    # ODELIA participant guide
     "assets/readme/README.participant.STAMP.md": ("master_template_STAMP.yml", True),
     "docs/EXTERNAL_VALIDATION.md": ("master_template.yml", True),            # predict-only sites

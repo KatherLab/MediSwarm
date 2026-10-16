@@ -402,7 +402,7 @@ config digest itself.
 | Verdict | Meaning | What to ask the site |
 |---|---|---|
 | `READY` | fresh heartbeat of kit 1.9.0, client container on the expected image | nothing |
-| `OLD KIT` | the newest heartbeat is from the old kit (`not migrated`), or the old kit's live_sync still uploads next to the new one (F16) | move with `./docker.sh --migrate_from <old kit> --yes --start` (docs/KIT_1.9.0_SITE_GUIDE.md) |
+| `OLD KIT` | the newest heartbeat is from the old kit (`not migrated`), or the old kit's live_sync still uploads next to the new one (F16) | move with `./docker.sh --migrate_from <old kit> --yes --start` (docs/KIT_1.9.3_SITE_GUIDE.md) |
 | `OLD IMAGE` | kit 1.9.0, but the client was created from another image: started before `:current` moved, or pinned in `image.conf` / `--image` | restart the client; docker.sh pulls `:current` on every start |
 | `STOPPED` | the heartbeat is fresh but says the client container is not running (`stopped`, no image id) or live_sync ended | start the client |
 | `STALE` | no heartbeat for `--max-age` (15 min). It proves nothing about what runs now; from an old kit or before `--since` it proves nothing about the migration | is the client running? A running 1.9.0 client uploads every 30 s |

@@ -1,6 +1,6 @@
 # BreastDivider crops for the November swarm learning run
 
-For ODELIA sites. MediSwarm 1.9.0, October 2026.
+For ODELIA sites. MediSwarm 1.9.3, October 2026.
 
 In November the consortium trains 1DivideAndConquer on crops made with MEVIS' BreastDivider
 package (odelia-preprocessing) instead of the current crops. Each site makes these crops once,
@@ -97,15 +97,15 @@ $DATADIR/$SITE_NAME/
 
 ## Step 4: check with the node (MediSwarm 1.9)
 
-Use your 1.9.0 startup kit; its `docker.sh` passes `--config` to the container and runs the
-current image (1.9.2 or later), which knows `unilateral_BD` (1.9.0 was the first image that did).
-On an older kit, add `--image jefftud/odelia:1.9.2` to the `docker.sh` command.
+Use your 1.9.3 startup kit; its `docker.sh` passes `--config` to the container and runs the
+1.9.3 image, which knows `unilateral_BD`. On an older kit, add `--image jefftud/odelia:1.9.3` to
+the `docker.sh` command.
 
 **Counts.** This reads only the metadata, the folder names, `processing.log` and the image headers:
 
 ```bash
 docker run --rm --network none -u "$(id -u):$(id -g)" -v "$DATADIR":/data:ro \
-    --entrypoint python3 jefftud/odelia:1.9.2 \
+    --entrypoint python3 jefftud/odelia:1.9.3 \
     /MediSwarm/scripts/site/reconcile_odelia_dataset.py --data_dir /data/$SITE_NAME --config unilateral_BD
 ```
 

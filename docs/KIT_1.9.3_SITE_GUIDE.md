@@ -1,9 +1,9 @@
-# Moving your node to the 1.9.0 startup kit
+# Moving your node to the 1.9.3 startup kit
 
 For the person who runs the ODELIA swarm node at a site. It takes about 15 minutes plus the
 image download. Your data, your scratch folder and your site's identity in the swarm stay
 the same; only the kit folder changes. The examples use `UKA_1` and the folders
-`~/odelia_v181` (old kit) and `~/odelia_v190` (new kit): use your site's name and your own
+`~/odelia_v181` (old kit) and `~/odelia_v193` (new kit): use your site's name and your own
 folders.
 
 ## Before you start
@@ -16,8 +16,8 @@ folders.
 
 ## 1. Download
 
-From the ODELIA kits folder, download your site's kit `<SITE>_1.9.0.zip` (for example
-`UKA_1_1.9.0.zip`) and `SHA256SUMS.txt`. The kit holds your site's private key: keep it
+From the ODELIA kits folder, download your site's kit `<SITE>_1.9.3.zip` (for example
+`UKA_1_1.9.3.zip`) and `SHA256SUMS.txt`. The kit holds your site's private key: keep it
 private and do not forward it.
 
 ## 2. Check the download
@@ -28,7 +28,7 @@ In the folder that holds both files:
 sha256sum -c --ignore-missing SHA256SUMS.txt
 ```
 
-It must print `UKA_1_1.9.0.zip: OK`. Anything else: download the kit again, and tell your
+It must print `UKA_1_1.9.3.zip: OK`. Anything else: download the kit again, and tell your
 TUD contact if it still fails.
 
 ## 3. Unzip next to the old kit
@@ -36,17 +36,17 @@ TUD contact if it still fails.
 Unzip into a new, empty folder, never over the old kit:
 
 ```bash
-mkdir -p ~/odelia_v190
-unzip UKA_1_1.9.0.zip -d ~/odelia_v190
+mkdir -p ~/odelia_v193
+unzip UKA_1_1.9.3.zip -d ~/odelia_v193
 ```
 
-This creates `~/odelia_v190/UKA_1/`. Keep the old folder until step 5 shows the node
+This creates `~/odelia_v193/UKA_1/`. Keep the old folder until step 5 shows the node
 running from the new kit.
 
 ## 4. Move the node
 
 ```bash
-cd ~/odelia_v190/UKA_1/startup
+cd ~/odelia_v193/UKA_1/startup
 ./docker.sh --migrate_from ~/odelia_v181/UKA_1
 ```
 
@@ -59,7 +59,7 @@ folder, scratch folder and GPU. If the list looks right, run:
 ./docker.sh --migrate_from ~/odelia_v181/UKA_1 --yes --start
 ```
 
-The first start downloads the current image (1.9.2 at the time of writing), which takes a while (several GB). Your data
+The first start downloads the 1.9.3 image, which takes a while (several GB). Your data
 and the old kit folder are never deleted.
 
 - Run both commands as the same user that started the old client.
@@ -124,7 +124,7 @@ Send its output to your TUD contact. To move by hand instead:
 4. Start the new kit with your usual folders and GPU:
 
    ```bash
-   cd ~/odelia_v190/UKA_1/startup
+   cd ~/odelia_v193/UKA_1/startup
    ./docker.sh --data_dir <DATA> --scratch_dir <SCRATCH> --GPU device=0 --start_client
    ```
 
