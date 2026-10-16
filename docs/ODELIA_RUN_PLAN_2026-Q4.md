@@ -238,8 +238,12 @@ unchanged model on its own test split, with the same comparison code as the Dutc
 ```bash
 # in MHA_1's 1.9.3 kit, startup folder; the start model in the scratch directory as for d25_dutch
 ./docker.sh --data_dir "$DATADIR" --scratch_dir "$SCRATCHDIR" --GPU device=0 \
-    --run_script /MediSwarm/scripts/evaluation/d25_local_finetune.sh
+    --container_name odelia_d25_local --run_script /MediSwarm/scripts/evaluation/d25_local_finetune.sh
 ```
+
+`--container_name` lets it run beside the site's swarm client; without it docker refuses with
+`Conflict. The container name ... is already in use` (F19). Tested on 16 Oct through a real 1.9.3
+kit (TUD_2) on the production coordinator's fleet, client running.
 
 `scripts/evaluation/d25_local_finetune.sh` checks the start model's sha256, predicts the test
 split with it (`predict.py`), fine-tunes it by local training (`ODELIA_LOCAL_INIT_CHECKPOINT` and

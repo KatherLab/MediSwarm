@@ -114,11 +114,14 @@ untrusted-fallback cases) and any `WARNING` line. It prints no UIDs unless you a
 that output at your site. If your exam folders are symbolic links to an absolute path, mount that
 path as well (`-v /abs/target:/abs/target:ro`), as for `docker.sh`.
 
-**Preflight check.** One epoch of local training on the new crops (GPU, a few minutes):
+**Preflight check.** One epoch of local training on the new crops (GPU, a few minutes). Your swarm
+client can keep running: `--container_name` gives the check its own container (without it, docker
+refuses with `Conflict. The container name ... is already in use`, F19):
 
 ```bash
 cd <unpacked startup kit>/$SITE_NAME/startup
 ./docker.sh --data_dir "$DATADIR" --scratch_dir "$SCRATCHDIR" --GPU device=0 --preflight_check \
+    --container_name odelia_preflight \
     --job challenge_1DivideAndConquer --config unilateral_BD 2>&1 | tee preflight_BD_console_output.txt
 ```
 

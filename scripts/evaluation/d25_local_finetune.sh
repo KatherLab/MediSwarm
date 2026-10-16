@@ -7,7 +7,10 @@
 # image (1.9.3 or later); the site starts it with
 #
 #   ./docker.sh --data_dir "$DATADIR" --scratch_dir "$SCRATCHDIR" --GPU device=0 \
-#       --run_script /MediSwarm/scripts/evaluation/d25_local_finetune.sh
+#       --container_name odelia_d25_local --run_script /MediSwarm/scripts/evaluation/d25_local_finetune.sh
+#
+# (--container_name: the site's swarm client keeps running; a one-off mode under the client's own
+# container name is refused by docker, F19.)
 #
 # Needs the start model in the scratch directory (default /scratch/odelia_87c5bbee_global.pt). Steps:
 # predict with the start model, fine-tune it locally, predict with the fine-tuned model, compare.
