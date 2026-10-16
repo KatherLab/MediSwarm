@@ -1090,23 +1090,13 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
                          "site_model_gt_and_classprob_validation.csv" \
                          "aggregated_model_gt_and_classprob_train.csv" \
                          "aggregated_model_gt_and_classprob_validation.csv" \
+                         "last_site_model_gt_and_classprob_test.csv" \
+                         "best_site_model_gt_and_classprob_test.csv" \
                          "custom/threedcnn_ptl.py" \
                          "last.ckpt" \
                          "FL_global_model.pt" \
                          "last_global_model.ckpt"\
                          "best_FL_global_model.pt";
-    do
-        if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
-            echo "✅ Expected file $EXPECTED_FILE found"
-        else
-            echo "$FILES_PRESENT"
-            echo "❌ Expected file $EXPECTED_FILE missing"
-            exit 1
-        fi
-    done
-
-    for EXPECTED_FILE in "last_site_model_gt_and_classprob_test.csv" \
-                         "best_site_model_gt_and_classprob_test.csv";
     do
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
