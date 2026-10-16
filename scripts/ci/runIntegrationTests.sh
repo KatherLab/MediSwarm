@@ -1103,6 +1103,8 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
+            cat "$CONSOLE_OUTPUT_FILE_SERVER"
+            cat "$CONSOLE_OUTPUT_FILE_CLIENTS"
             echo "$FILES_PRESENT"
             echo "❌ Expected file $EXPECTED_FILE missing"
             exit 1
