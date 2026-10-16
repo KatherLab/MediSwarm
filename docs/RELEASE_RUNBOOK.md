@@ -379,9 +379,9 @@ When the sites move to a new kit (1.9.0, from 19 Oct 2026) and `:current` to a n
 (1.9.1), one command on the coordinator shows where every ODELIA site stands:
 
 ```bash
-python3 scripts/admin/fleet_status.py --expect-kit 1.9.0 \
-    --expect-image jefftud/odelia:1.9.1 --expect-image-id sha256:c527c8c509aa \
-    --since 2026-10-19
+python3 scripts/admin/fleet_status.py --expect-kit 1.9.3 \
+    --expect-image jefftud/odelia:1.9.3 --expect-image-id sha256:22f88f37efcc \
+    --since 2026-10-16
 ```
 
 One line per site (default the eight ODELIA sites, `--sites` to narrow): kit, image tag and
@@ -391,11 +391,11 @@ verdict and why. Exit 0 only when every site is `READY`; `--json` for scripts. I
 
 **Image ids.** A heartbeat's `image_id` is the client container's image as the site's
 Docker names it: the **config** digest on the classic image store (every site so far), the
-index or manifest digest on the containerd store. 1.9.1 is config `sha256:c527c8c509aa`,
-index (the digest Docker Hub shows) `sha256:8df5e80d3182`, linux/amd64 manifest
-`sha256:c92290a0bce6`. `--expect-image` finds the last two with local `docker image inspect`
+index or manifest digest on the containerd store. 1.9.3 is config `sha256:22f88f37efcc`,
+index (the digest Docker Hub shows) `sha256:4ce2b10c968f`, linux/amd64 manifest
+`sha256:0c5528ed4bc6` (1.9.1 was config `sha256:c527c8c509aa`). `--expect-image` finds the last two with local `docker image inspect`
 on the coordinator host (containerd store) and warns that the config digest is missing; give it with
-`--expect-image-id` (`scripts/build/heartbeat_image_id.py jefftud/odelia:1.9.1` prints it)
+`--expect-image-id` (`scripts/build/heartbeat_image_id.py jefftud/odelia:1.9.3` prints it)
 or add `--registry`, which asks Docker Hub. On a classic-store host the local id is the
 config digest itself.
 
