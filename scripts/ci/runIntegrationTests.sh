@@ -1092,6 +1092,8 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
                          "aggregated_model_gt_and_classprob_validation.csv" \
                          "last_site_model_gt_and_classprob_test.csv" \
                          "best_site_model_gt_and_classprob_test.csv" \
+                         "final_global_model_gt_and_classprob_validation.csv" \
+                         "final_global_model_gt_and_classprob_test.csv" \
                          "custom/threedcnn_ptl.py" \
                          "last.ckpt" \
                          "FL_global_model.pt" \
