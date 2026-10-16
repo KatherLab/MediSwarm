@@ -95,17 +95,17 @@ $DATADIR/$SITE_NAME/
 └── metadata_unilateral_BD/    step 3: annotation.csv and split.csv
 ```
 
-## Step 4: check with the node (MediSwarm 1.9.0)
+## Step 4: check with the node (MediSwarm 1.9)
 
-Keep your 1.8.1 startup kit: its `docker.sh` already passes `--config` to the container. The check
-needs the 1.9.0 image, the first that knows `unilateral_BD`. If your client does not run 1.9.0 yet,
-add `--image jefftud/odelia:1.9.0` to the `docker.sh` command.
+Use your 1.9.0 startup kit; its `docker.sh` passes `--config` to the container and runs the
+current image (1.9.2 or later), which knows `unilateral_BD` (1.9.0 was the first image that did).
+On an older kit, add `--image jefftud/odelia:1.9.2` to the `docker.sh` command.
 
 **Counts.** This reads only the metadata, the folder names, `processing.log` and the image headers:
 
 ```bash
 docker run --rm --network none -u "$(id -u):$(id -g)" -v "$DATADIR":/data:ro \
-    --entrypoint python3 jefftud/odelia:1.9.0 \
+    --entrypoint python3 jefftud/odelia:1.9.2 \
     /MediSwarm/scripts/site/reconcile_odelia_dataset.py --data_dir /data/$SITE_NAME --config unilateral_BD
 ```
 

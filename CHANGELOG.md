@@ -4,6 +4,25 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-10-16
+
+Image-only release on top of 1.9.1: sites keep the 1.9.0 startup kit and receive this image
+through `:current`. It adds the D2.5 step for a single-site cohort (the Greek cohort, MHA_1), which
+cannot be a swarm job, and the coordinator tools for the October to November runs. All scheduled
+job types were rehearsed on the dl3 test bed on 15 and 16 Oct (D2.5 Dutch with the August model as
+warm start, D2.5 Greek by local fine-tuning, D3.2 entropy and random arms, BreastDivider with
+1DivideAndConquer, the check job, the VHIO model).
+
+## [1.9.2] - 2026-10-16
+
+Image-only release on top of 1.9.1: sites keep the 1.9.0 startup kit and receive this image
+through `:current`. It adds what the D2.5 Greek cohort needs (a swarm job cannot have a single
+site, so MHA_1 fine-tunes by local training), the run presets for October to November and the
+coordinator's fleet check. Every scheduled run was rehearsed on the dl3 test bed with 1.9.1 or
+1.9.2-rc1: D2.5 Dutch (warm start from the August model, digest verified at both sites), D2.5
+Greek as local fine-tuning, D3.2 entropy and random arms, BreastDivider with 1DivideAndConquer,
+the check job; the CAM, VHIO and DP runs on 1.9.0/1.9.1 release candidates.
+
 ### Added
 
 - **Run plan for October to November 2026** — `scripts/admin/odelia_run_plan.py` holds every

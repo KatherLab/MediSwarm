@@ -59,7 +59,7 @@ folder, scratch folder and GPU. If the list looks right, run:
 ./docker.sh --migrate_from ~/odelia_v181/UKA_1 --yes --start
 ```
 
-The first start downloads the 1.9.0 image, which takes a while (several GB). Your data
+The first start downloads the current image (1.9.2 at the time of writing), which takes a while (several GB). Your data
 and the old kit folder are never deleted.
 
 - Run both commands as the same user that started the old client.
