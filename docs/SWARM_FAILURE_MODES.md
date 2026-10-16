@@ -27,6 +27,7 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 | F16 | Old job reported `running`, new kit's heartbeat stale or `sync_status: error` after a kit upgrade | The old kit's live_sync daemon outlives its client | 1.9.0 kits end it with the client; `--migrate_from`; or `pkill -f "<old kit>/startup/live_sync.sh"` |
 | F17 | `already registered. Re-login` every few seconds; site flaps in and out | Two clients of one site (old and new kit) | One client per site: `./docker.sh --migrate_from <old kit> --yes --start` |
 | F18 | Host `nvidia-smi`: `Driver/library version mismatch`; new containers see no GPU | Unattended NVIDIA update, old kernel module still loaded | Reboot between runs, then `apt-mark hold` the driver packages |
+| F19 | `docker: Error response from daemon: Conflict. The container name "/odelia_swarm_client_<SITE>_<id>" is already in use` from `--preflight_check`, `--local_training`, `--external_validation` or `--run_script` | One-off modes start their container under the client's name; the client is running | Add `--container_name odelia_preflight` (any unused name) to the command; the client keeps running |
 
 ---
 
@@ -261,6 +262,12 @@ anything fails. The server log simply stops advancing.
 - **Symptom:** `nvidia-smi` on the host prints `Failed to initialize NVML: Driver/library version mismatch`; a newly started client or preflight sees no GPU, while a container started before the update still trains. Seen at UKA on 10 Oct 2026.
 - **Root cause:** unattended upgrades installed a newer NVIDIA user-space library while the old kernel module stays loaded until the next reboot.
 - **Fix:** reboot the host between runs, then hold the driver packages so it cannot recur in the middle of a run: `sudo apt-mark hold $(dpkg-query -W -f='${Package}\n' 'nvidia-*' 'libnvidia-*' | grep -v container)`. 1.9.0's docker.sh refuses to start a client on this host state and says so.
+
+## F19 — A one-off mode collides with the running client's container name
+
+- **Symptom:** `./docker.sh ... --preflight_check` (also `--local_training`, `--external_validation`, `--run_script`, `--dummy_training`) stops at once with `docker: Error response from daemon: Conflict. The container name "/odelia_swarm_client_<SITE>_<id>" is already in use`. Found on 16 Oct 2026 while verifying 1.9.3 with real kits.
+- **Root cause:** docker.sh gives every mode the client's container name (`--name=$CONTAINER_NAME` in the common docker options). Since 1.9.x the client keeps running between runs, so any one-off mode started next to it collides.
+- **Fix:** add `--container_name odelia_preflight` (any unused name) to the command; the one-off container then runs beside the client, sharing the GPU. A later kit should give one-off modes their own name automatically.
 
 ## Operator diagnostic playbook
 
