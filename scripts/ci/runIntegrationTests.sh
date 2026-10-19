@@ -1041,10 +1041,7 @@ _run_3dcnn_training_in_swarm_for_challenge_model () {
 }
 
 _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
-    local expect_test_gt_classprob_csvs=$1
-
     local CONSOLE_OUTPUT_FILE_SERVER="$PROJECT_DIR"/prod_00/localhost/startup/nohup.out
-
     local CONSOLE_OUTPUT_FILE_ONE_SITE="$PROJECT_DIR"/prod_00/client_A/startup/nohup.out
     local CONSOLE_OUTPUT_FILE_CLIENTS="$PROJECT_DIR"/prod_00/client_A/startup/combined_nohup.out
     echo "Output of client A" > "$CONSOLE_OUTPUT_FILE_CLIENTS"
@@ -1093,6 +1090,10 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
                          "site_model_gt_and_classprob_validation.csv" \
                          "aggregated_model_gt_and_classprob_train.csv" \
                          "aggregated_model_gt_and_classprob_validation.csv" \
+                         "last_site_model_gt_and_classprob_test.csv" \
+                         "best_site_model_gt_and_classprob_test.csv" \
+                         "final_global_model_gt_and_classprob_validation.csv" \
+                         "final_global_model_gt_and_classprob_test.csv" \
                          "custom/threedcnn_ptl.py" \
                          "last.ckpt" \
                          "FL_global_model.pt" \
@@ -1102,28 +1103,13 @@ _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output() {
         if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
             echo "✅ Expected file $EXPECTED_FILE found"
         else
+            cat "$CONSOLE_OUTPUT_FILE_SERVER"
+            cat "$CONSOLE_OUTPUT_FILE_CLIENTS"
             echo "$FILES_PRESENT"
             echo "❌ Expected file $EXPECTED_FILE missing"
             exit 1
         fi
     done
-
-    # Written by finalize_training() in the last round, whose "Training completed successfully." and
-    # last_global_model.ckpt are checked above; the challenge callers pass 0 or 1 per model.
-    if [ "$expect_test_gt_classprob_csvs" = 1 ]; then
-        for EXPECTED_FILE in "last_site_model_gt_and_classprob_test.csv" \
-                             "best_site_model_gt_and_classprob_test.csv";
-        do
-            if grep -q "$EXPECTED_FILE" <<< "$FILES_PRESENT"; then
-                echo "✅ Expected file $EXPECTED_FILE found"
-            else
-                echo "$FILES_PRESENT"
-                echo "❌ Expected file $EXPECTED_FILE missing"
-                exit 1
-            fi
-        done
-    fi
-
 }
 
 run_3dcnn_training_in_swarm_for_odelia_model () {
@@ -1136,10 +1122,10 @@ run_3dcnn_training_in_swarm_for_odelia_model () {
 
 run_3dcnn_training_in_swarm_for_challenge_model () {
     local JOB_NAME=$1
-    local expect_test_gt_classprob_csvs=${2:-1}
+
     echo "[Run] 3DCNN training in swarm using "$JOB_NAME" (polling for completion) ..."
     _run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME"
-    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output $expect_test_gt_classprob_csvs
+    _verify_3dcnn_training_in_swarm_for_odelia_or_challenge_model_output
 }
 
 
@@ -1279,23 +1265,22 @@ _verify_ODELIA_ternary_swarm_training() {
 _verify_ODELIA_challenge_swarm_training() {
     local JOB_NAME=$1
     local EXPECTED_OUTPUT_ABOUT_MODEL=$2
-    local expect_test_gt_classprob_csvs=$3
 
     _prepare_ODELIA_swarm_training
 
     start_server_and_clients_for_challenge_model "$JOB_NAME"
-    run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME" $expect_test_gt_classprob_csvs
+    run_3dcnn_training_in_swarm_for_challenge_model "$JOB_NAME"
     _verify_ODELIA_ternary_or_challenge_swarm_training_output "$EXPECTED_OUTPUT_ABOUT_MODEL" "$JOB_NAME"
 
     _cleanup_ODELIA_swarm_training
 }
 
 run_all_models_training_in_swarm () {
-    _verify_ODELIA_challenge_swarm_training "challenge_1DivideAndConquer"   "model *| ResidualEncoderClsNetwork"  1
-    _verify_ODELIA_challenge_swarm_training "challenge_2BCN_AIM"            "backbone *| SwinUNETRMultiTask"      1
-    _verify_ODELIA_challenge_swarm_training "challenge_3agaldran"           "backbone *| Wrapper"                 1
-    _verify_ODELIA_challenge_swarm_training "challenge_4abmil"              "backbone *| ABMIL_Swin"              1
-    _verify_ODELIA_challenge_swarm_training "challenge_5pimed"              "backbone *| Resnet"                  1
+    _verify_ODELIA_challenge_swarm_training "challenge_1DivideAndConquer"   "model *| ResidualEncoderClsNetwork"
+    _verify_ODELIA_challenge_swarm_training "challenge_2BCN_AIM"            "backbone *| SwinUNETRMultiTask"
+    _verify_ODELIA_challenge_swarm_training "challenge_3agaldran"           "backbone *| Wrapper"
+    _verify_ODELIA_challenge_swarm_training "challenge_4abmil"              "backbone *| ABMIL_Swin"
+    _verify_ODELIA_challenge_swarm_training "challenge_5pimed"              "backbone *| Resnet"
 
     _verify_ODELIA_ternary_swarm_training "MST"                      "mst *| _MST *| 23"
     # _verify_ODELIA_ternary_swarm_training "MST_SAMMed2D"             "mst *| _MST *| 267"  # needs sam-med2d_b.pth in the image (or SAM_MED2D_ALLOW_RANDOM_INIT=1)
