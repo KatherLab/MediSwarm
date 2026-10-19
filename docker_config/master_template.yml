@@ -934,15 +934,24 @@ docker_cln_sh: |
       [ -n "$s" ] && [[ "$s" != Z* ]]
   }
   _live_sync_daemons() {
-      # "pid|site|kit root|mode" of every live_sync.sh daemon on this host, whichever kit started it
-      local pid args
-      ps -eo pid=,args= 2>/dev/null | while read -r pid args; do
+      # "pid|site|kit root|mode" of every live_sync.sh daemon on this host, whichever kit started it.
+      # Bash before 5.2 (Ubuntu 22.04, RHEL 9 and older) runs the daemon's log redirection
+      # (exec > >(tee ...)) in a child with the daemon's very command line: part of that daemon,
+      # not a second one (USZ_1, 19 Oct 2026), so a child of a daemon with the same line is left out.
+      local pid ppid args rows
+      local -A daemon_args=()
+      rows="$(ps -eo pid=,ppid=,args= 2>/dev/null)"
+      while read -r pid ppid args; do
+          case "$args" in *live_sync.sh*--kit-root*) daemon_args[$pid]="$args" ;; esac
+      done <<< "$rows"
+      while read -r pid ppid args; do
           case "$args" in *live_sync.sh*--kit-root*) ;; *) continue ;; esac
+          [ "${daemon_args[$ppid]:-}" != "$args" ] || continue
           printf '%s|%s|%s|%s\n' "$pid" \
               "$(sed -n 's/.*--site-name \([^ ]*\).*/\1/p' <<< "$args")" \
               "$(sed -n 's/.*--kit-root \([^ ]*\).*/\1/p' <<< "$args")" \
               "$(sed -n 's/.*--mode \([^ ]*\).*/\1/p' <<< "$args")"
-      done
+      done <<< "$rows"
   }
   _stop_daemon() {
       # SIGTERM lets live_sync run its final upload (trap EXIT); after a minute it gets SIGKILL
