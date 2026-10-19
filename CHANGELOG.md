@@ -4,6 +4,14 @@ All notable changes to MediSwarm are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Client `docker.sh --status` warned `more than one live_sync daemon runs for this kit` on hosts
+  with bash older than 5.2 (Ubuntu 22.04, RHEL 9 and older; USZ_1, 19 Oct 2026). There bash runs
+  live_sync's log redirection in a child with the daemon's own command line; `--status`,
+  `--migrate_from` and `--start_client` now count that child as part of its daemon. Kit-side:
+  sites get it with the next kit; the 1.9.3 site guide explains the harmless warning.
+
 ## [1.9.3] - 2026-10-16
 
 **The version for every ODELIA site: startup kit 1.9.3 and image 1.9.3**, for all runs of October

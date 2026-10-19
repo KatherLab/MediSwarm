@@ -80,6 +80,11 @@ older kit, and `docker ps` must list exactly one client container. If `--status`
 problem, send its output to your TUD contact. TUD also sees on the monitor when your node
 is back.
 
+On hosts with bash older than 5.2 (Ubuntu 22.04 and older, RHEL 9 and older) the 1.9.3 kit's
+`--status` can warn `more than one live_sync daemon runs for this kit (PIDs A B); keep only
+PID A` although only one upload runs: B is a helper of A that writes A's log, and it ends
+together with A. Nothing to do; `ps -o ppid= -p B` prints A. The next kit no longer counts it.
+
 ## What is new for sites
 
 - **One command to move, one to check.** `--migrate_from` carries your settings over from
@@ -118,7 +123,8 @@ Send its output to your TUD contact. To move by hand instead:
 1. Stop the old client. `docker ps --filter name=odelia_swarm_client` shows its name, then
    `docker rm -f <name>`.
 2. Stop the old kit's monitor upload: `pgrep -af live_sync.sh` lists each upload with its
-   kit folder; `kill <PID>` the one that names the old kit.
+   kit folder; `kill <PID>` the one that names the old kit. With bash older than 5.2 each
+   upload is listed twice (the second is its log helper): kill the lower PID, the other ends with it.
 3. Copy your own settings, for example a `MEDISWARM_DOCKER_OPTIONS=...` line, from the old
    `startup/image.conf` and `startup/sync.conf` into the new ones.
 4. Start the new kit with your usual folders and GPU:

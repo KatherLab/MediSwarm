@@ -161,6 +161,13 @@ def _write(path, text, mode=None):
     return path
 
 
+def _cmdline(pid):
+    try:
+        return Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:  # the process ended meanwhile
+        return None
+
+
 def _free_port():
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -215,14 +222,30 @@ class Host:
         }, indent=2))
         return root
 
-    def start_fake_daemon(self, kit_root, site=SITE, write_pid_file=False):
-        """A process whose command line is that of a live_sync daemon started by docker.sh."""
+    def start_fake_daemon(self, kit_root, site=SITE, write_pid_file=False, log_helper=False):
+        """A process whose command line is that of a live_sync daemon started by docker.sh.
+
+        log_helper: the daemon also has the child that bash before 5.2 keeps for live_sync's
+        `exec > >(tee ...)`: a forked subshell, so the very same command line (USZ_1, 19 Oct 2026).
+        """
         startup = Path(kit_root) / "startup"
-        script = _write(startup / "live_sync.sh", "#!/usr/bin/env bash\nwhile true; do sleep 0.2; done\n", 0o755)
+        body = "while true; do sleep 0.2; done"
+        script = _write(startup / "live_sync.sh",
+                        f"#!/usr/bin/env bash\n{'( ' + body + ' ) &' if log_helper else ''}\n{body}\n", 0o755)
         proc = subprocess.Popen(["bash", str(script), "--mode", "swarm", "--site-name", site, "--kit-root",
                                  str(kit_root), "--startup-dir", str(startup), "--scratch-dir", str(self.scratch)],
                                 start_new_session=True)
         self.daemons.append(proc)
+        if log_helper:
+            for _ in range(100):
+                own_line = _cmdline(proc.pid)  # read each time: it can still be empty right after the start
+                children = subprocess.run(["ps", "-o", "pid=", "--ppid", str(proc.pid)],
+                                          capture_output=True, text=True).stdout.split()
+                if own_line and any(_cmdline(c) == own_line for c in children):
+                    break
+                time.sleep(0.05)
+            else:
+                pytest.fail("the fake daemon's same-command-line child did not start")
         if write_pid_file:
             _write(startup / ".mediswarm_sync" / "swarm_sync.pid", f"{proc.pid}\n")
         return proc
@@ -418,11 +441,11 @@ def test_start_client_leaves_a_stale_lock_to_the_new_container(host):
 # ── --status ───────────────────────────────────────────────────────────────────
 
 
-def _healthy(host):
+def _healthy(host, log_helper=False):
     host.add_container(NEW_CONTAINER, host.new_kit, health="healthy")
     host.state["images"] = {"jefftud/odelia:current": {"id": OLD_IMAGE_ID},
                             OLD_IMAGE_ID: {"repo_digests": [f"jefftud/odelia@{OLD_DIGEST}"]}}
-    host.start_fake_daemon(host.new_kit, write_pid_file=True)
+    host.start_fake_daemon(host.new_kit, write_pid_file=True, log_helper=log_helper)
     hb = _write(host.new_kit / "startup" / ".mediswarm_sync" / "swarm_heartbeat.json", json.dumps(
         {"status": "running", "sync_status": "ok", "job_id": "7a678d9a", "ip_address": "10.0.0.1"}, indent=2))
     assert hb.exists()
@@ -452,6 +475,27 @@ def test_status_reports_a_healthy_client_and_changes_nothing(host):
     assert _mutating_calls(host.calls()) == []
     assert _snapshot(host.tmp / "kits") == before
     assert "10.0.0.1" not in out
+
+
+def test_status_counts_the_log_helper_of_older_bash_as_part_of_its_daemon(host):
+    """Bash before 5.2 keeps a child with the daemon's own command line for live_sync's log
+    (exec > >(tee ...)). --status called that 'more than one live_sync daemon' at USZ_1 (19 Oct 2026)."""
+    _healthy(host, log_helper=True)
+    result = host.run("--status")
+    out = result.stdout
+    assert result.returncode == 0, out
+    assert "[OK]   daemon running (PID" in out
+    assert "more than one live_sync daemon" not in out
+    assert "Summary: 0 problem(s), 1 warning(s)." in out
+
+
+def test_status_warns_about_a_second_daemon_of_this_kit(host):
+    _healthy(host)
+    first = int((host.new_kit / "startup" / ".mediswarm_sync" / "swarm_sync.pid").read_text())
+    second = host.start_fake_daemon(host.new_kit)
+    out = host.run("--status").stdout
+    assert (f"more than one live_sync daemon runs for this kit (PIDs {first} {second.pid}); keep only PID {first}"
+            in out)
 
 
 def test_status_flags_a_driver_library_mismatch_with_the_fix(host):
@@ -546,7 +590,7 @@ OLD_SYNC_CONF = ('REMOTE_HOST="172.24.4.65"\nREMOTE_USER="mediswarm-upload"\nREM
                  "LOG_SYNC_INTERVAL=30\nCKPT_SYNC_INTERVAL=180\nexport MEDISWARM_SITE_IP=10.1.2.3\n")
 
 
-def _old_181(host, tmp_path, tag="v1.8.1", version="1.8.1", running_job=False):
+def _old_181(host, tmp_path, tag="v1.8.1", version="1.8.1", running_job=False, log_helper=False):
     old_kit = host.make_kit(tmp_path / "kits" / f"TESTSITE_{version}", version, "old1234", _old_template(tag),
                             image_conf=OLD_IMAGE_CONF, sync_conf=OLD_SYNC_CONF)
     _write(old_kit / "daemon_pid.fl", "4242\n")
@@ -566,7 +610,7 @@ def _old_181(host, tmp_path, tag="v1.8.1", version="1.8.1", running_job=False):
         top += "1000 99 11 0 09:00 ? 00:10:00 python3 -u -m nvflare.private.fed.app.client.worker_process -m x\n"
     host.add_container(OLD_CONTAINER, old_kit, env=env, mounts=mounts, top=top)
     host.state["images"][OLD_IMAGE_ID] = {"env": ["PATH=/usr/bin", "KMP_DUPLICATE_LIB_OK=TRUE"]}
-    daemon = host.start_fake_daemon(old_kit, write_pid_file=True)
+    daemon = host.start_fake_daemon(old_kit, write_pid_file=True, log_helper=log_helper)
     return old_kit, daemon
 
 
@@ -598,6 +642,19 @@ def test_migrate_dry_run_shows_the_plan_and_changes_nothing(host, tmp_path):
     assert _mutating_calls(host.calls()) == []
     assert daemon.poll() is None, "a dry run must not stop the old daemon"
     assert _snapshot(host.tmp / "kits") == before
+
+
+def test_migrate_retires_a_daemon_with_its_log_helper_as_one(host, tmp_path):
+    """The same-command-line child of older bash is part of the old daemon: listed and stopped with it."""
+    old_kit, daemon = _old_181(host, tmp_path, log_helper=True)
+    plan = host.run("--migrate_from", str(old_kit)).stdout
+    assert f"- PID {daemon.pid} (swarm) of the kit {old_kit}" in plan
+    assert plan.count(f"(swarm) of the kit {old_kit}") == 1, plan
+    result = host.run("--migrate_from", str(old_kit), "--yes")
+    assert result.returncode == 0, result.stdout + result.stderr
+    daemon.wait(timeout=10)
+    assert f"stopped live_sync PID {daemon.pid}" in result.stdout
+    assert "Could not stop" not in result.stdout
 
 
 def test_migrate_yes_retires_the_old_kit_and_carries_the_settings(host, tmp_path):
