@@ -222,7 +222,10 @@ def threedcnn_ptl(monkeypatch):
     data_datamodules = types.ModuleType("data.datamodules")
     env_config = types.ModuleType("env_config")
     models_pkg = types.ModuleType("models")
+    models_pkg.__path__ = []
     models_config = types.ModuleType("models.models_config")
+    models_base_model = types.ModuleType("models.base_model")
+    models_base_model.state_dict_mismatch = lambda *args, **kwargs: ""
     data_datasets.ODELIA_Dataset3D = object
     data_datamodules.DataModule = object
     for attr in ("build_odelia_manifests", "generate_run_directory", "load_environment_variables",
@@ -230,7 +233,8 @@ def threedcnn_ptl(monkeypatch):
         setattr(env_config, attr, lambda *args, **kwargs: None)
     models_config.create_model = lambda *args, **kwargs: None
     for name, module in {"data": data_pkg, "data.datasets": data_datasets, "data.datamodules": data_datamodules,
-                         "env_config": env_config, "models": models_pkg, "models.models_config": models_config}.items():
+                         "env_config": env_config, "models": models_pkg, "models.models_config": models_config,
+                         "models.base_model": models_base_model}.items():
         monkeypatch.setitem(sys.modules, name, module)
     monkeypatch.syspath_prepend(str(SHARED_CUSTOM_DIR))
     for name in ("threedcnn_ptl", "per_case_predictions"):

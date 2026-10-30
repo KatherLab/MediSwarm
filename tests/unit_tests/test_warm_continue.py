@@ -805,7 +805,9 @@ def test_duplicate_learn_request_is_acknowledged_without_requeue(fault_tolerant_
     assert controller._last_accepted_learn_round == 4
 
 
-def test_older_learn_request_is_rejected_without_requeue(fault_tolerant_ccwf):
+def test_older_learn_request_is_acknowledged_without_requeue(fault_tolerant_ccwf):
+    """An aggregator retrying scatter for an older round after this client already advanced
+    should be acknowledged with OK without requeuing, so the scatter loop terminates cleanly."""
     module, fl_context_cls = fault_tolerant_ccwf
     controller = module.FaultTolerantSwarmClientController()
     controller.log_info = lambda *args: None
@@ -820,9 +822,9 @@ def test_older_learn_request_is_rejected_without_requeue(fault_tolerant_ccwf):
     stale.set_header(module.AppConstants.CURRENT_ROUND, 4)
 
     controller._try_process_learn_request(current, fl_ctx)
-    rejected = controller._try_process_learn_request(stale, fl_ctx)
+    stale_reply = controller._try_process_learn_request(stale, fl_ctx)
 
-    assert _return_code(rejected) == module.ReturnCode.MODEL_UNRECOGNIZED
+    assert _return_code(stale_reply) == module.ReturnCode.OK
     assert queued == [current]
 
 
