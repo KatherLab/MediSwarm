@@ -22,7 +22,8 @@ inference (deployment) remain standalone steps that each site runs locally.
   (STAMP is lighter on GPU memory than ODELIA because it operates on extracted
   features rather than full imaging volumes)
 - **OS:** Ubuntu 20.04 LTS, 22.04 LTS, or 24.04 LTS
-- **Software:** Docker, OpenVPN
+- **Software:** Docker, and the network your project uses: Tailscale (e.g. DECADE) or
+  OpenVPN (e.g. ODELIA)
 - **Data:** Pre-extracted H5 feature files + clinical metadata CSV (see
   [Prepare Dataset](#prepare-dataset) below)
 
@@ -326,11 +327,10 @@ operator for help. Run it as the user that runs the client (no `sudo`).
    * Every H5 file in the feature directory should have a corresponding entry in
      the clinical table (and vice versa).
    * Feature dimensions in H5 files should match `STAMP_DIM_INPUT`.
-   * You can add `--log_dataset_details` for more detailed output:
-     ```bash
-     ./docker.sh --data_dir $DATADIR --scratch_dir $SCRATCHDIR --GPU device=0 --preflight_check --log_dataset_details
-     ```
-     (This output may contain confidential patient IDs — do not share it!)
+   * The preflight prints what STAMP finds (for example patients without a feature
+     file) as warnings; `--log_dataset_details` adds nothing for STAMP. This output
+     can list confidential patient IDs: do not share it. Send your operator only the
+     `Total samples` line and pass/fail, without IDs.
 
 ### Run Local Training
 
@@ -360,9 +360,10 @@ To have a baseline for swarm training, train the same model locally:
 
 #### VPN
 
-1. Connect to VPN as described in [VPN setup guide(GUI).pdf](../VPN%20setup%20guide%28GUI%29.pdf)
-   (GUI) or [VPN setup guide(CLI).md](../VPN%20setup%20guide%28CLI%29.md)
-   (command line).
+1. Make sure the node is on your project's network: Tailscale for DECADE (see
+   Setup, Option A), or OpenVPN for ODELIA as described in
+   [VPN setup guide(GUI).pdf](../VPN%20setup%20guide%28GUI%29.pdf) (GUI) or
+   [VPN setup guide(CLI).md](../VPN%20setup%20guide%28CLI%29.md) (command line).
 
 #### Move to a New Kit
 
@@ -377,8 +378,8 @@ must be gone before the new one starts.
 3. Unzip the new kit into a **new** folder (not over the old one).
 4. Copy over your own edits to `startup/sync.conf`, if any (e.g. an `-i` key
    option). Keep the new kit's `startup/image.conf`: it names the image of the run.
-5. Export your `STAMP_*` settings, run `./docker.sh ... --preflight_check`, then
-   `./docker.sh ... --start_client`.
+5. Export your `STAMP_*` settings and run `./docker.sh ... --preflight_check`. Run
+   `./docker.sh ... --start_client` only when your operator announces the run.
 
 `--start_client` refuses to start while a client container of another kit runs
 for your site (it prints the `docker rm -f` command), and it stops the old kit's
@@ -436,7 +437,8 @@ Swarm Operator.
   replaced the NVIDIA libraries while the old driver is still loaded. A running
   client keeps its GPU, but no new container gets one: reboot the node, then start
   the client again. Hold the driver packages during a run
-  (`sudo apt-mark hold <the nvidia packages>`; `--status` names them).
+  (`sudo apt-mark hold <the nvidia packages>`; while the mismatch is present,
+  `--status` prints this command with the package names).
 * **Docker cgroup driver `systemd`** (`--status` warns): a `systemctl
   daemon-reload`, e.g. by an automatic update, can take the GPU away from a
   running client ("NVML: Unknown Error"). `scripts/client_node_setup/fix_docker_cgroupfs.sh`
