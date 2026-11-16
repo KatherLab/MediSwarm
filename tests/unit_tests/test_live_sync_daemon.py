@@ -638,6 +638,10 @@ def test_a_stamp_run_named_in_a_coloured_log_line_is_uploaded(kit, colour):
 @pytest.mark.parametrize("mode", ["swarm", "local"])
 def test_stamp_files_that_list_patient_ids_stay_at_the_site(kit, mode):
     _stamp_kit(kit)
+    # A site that tees its local training console into the kit, as the guide shows: STAMP's
+    # warnings there list patient IDs.
+    _write(kit.startup / "local_training_console_output.txt", "WARNING stamp: some patients have no clinical "
+           "information: {'DA-X-0003'}\n")
     proc = kit.start(mode=mode, MEDISWARM_SYNC_MODELS="1", MEDISWARM_SYNC_PREDICTIONS="1")
     if mode == "swarm":
         _cycles(kit, 2)
@@ -646,7 +650,8 @@ def test_stamp_files_that_list_patient_ids_stay_at_the_site(kit, mode):
     assert kit.stop(proc) == 0
     names = _names(kit)
     assert "stamp_metrics_summary.csv" in names
-    leaked = [n for n in names if n == "hparams.yaml" or n.startswith("events.out.tfevents") or n.endswith(".ckpt")]
+    leaked = [n for n in names if n == "hparams.yaml" or n.startswith("events.out.tfevents") or n.endswith(".ckpt")
+              or n == "local_training_console_output.txt"]
     assert leaked == [], leaked
     if mode == "swarm":   # the global models hold only weights: they still go up with MEDISWARM_SYNC_MODELS=1
         assert "best_FL_global_model.pt" in names

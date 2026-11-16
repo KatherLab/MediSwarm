@@ -816,9 +816,13 @@ sync_local() {
   rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat.json" || true
   sync_daemon_log "$remote_dir"
 
-  [ -f "$STARTUP_DIR/local_training_console_output.txt" ] && \
-    rsync_cmd "$STARTUP_DIR/local_training_console_output.txt" \
-      "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/local_training_console_output.txt" || true
+  # The console of a STAMP local run shows STAMP's own warnings, which list patient IDs (the image's
+  # job code runs local training; only a swarm job's code keeps them out of the log).
+  if ! run_dir_lists_patients "$run_dir"; then
+    [ -f "$STARTUP_DIR/local_training_console_output.txt" ] && \
+      rsync_cmd "$STARTUP_DIR/local_training_console_output.txt" \
+        "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/local_training_console_output.txt" || true
+  fi
 
   now="$(date +%s)"
   last="$(cat "$LAST_CKPT_SYNC_FILE" 2>/dev/null || echo 0)"
