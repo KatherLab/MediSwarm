@@ -583,7 +583,7 @@ def test_heartbeat_reports_versions(kit):
     _cycles(kit, 1)
     assert kit.stop(proc) == 0
     beat = kit.heartbeat("heartbeat_final.json")
-    assert beat["live_sync_version"] == beat["sync_version"] == "3"
+    assert beat["live_sync_version"] == beat["sync_version"] == "4"
     assert beat["kit_version"] == "1.9.0"
     assert beat["status"] == "finished"
     assert beat["image_ref"] == "jefftud/odelia:1.9.0"
@@ -594,3 +594,105 @@ def test_the_kit_version_docker_sh_passes_wins(kit):
     _cycles(kit, 1)
     assert kit.stop(proc) == 0
     assert kit.heartbeat()["kit_version"] == "1.9.1"
+
+
+# ── DECADE (STAMP) swarm runs, kit 1.7.1 ──────────────────────────────────────
+
+STAMP_RUN = "STAMP_vit_2026_11_17_101500"
+STAMP_DECOY = "STAMP_vit_2026_11_17_120000"     # a later local run in the same runs/ folder
+
+
+def _stamp_kit(kit, colour=True):
+    """A STAMP swarm job whose nohup.out names its run directory in a coloured log line."""
+    for run, marker in ((STAMP_RUN, "swarm run"), (STAMP_DECOY, "later local run")):
+        base = kit.scratch / "runs" / SITE / run
+        for name in ("stamp_metrics_summary.csv", "stamp_gt_predprob_site_model_validation.csv",
+                     "stamp_gt_predprob_aggregated_model_validation.csv", "best_model.ckpt", "last.ckpt",
+                     "events.out.tfevents.1763370000.host"):
+            _write(base / name, f"{marker}: {name}\n")
+    line = f"2026-11-17 10:15:00,123 - stamp_training - INFO - Run directory: /scratch/runs/{SITE}/{STAMP_RUN}"
+    if colour:
+        line = f"\x1b[32m{line}\x1b[0m"
+    _write(kit.startup / "nohup.out", f"{line}\r\n")
+
+
+def _run_dir_upload(kit, name):
+    path = kit.remote_dir() / "run_dir" / name
+    return path.read_text() if path.exists() else None
+
+
+@pytest.mark.parametrize("colour", [True, False])
+def test_a_stamp_run_named_in_a_coloured_log_line_is_uploaded(kit, colour):
+    _stamp_kit(kit, colour=colour)
+    proc = kit.start()
+    _cycles(kit, 2)
+    assert kit.stop(proc) == 0
+    # The run the job named, not the newest folder by name (a later local run).
+    assert _run_dir_upload(kit, "stamp_metrics_summary.csv") == "swarm run: stamp_metrics_summary.csv\n"
+    assert _run_dir_upload(kit, "events.out.tfevents.1763370000.host") is not None
+    assert kit.heartbeat("heartbeat_final.json")["run_name"] == STAMP_RUN
+
+
+def test_a_named_run_directory_that_does_not_exist_falls_back_to_the_newest(kit):
+    _stamp_kit(kit)
+    _write(kit.startup / "nohup.out", f"Run directory: /scratch/runs/{SITE}/STAMP_vit_gone\n")
+    proc = kit.start()
+    _cycles(kit, 2)
+    assert kit.stop(proc) == 0
+    assert _run_dir_upload(kit, "stamp_metrics_summary.csv") == "later local run: stamp_metrics_summary.csv\n"
+
+
+def test_stamp_per_patient_rows_and_checkpoints_stay_at_the_site_by_default(kit):
+    _stamp_kit(kit)
+    proc = kit.start()
+    _cycles(kit, 2)
+    assert kit.stop(proc) == 0
+    names = _names(kit)
+    assert "stamp_metrics_summary.csv" in names
+    leaked = [n for n in names if n.startswith("stamp_gt_predprob_") or n.endswith((".ckpt", ".pt"))]
+    assert leaked == [], leaked
+    assert "swarm global models: stay at the site" in kit.daemon_log()
+
+
+def test_stamp_per_patient_rows_go_up_with_the_opt_in(kit):
+    _stamp_kit(kit)
+    proc = kit.start(MEDISWARM_SYNC_PREDICTIONS="1")
+    _cycles(kit, 2)
+    assert kit.stop(proc) == 0
+    names = _names(kit)
+    assert "stamp_gt_predprob_site_model_validation.csv" in names
+    assert not [n for n in names if n.endswith((".ckpt", ".pt"))]
+
+
+def test_a_decade_kit_uploads_the_global_models_but_not_its_checkpoints(kit):
+    _stamp_kit(kit)
+    proc = kit.start(MEDISWARM_SYNC_GLOBAL_MODELS_DEFAULT="1")
+    _cycles(kit, 2)
+    assert kit.stop(proc) == 0
+    assert (kit.remote_dir() / "FL_global_model.pt").read_text() == "global\n"
+    assert (kit.remote_dir() / "best_FL_global_model.pt").read_text() == "best global\n"
+    assert not [n for n in _names(kit) if n.endswith(".ckpt") or n.startswith("stamp_gt_predprob_")]
+    assert kit.heartbeat()["sync_models"] is False
+    assert "swarm global models: uploaded" in kit.daemon_log()
+
+
+@pytest.mark.parametrize("where", ["sync.conf", "env"])
+def test_a_site_can_keep_the_global_models(kit, where):
+    _stamp_kit(kit)
+    env = {"MEDISWARM_SYNC_GLOBAL_MODELS_DEFAULT": "1"}
+    if where == "sync.conf":
+        _write(kit.startup / "sync.conf", SYNC_CONF + "MEDISWARM_SYNC_GLOBAL_MODELS=0\n")
+    else:
+        env["MEDISWARM_SYNC_GLOBAL_MODELS"] = "0"
+    proc = kit.start(**env)
+    _cycles(kit, 2)
+    assert kit.stop(proc) == 0
+    assert not [n for n in _names(kit) if n.endswith(".pt")]
+
+
+def test_without_the_decade_default_global_models_follow_sync_models(kit):
+    _stamp_kit(kit)
+    proc = kit.start()
+    _cycles(kit, 2)
+    assert kit.stop(proc) == 0
+    assert not [n for n in _names(kit) if n.endswith(".pt")]

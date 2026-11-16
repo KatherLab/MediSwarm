@@ -8,8 +8,9 @@ SYNC_CONF="$SCRIPT_DIR/sync.conf"
 # Every kit before 1.9.0 reported "2", so the monitor could not tell an old kit's daemon from
 # a new one (#614). 3 = the 1.9.0 kits: kit upload key (#615), models and per-case predictions
 # stay at the site by default, exit when the client container is gone (#614), sync status
-# cleared after a clean cycle.
-LIVE_SYNC_VERSION="3"
+# cleared after a clean cycle. 4 = DECADE 1.7.1: run name parsed from coloured log lines, global
+# models switch, STAMP per-patient CSVs behind the per-case opt-in.
+LIVE_SYNC_VERSION="4"
 
 _ask_continue_without_sync() {
     # In non-interactive environments (no TTY), default to continuing without sync
@@ -58,6 +59,7 @@ add_ssh_multiplexing() {
 # A site's choice in the environment wins over sync.conf, which sites carry across kits.
 _env_sync_models="${MEDISWARM_SYNC_MODELS-}"
 _env_sync_predictions="${MEDISWARM_SYNC_PREDICTIONS-}"
+_env_sync_global_models="${MEDISWARM_SYNC_GLOBAL_MODELS-}"
 _env_container_gone="${MEDISWARM_SYNC_CONTAINER_GONE_MINUTES-}"
 _env_container_grace="${MEDISWARM_SYNC_CONTAINER_START_GRACE_MINUTES-}"
 
@@ -76,10 +78,20 @@ SSH_OPTS_CONF="$SSH_OPTS"
 # opted in to per-case return (--env ODELIA_RETURN_PER_CASE=1 for its client, see
 # per_case_predictions.py) or sets MEDISWARM_SYNC_PREDICTIONS=1; MEDISWARM_SYNC_PREDICTIONS=0
 # never uploads them, and neither does a job that forces ODELIA_RETURN_PER_CASE=0 (DP jobs).
+# STAMP's per-patient CSVs (stamp_gt_predprob_*.csv: one row per validation patient with its label
+# and predicted probabilities) count as per-case predictions too (DECADE 1.7.1); the per-epoch
+# stamp_metrics_summary.csv is a summary and always goes up.
+#
+# Global models (FL_global_model.pt, best_FL_global_model.pt of a swarm job) are the aggregate
+# every participant of the run holds. MEDISWARM_SYNC_GLOBAL_MODELS=1 uploads them without the
+# site's own checkpoints, =0 never; unset, they follow MEDISWARM_SYNC_MODELS, unless the kit's
+# docker.sh asks for them (MEDISWARM_SYNC_GLOBAL_MODELS_DEFAULT=1, DECADE kits: in a
+# peer-to-peer swarm run the server holds no model, and the external validation needs one).
 MEDISWARM_SYNC_MODELS="${_env_sync_models:-${MEDISWARM_SYNC_MODELS:-0}}"
 MEDISWARM_SYNC_PREDICTIONS="${_env_sync_predictions:-${MEDISWARM_SYNC_PREDICTIONS:-}}"
+MEDISWARM_SYNC_GLOBAL_MODELS="${_env_sync_global_models:-${MEDISWARM_SYNC_GLOBAL_MODELS:-${MEDISWARM_SYNC_GLOBAL_MODELS_DEFAULT:-}}}"
 MODEL_PATTERNS=('*.ckpt' '*.pt' '*.pth' '*.safetensors')
-PER_CASE_PATTERNS=('*_gt_and_classprob_*.csv' '*prediction*.csv' '*per_case*.csv')
+PER_CASE_PATTERNS=('*_gt_and_classprob_*.csv' '*prediction*.csv' '*per_case*.csv' 'stamp_gt_predprob_*.csv')
 
 MODE=""
 SITE_NAME=""
@@ -374,6 +386,7 @@ export_sync_env() {
 # ── Upload policy for models and per-case predictions ───────────────
 SYNC_MODELS_NOW=0
 SYNC_PREDICTIONS_NOW=0
+SYNC_GLOBAL_MODELS_NOW=0
 LAST_POLICY_NOTE=""
 
 _options_opt_in() {
@@ -426,6 +439,11 @@ refresh_upload_policy() {
   local job_id="${1:-}" why note
   SYNC_MODELS_NOW=0
   [ "$MEDISWARM_SYNC_MODELS" != "1" ] || SYNC_MODELS_NOW=1
+  SYNC_GLOBAL_MODELS_NOW="$SYNC_MODELS_NOW"
+  case "$MEDISWARM_SYNC_GLOBAL_MODELS" in
+    1) SYNC_GLOBAL_MODELS_NOW=1 ;;
+    0) SYNC_GLOBAL_MODELS_NOW=0 ;;
+  esac
   if [ "$MEDISWARM_SYNC_PREDICTIONS" = "0" ]; then
     SYNC_PREDICTIONS_NOW=0; why="MEDISWARM_SYNC_PREDICTIONS=0"
   elif job_forces_per_case_off "$job_id"; then
@@ -441,6 +459,7 @@ refresh_upload_policy() {
   export MEDISWARM_SYNC_PREDICTIONS_EFFECTIVE="$SYNC_PREDICTIONS_NOW"
   note="models: $([ "$SYNC_MODELS_NOW" = 1 ] && echo "uploaded (MEDISWARM_SYNC_MODELS=1)" || echo "stay at the site")"
   note="$note; per-case predictions: $([ "$SYNC_PREDICTIONS_NOW" = 1 ] && echo uploaded || echo "stay at the site") ($why)"
+  note="$note; swarm global models: $([ "$SYNC_GLOBAL_MODELS_NOW" = 1 ] && echo uploaded || echo "stay at the site")"
   if [ "$note" != "$LAST_POLICY_NOTE" ]; then
     echo "[INFO] Upload policy: $note"
     LAST_POLICY_NOTE="$note"
@@ -465,16 +484,16 @@ set_run_dir_excludes() {
 RUN_DIR_PERIODIC_FILTERS=()
 set_periodic_filters() {
   # The every-CKPT_SYNC_INTERVAL upload of a running run dir: checkpoints and per-case CSVs where
-  # the policy allows them, and DECADE's STAMP metrics summary and predictions (#492; that
-  # consortium has no per-case opt-in and evaluates centrally from them) as before.
+  # the policy allows them, and DECADE's per-epoch STAMP metrics summary (#492). STAMP's
+  # per-patient CSVs are per-case predictions (DECADE 1.7.1): only with the opt-in.
   RUN_DIR_PERIODIC_FILTERS=(--include='*/')
   if [ "$SYNC_MODELS_NOW" = "1" ]; then
     RUN_DIR_PERIODIC_FILTERS+=(--include='last.ckpt' --include='epoch=*.ckpt')
   fi
   if [ "$SYNC_PREDICTIONS_NOW" = "1" ]; then
-    RUN_DIR_PERIODIC_FILTERS+=(--include='*_model_gt_and_classprob_*.csv')
+    RUN_DIR_PERIODIC_FILTERS+=(--include='*_model_gt_and_classprob_*.csv' --include='stamp_gt_predprob_*.csv')
   fi
-  RUN_DIR_PERIODIC_FILTERS+=(--include='stamp_metrics_summary.csv' --include='stamp_gt_predprob_*.csv' --exclude='*')
+  RUN_DIR_PERIODIC_FILTERS+=(--include='stamp_metrics_summary.csv' --exclude='*')
   return 0
 }
 
@@ -613,8 +632,28 @@ extract_run_name_from_nohup() {
   local nohup_file="$STARTUP_DIR/nohup.out"
   [ -f "$nohup_file" ] || return 0
 
+  # The kit's log config colours console lines (NVFlare's ColorFormatter), so each line ends in
+  # an ANSI reset (ESC[0m). Left in, the name never matched a directory and no STAMP run dir of
+  # a swarm job was ever uploaded: strip escape sequences, carriage returns and trailing blanks.
   grep -E 'Run name: |Run directory:' "$nohup_file" 2>/dev/null | tail -n 1 | \
-    sed -E 's#.*Run name: ##; s#.*Run directory: .*/##' || true
+    sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g' | \
+    sed -E 's#.*Run name: ##; s#.*Run directory: .*/##; s#[[:space:]]+$##' || true
+}
+
+swarm_run_dir_exists() {
+  [ -n "${1:-}" ] || return 1
+  { [ -n "$SCRATCHDIR" ] && [ -d "$SCRATCHDIR/runs/$SITE_NAME/$1" ]; } || [ -d "$STARTUP_DIR/runs/$SITE_NAME/$1" ]
+}
+
+resolve_swarm_run_name() {
+  # The run directory the job names in nohup.out when it exists, else the newest one by name.
+  local name
+  name="$(extract_run_name_from_nohup || true)"
+  if swarm_run_dir_exists "$name"; then
+    printf '%s' "$name"
+    return 0
+  fi
+  find_latest_swarm_run_name || true
 }
 
 find_latest_local_run_name() {
@@ -663,10 +702,10 @@ build_remote_dir() {
 }
 
 upload_global_models() {
-  # FL_global_model.pt / best_FL_global_model.pt of a swarm job: model files, so only with
-  # MEDISWARM_SYNC_MODELS=1.
+  # FL_global_model.pt / best_FL_global_model.pt of a swarm job: with MEDISWARM_SYNC_MODELS=1,
+  # or alone with MEDISWARM_SYNC_GLOBAL_MODELS=1 (see the upload policy at the top).
   local job_id="$1" remote_dir="$2" f
-  [ "$SYNC_MODELS_NOW" = "1" ] || return 0
+  [ "$SYNC_GLOBAL_MODELS_NOW" = "1" ] || return 0
   for f in FL_global_model.pt best_FL_global_model.pt; do
     [ -f "$KIT_ROOT/$job_id/app_${SITE_NAME}/$f" ] || continue
     rsync_cmd "$KIT_ROOT/$job_id/app_${SITE_NAME}/$f" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/$f" || true
@@ -793,8 +832,7 @@ sync_swarm() {
 
   release_active_dir
 
-  run_name="$(extract_run_name_from_nohup || true)"
-  [ -n "$run_name" ] || run_name="$(find_latest_swarm_run_name || true)"
+  run_name="$(resolve_swarm_run_name || true)"
   remote_dir="$(build_remote_dir "$job_id")"
   ensure_remote_dir "$remote_dir"
 
@@ -882,8 +920,7 @@ final_sync() {
       fi
       return 0
     fi
-    run_name="$(extract_run_name_from_nohup || true)"
-    [ -n "$run_name" ] || run_name="$(find_latest_swarm_run_name || true)"
+    run_name="$(resolve_swarm_run_name || true)"
     remote_dir="$(build_remote_dir "$job_id")"
     hb_file="$STATE_DIR/swarm_heartbeat_final.json"
     export SCRATCHDIR
