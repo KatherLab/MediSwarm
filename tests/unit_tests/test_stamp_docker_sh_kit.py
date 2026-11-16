@@ -255,8 +255,11 @@ def test_start_client_retires_other_decade_kits_daemons_only(host, tmp_path):
 def test_a_daemon_of_the_old_code_in_this_folder_is_replaced(host):
     """Unzipped over the old folder: the daemon that ran before live_sync.sh was replaced is old code."""
     old = host.start_fake_daemon(host.new_kit, write_pid_file=True)
-    time.sleep(1.1)
-    harness._write(host.new_kit / "startup" / "live_sync.sh", FAKE_LIVE_SYNC, 0o755)   # the new kit's file
+    time.sleep(0.5)   # let bash read its loop before the file changes under it
+    assert old.poll() is None
+    new_file = harness._write(host.new_kit / "startup" / "live_sync.sh", FAKE_LIVE_SYNC, 0o755)   # the new kit's
+    later = time.time() + 300   # ... unzipped five minutes after the old daemon started
+    os.utime(new_file, (later, later))
     result = _run(host, "--start_client")
     assert result.returncode == 0, result.stdout
     assert "runs an older live_sync.sh of this kit folder" in result.stdout

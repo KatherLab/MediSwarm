@@ -848,9 +848,9 @@ docker_cln_sh: |
       [ -n "$s" ] && [[ "$s" != Z* ]]
   }
   _pid_started_epoch() {
-      # When process $1 started (epoch seconds), from its elapsed time: no locale-dependent date
-      local e; e="$(ps -o etimes= -p "$1" 2>/dev/null | tr -d '[:space:]')"
-      [ -n "$e" ] && echo $(( $(date +%s) - e ))
+      # When process $1 started (epoch seconds, rounded down; the C locale keeps ps and date agreed)
+      local s; s="$(LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null)"
+      [ -n "$s" ] && LC_ALL=C date -d "$s" +%s 2>/dev/null
   }
   _live_sync_daemons() {
       # "pid|site|kit root|mode" of every live_sync.sh daemon on this host, whichever kit started it.
@@ -1273,8 +1273,10 @@ docker_cln_sh: |
       case "$args" in *live_sync.sh*"--mode $2 "*) ;; *) return 1 ;; esac
       root="$(sed -n 's/.*--kit-root \([^ ]*\).*/\1/p' <<< "$args")"
       [ -n "$root" ] && [ "$(_physical_dir "$root")" = "$(_physical_dir "$KIT_ROOT")" ] || return 1
+      # A minute of slack: process start times derive from the boot time and can be a second or
+      # two off the file clock; the old daemon of an unzipped-over kit started days earlier.
       started="$(_pid_started_epoch "$1")"
-      [ -z "$started" ] || [ "$started" -ge "$(stat -c %Y "$DIR/live_sync.sh" 2>/dev/null || echo 0)" ]
+      [ -z "$started" ] || [ "$started" -ge $(( $(stat -c %Y "$DIR/live_sync.sh" 2>/dev/null || echo 0) - 60 )) ]
   }
 
   _retire_other_kits_live_sync() {
