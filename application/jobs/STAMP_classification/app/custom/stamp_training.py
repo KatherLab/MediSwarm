@@ -38,6 +38,87 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# No patient identifiers in logs or TensorBoard files
+# ---------------------------------------------------------------------------
+#
+# In a swarm run the client's console log (nohup.out), log.txt and the run's TensorBoard
+# event files go to the monitoring host. STAMP 2.4.0 puts patient identifiers into both:
+#
+# - four data-consistency warnings list them ("some patients have no clinical information:
+#   {...}", no associated slides, no feature file, feature files not found);
+# - its Lightning model saves ``train_patients`` and ``valid_patients`` as hyperparameters,
+#   which the TensorBoard logger writes into hparams.yaml AND into the event files (every ID
+#   of the site's cohort, with its train/validation assignment).
+#
+# The filter keeps each warning with the number of affected items; the logger replaces the
+# two lists by their lengths. The checkpoints keep the lists; they stay at the site.
+
+_IDENTIFIER_LISTING_WARNINGS = (
+    "some patients have no clinical information",
+    "some patients have no associated slides",
+    "some feature files could not be found",
+    "Some patients have no feature file in",
+)
+_QUOTED_ITEM = re.compile(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"")
+PATIENT_LIST_HPARAMS = ("train_patients", "valid_patients")
+
+
+class RedactIdentifiersFilter(logging.Filter):
+    """Replace the identifiers in STAMP's data-consistency warnings by their count."""
+
+    def filter(self, record):
+        try:
+            message = record.getMessage()
+        except Exception:  # noqa: BLE001 - never let logging fail
+            return True
+        for prefix in _IDENTIFIER_LISTING_WARNINGS:
+            if message.startswith(prefix):
+                # The collection follows the first ": {" (a set) or ": [" (a list). Without one,
+                # keep only the fixed wording: nothing of an unexpected format gets through.
+                starts = [i for i in (message.find(": {"), message.find(": [")) if i >= 0]
+                head, tail = (message[:min(starts)], message[min(starts) + 2:]) if starts else (prefix, "")
+                record.msg = f"{head}: {len(_QUOTED_ITEM.findall(tail))} (identifiers not logged)"
+                record.args = ()
+                break
+        return True
+
+
+def redact_stamp_identifier_warnings(stamp_logger=None):
+    """Attach RedactIdentifiersFilter to STAMP's logger ("stamp") once."""
+    stamp_logger = stamp_logger or logging.getLogger("stamp")
+    if not any(isinstance(f, RedactIdentifiersFilter) for f in stamp_logger.filters):
+        stamp_logger.addFilter(RedactIdentifiersFilter())
+    return stamp_logger
+
+
+redact_stamp_identifier_warnings()
+
+
+def _without_patient_lists(params):
+    """Copy of hyperparameters with each patient list replaced by its length."""
+    if params is None:
+        return params
+    try:
+        params = dict(params)
+    except (TypeError, ValueError):
+        params = dict(vars(params))
+    for key in PATIENT_LIST_HPARAMS:
+        if key in params:
+            try:
+                params[key] = f"{len(params[key])} patients (identifiers not logged)"
+            except TypeError:
+                params[key] = "(identifiers not logged)"
+    return params
+
+
+class PatientListFreeTensorBoardLogger(TensorBoardLogger):
+    """TensorBoardLogger that never writes STAMP's patient lists (hparams.yaml, event files)."""
+
+    def log_hyperparams(self, params, *args, **kwargs):
+        return super().log_hyperparams(_without_patient_lists(params), *args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
 # Environment configuration
 # ---------------------------------------------------------------------------
 
@@ -818,7 +899,7 @@ def prepare_training(
     # TensorBoard logger is optional — gracefully degrade if tensorboard
     # is not installed (e.g. minimal Docker image, CI environments).
     try:
-        tb_logger = TensorBoardLogger(save_dir=output_dir)
+        tb_logger = PatientListFreeTensorBoardLogger(save_dir=output_dir)
     except (ModuleNotFoundError, ImportError):
         logger.warning("tensorboard not available — training will proceed without TensorBoard logging")
         tb_logger = False  # Lightning accepts False to disable logging

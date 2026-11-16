@@ -467,11 +467,39 @@ refresh_upload_policy() {
   return 0
 }
 
+run_dir_lists_patients() {
+  # A STAMP run dir ($1): STAMP 2.4.0, as the image's own job code runs it for --preflight_check
+  # and --local_training, writes every patient ID of the site (with its train/validation split)
+  # into lightning_logs/*/hparams.yaml, into the TensorBoard event files and into every
+  # checkpoint (*.ckpt). None of them leaves the site, not even with MEDISWARM_SYNC_MODELS=1; the
+  # per-epoch stamp_metrics_summary.csv carries the same curves. A swarm job's global models
+  # (FL_global_model.pt) hold only weights.
+  local d="${1:-}"
+  [ -n "$d" ] || return 1
+  [ -f "$d/stamp_metrics_summary.csv" ] && return 0
+  case "$(basename "$d")" in STAMP_*) return 0 ;; esac
+  grep -qsE '^(train|valid)_patients:' "$d"/lightning_logs/*/hparams.yaml 2>/dev/null
+}
+
+upload_tensorboard_events() {
+  # $1 = run dir, $2 = remote run_dir: the TensorBoard event files, except of a STAMP run.
+  run_dir_lists_patients "$1" && return 0
+  rsync_cmd \
+    --include='*/' \
+    --include='events.out.tfevents*' \
+    --exclude='*' \
+    "$1/" "$2" || true
+}
+
 RUN_DIR_EXCLUDES=()
 set_run_dir_excludes() {
-  # rsync filters for a whole-run-dir upload: leave out what the policy keeps at the site.
+  # rsync filters for a whole-run-dir upload ($1 = the run dir): leave out what the policy keeps
+  # at the site, and the files of a STAMP run that list patient IDs.
   local p
   RUN_DIR_EXCLUDES=()
+  if run_dir_lists_patients "${1:-}"; then
+    RUN_DIR_EXCLUDES+=("--exclude=events.out.tfevents*" "--exclude=hparams.yaml" "--exclude=*.ckpt")
+  fi
   if [ "$SYNC_MODELS_NOW" != "1" ]; then
     for p in "${MODEL_PATTERNS[@]}"; do RUN_DIR_EXCLUDES+=("--exclude=$p"); done
   fi
@@ -487,7 +515,7 @@ set_periodic_filters() {
   # the policy allows them, and DECADE's per-epoch STAMP metrics summary (#492). STAMP's
   # per-patient CSVs are per-case predictions (DECADE 1.7.1): only with the opt-in.
   RUN_DIR_PERIODIC_FILTERS=(--include='*/')
-  if [ "$SYNC_MODELS_NOW" = "1" ]; then
+  if [ "$SYNC_MODELS_NOW" = "1" ] && ! run_dir_lists_patients "${1:-}"; then
     RUN_DIR_PERIODIC_FILTERS+=(--include='last.ckpt' --include='epoch=*.ckpt')
   fi
   if [ "$SYNC_PREDICTIONS_NOW" = "1" ]; then
@@ -750,7 +778,7 @@ _finalize_local_run() {
     old_run_dir="$STARTUP_DIR/runs/$SITE_NAME/$old_run"
   fi
   if [ -n "$old_run_dir" ]; then
-    set_run_dir_excludes
+    set_run_dir_excludes "$old_run_dir"
     rsync_cmd ${RUN_DIR_EXCLUDES[@]+"${RUN_DIR_EXCLUDES[@]}"} \
       "$old_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${old_remote_dir}/run_dir/" || true
   fi
@@ -795,14 +823,10 @@ sync_local() {
   now="$(date +%s)"
   last="$(cat "$LAST_CKPT_SYNC_FILE" 2>/dev/null || echo 0)"
 
-  rsync_cmd \
-    --include='*/' \
-    --include='events.out.tfevents*' \
-    --exclude='*' \
-    "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+  upload_tensorboard_events "$run_dir" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/"
 
   if [ $((now - ${last:-0})) -ge "$CKPT_SYNC_INTERVAL" ]; then
-    set_periodic_filters
+    set_periodic_filters "$run_dir"
     rsync_cmd "${RUN_DIR_PERIODIC_FILTERS[@]}" \
       "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
     echo "$now" > "$LAST_CKPT_SYNC_FILE" 2>/dev/null || true
@@ -861,16 +885,12 @@ sync_swarm() {
   fi
 
   if [ -n "$run_dir_for_sync" ]; then
-    rsync_cmd \
-      --include='*/' \
-      --include='events.out.tfevents*' \
-      --exclude='*' \
-      "$run_dir_for_sync/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
+    upload_tensorboard_events "$run_dir_for_sync" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/"
 
     now="$(date +%s)"
     last="$(cat "$LAST_CKPT_SYNC_FILE" 2>/dev/null || echo 0)"
     if [ $((now - ${last:-0})) -ge "$CKPT_SYNC_INTERVAL" ]; then
-      set_periodic_filters
+      set_periodic_filters "$run_dir_for_sync"
       rsync_cmd "${RUN_DIR_PERIODIC_FILTERS[@]}" \
         "$run_dir_for_sync/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
       echo "$now" > "$LAST_CKPT_SYNC_FILE" 2>/dev/null || true
@@ -900,7 +920,7 @@ final_sync() {
       rsync_cmd "$hb_file" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/heartbeat_final.json" || true
       sync_daemon_log "$remote_dir"
       if [ -n "$run_dir" ]; then
-        set_run_dir_excludes
+        set_run_dir_excludes "$run_dir"
         rsync_cmd ${RUN_DIR_EXCLUDES[@]+"${RUN_DIR_EXCLUDES[@]}"} \
           "$run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
       fi
@@ -952,7 +972,7 @@ final_sync() {
       final_run_dir="$STARTUP_DIR/runs/$SITE_NAME/$run_name"
     fi
     if [ -n "$final_run_dir" ]; then
-      set_run_dir_excludes
+      set_run_dir_excludes "$final_run_dir"
       rsync_cmd ${RUN_DIR_EXCLUDES[@]+"${RUN_DIR_EXCLUDES[@]}"} \
         "$final_run_dir/" "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/run_dir/" || true
     fi

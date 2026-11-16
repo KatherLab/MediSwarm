@@ -608,8 +608,11 @@ def _stamp_kit(kit, colour=True):
         base = kit.scratch / "runs" / SITE / run
         for name in ("stamp_metrics_summary.csv", "stamp_gt_predprob_site_model_validation.csv",
                      "stamp_gt_predprob_aggregated_model_validation.csv", "best_model.ckpt", "last.ckpt",
-                     "events.out.tfevents.1763370000.host"):
+                     "lightning_logs/version_0/events.out.tfevents.1763370000.host"):
             _write(base / name, f"{marker}: {name}\n")
+        # STAMP 2.4.0 writes the site's patient IDs into its hyperparameters (and event files).
+        _write(base / "lightning_logs" / "version_0" / "hparams.yaml",
+               "train_patients:\n- DA-X-0001\nvalid_patients:\n- DA-X-0002\n")
     line = f"2026-11-17 10:15:00,123 - stamp_training - INFO - Run directory: /scratch/runs/{SITE}/{STAMP_RUN}"
     if colour:
         line = f"\x1b[32m{line}\x1b[0m"
@@ -629,8 +632,25 @@ def test_a_stamp_run_named_in_a_coloured_log_line_is_uploaded(kit, colour):
     assert kit.stop(proc) == 0
     # The run the job named, not the newest folder by name (a later local run).
     assert _run_dir_upload(kit, "stamp_metrics_summary.csv") == "swarm run: stamp_metrics_summary.csv\n"
-    assert _run_dir_upload(kit, "events.out.tfevents.1763370000.host") is not None
     assert kit.heartbeat("heartbeat_final.json")["run_name"] == STAMP_RUN
+
+
+@pytest.mark.parametrize("mode", ["swarm", "local"])
+def test_stamp_files_that_list_patient_ids_stay_at_the_site(kit, mode):
+    _stamp_kit(kit)
+    proc = kit.start(mode=mode, MEDISWARM_SYNC_MODELS="1", MEDISWARM_SYNC_PREDICTIONS="1")
+    if mode == "swarm":
+        _cycles(kit, 2)
+    else:
+        _wait_for(lambda: (kit.remote_dir(STAMP_DECOY, "local") / "heartbeat.json").exists(), what="local heartbeat")
+    assert kit.stop(proc) == 0
+    names = _names(kit)
+    assert "stamp_metrics_summary.csv" in names
+    leaked = [n for n in names if n == "hparams.yaml" or n.startswith("events.out.tfevents") or n.endswith(".ckpt")]
+    assert leaked == [], leaked
+    if mode == "swarm":   # the global models hold only weights: they still go up with MEDISWARM_SYNC_MODELS=1
+        assert "best_FL_global_model.pt" in names
+    assert not any("DA-X-" in p.read_text() for p in kit.remote.rglob("*") if p.is_file() and p.suffix != ".pt")
 
 
 def test_a_named_run_directory_that_does_not_exist_falls_back_to_the_newest(kit):
