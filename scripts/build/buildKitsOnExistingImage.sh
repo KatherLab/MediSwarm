@@ -98,5 +98,11 @@ docker build -q -t "$KIT_IMAGE" "$BUILD_DIR"
 
 echo "Kit template image ${KIT_IMAGE} (local, never pushed) on ${BASE_IMAGE}, template ${TEMPLATE} at ${CONTAINER_VERSION_ID}"
 "$SCRIPT_DIR/_buildStartupKits.sh" "$PROJECT_FILE" "$VERSION" "$KIT_IMAGE"
+# The docker.sh default is the project's docker_image, with the kit version where the YAML has the
+# placeholder (a roster may also name a fixed tag, e.g. the released image the kits run).
+case "$PROJECT_IMAGE" in
+    *__REPLACED_BY_CURRENT_VERSION_NUMBER_WHEN_BUILDING_STARTUP_KITS__*) KIT_DEFAULT_IMAGE="${PROJECT_REPO}:${VERSION}" ;;
+    *) KIT_DEFAULT_IMAGE="$PROJECT_IMAGE" ;;
+esac
 echo "Kits for version ${VERSION} built. They run ${MEDISWARM_KIT_IMAGE:-${PROJECT_REPO}:current} (image.conf);"
-echo "their docker.sh default is ${PROJECT_REPO}:${VERSION}."
+echo "their docker.sh default is ${KIT_DEFAULT_IMAGE}."
