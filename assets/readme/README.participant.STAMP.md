@@ -58,8 +58,9 @@ inference (deployment) remain standalone steps that each site runs locally.
        scripts for this purpose.
 
 3. **Share an SSH public key with your swarm operator (for live sync).** While
-   your client runs, a small helper (live sync) uploads monitoring files to the
-   operator's host, so the operator can help when a node stalls. See
+   your client runs, and during `--local_training`, a small helper (live sync)
+   uploads monitoring files to the operator's host, so the operator can help
+   when a node stalls. See
    [What leaves your site](#what-leaves-your-site). Generate a key and send the
    operator the **public** half:
    ```bash
@@ -76,7 +77,8 @@ and feature files never leave your node. Live sync (kit 1.7.1 and later)
 uploads to the operator's monitoring host:
 
 * logs: `startup/nohup.out`, `log.txt` and live sync's own log, and a heartbeat
-  every 30 s (kit and image version, client state, host name and IP address);
+  every 30 s (kit and image version, client state, host name and IP address,
+  and the folder paths of the kit and of the current run);
 * `stamp_metrics_summary.csv` of each run: per epoch the training and validation
   loss, the validation AUROC and the learning rate;
 * the swarm's global models of a run, `FL_global_model.pt` and
@@ -84,10 +86,14 @@ uploads to the operator's monitoring host:
   `MEDISWARM_SYNC_GLOBAL_MODELS=0` in `startup/sync.conf` keeps them at your site.
 
 These stay at your site: your local checkpoints (`*.ckpt`), TensorBoard files
-and `hparams.yaml` (STAMP writes your patient IDs into all three), and the
-per-patient prediction files `stamp_gt_predprob_*.csv` (uploaded only if you set
+and `hparams.yaml` (STAMP writes your patient IDs into all three), the console
+output of `--local_training`, and the per-patient prediction files
+`stamp_gt_predprob_*.csv` (uploaded only if you set
 `MEDISWARM_SYNC_PREDICTIONS=1` in `startup/sync.conf`). The swarm training code
 also keeps patient IDs out of the logs it writes.
+
+To change one of these settings, add the line to `startup/sync.conf`. The
+`startup/sync.conf.example` in kit 1.7.1 describes the ODELIA kits; ignore it.
 
 ## Prepare Dataset
 
@@ -366,11 +372,11 @@ must be gone before the new one starts.
 
 1. Check the zip: `sha256sum <SITE>_<version>.zip` must match the kit registry.
 2. Stop and remove the old client container:
-   `docker ps --format '{{.Names}}' | grep stamp_swarm_client` shows it, then
+   `docker ps -a --format '{{.Names}}' | grep stamp_swarm_client` shows it, then
    `docker rm -f stamp_swarm_client_<SITE>_<old id>`.
 3. Unzip the new kit into a **new** folder (not over the old one).
-4. Copy over your own edits, if any: `startup/sync.conf` (e.g. an `-i` key option)
-   and `startup/image.conf`.
+4. Copy over your own edits to `startup/sync.conf`, if any (e.g. an `-i` key
+   option). Keep the new kit's `startup/image.conf`: it names the image of the run.
 5. Export your `STAMP_*` settings, run `./docker.sh ... --preflight_check`, then
    `./docker.sh ... --start_client`.
 
