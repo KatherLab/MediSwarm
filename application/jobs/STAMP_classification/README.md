@@ -75,7 +75,8 @@ All STAMP-specific variables use the `STAMP_` prefix to avoid collision with ODE
 | `STAMP_MODEL_NAME` | `vit` | Model architecture: `vit`, `mlp`, `trans_mil`, `linear` (`barspoon` needs STAMP ≥ 2.5.0) |
 | `STAMP_FEATURE_TYPE` | *(auto-detect)* | Feature level: `tile`, `slide`, or `patient` |
 | `STAMP_DIM_INPUT` | `1024` | Input feature dimension (UNI/UNI2=1024, CTransPath=768) |
-| `STAMP_NUM_CLASSES` | `3` | Number of output classes |
+| `STAMP_NUM_CLASSES` | `3` | Number of output classes (a binary target such as MSI-High needs `2`) |
+| `STAMP_EXPECTED_CATEGORIES` | *(unset)* | Agreed class order, e.g. `no,yes`. When set, every site checks its inferred order before training and refuses to start on a mismatch (#519) |
 
 ### Optional — Training
 
@@ -87,9 +88,26 @@ All STAMP-specific variables use the `STAMP_` prefix to avoid collision with ODE
 | `STAMP_PATIENCE` | `16` | Early stopping patience |
 | `STAMP_MAX_LR` | `1e-4` | Maximum learning rate (OneCycleLR) |
 | `STAMP_DIV_FACTOR` | `25.0` | OneCycleLR div_factor |
-| `STAMP_EPOCHS_PER_ROUND` | `5` | Local epochs per swarm round |
+| `STAMP_EPOCHS_PER_ROUND` | `5` | Local epochs per swarm round at the reference dataset size; scaled by each site's patient count (`STAMP_EPOCHS_REFERENCE_DATASET_SIZE`, default 200; at most `STAMP_EPOCHS_MAX_CAP`, default 20) |
 | `STAMP_NUM_WORKERS` | `min(cpu_count, 8)` | DataLoader workers |
-| `STAMP_SEED` | `42` | Random seed |
+| `STAMP_SEED` | `42` | Passed to STAMP's config, but this job does not seed the run with it (STAMP seeds only from its own CLI). The train/validation split is fixed anyway: STAMP splits with `random_state=0` over the clinical table's row order |
+| `STAMP_REQUIRE_GPU` | *(unset)* | `1` makes the run fail at the start when the container sees no GPU, instead of training on the CPU in full precision (benchmark jobs set it) |
+
+## Metrics and run safeguards
+
+- **Best model.** `IntimeModelSelector` keeps the global model with the highest `validation_auroc`,
+  each site's validation AUROC of the received global model. STAMP 2.4.0 feeds raw logits to that
+  metric, which torchmetrics scores as probabilities whenever a sample's logits lie inside [0, 1];
+  `stamp_training.use_probabilities_for_validation_auroc` makes it score softmax probabilities, so
+  the selected round is the one with the best real AUROC.
+- **Scheduler horizon.** The OneCycleLR schedule is sized for the job's own `num_rounds`
+  (`resolve_total_rounds`, #520), so the server cannot outrun it.
+- **Timeouts** (stock CCWF controllers, no fault tolerance: every site must finish). The server
+  aborts after 30 min of silence from one client (`max_status_report_interval`) or 2 h without a
+  finished round anywhere (`progress_timeout`, below the clients' `learn_task_timeout` of 8 h, which
+  would otherwise aggregate a round without the stuck site). A site waits up to 60 s for the
+  aggregator's permission to submit, and the pipes to the training subprocess tolerate 30 min
+  without a heartbeat.
 
 ## Data Requirements
 
@@ -160,7 +178,7 @@ nvflare job submit -j application/jobs/STAMP_classification
 | Data splitting | Internal stratified split | Each site has its own data |
 | Training loop | Single `trainer.fit()` | NVFlare-controlled rounds |
 | Model aggregation | N/A | Weighted federated averaging |
-| Privacy | N/A | Percentile privacy filter on gradients |
+| Privacy | N/A | Only model weights leave a site, through the swarm; no DP noise in this job (the inert PercentilePrivacy filter was removed, #642) |
 | Configuration | YAML config file | Environment variables |
 | Preprocessing | Integrated pipeline | Standalone (run before training) |
 | Deployment | Integrated pipeline | Standalone (run after training) |
