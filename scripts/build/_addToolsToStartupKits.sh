@@ -40,6 +40,10 @@ SETUP_SOURCE="$REPO_ROOT/scripts/client_node_setup"
 # file in the folder does not match, so a new kind of helper cannot be dropped silently.
 SETUP_PATTERNS=("*.sh" "*.service" "*.timer" "*.md")
 
+# DECADE (STAMP) client kits leave out the ODELIA-only helpers: the GoodAccess VPN service (DECADE
+# sites reach the coordinator over Tailscale) and the ODELIA dataset download scripts.
+ODELIA_ONLY_SETUP_FILES=" mediswarm-vpn.service mediswarm_vpn_lib.sh setup_vpntunnel.sh vpn_health_monitor.sh vpn_service_start.sh get_dataset_gdown.sh get_dataset_scp.sh "
+
 # Admin tools shipped by path when the checkout has them. Sibling modules they import from
 # scripts/admin/ are shipped too, so a tool that splits out a helper keeps working.
 ADMIN_TOOLS=("scripts/admin/build_consortium_job.py" "scripts/admin/watch_run.py")
@@ -56,13 +60,19 @@ _kit_kind() {
   fi
 }
 
+_is_stamp_kit() { grep -q 'stamp_swarm_' "$1/startup/docker.sh" 2>/dev/null; }
+
 _add_client_node_setup() {
-  local kit="$1" dest pattern file copied=0
+  local kit="$1" dest pattern file copied=0 stamp=0
   dest="$kit/scripts/client_node_setup"
   mkdir -p "$dest"
+  _is_stamp_kit "$kit" && stamp=1
   for pattern in "${SETUP_PATTERNS[@]}"; do
     for file in "$SETUP_SOURCE"/$pattern; do
       [ -f "$file" ] || continue
+      if [ "$stamp" = 1 ] && [[ "$ODELIA_ONLY_SETUP_FILES" == *" $(basename "$file") "* ]]; then
+        continue
+      fi
       cp "$file" "$dest/"
       case "$file" in
         *.sh) chmod 755 "$dest/$(basename "$file")" ;;
