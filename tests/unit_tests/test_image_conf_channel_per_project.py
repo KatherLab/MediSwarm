@@ -11,6 +11,7 @@ These tests run the real injector against a throwaway workspace and assert the r
 image.conf follows the project YAML's docker_image line.
 """
 
+import os
 import shutil
 import subprocess
 import textwrap
@@ -22,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 INJECTOR = REPO_ROOT / "scripts" / "build" / "_injectLiveSyncIntoStartupKits.sh"
 
 
-def _run_injector(tmp_path, project_name, docker_image):
+def _run_injector(tmp_path, project_name, docker_image, env=None, check=True):
     """Provision a minimal fake kit tree, run the injector, return image.conf text."""
     workspace = REPO_ROOT / "workspace" / project_name
     startup = workspace / "prod_00" / "SITE_1" / "startup"
@@ -43,14 +44,20 @@ def _run_injector(tmp_path, project_name, docker_image):
         )
     )
 
+    run_env = {k: v for k, v in os.environ.items() if not k.startswith("MEDISWARM_") and k != "VERSION"}
+    run_env["MEDISWARM_UPLOAD_KEYS"] = "0"
+    run_env.update(env or {})
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["bash", str(INJECTOR), str(project_yml)],
             cwd=REPO_ROOT,
-            check=True,
+            check=check,
             capture_output=True,
             text=True,
+            env=run_env,
         )
+        if not check and result.returncode != 0:
+            return result
         return (startup / "image.conf").read_text()
     finally:
         shutil.rmtree(workspace, ignore_errors=True)
@@ -98,3 +105,24 @@ def test_real_project_yamls_map_to_their_own_consortium(tmp_path):
         value = line.split("docker_image:", 1)[1].strip()
         repo = value.rsplit(":", 1)[0] if "/" not in value.rsplit(":", 1)[-1] else value
         assert f"{repo}:current" == expected, f"{yml_name} would follow the wrong channel"
+
+
+def test_example_tag_follows_the_kit_version(tmp_path):
+    """A DECADE kit's 'pin a version' example named ODELIA's version, a tag jefftud/decade never had."""
+    conf = _run_injector(tmp_path, "test_channel_example_tag", "jefftud/decade:1.7.1", env={"VERSION": "1.7.1"})
+    assert "MEDISWARM_IMAGE=jefftud/decade:1.7.1" in conf  # the commented example
+    assert "MEDISWARM_IMAGE=jefftud/decade:current" in conf.splitlines()
+
+
+def test_a_pinned_kit_image_replaces_the_channel(tmp_path):
+    conf = _run_injector(tmp_path, "test_channel_pinned", "jefftud/decade:1.7.1",
+                         env={"VERSION": "1.7.1", "MEDISWARM_KIT_IMAGE": "jefftud/decade:1.7.1"})
+    active = [line for line in conf.splitlines() if line.startswith("MEDISWARM_IMAGE=")]
+    assert active == ["MEDISWARM_IMAGE=jefftud/decade:1.7.1"]
+    assert "pinned to one image" in conf
+
+
+def test_a_pin_to_another_repository_is_refused(tmp_path):
+    result = _run_injector(tmp_path, "test_channel_foreign_pin", "jefftud/decade:1.7.1",
+                           env={"MEDISWARM_KIT_IMAGE": "jefftud/odelia:1.9.3"}, check=False)
+    assert result.returncode != 0 and "is not an image of jefftud/decade" in result.stderr

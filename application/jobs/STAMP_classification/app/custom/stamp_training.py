@@ -38,6 +38,93 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# No patient identifiers in logs or TensorBoard files
+# ---------------------------------------------------------------------------
+#
+# In a swarm run the client's console log (nohup.out), log.txt and the run's TensorBoard
+# event files go to the monitoring host. STAMP 2.4.0 puts patient identifiers into both:
+#
+# - four data-consistency warnings list them ("some patients have no clinical information:
+#   {...}", no associated slides, no feature file, feature files not found), and other
+#   messages name a feature file, whose name is usually the slide's or patient's ID
+#   ("<path>/<ID>.h5: tile stride is roughly 224, ... (historic STAMP format)");
+# - its Lightning model saves ``train_patients`` and ``valid_patients`` as hyperparameters,
+#   which the TensorBoard logger writes into hparams.yaml AND into the event files (every ID
+#   of the site's cohort, with its train/validation assignment).
+#
+# The filter keeps each warning with the number of affected items; the logger replaces the
+# two lists by their lengths. The checkpoints keep the lists; they stay at the site.
+
+_IDENTIFIER_LISTING_WARNINGS = (
+    "some patients have no clinical information",
+    "some patients have no associated slides",
+    "some feature files could not be found",
+    "Some patients have no feature file in",
+)
+_QUOTED_ITEM = re.compile(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"")
+_FEATURE_FILE = re.compile(r"[^\s'\",:;{}\[\]()]*\.h5\b")
+PATIENT_LIST_HPARAMS = ("train_patients", "valid_patients")
+
+
+class RedactIdentifiersFilter(logging.Filter):
+    """Replace the identifiers in STAMP's data-consistency warnings by their count."""
+
+    def filter(self, record):
+        try:
+            message = record.getMessage()
+        except Exception:  # noqa: BLE001 - never let logging fail
+            return True
+        for prefix in _IDENTIFIER_LISTING_WARNINGS:
+            if message.startswith(prefix):
+                # The collection follows the first ": {" (a set) or ": [" (a list). Without one,
+                # keep only the fixed wording: nothing of an unexpected format gets through.
+                starts = [i for i in (message.find(": {"), message.find(": [")) if i >= 0]
+                head, tail = (message[:min(starts)], message[min(starts) + 2:]) if starts else (prefix, "")
+                record.msg = f"{head}: {len(_QUOTED_ITEM.findall(tail))} (identifiers not logged)"
+                record.args = ()
+                return True
+        if ".h5" in message:
+            record.msg = _FEATURE_FILE.sub("<feature file>", message)
+            record.args = ()
+        return True
+
+
+def redact_stamp_identifier_warnings(stamp_logger=None):
+    """Attach RedactIdentifiersFilter to STAMP's logger ("stamp") once."""
+    stamp_logger = stamp_logger or logging.getLogger("stamp")
+    if not any(isinstance(f, RedactIdentifiersFilter) for f in stamp_logger.filters):
+        stamp_logger.addFilter(RedactIdentifiersFilter())
+    return stamp_logger
+
+
+redact_stamp_identifier_warnings()
+
+
+def _without_patient_lists(params):
+    """Copy of hyperparameters with each patient list replaced by its length."""
+    if params is None:
+        return params
+    try:
+        params = dict(params)
+    except (TypeError, ValueError):
+        params = dict(vars(params))
+    for key in PATIENT_LIST_HPARAMS:
+        if key in params:
+            try:
+                params[key] = f"{len(params[key])} patients (identifiers not logged)"
+            except TypeError:
+                params[key] = "(identifiers not logged)"
+    return params
+
+
+class PatientListFreeTensorBoardLogger(TensorBoardLogger):
+    """TensorBoardLogger that never writes STAMP's patient lists (hparams.yaml, event files)."""
+
+    def log_hyperparams(self, params, *args, **kwargs):
+        return super().log_hyperparams(_without_patient_lists(params), *args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
 # Environment configuration
 # ---------------------------------------------------------------------------
 
@@ -606,6 +693,83 @@ def verify_class_order(env: dict, model, expected_categories=None):
     return observed
 
 
+# ---------------------------------------------------------------------------
+# Validation AUROC on probabilities, not on raw logits
+# ---------------------------------------------------------------------------
+#
+# STAMP 2.4.0 feeds the classifier's raw logits to its torchmetrics
+# MulticlassAUROC (``model.valid_auroc.update(logits, ...)``), one validation
+# sample per update. torchmetrics applies a softmax only when a value of that
+# update lies outside [0, 1], so a sample whose logits all fall inside [0, 1]
+# (typical for a freshly initialised or barely trained head) is stored as raw
+# logits next to other samples stored as probabilities. The resulting
+# ``validation_auroc`` is not an AUROC: for an untrained model it came out well
+# below the AUROC of the model's own predictions. In a swarm run this value is the
+# key_metric IntimeModelSelector uses to pick the best global model, and the
+# per-site value the aggregator logs ("validation metric ... from client ...").
+
+
+def use_probabilities_for_validation_auroc(model) -> bool:
+    """Make STAMP's validation AUROC score softmax probabilities.
+
+    Wraps ``model.valid_auroc.update`` so every update receives
+    ``softmax(logits)``; torchmetrics then never sees raw logits, whatever the
+    batch size. Idempotent. Returns True when the metric was wrapped now, False
+    when the model has no ``valid_auroc`` (survival/regression) or it was
+    already wrapped.
+    """
+    metric = getattr(model, "valid_auroc", None)
+    if metric is None or not callable(getattr(metric, "update", None)):
+        return False
+    if getattr(metric, "_mediswarm_scores_probabilities", False):
+        return False
+    original_update = metric.update
+
+    def update_with_probabilities(preds, target, *args, **kwargs):
+        if torch.is_tensor(preds) and preds.is_floating_point() and preds.ndim == 2:
+            preds = torch.softmax(preds.float(), dim=1)
+        return original_update(preds, target, *args, **kwargs)
+
+    metric.update = update_with_probabilities
+    metric._mediswarm_scores_probabilities = True
+    logger.info("Validation AUROC is computed on softmax probabilities (raw logits before).")
+    return True
+
+
+# ---------------------------------------------------------------------------
+# GPU guard
+# ---------------------------------------------------------------------------
+#
+# Without a visible GPU, prepare_training silently trains on the CPU in full
+# precision ("Trainer precision: 32-true (task=classification, gpu=False)").
+# In a swarm run that is wrong twice: the site trains with another numeric
+# recipe than the others, and it is many times slower, so the whole round waits
+# for it. A long-running client loses its GPU when the host's Docker daemon is
+# reloaded with the systemd cgroup driver (F2) or after an NVIDIA driver update
+# without a reboot (F18). A job sets STAMP_REQUIRE_GPU=1 to fail at the start
+# instead.
+
+ENV_REQUIRE_GPU = "STAMP_REQUIRE_GPU"
+
+
+def require_gpu_if_configured(cuda_available=None):
+    """Raise RuntimeError when STAMP_REQUIRE_GPU is on and CUDA is not available."""
+    raw = os.environ.get(ENV_REQUIRE_GPU, "").strip().lower()
+    if raw not in ("1", "true", "yes"):
+        return
+    if cuda_available is None:
+        cuda_available = torch.cuda.is_available()
+    if cuda_available:
+        return
+    raise RuntimeError(
+        f"{ENV_REQUIRE_GPU}={raw}: this run must train on a GPU, but the container sees "
+        "none (torch.cuda.is_available() is False), so it would train on the CPU in full "
+        "precision. A GPU taken from a running container ('NVML: Unknown Error', F2) or an "
+        "NVIDIA driver update without a reboot (F18) are the usual causes. Run "
+        "./docker.sh --status on the host, fix what it reports, then start the client again."
+    )
+
+
 def _select_precision(task: str, use_gpu: bool) -> str:
     """Pick a Lightning precision that the task's loss can actually backprop.
 
@@ -662,6 +826,8 @@ def prepare_training(
         train_dl, valid_dl, model, checkpointing, trainer, output_dir, metric_callback
     """
     torch.set_float32_matmul_precision("high")
+    # Fail before loading any data when the job demands a GPU and there is none.
+    require_gpu_if_configured()
 
     output_dir = Path(env["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -691,6 +857,8 @@ def prepare_training(
         max_epochs_per_round=max_epochs,
         total_rounds=total_rounds,
     )
+    # validation_auroc must be a real AUROC: it picks the best global model.
+    use_probabilities_for_validation_auroc(model)
 
     # Determine monitor metric based on task
     task = env["task"]
@@ -737,7 +905,7 @@ def prepare_training(
     # TensorBoard logger is optional — gracefully degrade if tensorboard
     # is not installed (e.g. minimal Docker image, CI environments).
     try:
-        tb_logger = TensorBoardLogger(save_dir=output_dir)
+        tb_logger = PatientListFreeTensorBoardLogger(save_dir=output_dir)
     except (ModuleNotFoundError, ImportError):
         logger.warning("tensorboard not available — training will proceed without TensorBoard logging")
         tb_logger = False  # Lightning accepts False to disable logging

@@ -384,3 +384,17 @@ def test_site_texts_say_swarm_learning():
     texts = [("guide", GUIDE.read_text())] + [(k, template[k]) for k in ("readme_fc", "readme_fs", "readme_am")]
     for name, text in texts:
         assert "federated" not in text.lower(), f"{name}: partner-facing text says swarm learning"
+
+
+def test_a_decade_client_kit_gets_no_odelia_only_helpers(tmp_path):
+    """DECADE sites reach the coordinator over Tailscale: no GoodAccess VPN service, no ODELIA data scripts."""
+    prod = _fake_prod(tmp_path)
+    docker_sh = prod / "SITE_1" / "startup" / "docker.sh"
+    docker_sh.write_text(docker_sh.read_text() + "CONTAINER_NAME=stamp_swarm_client_SITE_1_abc1234\n")
+    result = _run(["bash", str(ADD_TOOLS), str(_project_yml(tmp_path))], tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    shipped = {p.name for p in (prod / "SITE_1" / "scripts" / "client_node_setup").iterdir()}
+    assert "fix_docker_cgroupfs.sh" in shipped and "gpu_health_check.sh" in shipped
+    for odelia_only in ("mediswarm-vpn.service", "setup_vpntunnel.sh", "vpn_health_monitor.sh",
+                        "vpn_service_start.sh", "mediswarm_vpn_lib.sh", "get_dataset_gdown.sh", "get_dataset_scp.sh"):
+        assert odelia_only not in shipped

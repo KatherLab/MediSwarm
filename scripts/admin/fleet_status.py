@@ -35,7 +35,7 @@ What a heartbeat is and when it is written (kit_live_sync/live_sync.sh, build_he
   1.9.0 client does heartbeat, before it ever receives a job. Once a job folder exists the
   heartbeat goes there with status ``running`` on every cycle, also after the job ended:
   ``running`` means "the daemon runs and this is the newest job", not "training".
-* A 1.9.0 daemon (``live_sync_version`` 3) ends about 10 minutes after its kit's client
+* A daemon since 1.9.0 (``live_sync_version`` 3, 4 since DECADE 1.7.1) ends about 10 minutes after its kit's client
   container stopped (60 minutes after start if it never ran) and uploads a last heartbeat with
   status ``stopped``; when docker.sh stops it, it writes ``heartbeat_final.json``. Daemons of
   older kits (``sync_version`` 2) run until killed, whether or not a client runs.

@@ -57,16 +57,37 @@ inference (deployment) remain standalone steps that each site runs locally.
     4. You may want to clone this repository or selectively download VPN-related
        scripts for this purpose.
 
-3. **Share an SSH public key with your swarm operator (for live-sync log
-   collection).** During a run, a small live-sync helper pushes only log/metadata
-   files (never patient data) to the operator's monitoring host so they can help
-   if a node stalls. Generate a key and send the operator the **public** half:
+3. **Share an SSH public key with your swarm operator (for live sync).** While
+   your client runs, a small helper (live sync) uploads monitoring files to the
+   operator's host, so the operator can help when a node stalls. See
+   [What leaves your site](#what-leaves-your-site). Generate a key and send the
+   operator the **public** half:
    ```bash
    ssh-keygen -t ed25519 -C "$(hostname)@mediswarm"   # press Enter for defaults
    cat ~/.ssh/id_ed25519.pub                            # send THIS line to your operator
    ```
    Never send the private key. The operator authorizes your public key on the
    monitoring host and confirms.
+
+### What leaves your site
+
+Swarm learning exchanges model weights between the sites; your clinical table
+and feature files never leave your node. Live sync (kit 1.7.1 and later)
+uploads to the operator's monitoring host:
+
+* logs: `startup/nohup.out`, `log.txt` and live sync's own log, and a heartbeat
+  every 30 s (kit and image version, client state, host name and IP address);
+* `stamp_metrics_summary.csv` of each run: per epoch the training and validation
+  loss, the validation AUROC and the learning rate;
+* the swarm's global models of a run, `FL_global_model.pt` and
+  `best_FL_global_model.pt`: weights only, which every site of the run holds.
+  `MEDISWARM_SYNC_GLOBAL_MODELS=0` in `startup/sync.conf` keeps them at your site.
+
+These stay at your site: your local checkpoints (`*.ckpt`), TensorBoard files
+and `hparams.yaml` (STAMP writes your patient IDs into all three), and the
+per-patient prediction files `stamp_gt_predprob_*.csv` (uploaded only if you set
+`MEDISWARM_SYNC_PREDICTIONS=1` in `startup/sync.conf`). The swarm training code
+also keeps patient IDs out of the logs it writes.
 
 ## Prepare Dataset
 
@@ -212,20 +233,21 @@ export STAMP_FEATURE_DIR="/data/<SITE_NAME>/features"
 export STAMP_GROUND_TRUTH_LABEL="<column name>"   # e.g. "Diagnosis"
 export STAMP_PATIENT_LABEL="PATIENT"               # patient ID column name
 
-# ── Task & Model ──
+# ── Task & Model (the values your operator gives for the run) ──
 export STAMP_TASK="classification"                 # classification, regression, or survival
 export STAMP_MODEL_NAME="vit"                      # vit, mlp, trans_mil, linear
 export STAMP_DIM_INPUT="1024"                      # must match your feature extractor
-export STAMP_NUM_CLASSES="3"                        # number of output classes
+export STAMP_NUM_CLASSES="2"                       # e.g. 2 for a yes/no target
+export STAMP_EXPECTED_CATEGORIES="no,yes"          # the agreed class order (checked before training)
 
-# ── Training (defaults shown — adjust as needed) ──
-export STAMP_BAG_SIZE="512"                        # tiles per bag
-export STAMP_BATCH_SIZE="64"                       # training batch size
-export STAMP_MAX_EPOCHS="32"                       # max epochs per round
-export STAMP_PATIENCE="16"                         # early stopping patience
-export STAMP_SEED="42"                             # random seed
-export STAMP_NUM_WORKERS="0"                       # DataLoader workers (0 = main thread)
+# ── Your node ──
+export STAMP_NUM_WORKERS="2"                       # DataLoader workers (0 = main thread)
 ```
+
+Leave the training settings (`STAMP_BAG_SIZE`, `STAMP_BATCH_SIZE`, `STAMP_MAX_LR`,
+`STAMP_MAX_EPOCHS`, ...) at their defaults: in a swarm run the job sets the model,
+the classes and the training recipe for every site, and your local baseline is
+only comparable with the same defaults.
 
 **Note:** The paths in `STAMP_CLINI_TABLE` and `STAMP_FEATURE_DIR` are
 **container paths**. The host `--data_dir` is mounted at `/data/` inside the
@@ -246,6 +268,14 @@ Your swarm operator will tell you the correct values for `STAMP_MODEL_NAME`,
 | TransMIL | `trans_mil` | Transformer-based multiple instance learning |
 | Linear | `linear` | Linear classifier |
 | Barspoon | `barspoon` | Encoder-decoder transformer — **not available**: requires STAMP ≥ 2.5.0, the swarm image ships 2.4.0 |
+
+### Check Your Node
+
+`./docker.sh --status` (from the kit's `startup` folder) is a read-only report:
+kit and image version, the client container and its GPU, the `STAMP_*` settings
+the running client was started with, live sync, the NVIDIA and Docker cgroup
+driver, the swarm server and the lock files. Send its output when you ask the
+operator for help. Run it as the user that runs the client (no `sudo`).
 
 ### Local Testing on Your Data
 
@@ -279,7 +309,11 @@ Your swarm operator will tell you the correct values for `STAMP_MODEL_NAME`,
    ```
    * This runs 1 epoch of training on your local data as a quick smoke test.
    * Check `preflight_check_console_output.txt` for errors about missing H5
-     files, mismatched patient IDs, or incorrect feature dimensions.
+     files, mismatched patient IDs, or incorrect feature dimensions. The line
+     `Total samples: N | Class no: X | Class yes: Y` shows the class counts STAMP
+     found (counts only; you can share it).
+   * It is safe to run next to a running client: it gets a container name of its
+     own and leaves the client alone.
 
 5. Check your local dataset for discrepancies:
    * There should be no duplicate patient IDs in the clinical table.
@@ -310,11 +344,11 @@ To have a baseline for swarm training, train the same model locally:
 
 3. Output files:
    * Console output: `startup/local_training_console_output.txt`
-   * Training results are stored in `$SCRATCHDIR/` under a timestamped run
-     directory, including:
-     * Model checkpoints (`best.ckpt`, `last.ckpt`)
-     * Training logs
-     * Validation metrics
+   * Training results are stored in `$SCRATCHDIR/runs/$SITE_NAME/` under a
+     timestamped run directory (`STAMP_vit_<date>`), including:
+     * Model checkpoints (`best_model.ckpt`, `last_model.ckpt`)
+     * `stamp_metrics_summary.csv` (per-epoch losses, validation AUROC)
+     * Per-patient predictions `stamp_gt_predprob_*.csv` (stay at your site)
 
 ### Start Swarm Node
 
@@ -323,6 +357,26 @@ To have a baseline for swarm training, train the same model locally:
 1. Connect to VPN as described in [VPN setup guide(GUI).pdf](../VPN%20setup%20guide%28GUI%29.pdf)
    (GUI) or [VPN setup guide(CLI).md](../VPN%20setup%20guide%28CLI%29.md)
    (command line).
+
+#### Move to a New Kit
+
+A new kit replaces the old one on your node; certificates and your site name
+stay the same. Only one client per site can be in the swarm, so the old client
+must be gone before the new one starts.
+
+1. Check the zip: `sha256sum <SITE>_<version>.zip` must match the kit registry.
+2. Stop and remove the old client container:
+   `docker ps --format '{{.Names}}' | grep stamp_swarm_client` shows it, then
+   `docker rm -f stamp_swarm_client_<SITE>_<old id>`.
+3. Unzip the new kit into a **new** folder (not over the old one).
+4. Copy over your own edits, if any: `startup/sync.conf` (e.g. an `-i` key option)
+   and `startup/image.conf`.
+5. Export your `STAMP_*` settings, run `./docker.sh ... --preflight_check`, then
+   `./docker.sh ... --start_client`.
+
+`--start_client` refuses to start while a client container of another kit runs
+for your site (it prints the `docker rm -f` command), and it stops the old kit's
+live-sync helper itself.
 
 #### Start the Client
 
@@ -359,13 +413,28 @@ To have a baseline for swarm training, train the same model locally:
 ### Container Running Properly?
 
 ```bash
-docker ps          # Check if stamp_swarm_client_$SITE_NAME is listed
-nvidia-smi         # Check if the GPU is busy training
-tail -f nohup.out  # Follow training log
+./docker.sh --status   # read-only report of this node
+docker ps              # Check if stamp_swarm_client_$SITE_NAME is listed
+nvidia-smi             # Check if the GPU is busy training
+tail -f nohup.out      # Follow training log
 ```
 
 For any issues, check if the commands above point to problems and contact your
 Swarm Operator.
+
+* **Never delete `daemon_pid.fl` or `pid.fl` while the client runs**: without them
+  the client starts a second copy of itself, and the two push each other out of
+  the swarm. To restart a client, remove its container (`docker rm -f ...`) and run
+  `--start_client` again; the new container clears old lock files itself.
+* **`Driver/library version mismatch` from `nvidia-smi`**: an automatic update
+  replaced the NVIDIA libraries while the old driver is still loaded. A running
+  client keeps its GPU, but no new container gets one: reboot the node, then start
+  the client again. Hold the driver packages during a run
+  (`sudo apt-mark hold <the nvidia packages>`; `--status` names them).
+* **Docker cgroup driver `systemd`** (`--status` warns): a `systemctl
+  daemon-reload`, e.g. by an automatic update, can take the GPU away from a
+  running client ("NVML: Unknown Error"). `scripts/client_node_setup/fix_docker_cgroupfs.sh`
+  in the kit switches Docker to `cgroupfs` (it restarts Docker, so not during a run).
 
 ### STAMP Environment Variables Not Forwarded?
 

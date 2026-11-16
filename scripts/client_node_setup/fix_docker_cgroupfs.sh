@@ -55,7 +55,7 @@ fi
 echo "      Docker OK. driver = $(docker info 2>/dev/null | sed -n 's/.*Cgroup Driver: //p' | head -1)"
 
 echo "[4/4] Validating that a daemon-reload no longer strips the GPU…"
-C=$(docker ps --filter name=odelia_swarm_client --format '{{.Names}}' | head -1)
+C=$(docker ps --filter name=_swarm_client_ --format '{{.Names}}' | head -1)   # ODELIA or DECADE client
 if [ -n "$C" ]; then
     systemctl daemon-reload; sleep 3
     if docker exec "$C" nvidia-smi -L >/dev/null 2>&1; then
@@ -65,7 +65,7 @@ if [ -n "$C" ]; then
         echo "            docker rm -f $C ; remove the kit's daemon_pid.fl ; ./docker.sh --start_client"
     fi
 else
-    echo "      (No running odelia_swarm_client container to validate against — that's fine.)"
+    echo "      (No running swarm client container to validate against — that's fine.)"
 fi
 
 echo

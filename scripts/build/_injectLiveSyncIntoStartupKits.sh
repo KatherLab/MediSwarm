@@ -27,11 +27,29 @@ case "${_docker_image_value##*:}" in
   *)      IMAGE_REPO="${_docker_image_value%:*}" ;;
 esac
 
-# Only used to make the "pin a specific version" example in image.conf concrete.
-PINNED_EXAMPLE_TAG="$(grep -m1 -E '^[0-9]' odelia_image.version 2>/dev/null | tr -d '[:space:]' || true)"
+# Only used to make the "pin a specific version" example in image.conf concrete: the version of
+# these kits (_buildStartupKits.sh exports VERSION), else ODELIA's version file. A DECADE kit
+# took ODELIA's version from that file, a tag jefftud/decade never had.
+PINNED_EXAMPLE_TAG="${VERSION:-}"
+case "$PINNED_EXAMPLE_TAG" in [0-9]*) ;; *) PINNED_EXAMPLE_TAG="" ;; esac
+if [ -z "$PINNED_EXAMPLE_TAG" ]; then
+  PINNED_EXAMPLE_TAG="$(grep -m1 -E '^[0-9]' odelia_image.version 2>/dev/null | tr -d '[:space:]' || true)"
+fi
 PINNED_EXAMPLE_TAG="${PINNED_EXAMPLE_TAG:-1.6.0}"
 
-echo "Release channel for these kits: ${IMAGE_REPO}:current"
+# MEDISWARM_KIT_IMAGE pins the kits' image.conf to one image (e.g. jefftud/decade:1.7.1 for a
+# benchmark whose rounds must all run the same image) instead of the release channel. It must
+# be this project's repository.
+KIT_IMAGE_PIN="${MEDISWARM_KIT_IMAGE:-}"
+if [ -n "$KIT_IMAGE_PIN" ]; then
+  case "$KIT_IMAGE_PIN" in
+    "$IMAGE_REPO":?*|"$IMAGE_REPO"@sha256:?*) ;;
+    *) echo "ERROR: MEDISWARM_KIT_IMAGE=$KIT_IMAGE_PIN is not an image of $IMAGE_REPO" >&2; exit 1 ;;
+  esac
+  echo "Image of these kits (pinned): ${KIT_IMAGE_PIN}"
+else
+  echo "Release channel for these kits: ${IMAGE_REPO}:current"
+fi
 
 HELPER_SOURCE_DIR="kit_live_sync"
 SYNC_CONF_SOURCE="$HELPER_SOURCE_DIR/sync.conf"
@@ -267,6 +285,20 @@ find "$TARGET_FOLDER" -mindepth 1 -maxdepth 1 -type d | sort | while read -r KIT
   # off this one build script (ODELIA -> jefftud/odelia, DECADE -> jefftud/decade), so
   # a hardcoded repo here silently hands one consortium the other's image. $IMAGE_REPO
   # is derived from the project YAML's docker_image line for exactly that reason.
+  if [ ! -f "$STARTUP_DIR/image.conf" ] && [ -n "$KIT_IMAGE_PIN" ]; then
+    cat > "$STARTUP_DIR/image.conf" <<IMAGECONF
+# Which image this node runs. Read by docker.sh on every run.
+#
+# This kit is pinned to one image, so every round of the study runs the same
+# code even when a newer release ships. The Run Board's "Run schedule" tab names
+# the image of each run; change this line only when we ask you to.
+#
+# To follow the release channel instead:
+#   MEDISWARM_IMAGE=${IMAGE_REPO}:current
+# For a one-off without editing this file:  ./docker.sh --image <ref> ...
+MEDISWARM_IMAGE=${KIT_IMAGE_PIN}
+IMAGECONF
+  fi
   if [ ! -f "$STARTUP_DIR/image.conf" ]; then
     cat > "$STARTUP_DIR/image.conf" <<IMAGECONF
 # Which image this node runs. Read by docker.sh on every run.
@@ -283,7 +315,8 @@ MEDISWARM_IMAGE=${IMAGE_REPO}:current
 IMAGECONF
   fi
 
-  if [ -f "$STARTUP_DIR/fl_admin.sh" ]; then
+  # The warm-start job helper and its patcher prepare ODELIA jobs: not for a DECADE (STAMP) admin kit.
+  if [ -f "$STARTUP_DIR/fl_admin.sh" ] && ! grep -q 'stamp_swarm_' "$ORIGINAL_DOCKER_SH"; then
     cp "$ADMIN_HELPER_SOURCE" "$STARTUP_DIR/prepare_odelia_job.sh"
     cp "$ADMIN_PATCHER_SOURCE" "$STARTUP_DIR/patch_warm_start_job.py"
     chmod +x "$STARTUP_DIR/prepare_odelia_job.sh"
