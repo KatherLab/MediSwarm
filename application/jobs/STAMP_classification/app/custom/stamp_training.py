@@ -45,7 +45,9 @@ logger = logging.getLogger(__name__)
 # event files go to the monitoring host. STAMP 2.4.0 puts patient identifiers into both:
 #
 # - four data-consistency warnings list them ("some patients have no clinical information:
-#   {...}", no associated slides, no feature file, feature files not found);
+#   {...}", no associated slides, no feature file, feature files not found), and other
+#   messages name a feature file, whose name is usually the slide's or patient's ID
+#   ("<path>/<ID>.h5: tile stride is roughly 224, ... (historic STAMP format)");
 # - its Lightning model saves ``train_patients`` and ``valid_patients`` as hyperparameters,
 #   which the TensorBoard logger writes into hparams.yaml AND into the event files (every ID
 #   of the site's cohort, with its train/validation assignment).
@@ -60,6 +62,7 @@ _IDENTIFIER_LISTING_WARNINGS = (
     "Some patients have no feature file in",
 )
 _QUOTED_ITEM = re.compile(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"")
+_FEATURE_FILE = re.compile(r"[^\s'\",:;{}\[\]()]*\.h5\b")
 PATIENT_LIST_HPARAMS = ("train_patients", "valid_patients")
 
 
@@ -79,7 +82,10 @@ class RedactIdentifiersFilter(logging.Filter):
                 head, tail = (message[:min(starts)], message[min(starts) + 2:]) if starts else (prefix, "")
                 record.msg = f"{head}: {len(_QUOTED_ITEM.findall(tail))} (identifiers not logged)"
                 record.args = ()
-                break
+                return True
+        if ".h5" in message:
+            record.msg = _FEATURE_FILE.sub("<feature file>", message)
+            record.args = ()
         return True
 
 

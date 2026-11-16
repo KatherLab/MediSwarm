@@ -81,6 +81,18 @@ def test_an_unexpected_format_keeps_only_the_fixed_wording(stamp_logger):
     assert logged == "some patients have no clinical information: 0 (identifiers not logged)"
 
 
+@pytest.mark.parametrize("message, expected", [
+    ("/data/S/features/DA-X-0001-TU.h5: tile stride is roughly 224, assuming coordinates have unit "
+     "256um/224px (historic STAMP format)",
+     "<feature file>: tile stride is roughly 224, assuming coordinates have unit 256um/224px (historic STAMP format)"),
+    ("could not read DA-X-0002.h5, skipping", "could not read <feature file>, skipping"),
+])
+def test_feature_file_names_are_not_logged(stamp_logger, message, expected):
+    logged = _logged(stamp_logger, message)
+    assert logged == expected
+    assert not any(pid in logged for pid in IDS)
+
+
 def test_other_messages_are_unchanged(stamp_logger):
     message = "Kept 1741/1741 patients with complete data (100.0%)."
     assert _logged(stamp_logger, message) == message
