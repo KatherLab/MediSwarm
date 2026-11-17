@@ -285,6 +285,13 @@ class _LearnScatterRetryEngine:
                 if rc == ReturnCode.TIMEOUT:
                     last_timeout_responses[target] = reply
                     retry_targets.append(target)
+                elif rc == ReturnCode.MODEL_UNRECOGNIZED:
+                    self._controller.log_info(
+                        fl_ctx,
+                        f"client {target} returned MODEL_UNRECOGNIZED for scatter round {current_round} "
+                        f"(already past this round) -- treating as acknowledged",
+                    )
+                    terminal_responses[target] = make_reply(ReturnCode.OK)
                 else:
                     # OK and every explicit non-timeout error are terminal.
                     terminal_responses[target] = reply
@@ -816,12 +823,12 @@ class FaultTolerantSwarmClientController(SwarmClientController):
                     )
                     return make_reply(ReturnCode.OK)
                 if current_round < last_round:
-                    self.log_error(
+                    self.log_info(
                         fl_ctx,
                         f"stale Learn request from {sender} for round {current_round}; "
-                        f"last accepted round is {last_round}",
+                        f"already advanced to round {last_round} -- acknowledging without rerun",
                     )
-                    return make_reply(ReturnCode.MODEL_UNRECOGNIZED)
+                    return make_reply(ReturnCode.OK)
 
             self.log_info(fl_ctx, f"Got Learn request from {sender}")
             if self.learn_task and not self.allow_busy_task:
@@ -923,12 +930,45 @@ class FaultTolerantSwarmServerController(SwarmServerController):
     and the strict gatherer waits for it. Pruning there would turn a survivable
     outage into a failed benchmark, so a disconnect is only logged."""
 
-    def __init__(self, *args, prune_notify_timeout: float = 30.0, **kwargs):
+    def __init__(self, *args, prune_notify_timeout: float = 30.0, dead_client_grace: float = 14400.0, **kwargs):
         if prune_notify_timeout <= 0:
             raise ValueError("prune_notify_timeout must be positive")
+        if dead_client_grace <= 0:
+            raise ValueError("dead_client_grace must be positive")
         super().__init__(*args, **kwargs)
         self.prune_notify_timeout = prune_notify_timeout
+        self.dead_client_grace = dead_client_grace
         self.pruned_clients = []
+
+    def _apply_communicator_grace(self, communicator):
+        if hasattr(communicator, "_dead_client_grace"):
+            communicator._dead_client_grace = max(
+                float(getattr(communicator, "_dead_client_grace", 60.0) or 60.0),
+                float(self.dead_client_grace),
+            )
+
+    def set_communicator(self, communicator):
+        super().set_communicator(communicator)
+        self._apply_communicator_grace(communicator)
+        orig_init = getattr(communicator, "initialize_run", None)
+        if callable(orig_init):
+            def _wrapped_init_run(fl_ctx):
+                res = orig_init(fl_ctx)
+                self._apply_communicator_grace(communicator)
+                return res
+            communicator.initialize_run = _wrapped_init_run
+        orig_policy = getattr(communicator, "_job_policy_violated", None)
+        if callable(orig_policy):
+            def _wrapped_job_policy_violated():
+                if not self._can_prune_one():
+                    return False
+                return orig_policy()
+            communicator._job_policy_violated = _wrapped_job_policy_violated
+
+    def start_controller(self, fl_ctx: FLContext):
+        if self.communicator is not None:
+            self._apply_communicator_grace(self.communicator)
+        super().start_controller(fl_ctx)
 
     def _active_clients(self):
         return list(self.client_statuses.keys())
