@@ -49,8 +49,8 @@ submit_job /fl_admin/local/mediswarm_jobs/odelia_cam_sammed2d_20r_7site
 | Kit 1.9.3 (`prod_07`), image `jefftud/odelia:1.9.3` through `:current` | every site | every run |
 | Coordinator on the 1.9.3 server kit, archive mounted at `/archive` | coordinator | every run; `cam` |
 | Data access fixed at VHIO_1 (in October its node could not open part of its validation images) | VHIO_1 | VHIO_1 in any run |
-| Per-case return on: `--env ODELIA_RETURN_PER_CASE=1` in the `MEDISWARM_DOCKER_OPTIONS` line of `startup/image.conf` | RUMC_1 (not yet on); UMCU_1 and MHA_1 (on since October, kept by `--migrate_from`) | D2.5; useful for D3.2 |
-| The August model at `/scratch/odelia_87c5bbee_global.pt` (see below) | UMCU_1; MHA_1 | D2.5, D3.2 |
+| Per-case return on: `--env ODELIA_RETURN_PER_CASE=1` in the `MEDISWARM_DOCKER_OPTIONS` line of `startup/image.conf` | RUMC_1 (not yet on); MHA_1 (on since October); UMCU_1 (off after its 22 Oct reinstall, on again since 19 Nov) | D2.5; useful for D3.2 |
+| The August model at `/scratch/odelia_87c5bbee_global.pt` (see below) | UMCU_1 (since 19 Nov); MHA_1 | D2.5, D3.2 |
 | BreastDivider crops in `data_unilateral_BD/` and `metadata_unilateral_BD/`, checked with the node ([BREASTDIVIDER_SITE_GUIDE.md](BREASTDIVIDER_SITE_GUIDE.md)) | every site | `bd` |
 
 Kit and image check, during the migration and again on the coordinator right before every
@@ -90,25 +90,29 @@ The digest is `state_digest.checkpoint_state_digest()` of the file, computed ins
 `jefftud/odelia:1.9.1`; to recompute it, run
 `python3 /MediSwarm/application/jobs/_shared/custom/state_digest.py <file>` in that image.
 
-At UMCU_1 (starting client of D2.5 Dutch and of every D3.2 arm) and MHA_1: download the file,
+At UMCU_1 (starting client of D2.5 Dutch and, by default, of every D3.2 arm) and MHA_1: download the file,
 save it as `odelia_87c5bbee_global.pt` in the folder passed to `docker.sh --scratch_dir`, and
 check that `sha256sum` prints the value above. The runs write their own mirrors
 (`/scratch/mediswarm_latest_global_<job name>.pt`) and never overwrite this file.
 
-## Schedule (proposed; the run board is authoritative)
+## Schedule (state of 23 November; the run board is authoritative)
 
 | When | Run | Preset | Training rounds | Expected duration |
 |---|---|---|---|---|
 | by Fri 23 Oct | sites on kit and image 1.9.3 | | | |
-| Mon 26 Oct | check job | `check` | 1 | about 2 h |
-| 27 to 29 Oct | Run A, CAM model | `cam` | 20 | not measured at consortium scale; three days reserved |
+| Mon 26 Oct | check job *(completed)* | `check` | 1 | about 2 h |
+| 23 to 31 Oct | Run A, CAM model *(completed: `6e9f134b`)* | `cam` | 20 | completed |
 | by 30 Oct | start model at UMCU_1 and MHA_1, per-case on at RUMC_1 | | | |
-| 2 to 3 Nov | Run B, VHIO model | `vhio` | 20 | about 17 to 21 h |
-| 4 to 5 Nov | D2.5 regional fine-tuning | `d25_dutch`; Greek cohort at MHA_1 by local training | 5 | about 6 to 7 h |
-| 9 to 11 Nov | D3.2 active learning, four arms | `d32_entropy_b20`, `d32_entropy_b40`, `d32_random_b20`, `d32_random_b40` | 5 each | at most about 13 h per arm |
-| 16 to 17 Nov | T3.3 DP utility | `dp_s24` | 20 | about 15 h |
-| by 20 Nov | BreastDivider crops at every site | | | |
-| 23 to 25 Nov | Run C, BreastDivider crops | `bd` | 20 | about 2 days |
+| 31 Oct to 1 Nov | Run B, VHIO model *(completed: `d3c0b657`)* | `vhio` | 20 | 13 h 13 min |
+| 4 to 11 Nov | V2 seeds 1 and 2 *(completed: `9c5b94a9` on seven sites, `f0ad1cb2` on eight)* | `v2_s1`, `v2_s2` | 20 each | 26 h 14 min and 27 h 46 min |
+| open | V2 seeds 3 and 4 | `v2_s3`, `v2_s4` | 20 each | about 28 h per seed |
+| 4 to 22 Nov | D2.5, cohort of MHA_1 by local training *(completed)* | `d25_greek` | | about 1 h |
+| open | D2.5, cohort of RUMC_1 and UMCU_1 (waits for per-case return at RUMC_1) | `d25_dutch` | 5 | about 6 to 7 h |
+| 11 to 12 Nov | D3.2, entropy, 20 cases *(completed: `154524e4`, started at MHA_1)* | `d32_entropy_b20` | 5 | 12 h 16 min |
+| open | D3.2, the other three arms (entropy 40 stopped on 13 Nov after a network drop) | `d32_entropy_b40`, `d32_random_b20`, `d32_random_b40` | 5 each | about 12 h per arm |
+| open | T3.3 DP utility | `dp_s24` | 20 | about 15 h |
+| 16 Nov onwards | BreastDivider crops at every site (done at CAM_1, MHA_1, RSH_1, VHIO_1 on 19 Nov) | | | |
+| postponed | Run C, BreastDivider crops (after the last site's checks) | `bd` | 20 | about 2 days |
 
 Durations come from the October MST run (rounds of 42 to 52 min, 15 h for 20 rounds on seven
 sites), the 2-site test of the VHIO model on dl3 (10 to 40% slower per round than MST), #526
@@ -178,6 +182,47 @@ in the image since 1.9.1.
 **After.** Every site logs
 `MedicalNet pretrained weights: /MediSwarm/pretrained_weights/resnet_34_23dataset.pth`. A site
 on an older image stops before training with an error that names `resnet_34_23dataset.pth`.
+
+### 3b. V2 multi-seed replication (`v2_s1`, `v2_s2`, `v2_s3`, `v2_s4`)
+
+**Purpose.** For the MVP vs. V2 clinical validation paper, the WP1 MVP model was trained 5 times
+with different random seeds and evaluated via the per-breast median predicted probability across
+all 5 seed runs (*Communications Medicine* `s43856-024-00722-5`). To evaluate MediSwarm V2
+(`challenge_1DivideAndConquer` / `ResidualEncoderClsLightning`, 20 rounds, `CONFIG=unilateral`)
+under the identical 5-seed median protocol (alongside the August 2026 seed-0 run `87c5bbee`),
+these four presets train `challenge_1DivideAndConquer` for 20 rounds (+ 1 evaluation-only final
+round) with `ODELIA_SEED` pinned to `1`, `2`, `3`, and `4`.
+
+```bash
+python3 scripts/admin/build_consortium_job.py --name odelia_v2_1dac_s1_20r_8site \
+    --base-job challenge_1DivideAndConquer --config unilateral --rounds 20 \
+    --sites CAM_1,MHA_1,RSH_1,RUMC_1,UKA_1,UMCU_1,USZ_1,VHIO_1 --starting-client CAM_1 \
+    --seed 1 --export-train-predictions 0 --archive-globals \
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
+
+python3 scripts/admin/build_consortium_job.py --name odelia_v2_1dac_s2_20r_8site \
+    --base-job challenge_1DivideAndConquer --config unilateral --rounds 20 \
+    --sites CAM_1,MHA_1,RSH_1,RUMC_1,UKA_1,UMCU_1,USZ_1,VHIO_1 --starting-client CAM_1 \
+    --seed 2 --export-train-predictions 0 --archive-globals \
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
+
+python3 scripts/admin/build_consortium_job.py --name odelia_v2_1dac_s3_20r_8site \
+    --base-job challenge_1DivideAndConquer --config unilateral --rounds 20 \
+    --sites CAM_1,MHA_1,RSH_1,RUMC_1,UKA_1,UMCU_1,USZ_1,VHIO_1 --starting-client CAM_1 \
+    --seed 3 --export-train-predictions 0 --archive-globals \
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
+
+python3 scripts/admin/build_consortium_job.py --name odelia_v2_1dac_s4_20r_8site \
+    --base-job challenge_1DivideAndConquer --config unilateral --rounds 20 \
+    --sites CAM_1,MHA_1,RSH_1,RUMC_1,UKA_1,UMCU_1,USZ_1,VHIO_1 --starting-client CAM_1 \
+    --seed 4 --export-train-predictions 0 --archive-globals \
+    --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
+```
+
+Each preset sets `--seed <k> --export-train-predictions 0 --archive-globals` with starting client
+`CAM_1`, seeding the training RNGs, `RandomSampler` batch order, and DataLoader worker
+augmentations via `reproducibility.py` while archiving every round's global checkpoint under
+`/archive/<job_id>/`.
 
 ### 4. D2.5 regional fine-tuning (`d25_dutch`, `d25_greek`)
 
@@ -308,8 +353,9 @@ python3 scripts/admin/build_consortium_job.py --name odelia_d32_random_b40_5r_8s
     --source image:jefftud/odelia:1.9.3 --out-dir <out-dir>
 ```
 
-**Sites.** All eight; UMCU_1 is the starting client of every arm and holds the start model (the
-same file as for D2.5).
+**Sites.** All eight; the preset's starting client is UMCU_1, which holds the start model (the
+same file as for D2.5) since 19 Nov. `154524e4` was built with `--starting-client MHA_1`, the only
+site that held the file at the time.
 
 **Duration.** #592 budgets 2.2 h per round, about 11 h per arm, plus the evaluation-only round.
 That is an upper bound: after the selection each site trains on 20 or 40 cases, so rounds 1 to 4
