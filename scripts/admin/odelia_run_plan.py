@@ -132,6 +132,19 @@ def _d32(strategy: str, budget: int) -> Preset:
     )
 
 
+def _v2_seed(seed: int) -> Preset:
+    return Preset(
+        key=f"v2_s{seed}",
+        stem=f"odelia_v2_1dac_s{seed}_20r",
+        title=f"V2 multi-seed replication (seed {seed}; 5-seed median ensemble with 87c5bbee): "
+              f"1DivideAndConquer, 20 rounds, CONFIG=unilateral, every global archived at TUD",
+        base_job=CHALLENGE_JOB,
+        starting_client="CAM_1",
+        flags=("--seed", str(seed), "--export-train-predictions", "0", "--archive-globals"),
+        needs=(NEEDS_KIT, "coordinator archive mounted at /archive (1.9.3 server kit)"),
+    )
+
+
 PRESETS: "OrderedDict[str, Preset]" = OrderedDict(
     (p.key, p)
     for p in (
@@ -157,6 +170,10 @@ PRESETS: "OrderedDict[str, Preset]" = OrderedDict(
             title="Run B, VHIO model: MedicalNet (ResNet-34 weights in the image since 1.9.1)",
             model="MedicalNet",
         ),
+        _v2_seed(1),
+        _v2_seed(2),
+        _v2_seed(3),
+        _v2_seed(4),
         Preset(
             key="d25_dutch",
             stem="odelia_d25_dutch_5r",

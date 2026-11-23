@@ -190,7 +190,19 @@ def parse_job_dir(job_dir, site):
 
 
 
-COORD_CONTAINER = "odelia_swarm_server_flserver_a19be57"
+def _detect_coord_container():
+    try:
+        import subprocess
+        r = subprocess.run(["docker", "ps", "--filter", "name=odelia_swarm_server_flserver", "--format", "{{.Names}}"],
+                           capture_output=True, text=True, timeout=5)
+        names = [line.strip() for line in r.stdout.splitlines() if line.strip()]
+        if names:
+            return names[0]
+    except Exception:
+        pass
+    return "odelia_swarm_server_flserver_ba35d9ed"
+
+COORD_CONTAINER = _detect_coord_container()
 
 
 def is_job_id(name: str) -> bool:

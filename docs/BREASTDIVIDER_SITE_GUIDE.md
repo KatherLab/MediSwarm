@@ -45,6 +45,10 @@ Use the number of a free GPU in `device=0`. Then check the end of
 `$DATADIR/$SITE_NAME/BD_Output/processing.log`: there must be no `[ERROR]` line and no line
 `N case(s) produced NO output`.
 
+The segmentation container needs an NVIDIA driver that supports CUDA 12.6 or newer (`nvidia-smi`
+shows the CUDA version in its header). With an older driver it does not start; keep the driver held
+during the run period and tell us, rather than updating it just before a run.
+
 ## Step 2: cropping (CPU)
 
 ```bash
@@ -61,6 +65,10 @@ python BD_main.py "$DATADIR/$SITE_NAME" --single-site --mode=normal --subs 1 --n
   `data_unilateral/`, where your current crops are.
 - Never copy or rename BreastDivider output into `data_unilateral/`, and never copy current crops
   into `data_unilateral_BD/`.
+- Some builds of the bundle write `segmentation_cleanup_removals` as a folder inside
+  `data_unilateral_BD/` (others as a `.csv` file). Move such a folder, and any folder without
+  `Sub_1.nii.gz`, out of `data_unilateral_BD/`: the node checks a sample of the folders there, and in
+  the strict mode of the November job a sampled folder without `Sub_1.nii.gz` stops the site at setup.
 
 ## Step 3: labels
 
@@ -73,6 +81,14 @@ same `annotation.csv` and `split.csv` apply. Keep each UID's fold and split, so 
 stay comparable with earlier runs. The node uses only crops whose UID is listed in both
 files, so extra crops (BreastDivider writes both sides even for single-breast exams) are ignored. If
 you want to add exams that only BreastDivider can serve, please agree this with us first.
+
+**If your UIDs are per exam** (they do not end in `_left` or `_right`), the copy does not match the
+crops. Write `metadata_unilateral_BD/` yourself instead, with one row per breast: UID
+`<CaseID>_left` or `<CaseID>_right` (`<CaseID>` = the folder name under `data/`), that breast's own
+`Lesion`, and both breasts keeping the exam's `Split` and `Fold`. Never copy an exam's label to both
+breasts: the healthy breast would be labelled as a lesion. Leave out exams whose lesion side is
+unknown, and tell us how many. In the count check, benign and malignant should then stay close to
+your exam counts, not double.
 
 Without `metadata_unilateral_BD/` the node falls back to `metadata_unilateral/` and logs a warning.
 The copy makes the choice explicit.

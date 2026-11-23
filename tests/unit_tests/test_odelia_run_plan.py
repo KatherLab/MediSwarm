@@ -57,6 +57,14 @@ def _d32(strategy, budget):
     )
 
 
+def _v2_seed(seed):
+    return dict(
+        base=CHALLENGE, model="1DivideAndConquer", config="unilateral", rounds=20, sites=SITES8, start="CAM_1",
+        warm=False, hooks=[], archive=True,
+        env={"ODELIA_SEED": str(seed), "ODELIA_EXPORT_TRAIN_PREDICTIONS": "0"},
+    )
+
+
 # What each run of the schedule must be (docs/ODELIA_RUN_PLAN_2026-Q4.md).
 EXPECTED = {
     "check": dict(base=ODELIA, model="MST", config="unilateral", rounds=1, sites=SITES8, start=None, warm=False,
@@ -67,6 +75,10 @@ EXPECTED = {
                      "ODELIA_MS6_CAPTURE_ROUNDS": "all"}),
     "vhio": dict(base=ODELIA, model="MedicalNet", config="unilateral", rounds=20, sites=SITES8, start=None,
                  warm=False, hooks=[], env={}),
+    "v2_s1": _v2_seed(1),
+    "v2_s2": _v2_seed(2),
+    "v2_s3": _v2_seed(3),
+    "v2_s4": _v2_seed(4),
     "d25_dutch": dict(base=CHALLENGE, model="1DivideAndConquer", config="unilateral", rounds=5,
                       sites=["RUMC_1", "UMCU_1"], start="UMCU_1", warm=True, hooks=[], env={}),
     "d32_entropy_b20": _d32("entropy", 20),
@@ -83,7 +95,7 @@ EXPECTED = {
 BUILDABLE = list(EXPECTED)
 WITH_VHIO = [key for key, want in EXPECTED.items() if "VHIO_1" in want["sites"]]
 FEATURE_PREFIXES = ("ODELIA_AL_", "ODELIA_MS6_", "ODELIA_DP_", "ODELIA_EXPORT_", "ODELIA_RETURN_PER_CASE",
-                    "ODELIA_STRICT_DATA_FORMAT", "ODELIA_TRAIN_INCLUDE_LIST")
+                    "ODELIA_STRICT_DATA_FORMAT", "ODELIA_TRAIN_INCLUDE_LIST", "ODELIA_SEED")
 
 
 def build(tmp_path, *argv, expect=0):
@@ -174,7 +186,7 @@ def check_job(job, want, sites):
 
 def test_the_table_has_exactly_the_scheduled_presets():
     assert list(rp.PRESETS) == [
-        "check", "cam", "vhio", "d25_dutch", "d25_greek",
+        "check", "cam", "vhio", "v2_s1", "v2_s2", "v2_s3", "v2_s4", "d25_dutch", "d25_greek",
         "d32_entropy_b20", "d32_entropy_b40", "d32_random_b20", "d32_random_b40", "dp_s24", "bd",
     ]
     assert set(rp.PRESETS) == set(BUILDABLE) | {"d25_greek"}
