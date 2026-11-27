@@ -35,6 +35,11 @@ submit_job /fl_admin/local/mediswarm_jobs/odelia_cam_sammed2d_20r_7site
 - **Job code.** Built from the release image (`--source image:jefftud/odelia:1.9.3`), so the
   code shipped with the job is the code the sites run. The build host needs the image
   (`docker pull jefftud/odelia:1.9.3`).
+- **Crops.** Every site holds the current crops and, since November, the BreastDivider crops.
+  The job pins `CONFIG`: `bd` reads the BreastDivider crops, every other preset the current ones,
+  and a site's own `--config` cannot override it. Submit only builder-built folders (they contain
+  `job_manifest.json`); hand-built folders pin nothing. Details, limits and the checks before a run
+  on either set: [CROP_FOLDER_SELECTION.md](CROP_FOLDER_SELECTION.md).
 - **Rounds.** Each preset names its training rounds; the builder adds one evaluation-only
   round (the final global is evaluated at every site), so `num_rounds` is one more.
 - **dl3 test bed.** The same preset builds for the test sites with `--sites TEST_A_1,TEST_B_1`.
@@ -95,7 +100,7 @@ save it as `odelia_87c5bbee_global.pt` in the folder passed to `docker.sh --scra
 check that `sha256sum` prints the value above. The runs write their own mirrors
 (`/scratch/mediswarm_latest_global_<job name>.pt`) and never overwrite this file.
 
-## Schedule (state of 23 November; the run board is authoritative)
+## Schedule (state of 26 November; the run board is authoritative)
 
 | When | Run | Preset | Training rounds | Expected duration |
 |---|---|---|---|---|
@@ -111,8 +116,8 @@ check that `sha256sum` prints the value above. The runs write their own mirrors
 | 11 to 12 Nov | D3.2, entropy, 20 cases *(completed: `154524e4`, started at MHA_1)* | `d32_entropy_b20` | 5 | 12 h 16 min |
 | open | D3.2, the other three arms (entropy 40 stopped on 13 Nov after a network drop) | `d32_entropy_b40`, `d32_random_b20`, `d32_random_b40` | 5 each | about 12 h per arm |
 | open | T3.3 DP utility | `dp_s24` | 20 | about 15 h |
-| 16 Nov onwards | BreastDivider crops at every site (done at CAM_1, MHA_1, RSH_1, VHIO_1 on 19 Nov) | | | |
-| postponed | Run C, BreastDivider crops (after the last site's checks) | `bd` | 20 | about 2 days |
+| 16 Nov to Wed 2 Dec | BreastDivider crops at every site (done at CAM_1, MHA_1, RSH_1, VHIO_1; checks due from RUMC_1, UKA_1, UMCU_1, USZ_1 by Wed 2 Dec, 12:00 UTC) | | | |
+| proposed: Thu 3 Dec (technical meeting of 26 Nov) | Run C, BreastDivider crops (all eight sites; moves if a check is missing) | `bd` | 20 | about 2 days |
 
 Durations come from the October MST run (rounds of 42 to 52 min, 15 h for 20 rounds on seven
 sites), the 2-site test of the VHIO model on dl3 (10 to 40% slower per round than MST), #526
@@ -404,7 +409,17 @@ python3 scripts/admin/build_consortium_job.py --name odelia_bd_1dac_20r_8site \
 
 **Before.** Every site has made its crops, sent the output of `reconcile_odelia_dataset.py
 --config unilateral_BD` and passed the preflight check with `--config unilateral_BD`. Sites
-start their clients as usual, without `--config`: the job sets it.
+start their clients as usual, without `--config`: the job sets it. Judge the outputs, not the
+ticks on the run board:
+
+- the count check's crop format line says `ok` and names BreastDivider 0.2.1 or 0.2.2, with no
+  `WARNING` line;
+- the preflight shows no crop-format warning. The preflight only warns ("would abort here"),
+  but the same issue stops the site at setup in this job, and with it the whole run;
+- `in annotation.csv but no exam folder` is 0, or accepted knowingly: labelled breasts without a
+  crop are dropped without an error, so a site with partial coverage trains on fewer breasts.
+
+See [CROP_FOLDER_SELECTION.md](CROP_FOLDER_SELECTION.md), "Before Run C".
 
 **After.** Every site logs `ODELIA data for <site>: CONFIG=unilateral_BD, images
 /data/<site>/data_unilateral_BD ...` and `ODELIA crop format for <site>: ok`. A site that
