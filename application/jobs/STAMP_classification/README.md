@@ -164,6 +164,10 @@ Configure the environment variables above in your Docker/deployment configuratio
 nvflare job submit -j application/jobs/STAMP_classification
 ```
 
+For operating a DECADE run (moving the server to a stand-in host, admin commands without the
+console, reading a site's job log, the upload ingest, the 2-round test and the failure
+signatures seen so far), see [`docs/DECADE_OPERATIONS.md`](../../../docs/DECADE_OPERATIONS.md).
+
 ## Dependencies
 
 - [STAMP](https://github.com/KatherLab/STAMP) (`pip install stamp`)
