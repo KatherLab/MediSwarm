@@ -176,6 +176,9 @@ on it, so please fix every warning before the run.
 
 ## For coordinators: settings in the job
 
+How a job chooses between the current and the BreastDivider crops, what a site can and cannot
+override, and what to check before a run on either set: [CROP_FOLDER_SELECTION.md](CROP_FOLDER_SELECTION.md).
+
 - `CONFIG` selects the folders: `unilateral` (default) reads `data_unilateral/` and
   `metadata_unilateral/`; `unilateral_BD` reads `data_unilateral_BD/` and `metadata_unilateral_BD/`
   (falling back to `metadata_unilateral/`); `original` reads `data/` and `metadata/`. Any other

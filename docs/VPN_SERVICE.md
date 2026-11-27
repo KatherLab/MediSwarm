@@ -63,6 +63,35 @@ interrupts a connection attempt younger than 3 minutes; a missing address or an 
 gateway must persist for 3 checks; restarts that do not bring the tunnel back are spaced out (2, 4, 8, 16, then
 30 minutes). Before each restart it logs OpenVPN's last error: `journalctl -t mediswarm-vpn-health`.
 
+## After a reboot
+
+Nothing has to be run again. The setup is one-time: `-s` installs and enables `mediswarm-vpn`
+(`WantedBy=multi-user.target`, `Restart=always`), so it starts at every boot, and
+`--install-timer` enables the health timer, which also survives reboots. `-n` would only reinstall
+OpenVPN and ask for the password again, and `systemctl status mediswarm-vpn mediswarm-vpn-health.timer`
+only shows the state. After a restart, check:
+
+1. `hostname -I` shows the site's 172.24.4.x address. This is the check that counts: an
+   `active` service says nothing about the address.
+2. `./docker.sh --status` in the startup folder of the kit (read-only): the client container is
+   running (it is created with `--restart=unless-stopped` and clears its stale lock files when
+   Docker starts it again), the coordinator's FL port is reachable, and the log upload is running.
+   Docker does not restart the upload; if `--status` reports no live_sync daemon, run the usual
+   `--start_client` command once. With the client already running it only starts the upload.
+
+A client that lost the VPN rejoins by itself within about a minute of the tunnel coming back,
+with the same registration; it does not need a restart. Do not delete its lock files by hand.
+
+**Sites that keep their own NetworkManager tunnel** instead of the service: NetworkManager does
+not bring VPN connections up by itself ("autoconnect is not implemented for VPN profiles",
+`nm-settings-nmcli(5)`), so after a reboot, and after a drop that NetworkManager gives up on, the
+GoodAccess connection has to be connected again by hand. NetworkManager's own way to automate this
+is to make the VPN a secondary connection of the wired one
+(`nmcli connection modify <wired UUID> connection.secondaries <VPN UUID>`); we have not tested it at
+a site. Such a site should also switch the service and the timer off (see "One tunnel per
+account"): an enabled service next to the NetworkManager tunnel can open a second session at boot
+or right when the NetworkManager tunnel drops, and GoodAccess allows only one.
+
 ## Why is there no 172.24.4.x address?
 
 ```bash
