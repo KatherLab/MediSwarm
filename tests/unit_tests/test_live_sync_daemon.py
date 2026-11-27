@@ -19,6 +19,7 @@ what would have left the site. They cover:
 
 import json
 import os
+import shutil
 import signal
 import stat
 import subprocess
@@ -80,12 +81,27 @@ else:
 # Applies rsync's include/exclude rules the way live_sync uses them (basename patterns, first
 # match wins, '*/' = every directory) and copies into FAKE_REMOTE. A file named in FAKE_FAIL_ON
 # makes every transfer whose arguments contain that text fail; FAKE_VANISHED_ON exits 24.
+# FAKE_RSYNC_VERSION=3.1.3 is an rsync before --mkpath, as on one site's host: it rejects the option, and
+# like any rsync without it creates only the last folder of a destination.
 FAKE_RSYNC = r'''#!/usr/bin/env python3
 import fnmatch, json, os, shutil, sys
 ''' + AUTH + r'''
 args = sys.argv[1:]
+version = os.environ.get("FAKE_RSYNC_VERSION", "3.2.7")
+old = tuple(map(int, version.split("."))) < (3, 2, 3)
+if args in (["--help"], ["--version"]):
+    print("rsync  version %s  protocol version 31" % version)
+    if args == ["--help"]:
+        print(" --partial                keep partially transferred files")
+        if not old:
+            print(" --mkpath                 create destination's missing path components")
+    sys.exit(0)
 with open(os.environ["FAKE_LOG"], "a") as f:
     f.write(json.dumps(["rsync"] + args) + "\n")
+if old and "--mkpath" in args:
+    sys.stderr.write("rsync: --mkpath: unknown option\n"
+                     "rsync error: syntax or usage error (code 1) at main.c(1601) [client=%s]\n" % version)
+    sys.exit(1)
 rules, pos, ssh_words, i = [], [], [], 0
 while i < len(args):
     a = args[i]
@@ -108,6 +124,10 @@ for name, rc in (("FAKE_FAIL_ON", 23), ("FAKE_VANISHED_ON", 24)):
         sys.exit(rc)
 src, dst = pos[-2], pos[-1]
 target = os.environ["FAKE_REMOTE"] + dst.split(":", 1)[1]
+if "--mkpath" not in args and not os.path.isdir(os.path.dirname(target.rstrip("/"))):
+    sys.stderr.write('rsync: change_dir#3 "%s" failed: No such file or directory (2)\n'
+                     % os.path.dirname(dst.rstrip("/")))
+    sys.exit(3)
 
 def allowed(name, is_dir):
     for include, pat in rules:
@@ -583,7 +603,7 @@ def test_heartbeat_reports_versions(kit):
     _cycles(kit, 1)
     assert kit.stop(proc) == 0
     beat = kit.heartbeat("heartbeat_final.json")
-    assert beat["live_sync_version"] == beat["sync_version"] == "4"
+    assert beat["live_sync_version"] == beat["sync_version"] == "5"
     assert beat["kit_version"] == "1.9.0"
     assert beat["status"] == "finished"
     assert beat["image_ref"] == "jefftud/odelia:1.9.0"
@@ -594,6 +614,107 @@ def test_the_kit_version_docker_sh_passes_wins(kit):
     _cycles(kit, 1)
     assert kit.stop(proc) == 0
     assert kit.heartbeat()["kit_version"] == "1.9.1"
+
+
+# ── rsync before 3.2.3, without --mkpath (rsync 3.1.3 at a site, November 2026) ──
+
+
+def _uploaded_by(tmp_path, name, rsync_version):
+    kit = Kit(tmp_path / name)
+    try:
+        _stamp_kit(kit)
+        proc = kit.start(FAKE_RSYNC_VERSION=rsync_version)
+        _cycles(kit, 2)
+        assert kit.stop(proc) == 0
+        return kit, kit.uploaded()
+    finally:
+        kit.close()
+
+
+def test_an_rsync_without_mkpath_uploads_the_same_files(tmp_path):
+    _, current = _uploaded_by(tmp_path, "current", "3.2.7")
+    kit, old = _uploaded_by(tmp_path, "old", "3.1.3")
+    job = f"srv/live/{SITE}/swarm/{JOB}"
+    assert {f"{job}/heartbeat.json", f"{job}/heartbeat_final.json", f"{job}/log.txt", f"{job}/nohup.out",
+            f"{job}/live_sync_daemon.log", f"{job}/run_dir/stamp_metrics_summary.csv"} <= set(old)
+    assert old == current
+    assert kit.heartbeat("heartbeat_final.json")["sync_status"] == "ok"
+    assert not [c for c in kit.calls("rsync") if "--mkpath" in c]
+    assert "no --mkpath" in kit.daemon_log()
+    # The folders come from the `mkdir -p '<absolute dir>'` the upload guard allows, once per
+    # cycle for the job folder: no extra login per file.
+    mkdirs = {c[-1] for c in kit.calls("ssh") if c[-1].startswith("mkdir")}
+    assert mkdirs == {f"mkdir -p '/{job}'"}
+
+
+def test_without_mkpath_a_missing_parent_folder_is_created_first(kit):
+    # A finished local run is finalized into its own folder, which no ensure_remote_dir of the
+    # current cycle created; rsync without --mkpath would fail on it.
+    old_run, new_run = "2026_11_27_090000_TESTSITE_1_MST_local", "2026_11_27_100000_TESTSITE_1_MST_local"
+    _write(kit.scratch / "runs" / SITE / old_run / "events.out.tfevents.1.host", "old\n")
+    proc = kit.start(mode="local", FAKE_RSYNC_VERSION="3.1.3")
+    _wait_for(lambda: (kit.remote_dir(old_run, "local") / "heartbeat.json").exists(), what="the first run")
+    # Frozen while the next run starts and the first run's folder goes away on the upload host
+    # (cleaned up there), so no regular cycle of the first run recreates it.
+    os.killpg(proc.pid, signal.SIGSTOP)
+    _write(kit.scratch / "runs" / SITE / new_run / "events.out.tfevents.2.host", "new\n")
+    shutil.rmtree(kit.remote_dir(old_run, "local"))
+    os.killpg(proc.pid, signal.SIGCONT)
+    _wait_for(lambda: (kit.remote_dir(old_run, "local") / "heartbeat_final.json").exists(),
+              what="the finished run's final heartbeat")
+    assert kit.stop(proc) == 0
+    assert (kit.remote_dir(old_run, "local") / "run_dir" / "events.out.tfevents.1.host").read_text() == "old\n"
+    assert (kit.remote_dir(new_run, "local") / "heartbeat_final.json").exists()
+
+
+# The real rsync and the real upload guard with rrsync behind a fake sshd: the forced command gets
+# the client's command in SSH_ORIGINAL_COMMAND, the site's name as its argument.
+needs_rrsync = pytest.mark.skipif(shutil.which("rsync") is None or not Path("/usr/bin/rrsync").exists(),
+                                  reason="needs rsync and /usr/bin/rrsync, as on the upload host")
+
+SSHD_GUARD = r'''#!/usr/bin/env python3
+import os, sys
+args = sys.argv[1:]
+WITH_VALUE = {"-o", "-i", "-p", "-l", "-F", "-E", "-S", "-J", "-c", "-m", "-b"}
+i = 0
+while i < len(args) and args[i].startswith("-"):
+    i += 2 if args[i] in WITH_VALUE else 1
+env = dict(os.environ, SSH_ORIGINAL_COMMAND=" ".join(args[i + 1:]), SSH_CLIENT="127.0.0.1 1 2")
+os.execve("/bin/bash", ["bash", os.environ["GUARD"], os.environ["GUARD_SITE"]], env)
+'''
+
+# rsync 3.1.3 as far as live_sync can tell: no --mkpath in --help, and the option is refused.
+RSYNC_313 = r'''#!/bin/bash
+if [ "$*" = "--help" ]; then REAL --help | grep -v -- --mkpath; exit 0; fi
+if [ "$*" = "--version" ]; then echo "rsync  version 3.1.3  protocol version 31"; exit 0; fi
+for a in "$@"; do
+  [ "$a" != "--mkpath" ] || { echo "rsync: --mkpath: unknown option" >&2; exit 1; }
+done
+exec REAL "$@"
+'''
+
+
+@needs_rrsync
+def test_an_rsync_without_mkpath_uploads_through_the_upload_guard(tmp_path):
+    kit = Kit(tmp_path)
+    live = tmp_path / "live"
+    live.mkdir()
+    guard = _write(tmp_path / "guard.sh", (REPO_ROOT / "server_tools" / "mediswarm_upload_guard.sh").read_text()
+                   .replace("/srv/mediswarm/live", str(live)), 0o755)
+    _write(kit.stubs / "ssh", SSHD_GUARD, 0o755)
+    _write(kit.stubs / "rsync", RSYNC_313.replace("REAL", shutil.which("rsync")), 0o755)
+    _write(kit.startup / "sync.conf", SYNC_CONF.replace('REMOTE_BASE="/srv/live"', f'REMOTE_BASE="{live}"'))
+    _stamp_kit(kit)
+    job = live / SITE / "swarm" / JOB
+    try:
+        proc = kit.start(GUARD=guard, GUARD_SITE=SITE)
+        _wait_for(lambda: (job / "run_dir" / "stamp_metrics_summary.csv").exists(), what="the run dir upload")
+        assert kit.stop(proc) == 0
+    finally:
+        kit.close()
+    for name in ("heartbeat.json", "heartbeat_final.json", "log.txt", "nohup.out", "live_sync_daemon.log"):
+        assert (job / name).exists(), name
+    assert json.loads((job / "heartbeat_final.json").read_text())["sync_status"] == "ok"
 
 
 # ── DECADE (STAMP) swarm runs, kit 1.7.1 ──────────────────────────────────────
