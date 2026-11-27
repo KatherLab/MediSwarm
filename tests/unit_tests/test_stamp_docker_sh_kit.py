@@ -305,6 +305,14 @@ def test_status_reports_and_changes_nothing(host, tmp_path):
     assert harness._snapshot(host.tmp / "kits") == before
 
 
+def test_status_reads_the_driver_version_of_620_series_drivers(host):
+    _client(host, health="healthy")
+    host.set_nvidia_smi(harness.NVIDIA_SMI_KMD, 0)
+    out = host.run("--status").stdout
+    assert "[OK]   NVIDIA driver 620.70.06 answers on the host" in out
+    assert "nvidia-smi fails" not in out
+
+
 def test_status_does_not_combine_with_a_run_mode(host):
     result = host.run("--status", "--start_client")
     assert result.returncode == 1 and "--status does not combine with a run mode" in result.stdout

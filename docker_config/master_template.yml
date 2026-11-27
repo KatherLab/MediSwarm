@@ -1256,10 +1256,14 @@ docker_cln_sh: |
       elif _nvidia_driver_mismatch; then
           REPORT_FAILS=$((REPORT_FAILS + 1))
           _explain_driver_mismatch "  [FAIL]" "         "
-      elif ! grep -q 'Driver Version' <<< "$NVIDIA_SMI_OUTPUT"; then
-          _report_fail "nvidia-smi fails on the host: $(head -1 <<< "$NVIDIA_SMI_OUTPUT")"
+      elif ! grep -qE '(Driver|KMD) Version:' <<< "$NVIDIA_SMI_OUTPUT"; then
+          # Drivers up to the 600 series print "Driver Version", the 620 series "KMD Version".
+          # Name the first line after nvidia-smi's leading date line: it says what went wrong.
+          local smi_line
+          smi_line="$(grep -v -E '^[A-Z][a-z]{2} [A-Z][a-z]{2} +[0-9]{1,2} [0-9:]{8} [0-9]{4}[[:space:]]*$|^[[:space:]]*$' <<< "$NVIDIA_SMI_OUTPUT" | head -1)"
+          _report_fail "nvidia-smi fails on the host: ${smi_line:-no output}"
       else
-          _report_ok "NVIDIA driver $(sed -n 's/.*Driver Version: *\([0-9.]*\).*/\1/p' <<< "$NVIDIA_SMI_OUTPUT" | head -1) answers on the host"
+          _report_ok "NVIDIA driver $(sed -n -E 's/.*(Driver|KMD) Version: *([0-9.]+).*/\2/p' <<< "$NVIDIA_SMI_OUTPUT" | head -1) answers on the host"
       fi
       local cg; cg="$(_docker_cgroup_driver)"
       case "$cg" in

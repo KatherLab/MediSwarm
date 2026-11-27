@@ -46,6 +46,13 @@ NEW_DIGEST = "sha256:" + "c" * 64
 NVIDIA_SMI_OK = """Tue Oct 14 10:00:00 2026
 | NVIDIA-SMI 550.120                Driver Version: 550.120        CUDA Version: 12.4     |
 """
+# The 620 driver series renamed the header fields ("KMD Version", "CUDA UMD Version").
+NVIDIA_SMI_KMD = """Tue Nov 17 18:57:06 2026
+| NVIDIA-SMI 620.70.06              KMD Version: 620.70.06     CUDA UMD Version: 13.5     |
+"""
+NVIDIA_SMI_NO_DEVICE = """Tue Nov 17 18:57:06 2026
+Unable to determine the device handle for GPU0000:65:00.0: Unknown Error
+"""
 NVIDIA_SMI_MISMATCH = """Failed to initialize NVML: Driver/library version mismatch
 NVML library version: 550.127
 """
@@ -449,6 +456,24 @@ def _healthy(host, log_helper=False):
     hb = _write(host.new_kit / "startup" / ".mediswarm_sync" / "swarm_heartbeat.json", json.dumps(
         {"status": "running", "sync_status": "ok", "job_id": "7a678d9a", "ip_address": "10.0.0.1"}, indent=2))
     assert hb.exists()
+
+
+def test_status_reads_the_driver_version_of_620_series_drivers(host):
+    # 620 drivers print "KMD Version" instead of "Driver Version"; --status called a working
+    # GPU "nvidia-smi fails on the host: <date>" (UKHD, 17 Nov 2026).
+    _healthy(host)
+    host.set_nvidia_smi(NVIDIA_SMI_KMD, 0)
+    out = host.run("--status").stdout
+    assert "[OK]   NVIDIA driver 620.70.06 answers on the host" in out
+    assert "nvidia-smi fails" not in out
+
+
+def test_status_names_the_nvidia_smi_error_not_its_date_line(host):
+    _healthy(host)
+    host.set_nvidia_smi(NVIDIA_SMI_NO_DEVICE, 255)
+    out = host.run("--status").stdout
+    assert "[FAIL] nvidia-smi fails on the host: Unable to determine the device handle" in out
+    assert "fails on the host: Tue Nov" not in out
 
 
 def test_status_reports_a_healthy_client_and_changes_nothing(host):
