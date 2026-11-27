@@ -62,10 +62,17 @@ def _stamp_kit(host, root, version="1.7.1", build_id=BUILD_ID, site=SITE):
     return Path(root)
 
 
+def _site_data(data_dir, site="TESTSITE"):
+    """What STAMP_ENV points to, under the host folder given as --data_dir (mounted at /data)."""
+    harness._write(Path(data_dir) / site / "clini_table.csv", "PATIENT,MSI-High\nP1,1\n")
+    (Path(data_dir) / site / "features").mkdir(parents=True, exist_ok=True)
+
+
 @pytest.fixture
 def host(tmp_path):
     h = harness.Host(tmp_path)
     h.new_kit = _stamp_kit(h, tmp_path / "kits" / "TESTSITE_171")
+    _site_data(h.data)
     yield h
     for pid in _daemon_pids(h.new_kit):
         try:
@@ -86,8 +93,8 @@ def _started_daemon_pids(kit, timeout=15):
     return _daemon_pids(kit)
 
 
-def _run(host, *args, kit=None, env=STAMP_ENV):
-    return host.run("--data_dir", str(host.data), "--scratch_dir", str(host.scratch), "--GPU", "device=0",
+def _run(host, *args, kit=None, env=STAMP_ENV, data_dir=None):
+    return host.run("--data_dir", str(data_dir or host.data), "--scratch_dir", str(host.scratch), "--GPU", "device=0",
                     "--no_pull", *args, kit=kit, extra_env=env)
 
 
@@ -219,6 +226,111 @@ def test_start_client_starts_the_client_and_its_daemon(host):
                     "--startup-dir", str(startup), "--scratch-dir", str(host.scratch), "--container-name", CLIENT]
     env = (startup / f".fake_live_sync_env.{pids[0]}").read_text()
     assert "MEDISWARM_KIT_VERSION=1.7.1" in env and "MEDISWARM_SYNC_GLOBAL_MODELS_DEFAULT=1" in env
+
+
+# ── STAMP_* data paths exist under --data_dir (26 Nov 2026) ───────────────────
+# A client started with another --data_dir than its preflight check died inside the swarm job
+# (FileNotFoundError: STAMP_SLIDE_TABLE ...) and the strict run aborted 600 s later for every site.
+
+RUN_MODES = ["--start_client", "--preflight_check", "--local_training"]
+
+
+def _nothing_started(host):
+    assert harness._mutating_calls(host.calls()) == [], "no container may start"
+    assert not _daemon_pids(host.new_kit), "no live_sync may start"
+
+
+@pytest.mark.parametrize("mode", RUN_MODES)
+def test_a_missing_slide_table_stops_the_start_on_the_host(host, mode):
+    env = {**STAMP_ENV, "STAMP_SLIDE_TABLE": "/data/TESTSITE/slide_table.csv"}
+    result = _run(host, mode, env=env)
+    out = result.stdout
+    assert result.returncode == 1, out
+    assert "[FAIL] STAMP_SLIDE_TABLE: file not found." in out
+    assert "Path in the container:  /data/TESTSITE/slide_table.csv" in out
+    assert f"Path on this computer:  {host.data}/TESTSITE/slide_table.csv" in out
+    assert out.count(f"--data_dir used:  {host.data}   (mounted at /data in the container)") == 1
+    assert "STAMP_CLINI_TABLE:" not in out and "STAMP_FEATURE_DIR:" not in out, "those exist"
+    assert "[ABORT] Nothing was started." in out
+    _nothing_started(host)
+
+
+@pytest.mark.parametrize("mode", ["--start_client", "--local_training"])
+def test_another_data_dir_than_the_preflight_names_every_missing_path(host, tmp_path, mode):
+    other = tmp_path / "other_data"
+    other.mkdir()
+    result = _run(host, mode, data_dir=other)
+    out = result.stdout
+    assert result.returncode == 1, out
+    assert "[FAIL] STAMP_CLINI_TABLE: file not found." in out
+    assert "[FAIL] STAMP_FEATURE_DIR: folder not found." in out
+    assert f"Path on this computer:  {other}/TESTSITE/clini_table.csv" in out
+    assert f"Path on this computer:  {other}/TESTSITE/features" in out
+    assert out.count(f"--data_dir used:  {other}   (mounted at /data in the container)") == 1, "named once"
+    assert "Start with the same --data_dir as your preflight check" in out
+    assert "does not exist on this computer" not in out
+    _nothing_started(host)
+
+
+def test_a_data_dir_that_does_not_exist_is_named(host, tmp_path):
+    gone = tmp_path / "no_such_folder"
+    result = _run(host, "--start_client", data_dir=gone)
+    assert result.returncode == 1, result.stdout
+    assert f"The --data_dir folder {gone} does not exist on this computer." in result.stdout
+    _nothing_started(host)
+
+
+def test_a_preflight_with_a_wrong_data_dir_says_which_folder_to_give(host, tmp_path):
+    other = tmp_path / "other_data"
+    other.mkdir()
+    result = _run(host, "--preflight_check", data_dir=other)
+    assert result.returncode == 1, result.stdout
+    assert "Give the --data_dir that holds your data" in result.stdout
+    assert "same --data_dir as your preflight" not in result.stdout
+    _nothing_started(host)
+
+
+def test_a_relative_data_dir_is_checked_where_docker_sh_mounts_it(host):
+    """docker.sh makes a relative --data_dir absolute from the folder it is called in (the kit's startup/)."""
+    rel = os.path.relpath(host.data, host.new_kit / "startup")
+    result = _run(host, "--preflight_check", data_dir=rel)
+    assert result.returncode == 0, result.stdout
+    assert "[FAIL]" not in result.stdout
+
+
+def test_a_table_that_is_a_folder_or_features_that_are_a_file_fail(host):
+    (host.data / "TESTSITE" / "slides").mkdir()
+    harness._write(host.data / "TESTSITE" / "features.h5", "x")
+    env = {**STAMP_ENV, "STAMP_SLIDE_TABLE": "/data/TESTSITE/slides",
+           "STAMP_FEATURE_DIR": "/data/TESTSITE/features.h5"}
+    result = _run(host, "--start_client", env=env)
+    assert result.returncode == 1, result.stdout
+    assert "[FAIL] STAMP_SLIDE_TABLE: this is a folder, not a file." in result.stdout
+    assert "[FAIL] STAMP_FEATURE_DIR: this is a file, not a folder." in result.stdout
+    _nothing_started(host)
+
+
+@pytest.mark.parametrize("mode", RUN_MODES)
+def test_all_paths_present_start_as_before(host, mode):
+    harness._write(host.data / "TESTSITE" / "slide_table.csv", "PATIENT,FILENAME\nP1,s1.h5\n")
+    env = {**STAMP_ENV, "STAMP_SLIDE_TABLE": "/data/TESTSITE/slide_table.csv"}
+    result = _run(host, mode, env=env)
+    out = result.stdout
+    assert result.returncode == 0, out + result.stderr
+    assert "[FAIL]" not in out and "[WARN] STAMP_" not in out
+    run = _runs(host, detached=(mode == "--start_client"))[-1]
+    assert "STAMP_SLIDE_TABLE" in run, "the path is still forwarded into the container"
+
+
+def test_a_path_not_under_data_warns_and_starts(host):
+    env = {**STAMP_ENV, "STAMP_FEATURE_DIR": "/mnt/features"}
+    result = _run(host, "--preflight_check", env=env)
+    out = result.stdout
+    assert result.returncode == 0, out
+    assert "[WARN] STAMP_FEATURE_DIR=/mnt/features is not under /data." in out
+    assert "use a path that starts with /data/" in out.lower()
+    assert "[FAIL]" not in out
+    assert "TRAINING_MODE=preflight_check" in _runs(host, detached=False)[-1]
 
 
 # ── --start_client: other kits' live_sync daemons (#614, F16) ─────────────────

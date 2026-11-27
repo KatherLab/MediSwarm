@@ -1512,6 +1512,57 @@ docker_cln_sh: |
           echo "   Check what this script can see with:  env | grep '^STAMP_'"
           exit 1
       fi
+
+      # The STAMP_* data paths are paths inside the container, where --data_dir is mounted at /data.
+      # Check here, on the host, that each one exists under the --data_dir given. A client started
+      # with another --data_dir than its preflight check used to find out only inside the swarm job
+      # (FileNotFoundError: STAMP_SLIDE_TABLE ...), and the strict run then aborted for every site
+      # 600 s later (NVFlare external_pre_init_timeout, 26 Nov 2026).
+      _data_root="${MY_DATA_DIR%/}"
+      _path_failed=""
+      for _req in STAMP_CLINI_TABLE:file STAMP_SLIDE_TABLE:file STAMP_FEATURE_DIR:folder; do
+          _name="${_req%%:*}"
+          _kind="${_req#*:}"
+          eval "_val=\${${_name}:-}"
+          [ -z "$_val" ] && continue
+          case "$_val" in
+              /data)   _host="${_data_root:-/}" ;;
+              /data/*) _host="${_data_root}/${_val#/data/}" ;;
+              *)
+                  echo "[WARN] ${_name}=${_val} is not under /data."
+                  echo "       The container sees your data only under /data (your --data_dir), so this path"
+                  echo "       is probably wrong. Use a path that starts with /data/, for example /data/<SITE_NAME>/..."
+                  continue ;;
+          esac
+          _problem=""
+          if [ "$_kind" = file ]; then
+              if [ -d "$_host" ]; then _problem="this is a folder, not a file"
+              elif [ ! -f "$_host" ]; then _problem="file not found"; fi
+          else
+              if [ -e "$_host" ] && [ ! -d "$_host" ]; then _problem="this is a file, not a folder"
+              elif [ ! -d "$_host" ]; then _problem="folder not found"; fi
+          fi
+          [ -z "$_problem" ] && continue
+          _path_failed=1
+          echo "[FAIL] ${_name}: ${_problem}."
+          echo "       Path in the container:  ${_val}"
+          echo "       Path on this computer:  ${_host}"
+      done
+      if [ -n "$_path_failed" ]; then
+          echo ""
+          echo "   --data_dir used:  ${MY_DATA_DIR}   (mounted at /data in the container)"
+          if [ ! -d "$MY_DATA_DIR" ]; then
+              echo "   The --data_dir folder ${MY_DATA_DIR} does not exist on this computer."
+          fi
+          if [ -n "${PREFLIGHT_CHECK:-}" ]; then
+              echo "   Give the --data_dir that holds your data (it becomes /data in the container),"
+              echo "   or correct the STAMP_* path above."
+          else
+              echo "   Start with the same --data_dir as your preflight check, or correct the STAMP_* path above."
+          fi
+          echo "[ABORT] Nothing was started."
+          exit 1
+      fi
   fi
 
   # Forward all STAMP_* environment variables into the container. Pass by NAME
