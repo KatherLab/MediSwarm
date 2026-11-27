@@ -200,7 +200,9 @@ def create_model(logger=None, model_name: str = None, num_classes: int = 3,
 
     logger.info(f"Running code version {env_vars['mediswarm_version']}")
     if torch.cuda.is_available():
-        logger.info(f"Using GPU for training")
+        torch.cuda.init()
+        _ = torch.zeros(1, device="cuda")
+        logger.info(f"Using GPU for training (CUDA context initialized on {torch.cuda.get_device_name(0)})")
     else:
         logger.info("Using CPU for model creation")
     logger.info(f"Model name: {model_name}")
