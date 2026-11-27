@@ -28,6 +28,7 @@ Most of these are now caught automatically by the pre-run checks in the startup-
 | F17 | `already registered. Re-login` every few seconds; site flaps in and out | Two clients of one site (old and new kit) | One client per site: `./docker.sh --migrate_from <old kit> --yes --start` |
 | F18 | Host `nvidia-smi`: `Driver/library version mismatch`; new containers see no GPU | Unattended NVIDIA update, old kernel module still loaded | Reboot between runs, then `apt-mark hold` the driver packages |
 | F19 | `docker: Error response from daemon: Conflict. The container name "/odelia_swarm_client_<SITE>_<id>" is already in use` from `--preflight_check`, `--local_training`, `--external_validation` or `--run_script` | One-off modes start their container under the client's name; the client is running | Add `--container_name odelia_preflight` (any unused name) to the command; the client keeps running |
+| F20 | Monitor gets nothing from a site although `ssh ... 'echo ok'` works; daemon log: `rsync: --mkpath: unknown option` | The host's rsync is older than 3.2.3 and has no `--mkpath`, so every upload failed | `live_sync_version` 5 (next ODELIA and DECADE kits) uploads without it |
 
 ---
 
@@ -268,6 +269,13 @@ anything fails. The server log simply stops advancing.
 - **Symptom:** `./docker.sh ... --preflight_check` (also `--local_training`, `--external_validation`, `--run_script`, `--dummy_training`) stops at once with `docker: Error response from daemon: Conflict. The container name "/odelia_swarm_client_<SITE>_<id>" is already in use`. Found on 16 Oct 2026 while verifying 1.9.3 with real kits.
 - **Root cause:** docker.sh gives every mode the client's container name (`--name=$CONTAINER_NAME` in the common docker options). Since 1.9.x the client keeps running between runs, so any one-off mode started next to it collides.
 - **Fix:** add `--container_name odelia_preflight` (any unused name) to the command; the one-off container then runs beside the client, sharing the GPU. A later kit should give one-off modes their own name automatically.
+
+## F20 — Uploads fail on a host whose rsync predates `--mkpath`
+
+- **Symptom:** the monitor shows no heartbeat, logs or metrics from a site, although the site's `ssh ... 'echo ok'` works and its daemon runs. `startup/.mediswarm_sync/live_sync_daemon.log` shows `rsync failed (exit 1)` after `rsync: --mkpath: unknown option` / `rsync error: syntax or usage error (code 1) at main.c(1601) [client=3.1.3]`; `./docker.sh --status` shows it as "the last upload failed". Seen at one DECADE site in November 2026 (rsync 3.1.3). Training is not affected.
+- **Root cause:** live_sync passed `--mkpath` to every upload; rsync knows that option only since 3.2.3. The `echo ok` check and the `mkdir -p` of the job folder go through ssh alone, so the site looked connected.
+- **Fix:** `live_sync_version` 5 checks `rsync --help` once and passes `--mkpath` only where it exists. Without it the daemon creates the destination's folder first with the `mkdir -p '<dir>'` the upload guard already allows (at most once per folder and cycle). Sites get it with their next kit; an older kit's daemon stays blind on such a host.
+- **Detection:** `rsync --version | head -1` on the site host. A version 5 daemon logs `no --mkpath (rsync before 3.2.3), live_sync creates the upload folders with mkdir -p` when it starts.
 
 ## Operator diagnostic playbook
 

@@ -9,8 +9,9 @@ SYNC_CONF="$SCRIPT_DIR/sync.conf"
 # a new one (#614). 3 = the 1.9.0 kits: kit upload key (#615), models and per-case predictions
 # stay at the site by default, exit when the client container is gone (#614), sync status
 # cleared after a clean cycle. 4 = DECADE 1.7.1: run name parsed from coloured log lines, global
-# models switch, STAMP per-patient CSVs behind the per-case opt-in.
-LIVE_SYNC_VERSION="4"
+# models switch, STAMP per-patient CSVs behind the per-case opt-in. 5 = uploads from a host whose
+# rsync predates --mkpath (3.2.3).
+LIVE_SYNC_VERSION="5"
 
 _ask_continue_without_sync() {
     # In non-interactive environments (no TTY), default to continuing without sync
@@ -162,7 +163,7 @@ record_sync_error() {
 # A heartbeat used to report sync_status=error forever after a single failed upload (all six
 # reporting sites showed "error" on 14 Oct 2026). The status now describes the last complete
 # cycle: a cycle without a failed upload clears it, so the next heartbeat says ok again.
-begin_cycle() { CYCLE_FAILED=0; }
+begin_cycle() { CYCLE_FAILED=0; REMOTE_DIRS_READY=" "; }
 end_cycle() {
   if [ "$CYCLE_FAILED" = "0" ]; then
     SYNC_STATUS="ok"
@@ -614,9 +615,45 @@ ssh_cmd() {
   }
 }
 
+# rsync before 3.2.3 has no --mkpath and rejects it ("rsync: --mkpath: unknown option", exit 1),
+# so on such a host every upload failed while `echo ok` and `mkdir -p` still worked: the site
+# looked connected but sent nothing (rsync 3.1.3, November 2026). Without --mkpath rsync
+# creates only the last folder of a destination, so rsync_cmd creates the missing parent first
+# with the `mkdir -p '<dir>'` that ensure_remote_dir already sends (the upload guard allows no
+# other command). Checked once per daemon.
+RSYNC_MKPATH=""
+_rsync_out="$(rsync --help 2>&1 || true)"   # not piped into grep -q: SIGPIPE under pipefail
+if [[ "$_rsync_out" == *--mkpath* ]]; then
+  RSYNC_MKPATH="--mkpath"
+else
+  _rsync_out="$(rsync --version 2>&1 || true)"
+  echo "[INFO] ${_rsync_out%%$'\n'*}: no --mkpath (rsync before 3.2.3), live_sync creates the upload folders with mkdir -p."
+fi
+unset _rsync_out
+
+# Remote folders created (or found) in this cycle; begin_cycle empties it, so a folder removed
+# on the upload host is created again in the next cycle.
+REMOTE_DIRS_READY=" "
+
+ensure_remote_parent() {
+  # Without --mkpath: create the folder rsync needs for the destination $1 (user@host:/path).
+  # A file's folder; for a folder destination (trailing slash) its parent, as rsync itself
+  # creates the last folder.
+  local path="${1#"${REMOTE_USER}@${REMOTE_HOST}:"}" parent
+  [ "$path" != "$1" ] || return 0
+  path="${path%/}"
+  parent="${path%/*}"
+  [ -n "$parent" ] && [ "$parent" != "$path" ] || return 0
+  case "$REMOTE_DIRS_READY" in *" $parent "*) return 0 ;; esac
+  ensure_remote_dir "$parent"
+}
+
 rsync_cmd() {
   local rc=0
-  rsync -az --partial --mkpath -e "ssh ${SSH_OPTS}" "$@" || rc=$?
+  if [ -z "$RSYNC_MKPATH" ]; then
+    ensure_remote_parent "${@: -1}" || return 1   # ssh_cmd recorded the error
+  fi
+  rsync -az --partial ${RSYNC_MKPATH:+"$RSYNC_MKPATH"} -e "ssh ${SSH_OPTS}" "$@" || rc=$?
   # 24: source files vanished during the transfer (a checkpoint rotated, a CSV rewritten),
   # normal for a run that is still writing; not an upload failure.
   if [ "$rc" = "0" ] || [ "$rc" = "24" ]; then
@@ -628,7 +665,8 @@ rsync_cmd() {
 
 ensure_remote_dir() {
   local remote_dir="$1"
-  ssh_cmd "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p '${remote_dir}'"
+  ssh_cmd "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p '${remote_dir}'" || return 1
+  REMOTE_DIRS_READY="${REMOTE_DIRS_READY}${remote_dir} "
 }
 
 sync_daemon_log() {
